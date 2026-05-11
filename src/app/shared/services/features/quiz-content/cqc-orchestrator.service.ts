@@ -138,7 +138,7 @@ export class CqcOrchestratorService {
     host._cqcComputeIntendedQText = computeIntendedQText;
 
     const forceStampIfBlank = (reason: string): void => {
-      const el = host.qText?.nativeElement;
+      const el = host.qText?.()?.nativeElement;
       if (!el) return;
       const current = (el.innerHTML ?? '').trim();
       const intended = computeIntendedQText();
@@ -159,7 +159,7 @@ export class CqcOrchestratorService {
     //   - If it's STILL empty after the debounce, restore `_lastDisplayedText`
     //     (or recompute via the builder) so the user never sees a collapsed heading.
     try {
-      const el = host.qText?.nativeElement;
+      const el = host.qText?.()?.nativeElement;
       if (el && typeof MutationObserver !== 'undefined') {
         if (host._qTextObserver) {
           try { host._qTextObserver.disconnect(); } catch { /* ignore */ }
@@ -217,7 +217,7 @@ export class CqcOrchestratorService {
           : host.quizService.questions?.[idx];
 
         q = q ?? (host.quizService?.currentQuestion?.value ?? null);
-        console.warn('[FET-TIMER] expired$ FIRED idx=' + idx, 'hasExplanation=' + !!q?.explanation, 'hasQText=' + !!host.qText?.nativeElement);
+        console.warn('[FET-TIMER] expired$ FIRED idx=' + idx, 'hasExplanation=' + !!q?.explanation, 'hasQText=' + !!host.qText?.()?.nativeElement);
 
         if (q?.explanation) {
           const visualOpts = host.quizQuestionComponent?.optionsToDisplay ?? q.options;
@@ -226,7 +226,7 @@ export class CqcOrchestratorService {
 
         // DIRECT DOM FET WRITE on timer expiry — bypasses all service/guard layers
         try {
-          const el = host.qText?.nativeElement;
+          const el = host.qText?.()?.nativeElement;
           if (el && q) {
             const opts = q.options ?? host.quizQuestionComponent?.optionsToDisplay ?? [];
             const correctIndices = host.explanationTextService.getCorrectOptionIndices(q, opts, idx);

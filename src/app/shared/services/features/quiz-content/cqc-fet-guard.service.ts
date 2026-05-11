@@ -104,7 +104,7 @@ export class CqcFetGuardService {
         if (!_isJustQuestionText) {
           host.qTextHtmlSig?.set(safe);
           host._lastDisplayedText = safe;
-          const el = host.qText?.nativeElement;
+          const el = host.qText?.()?.nativeElement;
           if (el) host.renderer.setProperty(el, 'innerHTML', safe);
           return;
         }
@@ -166,7 +166,7 @@ export class CqcFetGuardService {
               safe = rebuilt || (liveQEarly?.questionText ?? '').trim() || '';
               host.qTextHtmlSig?.set(safe);
               host._lastDisplayedText = safe;
-              const el0 = host.qText?.nativeElement;
+              const el0 = host.qText?.()?.nativeElement;
               if (el0) host.renderer.setProperty(el0, 'innerHTML', safe);
               return;
             }
@@ -279,7 +279,7 @@ export class CqcFetGuardService {
               safe = rebuilt || (liveQ?.questionText ?? '').trim() || '';
               host.qTextHtmlSig?.set(safe);
               host._lastDisplayedText = safe;
-              const el0 = host.qText?.nativeElement;
+              const el0 = host.qText?.()?.nativeElement;
               if (el0) host.renderer.setProperty(el0, 'innerHTML', safe);
               return;
             }
@@ -290,7 +290,7 @@ export class CqcFetGuardService {
               safe = rebuilt || (liveQ?.questionText ?? '').trim() || '';
               host.qTextHtmlSig?.set(safe);
               host._lastDisplayedText = safe;
-              const el0 = host.qText?.nativeElement;
+              const el0 = host.qText?.()?.nativeElement;
               if (el0) host.renderer.setProperty(el0, 'innerHTML', safe);
               return;
             }
@@ -623,7 +623,7 @@ export class CqcFetGuardService {
 
       host.qTextHtmlSig?.set(safe);
       host._lastDisplayedText = safe;
-      const el = host.qText?.nativeElement;
+      const el = host.qText?.()?.nativeElement;
       if (el) host.renderer.setProperty(el, 'innerHTML', safe);
     } catch { /* ignore */ }
   }
@@ -798,7 +798,7 @@ export class CqcFetGuardService {
 
   installFetWatchdog(host: Host): void {
     try {
-      const el: HTMLElement | undefined = host.qText?.nativeElement;
+      const el: HTMLElement | undefined = host.qText?.()?.nativeElement;
       if (!el || typeof MutationObserver === 'undefined') return;
 
       const enforce = () => this.enforceFetGuard(host, el);

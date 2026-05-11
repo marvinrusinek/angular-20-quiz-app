@@ -37,7 +37,7 @@ export class CqcQuestionNavService {
       if (host.currentIndex !== idx) return false;
       if (this.fetGuard.hasInteractionEvidence(host, idx)) return false;
       
-      const el = host.qText?.nativeElement;
+      const el = host.qText?.()?.nativeElement;
       if (!el) return false;  // qText element not found
         
       const display = this.fetGuard.buildQuestionDisplayHTML(host, idx);
@@ -130,7 +130,7 @@ export class CqcQuestionNavService {
     this.cleanupStaleStateForIndex(host, idx);
 
     const stamped = this.stampQuestionTextNow(host, idx);
-    if (!stamped && host.qText?.nativeElement && 
+    if (!stamped && host.qText?.()?.nativeElement && 
       !this.fetGuard.hasInteractionEvidence(host, idx)
     ) {
       this.fetGuard.writeQText(host, '');

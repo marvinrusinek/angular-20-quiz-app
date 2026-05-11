@@ -1,7 +1,7 @@
 
 import {
   ChangeDetectionStrategy, ChangeDetectorRef, Component, effect, ElementRef,
-  input, OnDestroy, OnInit, output, Renderer2, signal, untracked, ViewChild
+  input, OnDestroy, OnInit, output, Renderer2, signal, untracked, viewChild, ViewChild
 } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
@@ -39,8 +39,7 @@ import { CqcOrchestratorService } from '../../../shared/services/features/quiz-c
 export class CodelabQuizContentComponent implements OnInit, OnDestroy {
   @ViewChild(QuizQuestionComponent, { static: false })
   quizQuestionComponent!: QuizQuestionComponent;
-  @ViewChild('qText', { static: true })
-  qText!: ElementRef<HTMLHeadingElement>;
+  readonly qText = viewChild<ElementRef<HTMLHeadingElement>>('qText');
 
   readonly isContentAvailableChange = output<boolean>();
 

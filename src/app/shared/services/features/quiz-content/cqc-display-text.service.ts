@@ -50,7 +50,7 @@ export class CqcDisplayTextService {
           // write it directly — skip all downstream gates that can block it.
           if (!isQuestionText && lowerText.includes('correct because')
               && host.explanationTextService?.fetBypassForQuestion?.get(currentIdx) === true) {
-            const el = host.qText?.nativeElement;
+            const el = host.qText?.()?.nativeElement;
             if (el) {
               host.qTextHtmlSig?.set(text);
               host._lastDisplayedText = text;
@@ -63,7 +63,7 @@ export class CqcDisplayTextService {
           // TIMER-EXPIRY FET FAST PATH: when timed out and incoming text
           // contains actual FET content, write it directly.
           if (isTimedOutForIdx && !isQuestionText && (text ?? '').trim().length > 0) {
-            const el = host.qText?.nativeElement;
+            const el = host.qText?.()?.nativeElement;
             if (el) {
               host.qTextHtmlSig?.set(text);
               host._lastDisplayedText = text;
@@ -135,7 +135,7 @@ export class CqcDisplayTextService {
             // Substitution suppressed — no interaction evidence
           }
 
-          const el = host.qText?.nativeElement;
+          const el = host.qText?.()?.nativeElement;
           if (el) {
             const incoming = (finalText ?? '').trim();
             const cached = (host._lastDisplayedText ?? '').trim();
