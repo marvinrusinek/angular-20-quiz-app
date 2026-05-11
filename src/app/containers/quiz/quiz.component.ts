@@ -1,6 +1,6 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, computed,
-  HostListener, OnDestroy, OnInit, signal, ViewChild, ViewEncapsulation
+  HostListener, OnDestroy, OnInit, signal, viewChild, ViewChild, ViewEncapsulation
 } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule, AsyncPipe } from '@angular/common';
@@ -66,8 +66,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   quizQuestionComponent!: QuizQuestionComponent;
   @ViewChild(SharedOptionComponent, { static: false })
   sharedOptionComponent!: SharedOptionComponent;
-  @ViewChild('nextButton', { static: false })
-  nextButtonTooltip!: MatTooltip;
+  readonly nextButtonTooltip = viewChild<MatTooltip>('nextButton');
 
   selectedQuiz: Quiz | null = null;
   currentQuestion: QuizQuestion | null = null;

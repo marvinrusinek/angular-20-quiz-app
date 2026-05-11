@@ -850,10 +850,11 @@ export class QuizSetupService {
     host.optionSelectedSubscription?.unsubscribe();
     try { this.timerService.stopTimer(undefined, { force: true }); } catch {}
     try { this.nextButtonStateService.cleanupNextButtonStateStream(); } catch {}
-    if (host.nextButtonTooltip) {
+    const tooltip = host.nextButtonTooltip?.();
+    if (tooltip) {
       try {
-        host.nextButtonTooltip.disabled = true;
-        host.nextButtonTooltip.hide();
+        tooltip.disabled = true;
+        tooltip.hide();
       } catch {}
     }
   }
