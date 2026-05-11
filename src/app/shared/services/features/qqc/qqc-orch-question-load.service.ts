@@ -172,7 +172,7 @@ export class QqcOrchQuestionLoadService {
       });
       host.quizService.updateCorrectAnswersText(banner.bannerText);
 
-      if (host.sharedOptionComponent) host.sharedOptionComponent.initializeOptionBindings();
+      host.sharedOptionComponent?.()?.initializeOptionBindings();
       host.cdRef.markForCheck();
 
       if (host.currentQuestion() && host.optionsToDisplay()?.length > 0) {

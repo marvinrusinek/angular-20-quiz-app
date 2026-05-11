@@ -38,9 +38,10 @@ export class QqcOrchResetService {
     host.finalRenderReady.set(false);
     host.renderReady.set(false);
     setTimeout(() => {
-      if (host.sharedOptionComponent) {
-        host.sharedOptionComponent.freezeOptionBindings = false;
-        host.sharedOptionComponent.showFeedbackForOption = {};
+      const soc = host.sharedOptionComponent?.();
+      if (soc) {
+        soc.freezeOptionBindings = false;
+        soc.showFeedbackForOption = {};
       }
     }, 0);
 
@@ -59,7 +60,7 @@ export class QqcOrchResetService {
       index,
       normalizeIndex: (idx: number) => host.normalizeIndex(idx),
       formattedByIndex: host._formattedByIndex,
-      clearSharedOptionForceDisable: () => host.sharedOptionComponent?.clearForceDisableAllOptions?.(),
+      clearSharedOptionForceDisable: () => host.sharedOptionComponent?.()?.clearForceDisableAllOptions?.(),
       resolveFormatted: (idx: number, opts: any) => host.resolveFormatted(idx, opts)
     });
 

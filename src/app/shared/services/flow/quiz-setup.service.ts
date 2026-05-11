@@ -467,7 +467,7 @@ export class QuizSetupService {
       .then(() => {
         host.currentQuestionIndex = 0;
         this.quizResetService.applyPostRestartState(host.totalQuestions, () => {
-          host.sharedOptionComponent?.generateOptionBindings();
+          host.sharedOptionComponent?.()?.generateOptionBindings();
           host.cdRef.detectChanges();
         });
 

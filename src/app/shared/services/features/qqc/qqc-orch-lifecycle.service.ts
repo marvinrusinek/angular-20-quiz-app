@@ -54,8 +54,9 @@ export class QqcOrchLifecycleService {
     const navSubs = host.subscriptionWiring.createNavigationEventSubscriptions({
       onNavigationSuccess: () => host.resetUIForNewQuestion(),
       onNavigatingBack: () => {
-        if (host.sharedOptionComponent) {
-          host.sharedOptionComponent.isNavigatingBackwards = true;
+        const soc = host.sharedOptionComponent?.();
+        if (soc) {
+          soc.isNavigatingBackwards = true;
         }
         host.resetUIForNewQuestion();
       },
@@ -253,10 +254,11 @@ export class QqcOrchLifecycleService {
     host.resetForQuestion(idx);
 
     host.lifecycle.deferRenderReadySubscription({
-      sharedOptionComponent: host.sharedOptionComponent,
+      sharedOptionComponent: host.sharedOptionComponent?.(),
       subscribeToRenderReady: () => {
-        if (!host.sharedOptionComponent) return;
-        host.sharedOptionComponent.renderReady$
+        const soc = host.sharedOptionComponent?.();
+        if (!soc) return;
+        soc.renderReady$
           .pipe(filter((ready: boolean) => ready === true), take(1))
           .subscribe(() => host.cdRef.detectChanges());
       }

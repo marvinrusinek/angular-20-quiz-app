@@ -15,8 +15,8 @@ export class QqcOrchTimerService {
     if (host.timedOut) return;
     host.timedOut = true;
 
-    if (host.sharedOptionComponent) {
-      const soc = host.sharedOptionComponent;
+    const soc = host.sharedOptionComponent?.();
+    if (soc) {
       soc.timerExpiredForQuestion = true;
 
       const displayOpts = soc.optionsToDisplay?.length
@@ -35,7 +35,7 @@ export class QqcOrchTimerService {
       questions: host.questions,
       currentQuestion: host.currentQuestion(),
       optionsToDisplay: host.optionsToDisplay(),
-      sharedOptionBindings: host.sharedOptionComponent?.optionBindings,
+      sharedOptionBindings: soc?.optionBindings,
       totalQuestions: host.totalQuestions,
       formattedByIndex: host._formattedByIndex,
       lastAllCorrect: host._lastAllCorrect,
@@ -98,9 +98,9 @@ export class QqcOrchTimerService {
       }
     } catch { /* ignore */ }
 
-    if (host.sharedOptionComponent) {
-      host.sharedOptionComponent.cdRef.markForCheck();
-      host.sharedOptionComponent.cdRef.detectChanges();
+    if (soc) {
+      soc.cdRef.markForCheck();
+      soc.cdRef.detectChanges();
     }
   }
 
@@ -112,7 +112,7 @@ export class QqcOrchTimerService {
       questions: host.questions,
       questionFresh: host.questionFresh,
       optionsToDisplay: host.optionsToDisplay(),
-      sharedOptionBindings: host.sharedOptionComponent?.optionBindings,
+      sharedOptionBindings: host.sharedOptionComponent?.()?.optionBindings,
       currentQuestion: host.currentQuestion(),
       normalizeIndex: (idx: number) => host.normalizeIndex(idx),
       revealFeedbackForAllOptions: (opts: Option[]) => host.revealFeedbackForAllOptions(opts),

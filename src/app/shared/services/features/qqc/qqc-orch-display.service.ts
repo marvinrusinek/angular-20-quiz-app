@@ -28,8 +28,9 @@ export class QqcOrchDisplayService {
         host.lastSerializedOptions = result.serialized;
       }
       host.optionsToDisplay.set(result.cleanedOptions);
-      if (host.sharedOptionComponent) {
-        host.sharedOptionComponent.initializeOptionBindings();
+      const soc = host.sharedOptionComponent?.();
+      if (soc) {
+        soc.initializeOptionBindings();
       }
       setTimeout(() => {
         if (host.displayStateManager.computeRenderReadiness(host.optionsToDisplay())) {
@@ -68,18 +69,19 @@ export class QqcOrchDisplayService {
       host.loadDynamicComponent(host.currentQuestion(), host.optionsToDisplay());
       host.containerInitialized = true;
     }
-    host.sharedOptionComponent?.initializeOptionBindings();
+    host.sharedOptionComponent?.()?.initializeOptionBindings();
 
     setTimeout(() => {
+      const soc = host.sharedOptionComponent?.();
       const bindingsReady =
-        Array.isArray(host.sharedOptionComponent?.optionBindings) &&
-        host.sharedOptionComponent.optionBindings.length > 0 &&
-        host.sharedOptionComponent.optionBindings.every((b: any) => !!b.option);
+        Array.isArray(soc?.optionBindings) &&
+        soc!.optionBindings.length > 0 &&
+        soc!.optionBindings.every((b: any) => !!b.option);
       if (
         host.displayStateManager.computeRenderReadiness(host.optionsToDisplay()) &&
         bindingsReady
       ) {
-        host.sharedOptionComponent?.markRenderReady('Hydrated from new payload');
+        soc?.markRenderReady('Hydrated from new payload');
       }
     }, 0);
   }
@@ -106,10 +108,11 @@ export class QqcOrchDisplayService {
   }
 
   runRefreshFeedbackFor(host: Host, opt: Option): void {
-    if (!host.sharedOptionComponent) return;
-    if (opt.optionId !== undefined) host.sharedOptionComponent.lastFeedbackOptionId = opt.optionId;
-    const cfg = host.feedbackManager.buildFeedbackConfigForOption(opt, host.optionBindings(), host.currentQuestion()!, host.sharedOptionComponent.feedbackConfigs);
-    host.sharedOptionComponent.feedbackConfigs = { ...host.sharedOptionComponent.feedbackConfigs, [opt.optionId!]: cfg };
+    const soc = host.sharedOptionComponent?.();
+    if (!soc) return;
+    if (opt.optionId !== undefined) soc.lastFeedbackOptionId = opt.optionId;
+    const cfg = host.feedbackManager.buildFeedbackConfigForOption(opt, host.optionBindings(), host.currentQuestion()!, soc.feedbackConfigs);
+    soc.feedbackConfigs = { ...soc.feedbackConfigs, [opt.optionId!]: cfg };
     host.cdRef.markForCheck();
   }
 
@@ -151,7 +154,7 @@ export class QqcOrchDisplayService {
     host.feedbackConfigs = result.feedbackConfigs;
     host.showFeedbackForOption = result.showFeedbackForOption;
 
-    const soc = host.sharedOptionComponent;
+    const soc = host.sharedOptionComponent?.();
     if (soc) {
       soc.feedbackConfigs = result.feedbackConfigs;
       soc.showFeedbackForOption = result.showFeedbackForOption;

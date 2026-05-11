@@ -138,7 +138,7 @@ export class QqcOrchClickService {
 
         if (isSingleAnswer && clickedIsCorrect) {
           const targets: any[][] = [];
-          const soc: any = host.sharedOptionComponent;
+          const soc: any = host.sharedOptionComponent?.();
           if (soc?.optionBindings?.length) targets.push(soc.optionBindings);
           const sigBindings: any[] = host.optionBindings?.() ?? [];
           if (sigBindings?.length) targets.push(sigBindings);
@@ -293,8 +293,8 @@ export class QqcOrchClickService {
 
       setTimeout(() => {
         applySingleAnswerDisable();
-        host.sharedOptionComponent?.cdRef?.markForCheck?.();
-        host.sharedOptionComponent?.cdRef?.detectChanges?.();
+        host.sharedOptionComponent?.()?.cdRef?.markForCheck?.();
+        host.sharedOptionComponent?.()?.cdRef?.detectChanges?.();
         host.cdRef?.markForCheck?.();
         host.cdRef?.detectChanges?.();
       }, 0);

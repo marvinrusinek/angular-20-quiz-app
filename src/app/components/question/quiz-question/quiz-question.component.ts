@@ -52,8 +52,7 @@ import { FeedbackKey, FeedbackConfig } from '../../../shared/models/FeedbackConf
 export class QuizQuestionComponent extends BaseQuestion
   implements OnInit, OnDestroy, AfterViewInit {
   readonly dynamicAnswerContainer = viewChild('dynamicAnswerContainer', { read: ViewContainerRef });
-  @ViewChild(SharedOptionComponent, { static: false })
-  sharedOptionComponent!: SharedOptionComponent;
+  readonly sharedOptionComponent = viewChild(SharedOptionComponent);
   readonly answer = output<number>();
   readonly answeredChange = output<boolean>();
   readonly selectionChanged = output<{
@@ -280,7 +279,7 @@ export class QuizQuestionComponent extends BaseQuestion
   private resetUIForNewQuestion(): void {
     this.timedOut = false;
     this._timerStoppedForQuestion = false;
-    this.sharedOptionComponent?.resetUIForNewQuestion();
+    this.sharedOptionComponent()?.resetUIForNewQuestion();
     this.updateShouldRenderOptions([]);
   }
 
@@ -532,8 +531,8 @@ export class QuizQuestionComponent extends BaseQuestion
     return this.componentOrchestrator.runDisableAllBindingsAndOptions(this);
   }
   private forceDisableSharedOption(): void {
-    this.sharedOptionComponent?.forceDisableAllOptions?.();
-    this.sharedOptionComponent?.triggerViewRefresh?.();
+    this.sharedOptionComponent()?.forceDisableAllOptions?.();
+    this.sharedOptionComponent()?.triggerViewRefresh?.();
   }
 
   public revealFeedbackForAllOptions(canonicalOpts: Option[]): void {

@@ -63,8 +63,7 @@ type AnimationState = 'animationStarted' | 'none';
 })
 export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   readonly quizQuestionComponent = viewChild(QuizQuestionComponent);
-  @ViewChild(SharedOptionComponent, { static: false })
-  sharedOptionComponent!: SharedOptionComponent;
+  readonly sharedOptionComponent = viewChild(SharedOptionComponent);
   readonly nextButtonTooltip = viewChild<MatTooltip>('nextButton');
 
   selectedQuiz: Quiz | null = null;
