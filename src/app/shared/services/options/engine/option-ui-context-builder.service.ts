@@ -1,11 +1,7 @@
 import { Injectable } from '@angular/core';
 
-import { OptionBindings } from '../../../models/OptionBindings.model';
 import { Option } from '../../../models/Option.model';
 import { OptionUiSyncContext } from '../engine/option-ui-sync.service';
-
-type SharedOptionComponentLike =
-  Omit<OptionUiSyncContext, 'toggleSelectedOption'>;
 
 @Injectable({ providedIn: 'root' })
 export class OptionUiContextBuilderService {

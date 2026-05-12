@@ -15,5 +15,3 @@ export interface Option {
   showFeedback?: boolean;
   styleClass?: string;
 }
-type Options = Option[];
-type SelectedOption = Option;

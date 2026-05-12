@@ -3,4 +3,3 @@ export interface Resource {
   url: string;
   host: string;
 }
-type Resources = Resource[];
