@@ -16,8 +16,9 @@ import { TimerService } from '../features/timer/timer.service';
 import { ExplanationTextService } from '../features/explanation/explanation-text.service';
 import { QuizQuestionDataService } from './quiz-question-data.service';
 import { QuizContentLoaderService } from './quiz-content-loader.service';
+import type { QuizComponent } from '../../../containers/quiz/quiz.component';
 
-type Host = any;
+type Host = QuizComponent;
 
 /**
  * Handles quiz data loading, session hydration, and question stream initialization for QuizComponent.
@@ -270,8 +271,6 @@ export class QuizSetupDataService {
         })
       )
       .subscribe(() => {
-        // setupNavigation is called by the facade via the route service
-        host._pendingSetupNavigation = true;
         const trimmed = (this.quizService.questions?.[0]?.questionText ?? '').trim();
         if (trimmed) host.questionToDisplaySig.set(trimmed);
         this.quizContentLoaderService.seedFirstQuestionText();

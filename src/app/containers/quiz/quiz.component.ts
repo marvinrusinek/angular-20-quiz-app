@@ -203,9 +203,9 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   constructor(
     public quizService: QuizService,
     private quizDataService: QuizDataService,
-    private quizInitializationService: QuizInitializationService,
+    public quizInitializationService: QuizInitializationService,
     private quizNavigationService: QuizNavigationService,
-    private quizQuestionLoaderService: QqcQuestionLoaderService,
+    public quizQuestionLoaderService: QqcQuestionLoaderService,
     public quizStateService: QuizStateService,
     private timerService: TimerService,
     private nextButtonStateService: NextButtonStateService,
@@ -295,7 +295,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.quizSetupService.runOnInit(this);
   }
 
-  private async initializeQuizId(): Promise<string | null> {
+  async initializeQuizId(): Promise<string | null> {
     let quizId = this.quizService.getCurrentQuizId();
     if (!quizId) {
       const routeQuizId = this.activatedRoute.snapshot.paramMap.get('quizId');
@@ -311,7 +311,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     return quizId;
   }
 
-  private initializeQuestionIndex(): void {
+  initializeQuestionIndex(): void {
     const idx = this.quizRouteService.getRouteQuestionIndex(this.activatedRoute, this.router);
     this.currentQuestionIndex = idx;
     this.quizService.setCurrentQuestionIndex(idx);
@@ -336,7 +336,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.quizSetupService.onOptionSelected(this, option, isUserAction);
   }
 
-  private resetQuestionState(): void {
+  resetQuestionState(): void {
     this.quizResetService.resetQuestionServiceState();
     this.currentQuestion = null;
     this.question = null;
@@ -524,7 +524,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     };
   }
 
-  private getSelectionsForQuestion(index: number): SelectedOption[] {
+  getSelectionsForQuestion(index: number): SelectedOption[] {
     return this.dotStatusService.getSelectionsForQuestion({ index, ...this._dotParams });
   }
 

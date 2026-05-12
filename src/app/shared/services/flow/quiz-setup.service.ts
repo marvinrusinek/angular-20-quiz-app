@@ -26,8 +26,9 @@ import { QuizResetService } from './quiz-reset.service';
 import { QuizNavigationService } from './quiz-navigation.service';
 import { QuizSetupRouteService } from './quiz-setup-route.service';
 import { QuizSetupDataService } from './quiz-setup-data.service';
+import type { QuizComponent } from '../../../containers/quiz/quiz.component';
 
-type Host = any;
+type Host = QuizComponent;
 
 /**
  * Hosts orchestration / route / lifecycle logic extracted from QuizComponent.
@@ -200,7 +201,7 @@ export class QuizSetupService {
   // ── Constructor wiring (subscriptions + observables) ──────────
   wireConstructor(host: Host): void {
     const qqc = host.quizQuestionComponent?.();
-    if (qqc) qqc.renderReady = false;
+    if (qqc) qqc.renderReady.set(false);
 
     this.sharedVisibilityService.pageVisibility$.subscribe((isHidden: boolean) => {
       const needsRender = this.quizVisibilityRestoreService.handleVisibilityChange(isHidden, {
@@ -242,7 +243,6 @@ export class QuizSetupService {
     });
 
     host.isAnswered$ = this.selectedOptionService.isAnswered$;
-    host.selectionMessage$ = this.selectionMessageService.selectionMessage$;
 
     host.subscriptions.add(
       this.quizService.quizReset$.subscribe(() => this.dataService.refreshQuestionOnReset(host))
@@ -875,13 +875,6 @@ export class QuizSetupService {
       });
     }
 
-    setTimeout(() => {
-      host.quizQuestionComponent?.()?.renderReady$
-        ?.pipe(debounceTime(10))
-        .subscribe((isReady: boolean) => {
-          host.isQuizRenderReadySig.set(isReady);
-        });
-    }, 0);
   }
 
   async runOnGlobalKey(host: Host, event: KeyboardEvent): Promise<void> {

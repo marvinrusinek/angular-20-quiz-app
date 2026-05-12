@@ -17,8 +17,9 @@ import { QuizResetService } from './quiz-reset.service';
 import { QuizRouteService } from './quiz-route.service';
 import { QuizNavigationService } from './quiz-navigation.service';
 import { QuizPersistenceService } from '../state/quiz-persistence.service';
+import type { QuizComponent } from '../../../containers/quiz/quiz.component';
 
-type Host = any;
+type Host = QuizComponent;
 
 /**
  * Handles route subscriptions, URL-driven navigation, and question-index tracking for QuizComponent.
@@ -200,7 +201,7 @@ export class QuizSetupRouteService {
 
     if (host.quizId && host.quizId !== quizId) {
       this.dotStatusService.clearAllMaps();
-      host.clearClickConfirmedDotStatus();
+      this.quizPersistence.clearClickConfirmedDotStatus(host.totalQuestions || 20);
       host.progress = 0;
       this.quizStateService.reset();
     }
@@ -260,8 +261,6 @@ export class QuizSetupRouteService {
         host.quizId = params['quizId'];
         host.questionIndex = +params['questionIndex'];
         host.currentQuestionIndex = host.questionIndex - 1;
-        // loadQuizData is called by the facade
-        host._pendingLoadQuizData = true;
       });
   }
 
