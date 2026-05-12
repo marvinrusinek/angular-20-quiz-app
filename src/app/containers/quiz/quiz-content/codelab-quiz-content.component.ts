@@ -91,7 +91,6 @@ export class CodelabQuizContentComponent implements OnInit, OnDestroy {
   readonly questionIndexSig = signal<number>(0);
   questionIndexSubject = new BehaviorSubject<number>(0);
   currentIndex$ = this.questionIndexSubject.asObservable();
-  private readonly questionLoadingText = 'Loading question…';
 
   // Restored after commit ed9f41d2 ("Clean up CodelabQuizContentComponent")
   // dropped them — runSetupCorrectAnswersTextDisplay reads both .pipe before

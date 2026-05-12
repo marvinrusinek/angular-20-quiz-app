@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, OnDestroy, OnInit,
 import { toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
-import { EMPTY, Observable, of, Subject, Subscription } from 'rxjs';
+import { EMPTY, Subject, Subscription } from 'rxjs';
 import { catchError, takeUntil } from 'rxjs/operators';
 
 import { MatCardModule } from '@angular/material/card';

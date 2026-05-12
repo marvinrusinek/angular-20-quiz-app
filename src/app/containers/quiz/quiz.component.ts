@@ -29,8 +29,6 @@ import { TimerService } from '../../shared/services/features/timer/timer.service
 import { QuizDotStatusService } from '../../shared/services/flow/quiz-dot-status.service';
 import { QuizResetService } from '../../shared/services/flow/quiz-reset.service';
 import { QuizRouteService } from '../../shared/services/flow/quiz-route.service';
-import { QuizScoringService } from '../../shared/services/flow/quiz-scoring.service';
-import { QuizOptionProcessingService } from '../../shared/services/flow/quiz-option-processing.service';
 import { QuizContentLoaderService } from '../../shared/services/flow/quiz-content-loader.service';
 import { QuizVisibilityRestoreService } from '../../shared/services/flow/quiz-visibility-restore.service';
 import { QuizPersistenceService } from '../../shared/services/state/quiz-persistence.service';
@@ -217,8 +215,6 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     private quizPersistence: QuizPersistenceService,
     private quizResetService: QuizResetService,
     private quizRouteService: QuizRouteService,
-    private quizScoringService: QuizScoringService,
-    private quizOptionProcessingService: QuizOptionProcessingService,
     private quizContentLoaderService: QuizContentLoaderService,
     private quizVisibilityRestoreService: QuizVisibilityRestoreService,
     private quizSetupService: QuizSetupService,
