@@ -648,14 +648,6 @@ export class SharedOptionComponent
     this.orchestrator.runEmitExplanation(this, questionIndex, skipGuard);
   }
 
-  private applyExplanationText(
-      explanationText: string,
-      displayIndex: number
-  ): void {
-    this.explanationHandler.applyExplanationText(explanationText, displayIndex);
-    this.cdRef.markForCheck();
-  }
-
   private resolveDisplayIndex(questionIndex: number): number {
     return this.explanationHandler.resolveDisplayIndex(
         questionIndex,
@@ -665,19 +657,12 @@ export class SharedOptionComponent
     );
   }
 
-  private clearPendingExplanation(): void {
-    this.explanationHandler.clearPendingExplanation();
-  }
-
   private _pendingHighlightRAF: number | null = null;
 
   private deferHighlightUpdate(callback: () => void): void {
     this.orchestrator.runDeferHighlightUpdate(this, callback);
   }
 
-  private cacheResolvedFormattedExplanation(index: number, formatted: string): void {
-    this.explanationHandler.cacheResolvedFormattedExplanation(index, formatted);
-  }
 
   public async handleOptionClick(
       option: SelectedOption | undefined,
@@ -809,9 +794,6 @@ export class SharedOptionComponent
     this.clickService.updateBindingSnapshots(this as any);
   }
 
-  private fullyResetRows(): void {
-    this.bindingService.fullyResetRows(this as any);
-  }
 
   private syncSelectedFlags(): void {
     this.bindingService.syncSelectedFlags(this as any);

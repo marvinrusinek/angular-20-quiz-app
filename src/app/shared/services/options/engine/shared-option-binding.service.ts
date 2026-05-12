@@ -799,23 +799,6 @@ export class SharedOptionBindingService {
     return config;
   }
 
-  fullyResetRows(comp: any): void {
-    for (let i = 0; i < (comp.optionBindings?.length ?? 0); i++) {
-      const b = comp.optionBindings[i];
-      b.isSelected = false;
-      b.option.selected = false;
-      b.option.highlight = false;
-      b.option.showIcon = false;
-      b.disabled = false;
-
-      const id = b.option.optionId;
-      const effectiveId = (id != null && id !== -1) ? id : i;
-      b.showFeedbackForOption[effectiveId as any] = false;
-    }
-
-    comp.lockedIncorrectOptionIds?.clear();
-  }
-
   syncSelectedFlags(comp: any): void {
     // Collision guard: when a binding has no real optionId, the fallback (array
     // index) can collide with another binding's real optionId (e.g. binding[0]
