@@ -17,8 +17,9 @@ import { QuizQuestion } from '../../../models/QuizQuestion.model';
 import { CqcFetGuardService } from './cqc-fet-guard.service';
 import { CqcDisplayTextService } from './cqc-display-text.service';
 import { CqcQuestionNavService } from './cqc-question-nav.service';
+import type { CodelabQuizContentComponent } from '../../../../containers/quiz/quiz-content/codelab-quiz-content.component';
 
-type Host = any;
+type Host = CodelabQuizContentComponent;
 
 /**
  * Orchestrates CodelabQuizContentComponent logic, extracted via host: any pattern.
@@ -216,7 +217,7 @@ export class CqcOrchestratorService {
           ? host.quizService.shuffledQuestions[idx]
           : host.quizService.questions?.[idx];
 
-        q = q ?? (host.quizService?.currentQuestion?.value ?? null);
+        q = q ?? null;
         console.warn('[FET-TIMER] expired$ FIRED idx=' + idx, 'hasExplanation=' + !!q?.explanation, 'hasQText=' + !!host.qText?.()?.nativeElement);
 
         if (q?.explanation) {
@@ -265,7 +266,7 @@ export class CqcOrchestratorService {
   runOnDestroy(host: Host): void {
     if (host._cqcVisibilityHandler) {
       document.removeEventListener('visibilitychange', host._cqcVisibilityHandler);
-      host._cqcVisibilityHandler = null;
+      host._cqcVisibilityHandler = undefined;
     }
     if (host._qTextObserver) {
       try { host._qTextObserver.disconnect(); } catch { /* ignore */ }
@@ -278,7 +279,6 @@ export class CqcOrchestratorService {
     this.fetGuard.uninstallFetWatchdog(host);
     try { host.destroy$?.next(); } catch {}
     try { host.destroy$?.complete(); } catch {}
-    try { host.correctAnswersDisplaySubject?.complete(); } catch {}
     host.combinedSub?.unsubscribe();
   }
 
@@ -299,9 +299,10 @@ export class CqcOrchestratorService {
   }
 
   runSetupQuestionResetSubscription(host: Host): void {
-    if (!host.questionToDisplay$()) return;
+    const q$ = host.questionToDisplay$();
+    if (!q$) return;
     combineLatest([
-      host.questionToDisplay$().pipe(startWith(''), distinctUntilChanged()),
+      q$.pipe(startWith(''), distinctUntilChanged()),
       host.quizService.currentQuestionIndex$.pipe(
         startWith(host.quizService?.currentQuestionIndex ?? 0)
       )

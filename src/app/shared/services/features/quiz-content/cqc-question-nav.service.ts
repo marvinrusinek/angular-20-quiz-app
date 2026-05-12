@@ -6,8 +6,9 @@ import { debounceTime, tap } from 'rxjs/operators';
 import { Option } from '../../../models/Option.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 import { CqcFetGuardService } from './cqc-fet-guard.service';
+import type { CodelabQuizContentComponent } from '../../../../containers/quiz/quiz-content/codelab-quiz-content.component';
 
-type Host = any;
+type Host = CodelabQuizContentComponent;
 
 /**
  * Manages question navigation and loading for CodelabQuizContentComponent.
@@ -195,7 +196,6 @@ export class CqcQuestionNavService {
     }
 
     host.resetExplanationView();
-    if (host._showExplanation) host._showExplanation = false;
 
     host.cdRef.markForCheck();
   }

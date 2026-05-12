@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 
 import { Option } from '../../../models/Option.model';
+import type { CodelabQuizContentComponent } from '../../../../containers/quiz/quiz-content/codelab-quiz-content.component';
 
-type Host = any;
+type Host = CodelabQuizContentComponent;
 
 /**
  * FET (Formatted Explanation Text) gating logic extracted from CqcOrchestratorService.
@@ -314,13 +315,10 @@ export class CqcFetGuardService {
           }
         };
         addSource(qs?.questions);
-        addSource(qs?.dataLoader?.currentQuizSig?.()?.questions);
-        const canonMap = qs?.getCanonicalQuestionsByQuiz?.();
-        if (canonMap) {
-          for (const v of canonMap.values?.() ?? []) addSource(v);
-        }
-        if (Array.isArray(qs?.quizData)) {
-          for (const quiz of qs.quizData) addSource(quiz?.questions);
+        addSource((qs as any)?.dataLoader?.currentQuizSig?.()?.questions);
+        const quizData = (qs as any)?.quizData;
+        if (Array.isArray(quizData)) {
+          for (const quiz of quizData) addSource(quiz?.questions);
         }
         try {
           for (const quiz of ((host.quizService as any)?.quizInitialState ?? []) as any[]) {

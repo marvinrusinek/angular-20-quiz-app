@@ -6,7 +6,7 @@ import {
 import { toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, ParamMap } from '@angular/router';
-import { BehaviorSubject, Observable, of, Subject } from 'rxjs';
+import { BehaviorSubject, Observable, of, Subject, Subscription } from 'rxjs';
 
 import { CombinedQuestionDataType } from
   '../../../shared/models/CombinedQuestionDataType.model';
@@ -76,15 +76,15 @@ export class CodelabQuizContentComponent implements OnInit, OnDestroy {
     return this.quizNavigationService.isNavigatingToPreviousSig();
   }
 
-  private get _lastQuestionTextByIndex(): Map<number, string> {
+  get _lastQuestionTextByIndex(): Map<number, string> {
     return this.displayService._lastQuestionTextByIndex;
   }
 
-  private get _fetDisplayedThisSession(): Set<number> {
+  get _fetDisplayedThisSession(): Set<number> {
     return this.displayService._fetDisplayedThisSession;
   }
 
-  private currentIndex = -1;
+  currentIndex = -1;
   // Signal source of truth + sync BS mirror so .asObservable() consumers
   // (displayText$ pipeline) keep their sync emission. Migrating fully to
   // toObservable(sig) would re-introduce the FET flash bug fixed earlier.
@@ -95,7 +95,7 @@ export class CodelabQuizContentComponent implements OnInit, OnDestroy {
   // Restored after commit ed9f41d2 ("Clean up CodelabQuizContentComponent")
   // dropped them — runSetupCorrectAnswersTextDisplay reads both .pipe before
   // reassigning them and crashes when they're undefined.
-  private shouldDisplayCorrectAnswersSubject = new BehaviorSubject<boolean>(false);
+  shouldDisplayCorrectAnswersSubject = new BehaviorSubject<boolean>(false);
   shouldDisplayCorrectAnswers$: Observable<boolean> =
     this.shouldDisplayCorrectAnswersSubject.asObservable();
   isExplanationDisplayed$ = new BehaviorSubject<boolean>(false);
@@ -103,10 +103,10 @@ export class CodelabQuizContentComponent implements OnInit, OnDestroy {
 
   isExplanationTextDisplayed$: Observable<boolean>;
 
-  private get _fetLocked(): boolean { return this.displayService._fetLockedSig(); }
-  private set _fetLocked(v: boolean) { this.displayService._fetLockedSig.set(v); }
-  private get _lockedForIndex(): number { return this.displayService._lockedForIndexSig(); }
-  private set _lockedForIndex(v: number) { this.displayService._lockedForIndexSig.set(v); }
+  get _fetLocked(): boolean { return this.displayService._fetLockedSig(); }
+  set _fetLocked(v: boolean) { this.displayService._fetLockedSig.set(v); }
+  get _lockedForIndex(): number { return this.displayService._lockedForIndexSig(); }
+  set _lockedForIndex(v: number) { this.displayService._lockedForIndexSig.set(v); }
 
   formattedExplanation$!: Observable<FETPayload>;
   public activeFetText$!: Observable<string>;
@@ -143,21 +143,42 @@ export class CodelabQuizContentComponent implements OnInit, OnDestroy {
   timedOutIdxSubject = new BehaviorSubject<number>(-1);
   public timedOutIdx$ = this.timedOutIdxSubject.asObservable();
 
-  private destroy$ = new Subject<void>();
+  destroy$ = new Subject<void>();
+
+  // Runtime-mutated state used by cqc-orchestrator + cqc-display-text +
+  // cqc-fet-guard + cqc-question-nav services. Declared here so the Host
+  // type sees them; values default to falsy/empty until the services
+  // assign on init.
+  combinedText$!: Observable<string>;
+  combinedSub?: Subscription;
+  _lastDisplayedText = '';
+  _fetWatchdog: MutationObserver | null = null;
+  _fetWatchdogClick: ((this: Document, ev: MouseEvent) => any) | null = null;
+  _cqcComputeIntendedQText?: () => string;
+  _qTextObserver: MutationObserver | null = null;
+  _cqcVisibilityHandler?: () => void;
+  _fetLockedForIndex = -1;
+  _questionStampRetryTimers: any[] = [];
+  _eagerFetRetryTimers: any[] = [];
+  _refreshInitialIdx: number | null = null;
+  _refreshInitialLoadConsumed: boolean | null = null;
+  _postRefreshCleanedIndices?: Set<number>;
+  lastQuestionIndexForReset = -1;
+  explanationTexts: string[] = [];
 
   constructor(
-    private quizService: QuizService,
-    private quizDataService: QuizDataService,
+    public quizService: QuizService,
+    public quizDataService: QuizDataService,
     private quizNavigationService: QuizNavigationService,
-    private quizStateService: QuizStateService,
-    private explanationTextService: ExplanationTextService,
+    public quizStateService: QuizStateService,
+    public explanationTextService: ExplanationTextService,
     private quizQuestionLoaderService: QqcQuestionLoaderService,
-    private quizQuestionManagerService: QuizQuestionManagerService,
-    private selectedOptionService: SelectedOptionService,
-    private timerService: TimerService,
-    private activatedRoute: ActivatedRoute,
-    private cdRef: ChangeDetectorRef,
-    private renderer: Renderer2,
+    public quizQuestionManagerService: QuizQuestionManagerService,
+    public selectedOptionService: SelectedOptionService,
+    public timerService: TimerService,
+    public activatedRoute: ActivatedRoute,
+    public cdRef: ChangeDetectorRef,
+    public renderer: Renderer2,
     private displayService: QuizContentDisplayService,
     private orchestrator: CqcOrchestratorService
   ) {
@@ -216,15 +237,15 @@ export class CodelabQuizContentComponent implements OnInit, OnDestroy {
     this.orchestrator.runOnDestroy(this);
   }
 
-  private resetInitialState(): void {
+  resetInitialState(): void {
     this.explanationTextService.setIsExplanationTextDisplayed(false);
   }
 
-  private setupQuestionResetSubscription(): void {
+  setupQuestionResetSubscription(): void {
     this.orchestrator.runSetupQuestionResetSubscription(this);
   }
 
-  private initDisplayTextPipeline(): void {
+  initDisplayTextPipeline(): void {
     this.displayService.initDisplayTextPipeline(
       this.currentIndex$,
       this.timedOutIdx$,
@@ -232,7 +253,7 @@ export class CodelabQuizContentComponent implements OnInit, OnDestroy {
     );
   }
 
-  private resetExplanationService(): void {
+  resetExplanationService(): void {
     this.resetExplanationView();
 
     this.explanationTextService.setShouldDisplayExplanation(false);
@@ -244,15 +265,15 @@ export class CodelabQuizContentComponent implements OnInit, OnDestroy {
     });
   }
 
-  private subscribeToDisplayText(): void {
+  subscribeToDisplayText(): void {
     this.orchestrator.runSubscribeToDisplayText(this);
   }
 
-  private setupContentAvailability(): void {
+  setupContentAvailability(): void {
     this.orchestrator.runSetupContentAvailability(this);
   }
 
-  private resetExplanationView(): void {
+  resetExplanationView(): void {
     this.explanationTextService.setShouldDisplayExplanation(false);
     this.explanationTextService.setExplanationText('');
   }
@@ -261,19 +282,19 @@ export class CodelabQuizContentComponent implements OnInit, OnDestroy {
     return this.displayService.regenerateFetForIndex(idx);
   }
 
-  private emitContentAvailableState(): void {
+  emitContentAvailableState(): void {
     this.orchestrator.runEmitContentAvailableState(this);
   }
 
-  private loadQuizDataFromRoute(): void {
+  loadQuizDataFromRoute(): void {
     this.orchestrator.runLoadQuizDataFromRoute(this);
   }
 
-  private async loadQuestion(quizId: string, zeroBasedIndex: number): Promise<void> {
+  async loadQuestion(quizId: string, zeroBasedIndex: number): Promise<void> {
     return this.orchestrator.runLoadQuestion(this, quizId, zeroBasedIndex);
   }
 
-  private async initializeComponent(): Promise<void> {
+  async initializeComponent(): Promise<void> {
     await this.initializeQuestionData();
     this.initializeCombinedQuestionData();
   }
@@ -282,11 +303,11 @@ export class CodelabQuizContentComponent implements OnInit, OnDestroy {
     return this.orchestrator.runInitializeQuestionData(this);
   }
 
-  private fetchQuestionsAndExplanationTexts(params: ParamMap): Observable<[QuizQuestion[], string[]]> {
+  fetchQuestionsAndExplanationTexts(params: ParamMap): Observable<[QuizQuestion[], string[]]> {
     return this.orchestrator.runFetchQuestionsAndExplanationTexts(this, params);
   }
 
-  private initializeCurrentQuestionIndex(): void {
+  initializeCurrentQuestionIndex(): void {
     const idx = this.currentQuestionIndexValue ?? 0;
     this.quizService.currentQuestionIndex = idx;
     this.questionIndexSig.set(idx);
@@ -296,7 +317,7 @@ export class CodelabQuizContentComponent implements OnInit, OnDestroy {
       this.quizService.getCurrentQuestionIndexObservable();
   }
 
-  private updateCorrectAnswersDisplay(question: QuizQuestion | null): Observable<void> {
+  updateCorrectAnswersDisplay(question: QuizQuestion | null): Observable<void> {
     return this.orchestrator.runUpdateCorrectAnswersDisplay(this, question);
   }
 
@@ -304,7 +325,7 @@ export class CodelabQuizContentComponent implements OnInit, OnDestroy {
     this.orchestrator.runInitializeCombinedQuestionData(this);
   }
 
-  private combineCurrentQuestionAndOptions(): Observable<{
+  combineCurrentQuestionAndOptions(): Observable<{
     currentQuestion: QuizQuestion | null;
     currentOptions: Option[];
     explanation: string;
@@ -313,11 +334,11 @@ export class CodelabQuizContentComponent implements OnInit, OnDestroy {
     return this.orchestrator.runCombineCurrentQuestionAndOptions(this);
   }
 
-  private haveSameOptionOrder(left: Option[] = [], right: Option[] = []): boolean {
+  haveSameOptionOrder(left: Option[] = [], right: Option[] = []): boolean {
     return this.orchestrator.runHaveSameOptionOrder(this, left, right);
   }
 
-  private calculateCombinedQuestionData(
+  calculateCombinedQuestionData(
     currentQuizData: CombinedQuestionDataType,
     numberOfCorrectAnswers: number,
     isExplanationDisplayed: boolean,
@@ -326,15 +347,15 @@ export class CodelabQuizContentComponent implements OnInit, OnDestroy {
     return this.orchestrator.runCalculateCombinedQuestionData(this, currentQuizData, numberOfCorrectAnswers, isExplanationDisplayed, formattedExplanation);
   }
 
-  private setupCorrectAnswersTextDisplay(): void {
+  setupCorrectAnswersTextDisplay(): void {
     this.orchestrator.runSetupCorrectAnswersTextDisplay(this);
   }
 
-  private setupShouldShowFet(): void {
+  setupShouldShowFet(): void {
     this.displayService.setupShouldShowFet(this.currentIndex$);
   }
 
-  private setupFetToDisplay(): void {
+  setupFetToDisplay(): void {
     this.displayService.setupFetToDisplay(
       this.currentIndex$,
       this.timedOutIdx$,

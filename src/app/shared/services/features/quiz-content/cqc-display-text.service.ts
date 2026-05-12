@@ -2,8 +2,9 @@ import { Injectable } from '@angular/core';
 import { takeUntil } from 'rxjs/operators';
 
 import { CqcFetGuardService } from './cqc-fet-guard.service';
+import type { CodelabQuizContentComponent } from '../../../../containers/quiz/quiz-content/codelab-quiz-content.component';
 
-type Host = any;
+type Host = CodelabQuizContentComponent;
 
 /**
  * Manages the displayText$ subscription for CodelabQuizContentComponent.
