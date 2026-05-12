@@ -152,7 +152,6 @@ export class QuizQuestionComponent extends BaseQuestion
   private _formattedByIndex = new Map<number, string>();
   private handledOnExpiry = new Set<number>();
   private lastSerializedOptions = '';
-  private hydrationInProgress = false;
 
   public readonly finalRenderReady = signal(false); // maybe remove
 

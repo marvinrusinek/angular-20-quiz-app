@@ -1,4 +1,4 @@
-import { ApplicationRef, Injectable } from '@angular/core';
+import { Injectable } from '@angular/core';
 
 import { Option } from '../../../models/Option.model';
 import { OptionBindings } from '../../../models/OptionBindings.model';
@@ -50,8 +50,7 @@ export class OptionInteractionService {
     private timerService: TimerService,
     private feedbackService: FeedbackService,
     private selectionMessageService: SelectionMessageService,
-    private nextButtonStateService: NextButtonStateService,
-    private appRef: ApplicationRef
+    private nextButtonStateService: NextButtonStateService
   ) { }
 
   /**
