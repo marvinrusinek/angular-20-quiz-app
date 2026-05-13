@@ -1,15 +1,15 @@
 import {
-  ChangeDetectionStrategy, ChangeDetectorRef, Component, computed, HostListener, 
-  OnDestroy, OnInit, signal
+  ChangeDetectionStrategy, ChangeDetectorRef, Component, computed, DestroyRef,
+  HostListener, OnInit, signal
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { Subject } from 'rxjs';
-import { take, takeUntil } from 'rxjs/operators';
+import { take } from 'rxjs/operators';
 
 import { FinalResult, ScoreAnalysisItem } from '../../shared/models/Final-Result.model';
 import { BackToTopComponent } from '../../components/back-to-top/back-to-top.component';
@@ -51,7 +51,7 @@ import { ThemeService } from '../../shared/services/ui/theme.service';
   styleUrls: ['./results.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ResultsComponent implements OnInit, OnDestroy {
+export class ResultsComponent implements OnInit {
   readonly quizData: Quiz[] = getQuizData();
   readonly quizId = signal('');
   readonly indexOfQuizId = signal(0);
@@ -70,8 +70,6 @@ export class ResultsComponent implements OnInit, OnDestroy {
 
   readonly showScrollIndicator = signal(true);
 
-  unsubscribe$ = new Subject<void>();
-
   constructor(
     private quizService: QuizService,
     private quizDataService: QuizDataService,
@@ -81,7 +79,8 @@ export class ResultsComponent implements OnInit, OnDestroy {
     private themeService: ThemeService,
     private activatedRoute: ActivatedRoute,
     private router: Router,
-    private cdRef: ChangeDetectorRef
+    private cdRef: ChangeDetectorRef,
+    private destroyRef: DestroyRef
   ) {
   }
 
@@ -131,7 +130,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
 
     // Optional fallback
     this.quizService.finalResult$
-      .pipe(takeUntil(this.unsubscribe$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(r => {
         if (r?.quizId) {
           this.quizId.set(r.quizId);
@@ -144,11 +143,6 @@ export class ResultsComponent implements OnInit, OnDestroy {
         }
         this.cdRef.markForCheck();
       });
-  }
-
-  ngOnDestroy(): void {
-    this.unsubscribe$.next();
-    this.unsubscribe$.complete();
   }
 
   @HostListener('window:scroll', [])
@@ -184,7 +178,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
 
   private fetchQuizIdFromParams(): void {
     this.activatedRoute.paramMap
-      .pipe(takeUntil(this.unsubscribe$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((params) => {
         const routeQuizId = params.get('quizId');
         if (routeQuizId) {

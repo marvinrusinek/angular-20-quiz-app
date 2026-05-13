@@ -1,10 +1,10 @@
-﻿import { ChangeDetectionStrategy, Component, computed, OnDestroy, OnInit, 
+﻿import { ChangeDetectionStrategy, Component, computed, DestroyRef, OnInit,
   signal, ViewEncapsulation } from '@angular/core';
-import { toObservable } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
-import { EMPTY, Subject, Subscription } from 'rxjs';
-import { catchError, takeUntil } from 'rxjs/operators';
+import { EMPTY } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -43,7 +43,7 @@ import { BackToTopComponent } from '../../components/back-to-top/back-to-top.com
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class QuizSelectionComponent implements OnInit, OnDestroy {
+export class QuizSelectionComponent implements OnInit {
   readonly quizzes = this.quizDataService.quizzesSig;
   selectedQuiz: Quiz | null = null;
   currentQuestionIndex = 0;
@@ -76,23 +76,16 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
   readonly animationState$ = toObservable(this.animationStateSignal);
   readonly animationStateSig = this.animationStateSignal.asReadonly();
   selectionParams!: QuizSelectionParams;
-  selectedQuizSubscription!: Subscription;
-  unsubscribe$ = new Subject<void>();
 
   constructor(
     private quizService: QuizService,
     private quizDataService: QuizDataService,
-    private router: Router
+    private router: Router,
+    private destroyRef: DestroyRef
   ) {}
 
   ngOnInit(): void {
     this.initializeQuizSelection();
-  }
-
-  ngOnDestroy(): void {
-    this.unsubscribe$.next();
-    this.unsubscribe$.complete();
-    this.selectedQuizSubscription?.unsubscribe();
   }
 
   private initializeQuizSelection(): void {
@@ -189,9 +182,9 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
   }
 
   private subscribeToSelectedQuiz(): void {
-    this.selectedQuizSubscription = this.quizService.selectedQuiz$
+    this.quizService.selectedQuiz$
       .pipe(
-        takeUntil(this.unsubscribe$),
+        takeUntilDestroyed(this.destroyRef),
         catchError(() => {
           return EMPTY;  // completes the stream safely
         })

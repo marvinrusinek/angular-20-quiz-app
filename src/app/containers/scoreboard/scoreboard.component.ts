@@ -1,18 +1,18 @@
 import {
-  ChangeDetectionStrategy, Component, computed, OnDestroy, OnInit
+  ChangeDetectionStrategy, Component, computed, DestroyRef, OnInit
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import {
   ActivatedRoute, ActivatedRouteSnapshot, NavigationEnd, Params, Router
 } from '@angular/router';
 import {
-  combineLatest, fromEvent, merge, Observable, of, Subject
+  combineLatest, fromEvent, merge, Observable, of
 } from 'rxjs';
 import {
   catchError, distinctUntilChanged, filter, map, shareReplay, startWith,
-  switchMap, takeUntil
+  switchMap
 } from 'rxjs/operators';
 
 import { ScoreComponent } from './score/score.component';
@@ -27,11 +27,10 @@ import { QuizService } from '../../shared/services/data/quiz.service';
   styleUrls: ['./scoreboard.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ScoreboardComponent implements OnInit, OnDestroy {
+export class ScoreboardComponent implements OnInit {
   private readonly routeIsOneBased = true;
   totalQuestions = 0;
   questionNumber = 0;
-  unsubscribe$ = new Subject<void>();
 
   // Normalize/clamp helper
   private coerceIndex = (raw: string | null): number => {
@@ -119,7 +118,8 @@ export class ScoreboardComponent implements OnInit, OnDestroy {
   constructor(
     private readonly quizService: QuizService,
     private readonly activatedRoute: ActivatedRoute,
-    private readonly router: Router
+    private readonly router: Router,
+    private readonly destroyRef: DestroyRef
   ) {}
 
   ngOnInit(): void {
@@ -127,15 +127,10 @@ export class ScoreboardComponent implements OnInit, OnDestroy {
     this.syncBadgeWithRouteSlug();
   }
 
-  ngOnDestroy(): void {
-    this.unsubscribe$.next();
-    this.unsubscribe$.complete();
-  }
-
   private handleRouteParameters(): void {
     this.activatedRoute.params
       .pipe(
-        takeUntil(this.unsubscribe$),
+        takeUntilDestroyed(this.destroyRef),
         distinctUntilChanged(
           (prev, curr) => JSON.stringify(prev) === JSON.stringify(curr),
         ),
@@ -188,7 +183,7 @@ export class ScoreboardComponent implements OnInit, OnDestroy {
       )
     ])
       .pipe(
-        takeUntil(this.unsubscribe$),
+        takeUntilDestroyed(this.destroyRef),
         filter(
           ([displayIndex]) => Number.isFinite(displayIndex) && displayIndex > 0
         ),

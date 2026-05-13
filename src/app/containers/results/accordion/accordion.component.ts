@@ -1,10 +1,9 @@
 import {
-  ChangeDetectionStrategy, ChangeDetectorRef, Component, effect, input,
-  OnDestroy, OnInit
+  ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, effect,
+  input, OnInit
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
-import { Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
@@ -26,7 +25,7 @@ import { ExplanationTextService } from '../../../shared/services/features/explan
   styleUrls: ['./accordion.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class AccordionComponent implements OnInit, OnDestroy {
+export class AccordionComponent implements OnInit {
   readonly questionsInput = input<QuizQuestion[]>([], { alias: 'questions' });
   questions: QuizQuestion[] = [];
 
@@ -39,7 +38,6 @@ export class AccordionComponent implements OnInit, OnDestroy {
   };
 
   private hasRetried = false;
-  private destroy$ = new Subject<void>();
 
   constructor(
     private quizService: QuizService,
@@ -48,7 +46,8 @@ export class AccordionComponent implements OnInit, OnDestroy {
     private selectedOptionService: SelectedOptionService,
     private explanationTextService: ExplanationTextService,
     private cdRef: ChangeDetectorRef,
-    private activatedRoute: ActivatedRoute
+    private activatedRoute: ActivatedRoute,
+    private destroyRef: DestroyRef
   ) {
     effect(() => {
       const incoming = this.questionsInput();
@@ -103,7 +102,7 @@ export class AccordionComponent implements OnInit, OnDestroy {
 
   private subscribeToQuestionsStream(): void {
     this.quizService.questions$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((questions) => {
         this.questions = questions;
         this.cdRef.detectChanges();  // force immediate update for OnPush
@@ -125,7 +124,7 @@ export class AccordionComponent implements OnInit, OnDestroy {
       if (!id) return;
 
       this.quizDataService.getQuestionsForQuiz(id)
-        .pipe(takeUntil(this.destroy$))
+        .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe((qs: QuizQuestion[]) => {
           if (qs && qs.length > 0) {
             this.questions = qs;
@@ -293,8 +292,4 @@ export class AccordionComponent implements OnInit, OnDestroy {
     return correctTexts.every(ct => selectedTexts.includes(ct));
   }
 
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
-  }
 }
