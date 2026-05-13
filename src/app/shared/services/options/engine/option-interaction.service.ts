@@ -48,9 +48,7 @@ export class OptionInteractionService {
     private quizStateService: QuizStateService,
     private selectedOptionService: SelectedOptionService,
     private timerService: TimerService,
-    private feedbackService: FeedbackService,
-    private selectionMessageService: SelectionMessageService,
-    private nextButtonStateService: NextButtonStateService
+    private selectionMessageService: SelectionMessageService
   ) { }
 
   /**
@@ -244,7 +242,6 @@ export class OptionInteractionService {
     const isExplicitMulti = qText.includes('select all') || qText.includes('multiple') || qText.includes('apply');
     const isMultipleMode = state.type === 'multiple' || (state as any).isMultiMode === true ||
                           isExplicitMulti || correctCountInBindings > 1 || pristineCorrectCount > 1;
-    const isTrulyMulti = isMultipleMode;
 
     // Guard: prevent deselection of correct answers in multiple
     if (isMultipleMode && binding.isSelected && isPristineCorrect(binding.option)) {
@@ -452,7 +449,6 @@ export class OptionInteractionService {
 
     const allCorrectFound = correctIndicesSet.size > 0 && [...correctIndicesSet].every(i => futureKeys.has(i));
     const numIncorrectInFuture = futureSelection.filter(o => !isCorrectHelper(o)).length;
-    const isPerfect = allCorrectFound && numIncorrectInFuture === 0;
 
     // DEFERRED DOT PERSIST: For single-answer, persist immediately.
     // For multi-answer, only persist 'correct' when ALL correct answers

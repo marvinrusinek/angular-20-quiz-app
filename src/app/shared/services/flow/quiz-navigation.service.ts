@@ -6,7 +6,6 @@ import { catchError, take } from 'rxjs/operators';
 
 import { Option } from '../../models/Option.model';
 import { QuestionType } from '../../models/question-type.enum';
-import { QuizRoutes } from '../../models/quiz-routes.enum';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { ExplanationTextService } from '../features/explanation/explanation-text.service';
 import { NextButtonStateService } from '../state/next-button-state.service';
@@ -49,8 +48,6 @@ export class QuizNavigationService {
 
   private renderResetSubject = new Subject<void>();
   renderReset$ = this.renderResetSubject.asObservable();
-
-  private _fetchInProgress = false;  // prevents overlapping question fetches
 
   constructor(
     private explanationTextService: ExplanationTextService,
@@ -111,9 +108,6 @@ export class QuizNavigationService {
     
     const targetRouteIndex = currentRouteIndex + offset;
 
-    // User requested logic: Check if answered.
-    const isAnswered = this.selectedOptionService.isQuestionAnswered(currentRouteIndex - 1);
-
     // Simple Bounds Safety (only check min)
     if (targetRouteIndex < 1) return false;
 
@@ -121,8 +115,6 @@ export class QuizNavigationService {
   }
 
   public async navigateToQuestion(index: number): Promise<boolean> {
-    this._fetchInProgress = true;
-
     // HARD reset render state before route change
     this.resetRenderStateBeforeNavigation(index);
 
@@ -163,7 +155,6 @@ export class QuizNavigationService {
     } catch (err: any) {
       return false;
     } finally {
-      this._fetchInProgress = false;
       this.isNavigating = false;
       this.quizStateService.setNavigating(false);
       this.quizStateService.setLoading(false);

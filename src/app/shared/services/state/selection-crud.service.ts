@@ -116,9 +116,6 @@ export class SelectionCrudService {
 
     // AUTHORITATIVE MERGE (REPLACE BY unique key: optionId + index)
     const merged = new Map<string, SelectedOption>();
-    const isCorrectHelper = 
-      (o: any) => o && 
-        (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
 
     // Keep existing selections (as a base)
     for (const o of existingCanonical) {
@@ -709,7 +706,7 @@ export class SelectionCrudService {
 
     // Append and persist
     list.push(enriched);
-    const committed = host.commitSelections(questionIndex, list);
+    host.commitSelections(questionIndex, list);
   }
 
   // ── updateSelectionState ────────────────────────────────────

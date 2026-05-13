@@ -1,12 +1,10 @@
 import { Injectable } from '@angular/core';
 import { MatCheckboxChange } from '@angular/material/checkbox';
 import { MatRadioChange } from '@angular/material/radio';
-import { FormGroup } from '@angular/forms';
 
 import { QuestionType } from '../../../models/question-type.enum';
 import { Option } from '../../../models/Option.model';
 import { OptionBindings } from '../../../models/OptionBindings.model';
-import { FeedbackProps } from '../../../models/FeedbackProps.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
 import { SelectedOptionService } from '../../state/selectedoption.service';
@@ -514,8 +512,6 @@ export class OptionUiSyncService {
     }
 
     const allCorrectFound = correctIndicesSet.size > 0 && [...correctIndicesSet].every(i => futureIndices.has(i));
-    const numIncorrectInFuture = [...futureIndices].filter(i => !correctIndicesSet.has(i)).length;
-    const isPerfect = allCorrectFound && numIncorrectInFuture === 0;
 
     // Determine if we are really in multi-mode for the sake of the feedback message
     const correctCountInBindings = correctIndicesSet.size;

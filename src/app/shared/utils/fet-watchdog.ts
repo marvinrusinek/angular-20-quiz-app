@@ -12,25 +12,6 @@ import { getQuizData } from '../quiz-data-cache';
 export function installGlobalFetWatchdog(): void {
   try {
     const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
-    const findPristineForText = (qText: string): { correctTexts: string[]; raw: string; explanation: string } | null => {
-      const k = nrm(qText);
-      if (!k) return null;
-      for (const quiz of (getQuizData() as any[]) ?? []) {
-        for (const pq of quiz?.questions ?? []) {
-          if (nrm(pq?.questionText) !== k) continue;
-          const correctTexts = ((pq?.options ?? []) as any[])
-            .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-            .map((o: any) => nrm(o?.text))
-            .filter((t: string) => !!t);
-          return {
-            correctTexts,
-            raw: pq?.questionText ?? '',
-            explanation: nrm(pq?.explanation ?? '')
-          };
-        }
-      }
-      return null;
-    };
     const isFetLike = (text: string, explanation?: string): boolean => {
       const n = nrm(text);
       if (!n) return false;

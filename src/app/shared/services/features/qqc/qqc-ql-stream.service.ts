@@ -11,7 +11,6 @@ import { QuestionPayload } from '../../../models/QuestionPayload.model';
 import { Quiz } from '../../../models/Quiz.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 import { ExplanationTextService } from '../explanation/explanation-text.service';
-import { FeedbackService } from '../feedback/feedback.service';
 import { QuizService } from '../../data/quiz.service';
 import { QuizDataService } from '../../data/quizdata.service';
 import { QuizStateService } from '../../state/quizstate.service';
@@ -104,7 +103,6 @@ export class QqcQlStreamService {
 
   constructor(
     private explanationTextService: ExplanationTextService,
-    private feedbackService: FeedbackService,
     private quizService: QuizService,
     private quizDataService: QuizDataService,
     private quizStateService: QuizStateService,

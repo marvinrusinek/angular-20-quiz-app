@@ -5,7 +5,6 @@ import { Option } from '../../../models/Option.model';
 import { OptionBindings } from '../../../models/OptionBindings.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 import { QuestionPayload } from '../../../models/QuestionPayload.model';
-import { QuizService } from '../../data/quiz.service';
 
 /**
  * Manages option display preparation and render-readiness logic for QQC.
@@ -16,8 +15,6 @@ import { QuizService } from '../../data/quiz.service';
  */
 @Injectable({ providedIn: 'root' })
 export class QqcDisplayStateManagerService {
-
-  constructor(private quizService: QuizService) {}
 
   /**
    * Builds display-ready options from a source question.

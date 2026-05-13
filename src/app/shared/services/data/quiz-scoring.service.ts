@@ -1,10 +1,9 @@
-import { Injectable, Injector, signal } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 
 import { getQuizData } from '../../quiz-data-cache';
 import { QuizScore } from '../../models/QuizScore.model';
 import { QuizShuffleService } from '../flow/quiz-shuffle.service';
-import { SelectedOptionService } from '../state/selectedoption.service';
 
 @Injectable({ providedIn: 'root' })
 export class QuizScoringService {
@@ -49,8 +48,7 @@ export class QuizScoringService {
   private readonly scoreQuizIdStorageKey = 'scoreQuizId';
 
   constructor(
-    private quizShuffleService: QuizShuffleService,
-    private _injector: Injector
+    private quizShuffleService: QuizShuffleService
   ) {
     this.loadQuestionCorrectness();
   }
@@ -68,17 +66,6 @@ export class QuizScoringService {
    * @param shouldShuffle Whether shuffle is currently enabled
    * @param quizId The current quiz ID
    */
-  // Lazily resolved to avoid circular dependency
-  private _selectedOptionService: SelectedOptionService | null = null;
-  private get selectedOptionServiceLazy(): SelectedOptionService | null {
-    if (!this._selectedOptionService) {
-      try {
-        this._selectedOptionService = this._injector.get(SelectedOptionService);
-      } catch { /* ignore */ }
-    }
-    return this._selectedOptionService;
-  }
-
   public scoreDirectly(
     questionIndex: number,
     isCorrect: boolean,

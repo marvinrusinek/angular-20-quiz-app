@@ -8,9 +8,7 @@ import { SelectionMessageService } from '../features/selection-message/selection
 import { SharedVisibilityService } from '../ui/shared-visibility.service';
 import { QuizVisibilityRestoreService } from './quiz-visibility-restore.service';
 
-import { Quiz } from '../../models/Quiz.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
-import { Option } from '../../models/Option.model';
 import { QuestionPayload } from '../../models/QuestionPayload.model';
 
 import { QuizService } from '../data/quiz.service';

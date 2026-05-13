@@ -25,12 +25,9 @@ import { QqcQuestionLoaderService } from '../../shared/services/features/qqc/qqc
 import { NextButtonStateService } from '../../shared/services/state/next-button-state.service';
 import { SelectedOptionService } from '../../shared/services/state/selectedoption.service';
 import { SelectionMessageService } from '../../shared/services/features/selection-message/selection-message.service';
-import { TimerService } from '../../shared/services/features/timer/timer.service';
 import { QuizDotStatusService } from '../../shared/services/flow/quiz-dot-status.service';
 import { QuizResetService } from '../../shared/services/flow/quiz-reset.service';
 import { QuizRouteService } from '../../shared/services/flow/quiz-route.service';
-import { QuizContentLoaderService } from '../../shared/services/flow/quiz-content-loader.service';
-import { QuizVisibilityRestoreService } from '../../shared/services/flow/quiz-visibility-restore.service';
 import { QuizPersistenceService } from '../../shared/services/state/quiz-persistence.service';
 import { QuizSetupService } from '../../shared/services/flow/quiz-setup.service';
 import { QuizQuestionComponent } from '../../components/question/quiz-question/quiz-question.component';
@@ -207,7 +204,6 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     private quizNavigationService: QuizNavigationService,
     public quizQuestionLoaderService: QqcQuestionLoaderService,
     public quizStateService: QuizStateService,
-    private timerService: TimerService,
     private nextButtonStateService: NextButtonStateService,
     private selectionMessageService: SelectionMessageService,
     private selectedOptionService: SelectedOptionService,
@@ -215,8 +211,6 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     private quizPersistence: QuizPersistenceService,
     private quizResetService: QuizResetService,
     private quizRouteService: QuizRouteService,
-    private quizContentLoaderService: QuizContentLoaderService,
-    private quizVisibilityRestoreService: QuizVisibilityRestoreService,
     private quizSetupService: QuizSetupService,
     public activatedRoute: ActivatedRoute,
     private router: Router,

@@ -15,8 +15,6 @@ import { QuizQuestion } from '../../../shared/models/QuizQuestion.model';
 import { QuizService } from '../../../shared/services/data/quiz.service';
 import { QuizDataService } from '../../../shared/services/data/quizdata.service';
 import { QuizNavigationService } from '../../../shared/services/flow/quiz-navigation.service';
-import { QqcQuestionLoaderService } from
-  '../../../shared/services/features/qqc/qqc-question-loader.service';
 import { QuizQuestionManagerService } from '../../../shared/services/flow/quizquestionmgr.service';
 import { QuizStateService } from '../../../shared/services/state/quizstate.service';
 import { SelectedOptionService } from '../../../shared/services/state/selectedoption.service';
@@ -172,7 +170,6 @@ export class CodelabQuizContentComponent implements OnInit, OnDestroy {
     private quizNavigationService: QuizNavigationService,
     public quizStateService: QuizStateService,
     public explanationTextService: ExplanationTextService,
-    private quizQuestionLoaderService: QqcQuestionLoaderService,
     public quizQuestionManagerService: QuizQuestionManagerService,
     public selectedOptionService: SelectedOptionService,
     public timerService: TimerService,
@@ -278,9 +275,6 @@ export class CodelabQuizContentComponent implements OnInit, OnDestroy {
     this.explanationTextService.setExplanationText('');
   }
 
-  private regenerateFetForIndex(idx: number): string {
-    return this.displayService.regenerateFetForIndex(idx);
-  }
 
   emitContentAvailableState(): void {
     this.orchestrator.runEmitContentAvailableState(this);

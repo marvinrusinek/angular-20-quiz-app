@@ -1,6 +1,5 @@
 import { Injectable } from '@angular/core';
 import { NavigationEnd, ParamMap, Params, Router } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
 import { distinctUntilChanged, filter, map, takeUntil, tap } from 'rxjs/operators';
 
 import { Option } from '../../models/Option.model';

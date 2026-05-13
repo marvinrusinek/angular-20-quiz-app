@@ -94,7 +94,6 @@ export class ExplanationDisplayStateService {
   public fetPayload$: Observable<FETPayload> = this._fetSubject.asObservable();
   public _gateToken = 0;
   public _currentGateToken = 0;
-  private readonly _instanceId: string = '';
   private _unlockRAFId: number | null = null;
   public latestExplanationIndex: number | null = -1;
 
@@ -115,7 +114,6 @@ export class ExplanationDisplayStateService {
     private formatter: ExplanationFormatterService,
     private gate: ExplanationGateService
   ) {
-    this._instanceId = `EDS-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     // Always clear stale FET payloads when switching to a new question index.
     this.activeIndex$.pipe(
       distinctUntilChanged()
@@ -695,7 +693,7 @@ export class ExplanationDisplayStateService {
     value: string | null,
     options: { token?: number; bypassGuard?: boolean } = {}
   ): void {
-    const { token = this._gateToken, bypassGuard = false } = options;
+    const { bypassGuard = false } = options;
     // Lock immediately to prevent race conditions with reactive streams
     this._fetLocked = true;
 
@@ -703,7 +701,6 @@ export class ExplanationDisplayStateService {
     if (value && index >= 0) {
       try {
         const quizSvc = this.injector.get(QuizService, null);
-        const selectedSvc = this.injector.get(SelectedOptionService, null);
 
         if (quizSvc) {
           const isShuffled = quizSvc.isShuffleEnabled?.() ?? false;

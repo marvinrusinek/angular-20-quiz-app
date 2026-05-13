@@ -1,11 +1,9 @@
-import { Injectable, Injector, WritableSignal } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { Injectable, WritableSignal } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 
 import { FormattedExplanation } from '../../../models/FormattedExplanation.model';
 import { Option } from '../../../models/Option.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
-import { QuizShuffleService } from '../../flow/quiz-shuffle.service';
 import { ExplanationFormatterService } from './explanation-formatter.service';
 import { ExplanationDisplayStateService, FETPayload } from './explanation-display-state.service';
 import { QuizService } from '../../data/quiz.service';
@@ -20,9 +18,6 @@ export { FETPayload } from './explanation-display-state.service';
 @Injectable({ providedIn: 'root' })
 export class ExplanationTextService {
   constructor(
-    private injector: Injector,
-    private activatedRoute: ActivatedRoute,
-    private quizShuffleService: QuizShuffleService,
     private formatter: ExplanationFormatterService,
     private displayState: ExplanationDisplayStateService,
     private quizService: QuizService,

@@ -1,10 +1,9 @@
 import { Injectable } from '@angular/core';
 import { FormBuilder, FormControl, FormGroup } from '@angular/forms';
-import { Observable, Subscription } from 'rxjs';
+import { Subscription } from 'rxjs';
 import { map } from 'rxjs/operators';
 
 import { Option } from '../../../models/Option.model';
-import { SelectedOption } from '../../../models/SelectedOption.model';
 import { Quiz } from '../../../models/Quiz.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 import { ExplanationTextService } from '../explanation/explanation-text.service';

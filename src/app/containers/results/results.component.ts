@@ -26,7 +26,6 @@ import { QuizStatus } from '../../shared/models/quiz-status.enum';
 import { QuizService } from '../../shared/services/data/quiz.service';
 import { QuizDataService } from '../../shared/services/data/quizdata.service';
 import { QuizDotStatusService } from '../../shared/services/flow/quiz-dot-status.service';
-import { QuizPersistenceService } from '../../shared/services/state/quiz-persistence.service';
 import { SelectedOptionService } from '../../shared/services/state/selectedoption.service';
 import { QuizStateService } from '../../shared/services/state/quizstate.service';
 import { ThemeService } from '../../shared/services/ui/theme.service';
@@ -77,7 +76,6 @@ export class ResultsComponent implements OnInit, OnDestroy {
     private quizService: QuizService,
     private quizDataService: QuizDataService,
     private dotStatusService: QuizDotStatusService,
-    private quizPersistence: QuizPersistenceService,
     private selectedOptionService: SelectedOptionService,
     private quizStateService: QuizStateService,
     private themeService: ThemeService,
