@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Injectable } from '@angular/core';
+﻿import { ChangeDetectorRef, Injectable } from '@angular/core';
 import { FormGroup } from '@angular/forms';
 import {
   animationFrameScheduler, BehaviorSubject, combineLatest, Observable, of,
@@ -178,7 +178,7 @@ export class SharedOptionInitService {
         html.style.pointerEvents = '';
         el.classList.remove('correct-option');
       }
-    } catch { /* ignore — non-browser env */ }
+    } catch { /* ignore â€” non-browser env */ }
     comp.selectedOptions.clear();
     comp.selectedOptionMap.clear();
     comp._multiSelectByQuestion.clear();
@@ -422,11 +422,11 @@ export class SharedOptionInitService {
           // On Q2+ refresh the quizService.currentQuestionIndex$ is a
           // BehaviorSubject(0), so this subscription fires twice: once
           // with the stale idx=0 and once with the real idx from the URL.
-          // The stale emission must NEVER touch component state — updating
+          // The stale emission must NEVER touch component state â€” updating
           // lastProcessedQuestionIndex or currentQuestionIndex to the wrong
           // value causes rehydrateUiFromState to resolve the wrong question,
           // run a clean-slate on Q3's bindings, find no saved state for Q1,
-          // and return — blanking the icons. When the real idx arrives and
+          // and return â€” blanking the icons. When the real idx arrives and
           // restores them, the user sees a flash.
           let urlQuestionIdx = -1;
           try {
@@ -437,7 +437,7 @@ export class SharedOptionInitService {
 
           if (isStaleIdx) {
             // Completely ignore the stale BehaviorSubject(0) emission.
-            // Do NOT update trackers — the real idx will arrive shortly.
+            // Do NOT update trackers â€” the real idx will arrive shortly.
           } else {
             // Skip the state clear when the current bindings are already
             // aligned with the NEW question's options (same optionIds).
@@ -760,7 +760,7 @@ export class SharedOptionInitService {
           // is a false positive (e.g. options shuffled on refresh).
           const sIdx = (s as any).displayIndex ?? (s as any).index;
           if (sIdx !== idx) return false;
-          // Position matches — only accept if we can't verify by text
+          // Position matches â€” only accept if we can't verify by text
           const sText2 = ((s as any).text ?? '').trim().toLowerCase();
           if (optText && sText2 && optText !== sText2) return false;
           matchedSaved = s;

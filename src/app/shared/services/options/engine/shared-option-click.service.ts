@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+﻿import { Injectable } from '@angular/core';
 
 import { Option } from '../../../models/Option.model';
 import { OptionBindings } from '../../../models/OptionBindings.model';
@@ -373,10 +373,10 @@ export class SharedOptionClickService {
       }
     } catch {}
 
-    // ─── Delegate to answer processing sub-services ───
+    // â”€â”€â”€ Delegate to answer processing sub-services â”€â”€â”€
 
     if (isMultiFromQ && effectiveCorrectCount > 0) {
-      // Use fresh binding from comp.optionBindings[index] — the local
+      // Use fresh binding from comp.optionBindings[index] â€” the local
       // `binding` variable was captured before updateOptionAndUI's
       // `comp.optionBindings = state.optionBindings` reassign at line 238,
       // so its option may have a stale `correct` flag relative to the
@@ -398,7 +398,7 @@ export class SharedOptionClickService {
       });
     }
 
-    // ─── Post-click feedback display ───
+    // â”€â”€â”€ Post-click feedback display â”€â”€â”€
     comp._feedbackDisplay = null;
     if (comp.showFeedback) {
       const clickedBinding = comp.optionBindings[index];
@@ -453,7 +453,7 @@ export class SharedOptionClickService {
     comp.cdRef.detectChanges();
   }
 
-  // ��── Option UI (delegated) ──────────────────────────────────
+  // ï¿½ï¿½â”€â”€ Option UI (delegated) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   handleSelection(comp: any, option: SelectedOption, index: number, optionId: number): void {
     this.optionUi.handleSelection(comp, option, index, optionId);
@@ -483,7 +483,7 @@ export class SharedOptionClickService {
     this.optionUi.enforceSingleSelection(comp, selectedBinding);
   }
 
-  // ─── Remaining inline ───────────────────────────────────────
+  // â”€â”€â”€ Remaining inline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   updateOptionAndUI(comp: any, optionBinding: any, index: number, event: any, 
     existingCtx?: any): void {

@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+﻿import { Injectable } from '@angular/core';
 
 import { Option } from '../../../models/Option.model';
 import { OptionBindings } from '../../../models/OptionBindings.model';
@@ -75,7 +75,7 @@ export class SharedOptionBindingService {
 
     queueMicrotask(() => {
       // If processOptionBindings already built correct bindings (with
-      // rehydrated state), skip this overwrite — the microtask would
+      // rehydrated state), skip this overwrite â€” the microtask would
       // replace them with stale option.selected data, causing a flash
       // of incorrect highlights before the next CD cycle corrects them.
       if (comp.optionBindingsInitialized && comp.optionBindings?.length > 0) {
@@ -149,10 +149,10 @@ export class SharedOptionBindingService {
       const currentIdx = comp.resolveDisplayIndex(comp.currentQuestionIndex);
       if (this.explanationTextService.latestExplanationIndex === currentIdx) {
         // Only re-emit explanation for single-answer questions. For multi-
-        // answer, FET must wait until ALL correct answers are selected —
+        // answer, FET must wait until ALL correct answers are selected â€”
         // emitting here on every binding update causes premature FET display
         // after a partial correct click.
-        // Use authoritative questions array — comp.currentQuestion.options
+        // Use authoritative questions array â€” comp.currentQuestion.options
         // often lack the `correct` flag, making correctCount=0.
         const authQ = this.quizService.questions?.[currentIdx] ?? comp.currentQuestion;
         const correctCount = (authQ?.options ?? []).filter(
@@ -326,7 +326,7 @@ export class SharedOptionBindingService {
       // Only trust highlightSet and savedIds during LIVE interaction
       // (hasUserClicked). On refresh, savedIds may contain stale entries
       // from accumulated selection history, and highlightSet may have
-      // IDs from a previous CD cycle — both cause ghost highlights for
+      // IDs from a previous CD cycle â€” both cause ghost highlights for
       // options the user never selected. rehydrateUiFromState (called
       // immediately after this loop) handles refresh highlighting
       // authoritatively with its own clean-slate + match logic.
@@ -338,7 +338,7 @@ export class SharedOptionBindingService {
       // (hasUserClicked=false) no binding gets isSelected=true from stale
       // savedIds. This prevents _wasSelected from latching in ngOnChanges
       // before rehydrateUiFromState can run its clean-slate reset.
-      // IMPORTANT: only use useSelected, NOT useHighlightSet — highlightSet
+      // IMPORTANT: only use useSelected, NOT useHighlightSet â€” highlightSet
       // can contain IDs for options never clicked (e.g. both correct answers
       // in multi-answer), causing ghost isSelected=true on bindings.
       return getBindings(opt, idx, useSelected);
@@ -428,7 +428,7 @@ export class SharedOptionBindingService {
       comp.cdRef?.markForCheck?.();
 
       const qIndex = comp.resolveCurrentQuestionIndex();
-      // Read from durable sel_Q* sessionStorage FIRST — the cleanest source.
+      // Read from durable sel_Q* sessionStorage FIRST â€” the cleanest source.
       // getSelectedOptionsForQuestion merges from _refreshBackup +
       // selectedOptionsMap + sel_Q*, and the in-memory maps can be
       // contaminated by init paths that add entries the user never clicked.
@@ -460,7 +460,7 @@ export class SharedOptionBindingService {
 
         // TEXT-ONLY PRIMARY MATCH: immune to synthetic ID mismatches and
         // position shifts from shuffled options. If the saved entry has
-        // text, we MUST match by text — ID/index fallbacks can map the
+        // text, we MUST match by text â€” ID/index fallbacks can map the
         // saved entry to the wrong binding when options shuffle.
         if (sText && comp.optionBindings?.length) {
           pos = comp.optionBindings.findIndex((b: any) => {
@@ -539,7 +539,7 @@ export class SharedOptionBindingService {
       }
 
       if (saved.length > 0) {
-        // Use reverse() to find the LAST selected option — that's where
+        // Use reverse() to find the LAST selected option â€” that's where
         // feedback should appear (the most recently clicked option).
         // saved.find() returns the first match which is typically the
         // option with the lowest index, not the last one the user clicked.
@@ -634,7 +634,7 @@ export class SharedOptionBindingService {
       // because multiple init paths (generateOptionBindings, initializeFromConfig,
       // setOptionBindingsIfChanged) overwrite each other. Query the persisted
       // sel_Q* data directly from the service as the single source of truth.
-      // Read from durable sel_Q* sessionStorage FIRST — the cleanest source.
+      // Read from durable sel_Q* sessionStorage FIRST â€” the cleanest source.
       // Fall back to getSelectedOptionsForQuestion only if sel_Q* is empty
       // (e.g. single-answer wrong-only clicks where sel_Q* isn't written
       // until the correct answer is clicked).
@@ -802,7 +802,7 @@ export class SharedOptionBindingService {
   syncSelectedFlags(comp: any): void {
     // Collision guard: when a binding has no real optionId, the fallback (array
     // index) can collide with another binding's real optionId (e.g. binding[0]
-    // has optionId=1, binding[1] has no id so falls back to index 1 → collision).
+    // has optionId=1, binding[1] has no id so falls back to index 1 â†’ collision).
     const realIdOwner = new Map<number, number>();
     for (let i = 0; i < (comp.optionBindings?.length ?? 0); i++) {
       const id = comp.optionBindings[i].option.optionId;
@@ -874,7 +874,7 @@ export class SharedOptionBindingService {
     }
   }
 
-  // ── Inlined from OptionHydrationService ──────────────────────────
+  // â”€â”€ Inlined from OptionHydrationService â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   private toIdSet(
     saved: Array<{ optionId?: number | string; selected?: boolean }> | null | undefined

@@ -1,4 +1,4 @@
-import {
+﻿import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, DoCheck, effect,
   HostListener, input, OnDestroy, OnInit, output, signal
 } from '@angular/core';
@@ -18,7 +18,6 @@ import { SelectedOption } from '../../../../shared/models/SelectedOption.model';
 import { SharedOptionConfig } from '../../../../shared/models/SharedOptionConfig.model';
 import { FeedbackComponent } from '../feedback/feedback.component';
 import { QuizService } from '../../../../shared/services/data/quiz.service';
-import { QuizStateService } from '../../../../shared/services/state/quizstate.service';
 import { SelectedOptionService } from '../../../../shared/services/state/selectedoption.service';
 import { SoundService } from '../../../../shared/services/ui/sound.service';
 import { SharedOptionConfigDirective } from '../../../../directives/shared-option-config.directive';
@@ -73,7 +72,7 @@ export class SharedOptionComponent
 
   // Signal inputs (parent-bound). Internal mutable backing fields with the same
   // logical names are kept below, since multiple services write to them via
-  // `host as any`. Effects in the constructor mirror input → backing field.
+  // `host as any`. Effects in the constructor mirror input â†’ backing field.
   readonly currentQuestionInput = input<QuizQuestion | null>(null);
   readonly currentQuestionIndexInput = input<number>(undefined as unknown as number);
   readonly questionIndex = input<number | null>(null);
@@ -120,10 +119,10 @@ export class SharedOptionComponent
   clickedOptionIds: Set<number | string> = new Set();
   selectedOptionHistory: (number | string)[] = [];
   // Track CORRECT option clicks per question for timer stop logic
-  private correctClicksPerQuestion: Map<number, Set<number>> = new Map();
+  public correctClicksPerQuestion: Map<number, Set<number>> = new Map();
   // Track DISABLED option IDs per question - persists across binding recreations
   public disabledOptionsPerQuestion: Map<number, Set<number>> = new Map();
-  private lastFeedbackQuestionIndex = -1;
+  lastFeedbackQuestionIndex = -1;
   lastFeedbackOptionId: number | string = -1;
   lastSelectedOptionId: number | string = -1;
   lastClickedOptionId: number | string | null = null;
@@ -148,47 +147,55 @@ export class SharedOptionComponent
   };
 
   public flashDisabledSet = new Set<number>();
-  private lockedIncorrectOptionIds = new Set<number>();
+  lockedIncorrectOptionIds = new Set<number>();
   public forceDisableAll = false;
   public timerExpiredForQuestion = false;  // track timer expiration
   timeoutCorrectOptionKeys = new Set<string>();
-  private resolvedQuestionIndex: number | null = null;
+  resolvedQuestionIndex: number | null = null;
 
-  private _isMultiModeCache: boolean | null = null;
-  private _lastHandledIndex: number | null = null;
-  private _lastHandledTime: number | null = null;
+  _isMultiModeCache: boolean | null = null;
+  public _lastHandledIndex: number | null = null;
+  public _lastHandledTime: number | null = null;
 
   // BULLETPROOF feedback tracker: set synchronously in handleOptionClick,
   // NEVER cleared by ngOnChanges/generateOptionBindings/rebuild cycles.
   // Only cleared on question change.
-  private _lastClickFeedback: { index: number; config: FeedbackProps; questionIdx: number } | null = null;
+  public _lastClickFeedback: { index: number; config: FeedbackProps; questionIdx: number } | null = null;
 
   // DURABLE multi-answer selection tracker. Survives binding regeneration.
-  // Maps question index → Set of selected display indices.
+  // Maps question index â†’ Set of selected display indices.
   // Only cleared on question change (resetStateForNewQuestion / ngOnChanges).
-  private _multiSelectByQuestion = new Map<number, Set<number>>();
-  private _correctIndicesByQuestion = new Map<number, number[]>();
+  _multiSelectByQuestion = new Map<number, Set<number>>();
+  _correctIndicesByQuestion = new Map<number, number[]>();
 
   destroy$ = new Subject<void>();
   // Flag to prevent the timer-expiry effect from firing more than once per question
   public _timerExpiryHandled = false;
 
+  // Runtime-mutated state used by the orchestrator service. Declared here so
+  // the Host type (SharedOptionComponent) sees them; values default to falsy
+  // until the orchestrator writes on init.
+  viewReady = false;
+  selectionSub?: import('rxjs').Subscription;
+  finalRenderReadySub?: import('rxjs').Subscription;
+  lastProcessedQuestionIndex = -1;
+  optionBindingsInitialized = false;
+
   constructor(
-    private quizService: QuizService,
-    private quizStateService: QuizStateService,
+    public quizService: QuizService,
     private selectedOptionService: SelectedOptionService,
     public soundService: SoundService,
-    private optionService: OptionService,
+    public optionService: OptionService,
     private optionUiContextBuilder: OptionUiContextBuilderService,
     private optionLockService: OptionLockService,
-    private optionSelectionUiService: OptionSelectionUiService,
+    public optionSelectionUiService: OptionSelectionUiService,
     private sharedOptionStateAdapterService: SharedOptionStateAdapterService,
-    private explanationHandler: SharedOptionExplanationService,
-    private clickHandler: OptionClickHandlerService,
-    private feedbackManager: SharedOptionFeedbackService,
+    public explanationHandler: SharedOptionExplanationService,
+    public clickHandler: OptionClickHandlerService,
+    public feedbackManager: SharedOptionFeedbackService,
     private initService: SharedOptionInitService,
     private bindingService: SharedOptionBindingService,
-    private clickService: SharedOptionClickService,
+    public clickService: SharedOptionClickService,
     private orchestrator: SharedOptionOrchestratorService,
     private timerService: TimerService,
     public cdRef: ChangeDetectorRef,
@@ -210,7 +217,7 @@ export class SharedOptionComponent
     effect(() => {
       const v = this.currentQuestionIndexInput();
       if (v !== undefined) {
-        // Q→Q transition cleanup: strip any timer-expiry stamps left over
+        // Qâ†’Q transition cleanup: strip any timer-expiry stamps left over
         // from the previous question. Angular reuses .option-row DOM nodes
         // across the @for binding rebuild, so inline pointer-events:none
         // and the 'correct-option' class persist into the new question.
@@ -272,7 +279,7 @@ export class SharedOptionComponent
               el.classList.remove('correct-option');
               el.classList.remove('incorrect-option');
             }
-          } catch { /* ignore — non-browser env */ }
+          } catch { /* ignore â€” non-browser env */ }
         }
         _lastQIdxForStampCleanup = v;
         this.currentQuestionIndex = v;
@@ -282,7 +289,7 @@ export class SharedOptionComponent
       let v = this.optionsToDisplayInput();
       if (v !== undefined) {
         // SHUFFLE GUARD: ensure options belong to the shuffled question for this index.
-        // Compare the SET of option texts — if the incoming options have texts that
+        // Compare the SET of option texts â€” if the incoming options have texts that
         // don't match the shuffled question's options, replace them.
         const qs = this.quizService;
         if (qs.isShuffleEnabled() && qs.shuffledQuestions?.length > 0) {
@@ -318,7 +325,7 @@ export class SharedOptionComponent
     // Multi-answer auto-disable. Reactively watches the selections signal
     // and rebuilds optionBindings with fresh refs the moment every pristine-
     // correct option for THIS rendered question is selected. Pure Angular
-    // reactivity — OnPush option-item children pick up new `b` refs via
+    // reactivity â€” OnPush option-item children pick up new `b` refs via
     // ngOnChanges, no DOM, no detectChanges hacks.
     //
     // Identifies the rendered question by option-text fingerprint
@@ -439,7 +446,7 @@ export class SharedOptionComponent
         this.cdRef.detectChanges();
 
         // DOM fallback: directly add CSS classes after Angular renders.
-        // Bail out if the user has already navigated away — without this
+        // Bail out if the user has already navigated away â€” without this
         // guard, the deferred timeout fires after Q2 has rendered and
         // re-applies pointer-events:none + correct-option to Q2's rows,
         // making them appear disabled/highlighted on the new question.
@@ -470,35 +477,35 @@ export class SharedOptionComponent
     this.orchestrator.runOnInit(this);
   }
 
-  private initializeQuestionIndex(): void {
+  initializeQuestionIndex(): void {
     this.orchestrator.runInitializeQuestionIndex(this);
   }
 
-  private resetStateForNewQuestion(): void {
+  resetStateForNewQuestion(): void {
     this.initService.resetStateForNewQuestion(this as any);
   }
 
-  private subscribeToTimerExpiration(): void {
+  subscribeToTimerExpiration(): void {
     this.initService.subscribeToTimerExpiration(this as any);
   }
 
-  private setupFallbackRendering(): void {
+  setupFallbackRendering(): void {
     this.initService.setupFallbackRendering(this as any);
   }
 
-  private initializeConfiguration(): void {
+  initializeConfiguration(): void {
     this.initService.initializeConfiguration(this as any);
   }
 
-  private initializeOptionDisplayWithFeedback(): void {
+  initializeOptionDisplayWithFeedback(): void {
     this.initService.initializeOptionDisplayWithFeedback(this as any);
   }
 
-  private setupSubscriptions(): void {
+  setupSubscriptions(): void {
     this.initService.setupSubscriptions(this as any);
   }
 
-  private subscribeToSelectionChanges(): void {
+  subscribeToSelectionChanges(): void {
     this.initService.subscribeToSelectionChanges(this as any);
   }
 
@@ -515,28 +522,28 @@ export class SharedOptionComponent
     this.orchestrator.runOnVisibilityChange(this);
   }
 
-  private rehydrateUiFromState(reason: string): void {
-    this.bindingService.rehydrateUiFromState(this as any, reason);
+  public rehydrateUiFromState(reason: string): void {
+    this.bindingService.rehydrateUiFromState(this, reason);
   }
 
-  private setupRehydrateTriggers(): void {
+  setupRehydrateTriggers(): void {
     this.initService.setupRehydrateTriggers(this as any);
   }
 
-  private rebuildShowFeedbackMapFromBindings(): void {
+  rebuildShowFeedbackMapFromBindings(): void {
     this.orchestrator.runRebuildShowFeedbackMapFromBindings(this);
   }
 
-  private updateSelections(rawSelectedId: number | string): void {
+  public updateSelections(rawSelectedId: number | string): void {
     this.orchestrator.runUpdateSelections(this, rawSelectedId);
   }
 
-  private ensureOptionsToDisplay(): void {
-    this.clickService.ensureOptionsToDisplay(this as any);
+  ensureOptionsToDisplay(): void {
+    this.clickService.ensureOptionsToDisplay(this);
   }
 
-  private synchronizeOptionBindings(): void {
-    this.bindingService.synchronizeOptionBindings(this as any);
+  public synchronizeOptionBindings(): void {
+    this.bindingService.synchronizeOptionBindings(this);
   }
 
   ngDoCheck(): void {
@@ -544,7 +551,7 @@ export class SharedOptionComponent
   }
 
   buildSharedOptionConfig(b: OptionBindings, i: number): SharedOptionConfig {
-    return this.bindingService.buildSharedOptionConfig(this as any, b, i);
+    return this.bindingService.buildSharedOptionConfig(this, b, i);
   }
 
   public getSharedOptionConfig(
@@ -555,15 +562,15 @@ export class SharedOptionComponent
   }
 
   preserveOptionHighlighting(): void {
-    this.clickService.preserveOptionHighlighting(this as any);
+    this.clickService.preserveOptionHighlighting(this);
   }
 
   initializeFromConfig(): void {
     this.initService.initializeFromConfig(this as any);
   }
 
-  private setOptionBindingsIfChanged(newOptions: Option[]): void {
-    this.bindingService.setOptionBindingsIfChanged(this as any, newOptions);
+  public setOptionBindingsIfChanged(newOptions: Option[]): void {
+    this.bindingService.setOptionBindingsIfChanged(this, newOptions);
   }
 
   getOptionDisplayText(option: Option, idx: number): string {
@@ -621,26 +628,22 @@ export class SharedOptionComponent
       event: MatCheckboxChange | MatRadioChange,
       existingCtx?: OptionUiSyncContext
   ): void {
-    this.clickService.updateOptionAndUI(this as any, optionBinding, index, event, existingCtx);
-  }
-
-  private enforceSingleSelection(selectedBinding: OptionBindings): void {
-    this.clickService.enforceSingleSelection(this as any, selectedBinding);
+    this.clickService.updateOptionAndUI(this, optionBinding, index, event, existingCtx);
   }
 
   updateHighlighting(): void {
     // Moved to OptionItemComponent
   }
 
-  private resolveInteractionType(): 'single' | 'multiple' {
+  public resolveInteractionType(): 'single' | 'multiple' {
     return this.isMultiMode ? 'multiple' : 'single';
   }
 
-  private buildFeedbackContext(): FeedbackContext {
+  buildFeedbackContext(): FeedbackContext {
     return this.orchestrator.runBuildFeedbackContext(this);
   }
 
-  private buildOptionUiSyncContext(): OptionUiSyncContext {
+  public buildOptionUiSyncContext(): OptionUiSyncContext {
     return this.optionUiContextBuilder.fromSharedOptionComponent(this);
   }
 
@@ -648,7 +651,7 @@ export class SharedOptionComponent
     this.orchestrator.runEmitExplanation(this, questionIndex, skipGuard);
   }
 
-  private resolveDisplayIndex(questionIndex: number): number {
+  public resolveDisplayIndex(questionIndex: number): number {
     return this.explanationHandler.resolveDisplayIndex(
         questionIndex,
         () => this.getActiveQuestionIndex(),
@@ -657,9 +660,9 @@ export class SharedOptionComponent
     );
   }
 
-  private _pendingHighlightRAF: number | null = null;
+  _pendingHighlightRAF: number | null = null;
 
-  private deferHighlightUpdate(callback: () => void): void {
+  public deferHighlightUpdate(callback: () => void): void {
     this.orchestrator.runDeferHighlightUpdate(this, callback);
   }
 
@@ -680,10 +683,6 @@ export class SharedOptionComponent
     });
   }
 
-  private handleSelection(option: SelectedOption, index: number, optionId: number): void {
-    this.clickService.handleSelection(this as any, option, index, optionId);
-  }
-
   displayFeedbackForOption(
     option: SelectedOption,
     index: number,
@@ -700,7 +699,7 @@ export class SharedOptionComponent
   }
 
   handleBackwardNavigationOptionClick(option: Option, index: number): void {
-    this.clickService.handleBackwardNavigationOptionClick(this as any, option, index);
+    this.clickService.handleBackwardNavigationOptionClick(this, option, index);
   }
 
   public resetUIForNewQuestion(): void {
@@ -708,23 +707,19 @@ export class SharedOptionComponent
   }
 
   getOptionBindings(option: Option, idx: number, isSelected: boolean = false): OptionBindings {
-    return this.bindingService.getOptionBindings(this as any, option, idx, isSelected);
+    return this.bindingService.getOptionBindings(this, option, idx, isSelected);
   }
 
   public generateOptionBindings(): void {
-    this.bindingService.generateOptionBindings(this as any);
+    this.bindingService.generateOptionBindings(this);
   }
 
   public hydrateOptionsFromSelectionState(): void {
-    this.bindingService.hydrateOptionsFromSelectionState(this as any);
+    this.bindingService.hydrateOptionsFromSelectionState(this);
   }
 
   getFeedbackBindings(option: Option, idx: number): FeedbackProps {
     return this.feedbackManager.getFeedbackBindings(option, idx, this.buildFeedbackContext());
-  }
-
-  private processOptionBindings(): void {
-    this.bindingService.processOptionBindings(this as any);
   }
 
   initializeOptionBindings(): void {
@@ -735,10 +730,6 @@ export class SharedOptionComponent
     this.feedbackBindings = this.feedbackManager.initializeFeedbackBindings(
       this.optionBindings, this.buildFeedbackContext()
     );
-  }
-
-  private getDefaultFeedbackProps(idx: number): FeedbackProps {
-    return this.feedbackManager.getDefaultFeedbackProps(idx, this.buildFeedbackContext());
   }
 
   isSelectedOption(option: Option): boolean {
@@ -769,38 +760,34 @@ export class SharedOptionComponent
     this.orchestrator.runMarkRenderReady(this, reason);
   }
 
-  private regenerateFeedback(idx: number): void {
+  public regenerateFeedback(idx: number): void {
     this.orchestrator.runRegenerateFeedback(this, idx);
   }
 
   // Determine relative component logic for Q-type
-  private determineQuestionType(input: QuizQuestion): 'single' | 'multiple' {
+  determineQuestionType(input: QuizQuestion): 'single' | 'multiple' {
     return this.clickHandler.determineQuestionType(input);
   }
 
-  private finalizeOptionPopulation(): void {
+  public finalizeOptionPopulation(): void {
     this.orchestrator.runFinalizeOptionPopulation(this);
   }
 
   public forceDisableAllOptions(): void {
-    this.bindingService.forceDisableAllOptions(this as any);
+    this.bindingService.forceDisableAllOptions(this);
   }
 
   public clearForceDisableAllOptions(): void {
-    this.bindingService.clearForceDisableAllOptions(this as any);
+    this.bindingService.clearForceDisableAllOptions(this);
   }
 
   private updateBindingSnapshots(): void {
-    this.clickService.updateBindingSnapshots(this as any);
+    this.clickService.updateBindingSnapshots(this);
   }
 
-
-  private syncSelectedFlags(): void {
-    this.bindingService.syncSelectedFlags(this as any);
-  }
 
   public applySelectionsUI(selectedOptions: SelectedOption[]): void {
-    this.clickService.applySelectionsUI(this as any, selectedOptions);
+    this.clickService.applySelectionsUI(this, selectedOptions);
   }
 
   isLocked(b: OptionBindings, i: number): boolean {
@@ -828,20 +815,14 @@ export class SharedOptionComponent
   }
 
   public getInlineFeedbackConfig(b: OptionBindings, i: number): FeedbackProps | null {
-    return this.bindingService.getInlineFeedbackConfig(this as any, b, i);
+    return this.bindingService.getInlineFeedbackConfig(this, b, i);
   }
 
-  private resolveCurrentQuestionIndex(): number {
+  public resolveCurrentQuestionIndex(): number {
     return this.orchestrator.runResolveCurrentQuestionIndex(this);
   }
 
-  private resolveExplanationQuestionIndex(questionIndex: number): number {
-    return this.explanationHandler.resolveExplanationQuestionIndex(
-        questionIndex, this.getActiveQuestionIndex()
-    );
-  }
-
-  private getQuestionAtDisplayIndex(displayIndex: number): QuizQuestion | null {
+  getQuestionAtDisplayIndex(displayIndex: number): QuizQuestion | null {
     return this.orchestrator.runGetQuestionAtDisplayIndex(this, displayIndex);
   }
 
@@ -849,11 +830,11 @@ export class SharedOptionComponent
     return this.orchestrator.runCanShowOptions(this);
   }
 
-  private normalizeQuestionIndex(candidate: unknown): number | null {
+  normalizeQuestionIndex(candidate: unknown): number | null {
     return this.orchestrator.runNormalizeQuestionIndex(this, candidate);
   }
 
-  private updateResolvedQuestionIndex(candidate: unknown): void {
+  updateResolvedQuestionIndex(candidate: unknown): void {
     this.orchestrator.runUpdateResolvedQuestionIndex(this, candidate);
   }
 
@@ -862,18 +843,18 @@ export class SharedOptionComponent
   }
 
   public onOptionUI(ev: OptionUIEvent): void {
-    this.clickService.onOptionUI(this as any, ev);
+    this.clickService.onOptionUI(this, ev);
   }
 
-  private findBindingByOptionId(optionId: number): { b: OptionBindings; i: number } | null {
+  public findBindingByOptionId(optionId: number): { b: OptionBindings; i: number } | null {
     return this.orchestrator.runFindBindingByOptionId(this, optionId);
   }
 
-  private _lastRunClickIndex: number | null = null;
-  private _lastRunClickTime: number | null = null;
+  public _lastRunClickIndex: number | null = null;
+  public _lastRunClickTime: number | null = null;
 
-  private runOptionContentClick(binding: OptionBindings, index: number, event: any): void {
-    this.clickService.runOptionContentClick(this as any, binding, index, event);
+  runOptionContentClick(binding: OptionBindings, index: number, event: any): void {
+    this.clickService.runOptionContentClick(this, binding, index, event);
   }
 
   public triggerViewRefresh(): void {

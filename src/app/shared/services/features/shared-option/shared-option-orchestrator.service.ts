@@ -5,8 +5,9 @@ import { OptionBindings } from '../../../models/OptionBindings.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 import { SelectedOption } from '../../../models/SelectedOption.model';
 import { FeedbackContext } from './shared-option-feedback.service';
+import type { SharedOptionComponent } from '../../../../components/question/answer/shared-option-component/shared-option.component';
 
-type Host = any;
+type Host = SharedOptionComponent;
 
 @Injectable({ providedIn: 'root' })
 export class SharedOptionOrchestratorService {
@@ -413,13 +414,13 @@ export class SharedOptionOrchestratorService {
   runCanShowOptions(host: Host): boolean {
     const hasBindings = (host.optionBindings?.length ?? 0) > 0;
     if (!hasBindings) return false;
-    return host.canDisplayOptions() && host.renderReady;
+    return host.canDisplayOptions() && host.renderReady();
   }
 
   runCanDisplayOptions(host: Host): boolean {
     return (
       !!host.form &&
-      host.renderReady &&
+      host.renderReady() &&
       host.showOptions &&
       Array.isArray(host.optionBindings) &&
       host.optionBindings.length > 0 &&
