@@ -1,11 +1,10 @@
 import {
-  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, effect,
-  input, model, OnInit, output, QueryList, ViewContainerRef
+  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef,
+  effect, inject, input, model, OnInit, output, QueryList, ViewContainerRef
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
 
 import { Option } from '../../../../shared/models/Option.model';
 import { OptionBindings } from '../../../../shared/models/OptionBindings.model';
@@ -61,9 +60,9 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   override selectedOptionIndex = -1;
   renderReady = false;
 
-  readonly quizQuestionComponentLoaded = output<void>();
+  private destroyRef = inject(DestroyRef);
 
-  private destroy$ = new Subject<void>();
+  readonly quizQuestionComponentLoaded = output<void>();
 
   readonly questionIndex = input<number | null>(null);
 
@@ -148,7 +147,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     }
 
     this.quizService.getCurrentQuestion(this.quizService.currentQuestionIndex)
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((currentQuestion: QuizQuestion | null) => {
         if (!currentQuestion) return;
 
@@ -170,7 +169,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
 
     // Displays the unique options to the UI
     this.quizQuestionLoaderService.optionsStream$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((opts: Option[]) => {
         // Skip empty arrays to prevent BehaviorSubject initial emission
         // from clearing valid options that may have arrived via @Input
@@ -219,11 +218,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     }
 
     this.cdRef.detectChanges();  // ensure change detection runs
-  }
-
-  override ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
   }
 
   private resetSelectionState(): void {

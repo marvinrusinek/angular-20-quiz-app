@@ -1,7 +1,8 @@
 import {
-  ChangeDetectionStrategy, ChangeDetectorRef, Component, computed, effect, 
-  OnDestroy, OnInit, signal
+  ChangeDetectionStrategy, ChangeDetectorRef, Component, computed, DestroyRef,
+  effect, OnInit, signal
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { ActivatedRoute, Params, Router } from '@angular/router';
 import {
@@ -12,8 +13,8 @@ import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSlideToggleChange, MatSlideToggleModule }
   from '@angular/material/slide-toggle';
-import { EMPTY, firstValueFrom, of, Subject } from 'rxjs';
-import { catchError, switchMap, takeUntil, tap } from 'rxjs/operators';
+import { EMPTY, firstValueFrom, of } from 'rxjs';
+import { catchError, switchMap, tap } from 'rxjs/operators';
 
 import { Quiz } from '../../shared/models/Quiz.model';
 import { QuizQuestion } from '../../shared/models/QuizQuestion.model';
@@ -42,7 +43,7 @@ import { SelectedOptionService } from '../../shared/services/state/selectedoptio
   styleUrls: ['./introduction.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class IntroductionComponent implements OnInit, OnDestroy {
+export class IntroductionComponent implements OnInit {
   quiz: Quiz | null = null;
   quizId: string | undefined;
   readonly selectedQuiz = signal<Quiz | null>(null);
@@ -63,8 +64,6 @@ export class IntroductionComponent implements OnInit, OnDestroy {
   questionLabel = '';
   introImg = '';
 
-  private destroy$ = new Subject<void>();
-
   constructor(
     private quizService: QuizService,
     private quizDataService: QuizDataService,
@@ -76,7 +75,8 @@ export class IntroductionComponent implements OnInit, OnDestroy {
     private activatedRoute: ActivatedRoute,
     private router: Router,
     private fb: FormBuilder,
-    private cdRef: ChangeDetectorRef
+    private cdRef: ChangeDetectorRef,
+    private destroyRef: DestroyRef
   ) {
     // Initialize the form group with default values
     this.preferencesForm = this.fb.group({
@@ -109,7 +109,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
     this.subscribeToRouteParameters();
 
     this.preferencesForm.get('shouldShuffleOptions')!
-      .valueChanges.pipe(takeUntil(this.destroy$))
+      .valueChanges.pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((isChecked: boolean) => {
         this.highlightPreference = isChecked;
         this.shouldShuffleOptions = isChecked;
@@ -118,18 +118,13 @@ export class IntroductionComponent implements OnInit, OnDestroy {
       });
   }
 
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
-  }
-
   private subscribeToRouteParameters(): void {
     this.activatedRoute.params
       .pipe(
         tap((params) => this.handleRouteParams(params)),
         switchMap((params) => this.fetchQuiz(params)),
         tap((quiz) => this.logQuizLoaded(quiz)),
-        takeUntil(this.destroy$)
+        takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: (quiz: Quiz | null) => this.handleLoadedQuiz(quiz),
@@ -210,7 +205,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
         catchError(() => {
           return of([]);
         }),
-        takeUntil(this.destroy$)
+        takeUntilDestroyed(this.destroyRef)
       )
       .subscribe((questions: QuizQuestion[]) => {
         this.shuffledQuestions = questions;

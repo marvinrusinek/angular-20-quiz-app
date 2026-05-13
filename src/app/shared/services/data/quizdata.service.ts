@@ -1,9 +1,9 @@
-﻿import { Injectable, OnDestroy, signal } from '@angular/core';
+﻿import { Injectable, signal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { firstValueFrom, Observable, of, Subject, throwError } from 'rxjs';
+import { firstValueFrom, Observable, of, throwError } from 'rxjs';
 import {
-  catchError, distinctUntilChanged, filter, map, switchMap, take, takeUntil, tap
+  catchError, distinctUntilChanged, filter, map, switchMap, take, tap
 } from 'rxjs/operators';
 
 import { QuestionType } from '../../models/question-type.enum';
@@ -14,7 +14,7 @@ import { QuizService } from './quiz.service';
 import { QuizShuffleService } from '../flow/quiz-shuffle.service';
 
 @Injectable({ providedIn: 'root' })
-export class QuizDataService implements OnDestroy {
+export class QuizDataService {
   private quizUrl = 'assets/data/quiz.json';
   question: QuizQuestion | null = null;
   questionType: string | null = null;
@@ -34,20 +34,13 @@ export class QuizDataService implements OnDestroy {
   public isContentAvailable$: Observable<boolean> =
     toObservable(this.isContentAvailableSig);
 
-  private destroy$ = new Subject<void>();
-
   constructor(
     private quizService: QuizService,
     private quizShuffleService: QuizShuffleService,
     private http: HttpClient
   ) { }
 
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
-  }
 
-  
   // Clear the question cache for a quiz to force fresh shuffle on next load.
   // Call this when starting a quiz to ensure shuffle flag is applied correctly.
   clearQuizQuestionCache(quizId: string): void {
@@ -201,8 +194,7 @@ export class QuizDataService implements OnDestroy {
       }),
       catchError(() => {
         return throwError(() => new Error('Error retrieving quizzes'));
-      }),
-      takeUntil(this.destroy$)
+      })
     );
   }
 
