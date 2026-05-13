@@ -305,7 +305,6 @@ export class OptionUiSyncService {
     ctx: OptionUiSyncContext
   ): void {
     const getEffectiveId = (o: any, i: number) => (o?.optionId != null && o.optionId !== -1) ? o.optionId : i;
-    const effectiveId = getEffectiveId(optionBinding.option, index);
 
     if (checked) {
       // Build the FULL list of selections PRESERVING TIME ORDER via history

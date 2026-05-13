@@ -382,7 +382,6 @@ export class ExplanationFormatterService {
     };
 
     const targetQuestionText = question?.questionText || '';
-    const qTextSnippet = targetQuestionText.slice(0, 50);
 
     let qIdx = Number.isFinite(displayIndex) ? (displayIndex as number) : this.latestExplanationIndex;
 
@@ -609,7 +608,7 @@ export class ExplanationFormatterService {
     question: QuizQuestion,
     correctOptionIndices: number[] | null | undefined,
     explanation: string,
-    displayIndex?: number
+    _displayIndex?: number
   ): string {
     const alreadyFormattedRe =
       /^(?:option|options)\s+#?\d+(?:\s*,\s*#?\d+)*(?:\s+and\s+#?\d+)?\s+(?:is|are)\s+correct\s+because\s+/i;

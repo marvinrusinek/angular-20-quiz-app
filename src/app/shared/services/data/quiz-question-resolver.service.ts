@@ -11,9 +11,6 @@ import { QuizShuffleService } from '../flow/quiz-shuffle.service';
 
 @Injectable({ providedIn: 'root' })
 export class QuizQuestionResolverService {
-  constructor(
-    private quizShuffleService: QuizShuffleService
-  ) {}
 
   getQuestionByIndex(
     index: number,

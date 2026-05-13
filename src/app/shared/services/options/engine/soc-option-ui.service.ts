@@ -129,19 +129,6 @@ export class SocOptionUiService {
       return o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1';
     };
 
-    let lastCorrectIdx: number | null = null;
-    for (let i = selectedOptions.length - 1; i >= 0; i--) {
-      const s = selectedOptions[i];
-      if (isCorrect(s)) {
-        const sIdx = (s as any).displayIndex ?? 
-          (s as any).index ?? (s as any).idx;
-        if (sIdx != null && Number.isFinite(Number(sIdx))) {
-          lastCorrectIdx = Number(sIdx);
-          break;
-        }
-      }
-    }
-
     for (let i = 0; i < comp.optionsToDisplay.length; i++) {
       const opt = comp.optionsToDisplay[i];
       const isSelected = selIndices.has(i);

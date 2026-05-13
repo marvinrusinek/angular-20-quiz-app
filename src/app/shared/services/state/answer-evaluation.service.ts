@@ -159,7 +159,6 @@ export class AnswerEvaluationService {
       if ((sel as any).selected === false) continue;
 
       let matchedIdx = -1;
-      let matchMethod = 'none';
 
       // STRATEGY 1: TEXT MATCH
       if (sel.text) {
@@ -167,7 +166,6 @@ export class AnswerEvaluationService {
         matchedIdx = questionOptions.findIndex(o =>
           o.text && o.text.trim().toLowerCase() === selText
         );
-        if (matchedIdx !== -1) matchMethod = 'text';
       }
 
       // STRATEGY 2: ID MATCH
@@ -176,7 +174,6 @@ export class AnswerEvaluationService {
         matchedIdx = questionOptions.findIndex(o =>
           o.optionId != null && String(o.optionId) === selIdStr
         );
-        if (matchedIdx !== -1) matchMethod = 'id';
       }
 
       // STRATEGY 3: Synthetic ID Modulo
@@ -184,7 +181,6 @@ export class AnswerEvaluationService {
         const potentialIdx = (sel.optionId % 100) - 1;
         if (potentialIdx >= 0 && potentialIdx < questionOptions.length) {
           matchedIdx = potentialIdx;
-          matchMethod = 'synthetic_id';
         }
       }
 
@@ -193,7 +189,6 @@ export class AnswerEvaluationService {
         const idx = (sel as any).index;
         if (idx >= 0 && idx < questionOptions.length) {
           matchedIdx = idx;
-          matchMethod = 'index';
         }
       }
 

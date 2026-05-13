@@ -11,9 +11,7 @@ import { QuizService } from '../../data/quiz.service';
 import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 import { TimerService } from '../../features/timer/timer.service';
-import { FeedbackService } from '../../features/feedback/feedback.service';
 import { SelectionMessageService } from '../../features/selection-message/selection-message.service';
-import { NextButtonStateService } from '../../state/next-button-state.service';
 
 export interface OptionInteractionState {
   optionBindings: OptionBindings[];
@@ -448,7 +446,6 @@ export class OptionInteractionService {
     }
 
     const allCorrectFound = correctIndicesSet.size > 0 && [...correctIndicesSet].every(i => futureKeys.has(i));
-    const numIncorrectInFuture = futureSelection.filter(o => !isCorrectHelper(o)).length;
 
     // DEFERRED DOT PERSIST: For single-answer, persist immediately.
     // For multi-answer, only persist 'correct' when ALL correct answers

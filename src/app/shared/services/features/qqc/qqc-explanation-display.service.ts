@@ -156,7 +156,6 @@ export class QqcExplanationDisplayService {
       ).length;
       const isMultiAnswer = correctCount > 1;
 
-      let shouldEmitFet = true;
       if (isMultiAnswer) {
         const norm = (t: any) => String(t ?? '').trim().toLowerCase();
         const correctTexts = rawOpts
@@ -175,8 +174,6 @@ export class QqcExplanationDisplayService {
         if (allCorrectSelected) {
           svc.setExplanationText(nextText, { index: i0 });
           svc.setShouldDisplayExplanation(true);
-        } else {
-          shouldEmitFet = false;
         }
       } else {
         svc.setExplanationText(nextText, { index: i0 });

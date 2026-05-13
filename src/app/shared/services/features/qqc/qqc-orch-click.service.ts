@@ -69,7 +69,7 @@ export class QqcOrchClickService {
         msgTok: host._msgTok
       });
 
-      const { canonicalOpts, selectedKeysSet: selOptsSetImmediate, 
+      const { selectedKeysSet: selOptsSetImmediate,
         isMultiForSelection, allCorrect } = clickResult;
       host._msgTok = clickResult.msgTok;
       host._lastAllCorrect = allCorrect;

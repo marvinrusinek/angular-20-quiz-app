@@ -4,7 +4,6 @@ import { take } from 'rxjs/operators';
 
 import { Option } from '../../../models/Option.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
-import { QuestionState } from '../../../models/QuestionState.model';
 import { QuizStateService } from '../../state/quizstate.service';
 import { ExplanationTextService } from '../explanation/explanation-text.service';
 import { TimerService } from '../timer/timer.service';

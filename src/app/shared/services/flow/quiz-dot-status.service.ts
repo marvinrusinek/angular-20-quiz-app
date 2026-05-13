@@ -875,7 +875,6 @@ export class QuizDotStatusService {
     const scoredCorrect = this.quizService.questionCorrectness.get(scoringKey);
     const persisted = this.persistence.getPersistedDotStatus(quizId, index);
     const confirmed = this.selectedOptionService.clickConfirmedDotStatus.get(index);
-    const cached = dotStatusCache.get(index);
     const ssStored = (() => {
       try {
         return sessionStorage.getItem('dot_confirmed_' + index);

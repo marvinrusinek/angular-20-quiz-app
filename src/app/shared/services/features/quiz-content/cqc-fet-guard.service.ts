@@ -271,8 +271,6 @@ export class CqcFetGuardService {
             if (selectedTexts.has(t)) correctSelected++;
           }
           const isMulti = correctTotal >= 2;
-          const allCorrectSelected =
-            correctTotal > 0 && correctSelected >= correctTotal;
 
           if (!isMulti) {
             if (!this.isScoredCorrectAtDisplay(host, activeIdx)) {

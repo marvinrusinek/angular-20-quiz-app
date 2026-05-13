@@ -48,7 +48,7 @@ export class SocAnswerProcessingService {
     isShuffled: boolean;
   }): void {
     const { comp, index, binding, qIdx, durableSet, isShuffled } = params;
-    let { effectiveCorrectIndices, effectiveCorrectCount } = params;
+    let { effectiveCorrectIndices } = params;
 
     // PRISTINE-AUTHORITATIVE: always recompute correctIndices from
     // quizInitialState. Upstream bindings can have mutated/missing
@@ -78,7 +78,6 @@ export class SocAnswerProcessingService {
           // fails completely.
           if (rebuilt.length >= effectiveCorrectIndices.length && rebuilt.length > 0) {
             effectiveCorrectIndices = rebuilt;
-            effectiveCorrectCount = rebuilt.length;
           }
         }
       }
@@ -564,11 +563,6 @@ export class SocAnswerProcessingService {
         optionsToDisplay: comp.optionsToDisplay ?? [],
         isMultiMode: false
       };
-      let resolvedFetText = '';
-      try {
-        resolvedFetText = this.sharedOptionExplanationService.resolveExplanationText(singleFetCtx as any)?.trim()
-          || singleFetQuestion?.explanation || '';
-      } catch { /* ignore */ }
       setTimeout(() => {
         try {
           this.sharedOptionExplanationService.emitExplanation(singleFetCtx as any, true);
