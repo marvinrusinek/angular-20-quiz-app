@@ -147,6 +147,17 @@ export class OptionItemComponent implements OnInit {
         this._wasSelected = true;
       }
     });
+
+    // Re-check on every selection mutation. isDisabled() reads selections
+    // and pristine corrects for multi-answer mode; without this, sibling
+    // OnPush option-items don't re-evaluate when the user picks a new
+    // option (their `b` input ref doesn't always change in the click path).
+    effect(() => {
+      this.selectedOptionService.selectedOptionsMapSig();
+      this.applyMultiAnswerDisableState();
+      this.cdRef.markForCheck();
+      this.cdRef.detectChanges();
+    });
   }
 
   ngOnInit(): void {
@@ -155,18 +166,6 @@ export class OptionItemComponent implements OnInit {
       .subscribe(() => {
         this._directTimerExpired = true;
         this._directTimerExpiredForIndex = this.timerService.expiredForQuestionIndex;
-        this.cdRef.markForCheck();
-        this.cdRef.detectChanges();
-      });
-
-    // Re-check on every selection mutation. isDisabled() reads selections
-    // and pristine corrects for multi-answer mode; without this, sibling
-    // OnPush option-items don't re-evaluate when the user picks a new
-    // option (their `b` input ref doesn't always change in the click path).
-    this.selectedOptionService.selectedOptionsMap$
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => {
-        this.applyMultiAnswerDisableState();
         this.cdRef.markForCheck();
         this.cdRef.detectChanges();
       });

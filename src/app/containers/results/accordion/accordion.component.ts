@@ -55,13 +55,23 @@ export class AccordionComponent implements OnInit {
         this.questions = incoming;
       }
     });
+
+    effect(() => {
+      const questions = this.quizService.questionsSig();
+      this.questions = questions;
+      this.cdRef.detectChanges();
+
+      if (questions.length === 0 && !this.hasRetried) {
+        this.hasRetried = true;
+        this.retryLoadQuestionsViaDataService();
+      }
+    });
   }
 
   ngOnInit(): void {
     const userAnswersData = this.recoverUserAnswers();
     this.initializeResults(userAnswersData);
     this.loadInitialQuestionsFromService();
-    this.subscribeToQuestionsStream();
     this.normalizeUserAnswers();
   }
 
@@ -98,20 +108,6 @@ export class AccordionComponent implements OnInit {
       this.questions = currentQuestions;
       this.cdRef.detectChanges();  // force immediate update for OnPush
     }
-  }
-
-  private subscribeToQuestionsStream(): void {
-    this.quizService.questions$
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((questions) => {
-        this.questions = questions;
-        this.cdRef.detectChanges();  // force immediate update for OnPush
-
-        if (this.questions.length === 0 && !this.hasRetried) {
-          this.hasRetried = true;
-          this.retryLoadQuestionsViaDataService();
-        }
-      });
   }
 
   // Fallback path when questions$ emits empty: resolve quizId from route or
