@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 import { Quiz } from '../../../../shared/models/Quiz.model';
@@ -26,26 +26,26 @@ export class SummaryIconsComponent {
       .replace(/%2F/g, '/');  // restore forward slashes
   }
 
-  get mailtoHref(): string {
+  readonly mailtoHref = computed<string>(() => {
     const { percentage, milestone, codelabUrl } = this.getShareValues();
     const subject = 'Try to beat my quiz score!';
-    const body = 
-      `I scored ${percentage}% on this awesome quiz about Angular ${milestone}. 
+    const body =
+      `I scored ${percentage}% on this awesome quiz about Angular ${milestone}.
       Try to beat my score at ${codelabUrl}`;
 
     return `mailto:?subject=${encodeURIComponent(subject)}&body=
       ${this.encodeShareText(body)}`;
-  }
+  });
 
-  get twitterHref(): string {
+  readonly twitterHref = computed<string>(() => {
     const { percentage, milestone, codelabUrl } = this.getShareValues();
-    const tweetText = 
-      `I scored ${percentage}/100 on this awesome quiz about Angular ${milestone}. 
+    const tweetText =
+      `I scored ${percentage}/100 on this awesome quiz about Angular ${milestone}.
       Try to beat my score at`;
 
     return `https://twitter.com/intent/tweet?text=${this.encodeShareText(tweetText)}
       &hashtags=quiz&url=${encodeURIComponent(codelabUrl)}`;
-  }
+  });
 
   private getShareValues(): {
     percentage: number,

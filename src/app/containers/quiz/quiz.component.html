@@ -33,7 +33,7 @@
                 (events)="handleQuizQuestionEvent($event)" />
             </mat-card-content>
 
-            <mat-card-footer [ngClass]="cardFooterClass">
+            <mat-card-footer>
               <!-- Row 1: Selection Message (left) + Navigation (right) -->
               <section class="footer-row-1">
                 <div class="message-area">
@@ -89,7 +89,7 @@
                         </div>
                       }
                     </div>
-                    <span class="progress-inline">({{ progress }}% complete)</span>
+                    <span class="progress-inline">({{ progressSig() }}% complete)</span>
                   </section>
                 }
             </mat-card-footer>

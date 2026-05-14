@@ -81,7 +81,6 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
 
   answers: Option[] = [];
   readonly selectionMessage = this.selectionMessageService.selectionMessageSig;
-  cardFooterClass = '';
   showScrollIndicator = false;
 
   combinedQuestionData = signal<QuestionPayload | null>(null);
@@ -136,7 +135,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   currentQuestionIndex = 0;
   lastLoggedIndex = -1;
   totalQuestions = 0;
-  progress = 0;
+  readonly progressSig = signal<number>(0);
   public answeredQuestionIndices = new Set<number>();
 
   questionToDisplaySig = signal<string>('');
@@ -454,9 +453,9 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   updateProgressValue(): void {
     const total = this.totalCount;
     if (total <= 0) { this.cdRef.markForCheck(); return; }
-    this.progress = Math.round((this.answeredQuestionIndices.size / total) * 100);
+    this.progressSig.set(Math.round((this.answeredQuestionIndices.size / total) * 100));
     try {
-      sessionStorage.setItem('quizProgress', String(this.progress));
+      sessionStorage.setItem('quizProgress', String(this.progressSig()));
       sessionStorage.setItem('quizProgressQuizId', this.quizId);
       sessionStorage.setItem('answeredQuestionIndices', JSON.stringify([...this.answeredQuestionIndices]));
     } catch { }

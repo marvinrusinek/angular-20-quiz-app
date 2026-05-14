@@ -121,7 +121,7 @@ export class QuizSetupRouteService {
     host.isQuizLoaded = false;
     host.isQuizDataLoaded = false;
     host.totalQuestions = 0;
-    host.progress = 0;
+    host.progressSig.set(0);
     host.quizId = routeQuizId;
     this.quizService.setQuizId(routeQuizId);
   }
@@ -202,7 +202,7 @@ export class QuizSetupRouteService {
     if (host.quizId && host.quizId !== quizId) {
       this.dotStatusService.clearAllMaps();
       this.quizPersistence.clearClickConfirmedDotStatus(host.totalQuestions || 20);
-      host.progress = 0;
+      host.progressSig.set(0);
       this.quizStateService.reset();
     }
 

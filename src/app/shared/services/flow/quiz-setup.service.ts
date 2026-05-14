@@ -433,7 +433,7 @@ export class QuizSetupService {
     host.quizQuestionComponent?.()?.selectedIndices?.clear();
     this.timerService.stopTimer?.(undefined, { force: true });
     host.answeredQuestionIndices.clear();
-    host.progress = 0;
+    host.progressSig.set(0);
     this.quizPersistence.clearClickConfirmedDotStatus(host.totalQuestions);
 
     try {
@@ -695,7 +695,7 @@ subscribeToTimerExpiry(host: Host): void {
       this.selectedOptionService.clearRefreshBackup();
       this.selectedOptionService.clearState();
       host.answeredQuestionIndices.clear();
-      host.progress = 0;
+      host.progressSig.set(0);
       try {
         for (let i = 0; i < 100; i++) {
           sessionStorage.removeItem('quiz_selection_' + i);
@@ -713,7 +713,7 @@ subscribeToTimerExpiry(host: Host): void {
     const cleared = this.quizResetService.clearStaleProgressAndDotStateForFreshStart(
       host.currentQuestionIndex, host.quizId, host.totalQuestions
     );
-    if (cleared) host.progress = 0;
+    if (cleared) host.progressSig.set(0);
 
     this.fetchTotalQuestions(host);
     this.subscribeToQuestionIndex(host);
@@ -728,17 +728,17 @@ subscribeToTimerExpiry(host: Host): void {
       }
     }
     if (host.answeredQuestionIndices.size > 0) {
-      host.progress = Math.round((host.answeredQuestionIndices.size / host.totalQuestions) * 100);
+      host.progressSig.set(Math.round((host.answeredQuestionIndices.size / host.totalQuestions) * 100));
     }
 
-    if (host.progress === 0 && !freshFromResults) {
+    if (host.progressSig() === 0 && !freshFromResults) {
       try {
         const savedQuizId = sessionStorage.getItem('quizProgressQuizId');
         const savedProgress = sessionStorage.getItem('quizProgress');
         if (savedQuizId === host.quizId && savedProgress) {
           const parsed = parseInt(savedProgress, 10);
           if (!isNaN(parsed) && parsed > 0) {
-            host.progress = parsed;
+            host.progressSig.set(parsed);
           }
           const savedIndices = sessionStorage.getItem('answeredQuestionIndices');
           if (savedIndices) {
@@ -790,7 +790,7 @@ subscribeToTimerExpiry(host: Host): void {
     if (freshFromResults) {
       setTimeout(() => {
         host.answeredQuestionIndices.clear();
-        host.progress = 0;
+        host.progressSig.set(0);
         host.cdRef.detectChanges();
       }, 150);
     }
