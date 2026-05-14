@@ -1,10 +1,11 @@
 ﻿import { ChangeDetectorRef, Injectable } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormGroup } from '@angular/forms';
 import {
   animationFrameScheduler, BehaviorSubject, combineLatest, Observable, of,
   Subject, Subscription
 } from 'rxjs';
-import { distinctUntilChanged, filter, observeOn, takeUntil } from 'rxjs/operators';
+import { distinctUntilChanged, filter, observeOn } from 'rxjs/operators';
 
 import { FeedbackProps } from '../../../models/FeedbackProps.model';
 import { Option } from '../../../models/Option.model';
@@ -77,7 +78,6 @@ export interface SharedOptionComponentLike {
   optionsReady: boolean;
   showOptions: boolean;
   showNoOptionsFallback: boolean;
-  destroy$: Subject<void>;
 
   // --- Private-ish fields exposed for the service ---
   _isMultiModeCache: boolean | null;
@@ -96,6 +96,7 @@ export interface SharedOptionComponentLike {
   correctClicksPerQuestion: Map<number, Set<number>>;
   selectionSub: Subscription;
   finalRenderReadySub?: Subscription;
+  destroyRef: import('@angular/core').DestroyRef;
 
   // --- Subjects ---
   optionsToDisplay$: BehaviorSubject<Option[]>;
@@ -214,7 +215,7 @@ export class SharedOptionInitService {
    * Corresponds to SharedOptionComponent.subscribeToTimerExpiration().
    */
   subscribeToTimerExpiration(comp: SharedOptionComponentLike): void {
-    this.timerService.expired$.pipe(takeUntil(comp.destroy$)).subscribe(() => {
+    this.timerService.expired$.pipe(takeUntilDestroyed(comp.destroyRef)).subscribe(() => {
       comp.timerExpiredForQuestion = true;
       const question = comp.currentQuestion
         || comp.config()?.currentQuestion
@@ -407,7 +408,7 @@ export class SharedOptionInitService {
       this.quizService.currentQuestionIndex$.pipe(distinctUntilChanged()),
       comp.optionsToDisplay$
     ])
-      .pipe(takeUntil(comp.destroy$))
+      .pipe(takeUntilDestroyed(comp.destroyRef))
       .subscribe(([idx, opts]: [number, Option[]]) => {
         // Use opts (synced latest options) for logging/logic
 
@@ -617,7 +618,7 @@ export class SharedOptionInitService {
     combineLatest([renderReady$, qIndex$])
       .pipe(
         filter(([ready, _index]: [boolean, number]) => ready === true),
-        takeUntil(comp.destroy$)
+        takeUntilDestroyed(comp.destroyRef)
       )
       .subscribe(() => {
         // Ensure bindings exist

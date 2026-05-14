@@ -1,13 +1,13 @@
 ﻿import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component,
-  computed, effect, HostListener, input, model, OnDestroy, OnInit,
+  computed, DestroyRef, effect, HostListener, input, model, OnDestroy, OnInit,
   output, signal, viewChild, ViewContainerRef
 } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Observable, of, Subject, Subscription } from 'rxjs';
+import { Observable, of, Subscription } from 'rxjs';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatRadioModule } from '@angular/material/radio';
 import { Option } from '../../../shared/models/Option.model';
@@ -187,8 +187,6 @@ export class QuizQuestionComponent extends BaseQuestion
   _visibilityRestoreInProgress = false;
   _suppressDisplayStateUntil = 0;
 
-  destroy$: Subject<void> = new Subject<void>();
-
   /** Alias so host:any callers (quiz-setup, qqc-orch-lifecycle) still resolve. */
   get quizQuestionLoaderService(): QqcQuestionLoaderService {
     return this.questionLoader;
@@ -230,7 +228,8 @@ export class QuizQuestionComponent extends BaseQuestion
     protected quizShuffleService: QuizShuffleService,
     public override fb: FormBuilder,
     public override cdRef: ChangeDetectorRef,
-    public router: Router
+    public router: Router,
+    public destroyRef: DestroyRef
   ) {
     super(
       fb,

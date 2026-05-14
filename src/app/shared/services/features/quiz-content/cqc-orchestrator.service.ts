@@ -1,11 +1,12 @@
 ﻿import { Injectable } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ParamMap } from '@angular/router';
 import {
   BehaviorSubject, combineLatest, firstValueFrom, forkJoin, Observable, of, Subject
 } from 'rxjs';
 import {
-  catchError, distinctUntilChanged, filter, map, shareReplay, startWith, 
-  switchMap, take, takeUntil, tap, withLatestFrom
+  catchError, distinctUntilChanged, filter, map, shareReplay, startWith,
+  switchMap, take, tap, withLatestFrom
 } from 'rxjs/operators';
 
 import { CombinedQuestionDataType } from '../../../models/CombinedQuestionDataType.model';
@@ -64,7 +65,7 @@ export class CqcOrchestratorService {
 
     host.quizService.questions$
       .pipe(
-        takeUntil(host.destroy$),
+        takeUntilDestroyed(host.destroyRef),
         filter((qs: any) => Array.isArray(qs) && qs.length > 0)
       )
       .subscribe(() => {});
@@ -202,7 +203,7 @@ export class CqcOrchestratorService {
     document.addEventListener('visibilitychange', host._cqcVisibilityHandler);
 
     host.timerService.expired$
-      .pipe(takeUntil(host.destroy$))
+      .pipe(takeUntilDestroyed(host.destroyRef))
       .subscribe(() => {
         const idx = host.currentIndex >= 0 ? host.currentIndex : (host.quizService.getCurrentQuestionIndex?.() ?? host.currentQuestionIndexValue ?? 0);
 
@@ -275,8 +276,6 @@ export class CqcOrchestratorService {
       host._questionStampRetryTimers = [];
     }
     this.fetGuard.uninstallFetWatchdog(host);
-    try { host.destroy$?.next(); } catch {}
-    try { host.destroy$?.complete(); } catch {}
     host.combinedSub?.unsubscribe();
   }
 
@@ -297,7 +296,7 @@ export class CqcOrchestratorService {
         startWith(host.quizService?.currentQuestionIndex ?? 0)
       )
     ])
-      .pipe(takeUntil(host.destroy$))
+      .pipe(takeUntilDestroyed(host.destroyRef))
       .subscribe((pair: any) => {
         const index: number = pair[1];
         if (host.lastQuestionIndexForReset !== index) {
@@ -337,7 +336,7 @@ export class CqcOrchestratorService {
   }
 
   runEmitContentAvailableState(host: Host): void {
-    host.isContentAvailable$.pipe(takeUntil(host.destroy$)).subscribe({
+    host.isContentAvailable$.pipe(takeUntilDestroyed(host.destroyRef)).subscribe({
       next: (isAvailable: boolean) => {
         host.isContentAvailableChange.emit(isAvailable);
         host.quizDataService.updateContentAvailableState(isAvailable);
@@ -362,7 +361,7 @@ export class CqcOrchestratorService {
 
       const data: [QuizQuestion[], string[]] = await firstValueFrom(
         host.fetchQuestionsAndExplanationTexts(params).pipe(
-          takeUntil(host.destroy$)
+          takeUntilDestroyed(host.destroyRef)
         )
       );
 
@@ -449,7 +448,7 @@ export class CqcOrchestratorService {
   runInitializeCombinedQuestionData(host: Host): void {
     const currentQuizAndOptions$ = host.combineCurrentQuestionAndOptions();
 
-    currentQuizAndOptions$.pipe(takeUntil(host.destroy$)).subscribe({
+    currentQuizAndOptions$.pipe(takeUntilDestroyed(host.destroyRef)).subscribe({
       next: () => {},
       error: () => { }
     });

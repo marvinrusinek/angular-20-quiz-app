@@ -1,11 +1,11 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, computed,
-  HostListener, OnDestroy, OnInit, signal, viewChild, ViewEncapsulation
+  DestroyRef, HostListener, OnDestroy, OnInit, signal, viewChild, ViewEncapsulation
 } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule, AsyncPipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Observable, Subject, Subscription } from 'rxjs';
+import { Observable, Subscription } from 'rxjs';
 import { debounceTime, shareReplay } from 'rxjs/operators';
 import { MatCardModule } from '@angular/material/card';
 import { MatTooltip, MatTooltipModule } from '@angular/material/tooltip';
@@ -191,8 +191,6 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   isContentAvailable$: Observable<boolean>;
 
   animationStateSig = signal<AnimationState>('none');
-  unsubscribe$ = new Subject<void>();
-  destroy$ = new Subject<void>();
 
   displayState$ = this.quizStateService.displayState$;
   qaToDisplay?: { question: QuizQuestion; options: Option[] };
@@ -214,7 +212,8 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     private quizSetupService: QuizSetupService,
     public activatedRoute: ActivatedRoute,
     private router: Router,
-    public cdRef: ChangeDetectorRef
+    public cdRef: ChangeDetectorRef,
+    public destroyRef: DestroyRef
   ) {
     this.isAnswered$ = this.selectedOptionService.isAnswered$;
     this.isButtonEnabled$ = this.selectedOptionService.isOptionSelected$().pipe(debounceTime(300), shareReplay(1));

@@ -1,6 +1,6 @@
 ﻿import {
-  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, DoCheck, effect,
-  HostListener, input, OnDestroy, OnInit, output, signal
+  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef,
+  DoCheck, effect, HostListener, input, OnDestroy, OnInit, output, signal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
@@ -168,7 +168,6 @@ export class SharedOptionComponent
   _multiSelectByQuestion = new Map<number, Set<number>>();
   _correctIndicesByQuestion = new Map<number, number[]>();
 
-  destroy$ = new Subject<void>();
   // Flag to prevent the timer-expiry effect from firing more than once per question
   public _timerExpiryHandled = false;
 
@@ -199,7 +198,8 @@ export class SharedOptionComponent
     private orchestrator: SharedOptionOrchestratorService,
     private timerService: TimerService,
     public cdRef: ChangeDetectorRef,
-    private fb: FormBuilder
+    private fb: FormBuilder,
+    public destroyRef: DestroyRef
   ) {
     this.ui = this.sharedOptionStateAdapterService.createInitialUiState();
     this.form = this.fb.group({

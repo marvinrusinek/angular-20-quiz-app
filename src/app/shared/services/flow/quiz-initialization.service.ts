@@ -1,6 +1,6 @@
-import { Injectable } from '@angular/core';
-import { Subject } from 'rxjs';
-import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
+import { DestroyRef, Injectable } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 
 import { NextButtonStateService } from '../state/next-button-state.service';
 import { QuizStateService } from '../state/quizstate.service';
@@ -20,30 +20,30 @@ export class QuizInitializationService {
     onNextButtonEnabled: (enabled: boolean) => void,
     onOptionSelected: (selected: boolean) => void,
     onSelectionMessageChanged: (message: string) => void,
-    destroy$: Subject<void>
+    destroyRef: DestroyRef
   ): void {
     this.nextButtonStateService.initializeNextButtonStateStream(
       this.selectedOptionService.isAnswered$,
       this.quizStateService.isLoading$,
       this.quizStateService.isNavigating$,
-      destroy$,
+      destroyRef,
       this.quizStateService.interactionReady$
     );
 
     this.selectedOptionService.isNextButtonEnabled$
-      .pipe(takeUntil(destroy$))
+      .pipe(takeUntilDestroyed(destroyRef))
       .subscribe(onNextButtonEnabled);
 
     this.selectedOptionService
       .isOptionSelected$()
-      .pipe(takeUntil(destroy$))
+      .pipe(takeUntilDestroyed(destroyRef))
       .subscribe(onOptionSelected);
 
     this.selectionMessageService.selectionMessage$
       .pipe(
         debounceTime(300),
         distinctUntilChanged(),
-        takeUntil(destroy$))
+        takeUntilDestroyed(destroyRef))
       .subscribe(onSelectionMessageChanged);
   }
 }

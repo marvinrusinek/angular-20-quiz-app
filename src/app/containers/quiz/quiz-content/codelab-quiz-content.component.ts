@@ -1,7 +1,7 @@
 
 import {
-  ChangeDetectionStrategy, ChangeDetectorRef, Component, effect, ElementRef,
-  input, OnDestroy, OnInit, output, Renderer2, signal, untracked, viewChild
+  ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, effect,
+  ElementRef, input, OnDestroy, OnInit, output, Renderer2, signal, untracked, viewChild
 } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
@@ -141,8 +141,6 @@ export class CodelabQuizContentComponent implements OnInit, OnDestroy {
   timedOutIdxSubject = new BehaviorSubject<number>(-1);
   public timedOutIdx$ = this.timedOutIdxSubject.asObservable();
 
-  destroy$ = new Subject<void>();
-
   // Runtime-mutated state used by cqc-orchestrator + cqc-display-text +
   // cqc-fet-guard + cqc-question-nav services. Declared here so the Host
   // type sees them; values default to falsy/empty until the services
@@ -177,7 +175,8 @@ export class CodelabQuizContentComponent implements OnInit, OnDestroy {
     public cdRef: ChangeDetectorRef,
     public renderer: Renderer2,
     private displayService: QuizContentDisplayService,
-    private orchestrator: CqcOrchestratorService
+    private orchestrator: CqcOrchestratorService,
+    public destroyRef: DestroyRef
   ) {
     this.nextQuestion$ = this.quizService.nextQuestion$;
 

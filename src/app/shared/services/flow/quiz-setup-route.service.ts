@@ -1,6 +1,7 @@
-import { Injectable } from '@angular/core';
+﻿import { Injectable } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, ParamMap, Params, Router } from '@angular/router';
-import { distinctUntilChanged, filter, map, takeUntil, tap } from 'rxjs/operators';
+import { distinctUntilChanged, filter, map, tap } from 'rxjs/operators';
 
 import { Option } from '../../models/Option.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
@@ -42,7 +43,7 @@ export class QuizSetupRouteService {
     private quizPersistence: QuizPersistenceService
   ) {}
 
-  // ── Route events ──────────────────────────────────────────────
+  // â”€â”€ Route events â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   subscribeToRouteEvents(
     host: Host,
     loadQuestions: (host: Host) => Promise<void>
@@ -255,7 +256,7 @@ export class QuizSetupRouteService {
 
   fetchRouteParams(host: Host): void {
     host.activatedRoute.params
-      .pipe(takeUntil(host.destroy$))
+      .pipe(takeUntilDestroyed(host.destroyRef))
       .subscribe((params: Params) => {
         host.quizId = params['quizId'];
         host.questionIndex = +params['questionIndex'];
@@ -265,7 +266,7 @@ export class QuizSetupRouteService {
 
   subscribeRouterAndInit(host: Host): void {
     host.routerSubscription = host.activatedRoute.data
-      .pipe(takeUntil(host.destroy$))
+      .pipe(takeUntilDestroyed(host.destroyRef))
       .subscribe((data: any) => {
         const quizData = data['quizData'];
         if (!quizData?.questions?.length) {
@@ -280,7 +281,7 @@ export class QuizSetupRouteService {
   setupNavigation(host: Host): void {
     host.activatedRoute.params
       .pipe(
-        takeUntil(host.destroy$),
+        takeUntilDestroyed(host.destroyRef),
         map((params: Params) => +params['questionIndex']),
         distinctUntilChanged(),
         tap((currentIndex: number) => {

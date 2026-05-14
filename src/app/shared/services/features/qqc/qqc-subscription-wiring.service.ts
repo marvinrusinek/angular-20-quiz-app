@@ -1,8 +1,9 @@
-import { Injectable } from '@angular/core';
+﻿import { DestroyRef, Injectable } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
-import { Observable, of, Subject, Subscription } from 'rxjs';
-import { 
-  catchError, distinctUntilChanged, filter, map, skip, takeUntil, tap
+import { Observable, of, Subscription } from 'rxjs';
+import {
+  catchError, distinctUntilChanged, filter, map, skip, tap
 } from 'rxjs/operators';
 
 import { Option } from '../../../models/Option.model';
@@ -100,11 +101,11 @@ export class QqcSubscriptionWiringService {
    */
   createTotalQuestionsSubscription(params: {
     quizId: string;
-    destroy$: Subject<void>;
+    destroyRef: DestroyRef;
     onTotal: (total: number) => void;
   }): Subscription {
     return this.quizService.getTotalQuestionsCount(params.quizId)
-      .pipe(takeUntil(params.destroy$))
+      .pipe(takeUntilDestroyed(params.destroyRef))
       .subscribe(params.onTotal);
   }
 
@@ -126,7 +127,7 @@ export class QqcSubscriptionWiringService {
   /**
    * Creates subscription for questionPayload$ stream.
    * Applies payload data to component state on each emission.
-   * Extracted from ngOnInit (lines 485–499).
+   * Extracted from ngOnInit (lines 485â€“499).
    */
   createQuestionPayloadSubscription(callbacks: {
     onPayload: (payload: QuestionPayload) => void;
@@ -141,7 +142,7 @@ export class QqcSubscriptionWiringService {
 
   /**
    * Creates subscription for checkedShuffle$ preference stream.
-   * Extracted from ngOnInit (lines 501–504).
+   * Extracted from ngOnInit (lines 501â€“504).
    */
   createShufflePreferenceSubscription(
     onShuffle: (shouldShuffle: boolean) => void
@@ -152,7 +153,7 @@ export class QqcSubscriptionWiringService {
   /**
    * Creates subscriptions for all QuizNavigationService event streams.
    * Returns an array of subscriptions for bulk teardown.
-   * Extracted from ngOnInit (lines 506–551).
+   * Extracted from ngOnInit (lines 506â€“551).
    */
   createNavigationEventSubscriptions(callbacks: {
     onNavigationSuccess: () => void;
@@ -211,17 +212,17 @@ export class QqcSubscriptionWiringService {
   /**
    * Creates subscription for quizService.preReset$ stream.
    * Resets per-question state when a new question index is emitted.
-   * Extracted from ngOnInit (lines 553–562).
+   * Extracted from ngOnInit (lines 553â€“562).
    */
   createPreResetSubscription(params: {
-    destroy$: Subject<void>;
+    destroyRef: DestroyRef;
     onPreReset: (idx: number) => void;
     getLastResetFor: () => number;
     setLastResetFor: (idx: number) => void;
   }): Subscription {
     return this.quizService.preReset$
       .pipe(
-        takeUntil(params.destroy$),
+        takeUntilDestroyed(params.destroyRef),
         filter(idx => Number.isFinite(idx as number) && (idx as number) >= 0),
         filter(idx => idx !== params.getLastResetFor()),
         tap(idx => params.setLastResetFor(idx as number))
@@ -233,15 +234,15 @@ export class QqcSubscriptionWiringService {
 
   /**
    * Creates subscription for timerService.expired$ stream.
-   * Extracted from ngOnInit (lines 599–604).
+   * Extracted from ngOnInit (lines 599â€“604).
    */
   createTimerExpiredSubscription(params: {
-    destroy$: Subject<void>;
+    destroyRef: DestroyRef;
     timerExpired$: Observable<void>;
     onExpired: () => void;
   }): Subscription {
     return params.timerExpired$
-      .pipe(takeUntil(params.destroy$))
+      .pipe(takeUntilDestroyed(params.destroyRef))
       .subscribe(() => {
         params.onExpired();
       });
@@ -250,15 +251,15 @@ export class QqcSubscriptionWiringService {
   /**
    * Creates subscription for timerService.stop$ stream.
    * Skips the first emission and handles timer stop with microtask.
-   * Extracted from ngOnInit (lines 606–613).
+   * Extracted from ngOnInit (lines 606â€“613).
    */
   createTimerStopSubscription(params: {
-    destroy$: Subject<void>;
+    destroyRef: DestroyRef;
     timerStop$: Observable<any>;
     onTimerStopped: () => void;
   }): Subscription {
     return params.timerStop$
-      .pipe(skip(1), takeUntil(params.destroy$))
+      .pipe(skip(1), takeUntilDestroyed(params.destroyRef))
       .subscribe(() => {
         queueMicrotask(() => {
           params.onTimerStopped();
@@ -268,7 +269,7 @@ export class QqcSubscriptionWiringService {
 
   /**
    * Creates subscription for currentQuestionIndex$ logging stream.
-   * Extracted from ngOnInit (lines 470–479).
+   * Extracted from ngOnInit (lines 470â€“479).
    */
   createCurrentQuestionIndexSubscription(
     onIndex: (index: number) => void                                                                                        
@@ -281,7 +282,7 @@ export class QqcSubscriptionWiringService {
   /**
    * Creates subscription for activatedRoute.paramMap changes.
    * Resets explanation state and fetches question for each route change.
-   * Extracted from ngOnInit (lines 564–586).
+   * Extracted from ngOnInit (lines 564â€“586).
    */
   createRouteParamSubscription(params: {
     activatedRoute: ActivatedRoute;
@@ -299,7 +300,7 @@ export class QqcSubscriptionWiringService {
   /**
    * Creates the handleRouteChanges subscription that loads questions
    * and updates explanation state on each route param change.
-   * Extracted from handleRouteChanges() (lines 1144–1212).
+   * Extracted from handleRouteChanges() (lines 1144â€“1212).
    */
   createRouteChangeHandlerSubscription(params: {
     activatedRoute: ActivatedRoute;

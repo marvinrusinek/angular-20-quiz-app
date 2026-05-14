@@ -1,6 +1,7 @@
-import { Injectable } from '@angular/core';
+﻿import { Injectable } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
-import { debounceTime, filter, shareReplay, takeUntil } from 'rxjs/operators';
+import { debounceTime, filter, shareReplay } from 'rxjs/operators';
 
 import { QuizPersistenceService } from '../state/quiz-persistence.service';
 import { QuizOptionProcessingService } from './quiz-option-processing.service';
@@ -56,7 +57,7 @@ export class QuizSetupService {
     private dataService: QuizSetupDataService
   ) {}
 
-  // ─── Route (delegated) ───────────────────────────────────────
+  // â”€â”€â”€ Route (delegated) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   subscribeToRouteEvents(host: Host): void {
     this.routeService.subscribeToRouteEvents(
@@ -82,7 +83,7 @@ export class QuizSetupService {
     // The route sub-service sets host._pendingLoadQuizData instead;
     // we wire the actual call here.
     host.activatedRoute.params
-      .pipe(takeUntil(host.destroy$))
+      .pipe(takeUntilDestroyed(host.destroyRef))
       .subscribe((params: any) => {
         host.quizId = params['quizId'];
         host.questionIndex = +params['questionIndex'];
@@ -107,7 +108,7 @@ export class QuizSetupService {
     return this.routeService.loadQuestionByRouteIndex(host, routeIndex);
   }
 
-  // ─── Data (delegated) ────────────────────────────────────────
+  // â”€â”€â”€ Data (delegated) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async loadQuestions(host: Host): Promise<void> {
     return this.dataService.loadQuestions(host);
@@ -143,7 +144,7 @@ export class QuizSetupService {
     // we wire the actual call here via a wrapper.
     host.activatedRoute.data
       .pipe(
-        takeUntil(host.destroy$),
+        takeUntilDestroyed(host.destroyRef),
         filter((data: any) => {
           if (!data.quizData) {
             void this.router.navigate(['/select']);
@@ -159,7 +160,7 @@ export class QuizSetupService {
         // Seed the question text against the question the URL is targeting,
         // not always questions[0]. Direct navigation to /question/.../3
         // would otherwise display Q1's text until a downstream emission
-        // overrides it — visible to the user as a "Q1 then Q3" flash, or
+        // overrides it â€” visible to the user as a "Q1 then Q3" flash, or
         // worse, as Q1 stuck if the override never lands.
         const seedIdx = Number.isFinite(host.currentQuestionIndex) && host.currentQuestionIndex >= 0
           ? host.currentQuestionIndex : 0;
@@ -194,9 +195,9 @@ export class QuizSetupService {
     this.dataService.selectedAnswer(host, optionIndex);
   }
 
-  // ─── Remaining inline: lifecycle + option/explanation handlers ───
+  // â”€â”€â”€ Remaining inline: lifecycle + option/explanation handlers â”€â”€â”€
 
-  // ── Constructor wiring (subscriptions + observables) ──────────
+  // â”€â”€ Constructor wiring (subscriptions + observables) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   wireConstructor(host: Host): void {
     const qqc = host.quizQuestionComponent?.();
     if (qqc) qqc.renderReady.set(false);
@@ -294,7 +295,7 @@ export class QuizSetupService {
     host.isContentAvailable$ = this.quizDataService.isContentAvailable$;
   }
 
-  // ── onOptionSelected ──────────────────────────────────────────
+  // â”€â”€ onOptionSelected â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async onOptionSelected(host: Host, option: any, isUserAction: boolean = true): Promise<void> {
     if (!isUserAction) return;
     const id = option?.optionId ?? option?.id ?? option?.displayOrder ?? -1;
@@ -357,7 +358,7 @@ export class QuizSetupService {
     });
 
     // Always mark progress against the authoritative current-question
-    // index from quizService — host.currentQuestionIndex and the derived
+    // index from quizService â€” host.currentQuestionIndex and the derived
     // `idx` from option.questionIndex can both be stale on Q2+, leaving
     // markQuestionAnswered called with 0 on every question (already in
     // the set, early-returns, progress freezes).
@@ -392,7 +393,7 @@ export class QuizSetupService {
     }, 150);
   }
 
-  // ── advanceQuestion / restartQuiz ─────────────────────────────
+  // â”€â”€ advanceQuestion / restartQuiz â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async advanceQuestion(host: Host, direction: 'next' | 'previous'): Promise<void> {
     this.quizContentLoaderService.snapshotLeavingQuestion({
       leavingIdx: host.currentQuestionIndex,
@@ -494,7 +495,7 @@ export class QuizSetupService {
 
   subscribeToNextButtonState(host: Host): void {
     this.nextButtonStateService.isButtonEnabled$
-      .pipe(takeUntil(host.destroy$))
+      .pipe(takeUntilDestroyed(host.destroyRef))
       .subscribe((enabled: boolean) => {
         host.isNextButtonEnabled = enabled;
         host.cdRef.markForCheck();
@@ -503,7 +504,7 @@ export class QuizSetupService {
 
   subscribeToTimerExpiry(host: Host): void {
     this.timerService.expired$
-      .pipe(takeUntil(host.destroy$))
+      .pipe(takeUntilDestroyed(host.destroyRef))
       .subscribe(() => {
         const idx = host.currentQuestionIndex;
         const selections = host.getSelectionsForQuestion(idx);
@@ -526,7 +527,7 @@ export class QuizSetupService {
 
   initializeExplanationText(host: Host): void {
     this.explanationTextService.explanationText$
-      .pipe(takeUntil(host.destroy$))
+      .pipe(takeUntilDestroyed(host.destroyRef))
       .subscribe((text: string | null) => {
         host.explanationToDisplay = text || '';
         host.cdRef.markForCheck();
@@ -663,7 +664,7 @@ export class QuizSetupService {
     this.explanationTextService.setShouldDisplayExplanation(true);
   }
 
-  // ─── Lifecycle / event wrappers ──────────────────────────────
+  // â”€â”€â”€ Lifecycle / event wrappers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   private bridgeQuestionPayload(host: Host): void {
     this.quizService.questionPayload$
@@ -805,7 +806,7 @@ export class QuizSetupService {
       (enabled: boolean) => (host.isNextButtonEnabled = enabled),
       (answered: boolean) => (host.isCurrentQuestionAnswered = answered),
       (_message: string) => {},
-      host.destroy$
+      host.destroyRef
     );
 
     host.resetQuestionState();
@@ -834,10 +835,6 @@ export class QuizSetupService {
   }
 
   runOnDestroy(host: Host): void {
-    try { host.unsubscribe$?.next(); } catch {}
-    try { host.unsubscribe$?.complete(); } catch {}
-    try { host.destroy$?.next(); } catch {}
-    try { host.destroy$?.complete(); } catch {}
     try { host.subscriptions?.unsubscribe(); } catch {}
     try { this.dotStatusService.dotStatusCache.clear(); } catch {}
     try { this.dotStatusService.pendingDotStatusOverrides.clear(); } catch {}

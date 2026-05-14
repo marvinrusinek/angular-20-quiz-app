@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { takeUntil } from 'rxjs/operators';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { CqcFetGuardService } from './cqc-fet-guard.service';
 import type { CodelabQuizContentComponent } from '../../../../containers/quiz/quiz-content/codelab-quiz-content.component';
@@ -24,7 +24,7 @@ export class CqcDisplayTextService {
     if (host.combinedSub) host.combinedSub.unsubscribe();
 
     host.combinedSub = host.combinedText$
-      .pipe(takeUntil(host.destroy$))
+      .pipe(takeUntilDestroyed(host.destroyRef))
       .subscribe({
         next: (text: string) => {
 

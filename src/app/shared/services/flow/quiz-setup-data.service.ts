@@ -1,7 +1,8 @@
-import { Injectable } from '@angular/core';
+﻿import { Injectable } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { EMPTY, firstValueFrom, of } from 'rxjs';
-import { catchError, switchMap, takeUntil, tap } from 'rxjs/operators';
+import { catchError, switchMap, tap } from 'rxjs/operators';
 
 import { Quiz } from '../../models/Quiz.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
@@ -39,7 +40,7 @@ export class QuizSetupDataService {
     private quizContentLoaderService: QuizContentLoaderService
   ) {}
 
-  // ── Data loading ─────────────────────────────────────────────
+  // â”€â”€ Data loading â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async loadQuestions(host: Host): Promise<void> {
     try {
@@ -147,7 +148,7 @@ export class QuizSetupDataService {
     host.question = question ?? null;
   }
 
-  // ── Session hydration ────────────────────────────────────────
+  // â”€â”€ Session hydration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   applyQuestionsFromSession(host: Host, questions: QuizQuestion[]): void {
     const result = this.quizContentLoaderService.hydrateQuestionsFromSession({
@@ -197,11 +198,11 @@ export class QuizSetupDataService {
     if (qqc) qqc.optionsToDisplay.set([...result.normalizedOptions]);
   }
 
-  // ── Quiz initialization ──────────────────────────────────────
+  // â”€â”€ Quiz initialization â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   resolveQuizData(host: Host): void {
     host.activatedRoute.data
-      .pipe(takeUntil(host.unsubscribe$))
+      .pipe(takeUntilDestroyed(host.destroyRef))
       .subscribe(async (data: any) => {
         const quizData = data['quizData'];
         if (!quizData?.questions?.length) {
@@ -224,7 +225,7 @@ export class QuizSetupDataService {
     // Honour the URL-derived question index. host.currentQuestionIndex is
     // set by initializeQuestionIndex earlier in runOnInit (which parses the
     // route param). Hard-coding 0 here on direct nav to /question/.../5
-    // overwrote it and made the entire init use Q1 — visible to the user
+    // overwrote it and made the entire init use Q1 â€” visible to the user
     // as Q1's text + options on Q5.
     const targetIdx = Number.isFinite(host.currentQuestionIndex) && host.currentQuestionIndex >= 0
       ? host.currentQuestionIndex
@@ -243,7 +244,7 @@ export class QuizSetupDataService {
   }
 
   private async prepareQuizSession(host: Host): Promise<void> {
-    // Don't blow away host.currentQuestionIndex here — initializeQuestionIndex
+    // Don't blow away host.currentQuestionIndex here â€” initializeQuestionIndex
     // ran earlier in runOnInit and may have set it from the URL param.
     // Reset only when no URL-derived index was established yet.
     if (!Number.isFinite(host.currentQuestionIndex) || host.currentQuestionIndex < 0) {
@@ -259,7 +260,7 @@ export class QuizSetupDataService {
   initializeQuizFromRoute(host: Host): void {
     host.activatedRoute.data
       .pipe(
-        takeUntil(host.destroy$),
+        takeUntilDestroyed(host.destroyRef),
         switchMap((data: { quizData?: Quiz }) => {
           if (!data.quizData) {
             void this.router.navigate(['/select']);
@@ -326,7 +327,7 @@ export class QuizSetupDataService {
     host.subscriptions.add(sub);
   }
 
-  // ── Question state + answer handling ─────────────────────────
+  // â”€â”€ Question state + answer handling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async handleNavigationToQuestion(host: Host, questionIndex: number): Promise<void> {
     this.quizService.getCurrentQuestion(questionIndex).subscribe({

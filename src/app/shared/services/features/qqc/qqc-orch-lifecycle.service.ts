@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+﻿import { Injectable } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { take } from 'rxjs/operators';
 
@@ -74,7 +74,7 @@ export class QqcOrchLifecycleService {
     }
 
     host.subscriptionWiring.createPreResetSubscription({
-      destroy$: host.destroy$,
+      destroyRef: host.destroyRef,
       onPreReset: (idx: number) => host.resetPerQuestionState(idx),
       getLastResetFor: () => host.lastResetFor,
       setLastResetFor: (idx: number) => { host.lastResetFor = idx; }
@@ -100,7 +100,7 @@ export class QqcOrchLifecycleService {
     if (!loaded) return;
 
     host.subscriptionWiring.createTimerExpiredSubscription({
-      destroy$: host.destroy$,
+      destroyRef: host.destroyRef,
       timerExpired$: host.timerService.expired$,
       onExpired: () => {
         const idx = host.normalizeIndex(host.currentQuestionIndex() ?? 0);
@@ -109,7 +109,7 @@ export class QqcOrchLifecycleService {
     });
 
     host.subscriptionWiring.createTimerStopSubscription({
-      destroy$: host.destroy$,
+      destroyRef: host.destroyRef,
       timerStop$: host.timerService.stop$,
       onTimerStopped: () => {
         const reason = host.timedOut ? 'timeout' : 'stopped';
@@ -244,7 +244,7 @@ export class QqcOrchLifecycleService {
 
       host.subscriptionWiring.createTotalQuestionsSubscription({
         quizId: host.quizId()!,
-        destroy$: host.destroy$,
+        destroyRef: host.destroyRef,
         onTotal: (totalQuestions: number) => { host.totalQuestions = totalQuestions; }
       });
     } catch (error) {
@@ -261,7 +261,7 @@ export class QqcOrchLifecycleService {
         const soc = host.sharedOptionComponent?.();
         if (!soc) return;
         // soc.renderReady is now a WritableSignal (was a Subject pre-migration).
-        // Poll once on next microtask — if already ready, fire detectChanges; else
+        // Poll once on next microtask â€” if already ready, fire detectChanges; else
         // back off via rAF until ready. Preserves the "wait for next true" semantic
         // without needing a reactive context inside this service callback.
         const check = (): void => {
@@ -297,8 +297,6 @@ export class QqcOrchLifecycleService {
 
   runOnDestroy(host: Host): void {
     try { document.removeEventListener('visibilitychange', host.onVisibilityChange.bind(host)); } catch {}
-    try { host.destroy$?.next(); } catch {}
-    try { host.destroy$?.complete(); } catch {}
     host.idxSub?.unsubscribe();
     host.questionsObservableSubscription?.unsubscribe();
     host.sharedVisibilitySubscription?.unsubscribe();

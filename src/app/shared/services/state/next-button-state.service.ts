@@ -1,7 +1,7 @@
-import { computed, Injectable, signal } from '@angular/core';
-import { toObservable } from '@angular/core/rxjs-interop';
+import { computed, DestroyRef, Injectable, signal } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { combineLatest, Observable, of, Subscription } from 'rxjs';
-import { distinctUntilChanged, takeUntil } from 'rxjs/operators';
+import { distinctUntilChanged } from 'rxjs/operators';
 
 @Injectable({ providedIn: 'root' })
 export class NextButtonStateService {
@@ -29,7 +29,7 @@ export class NextButtonStateService {
     isAnswered$: Observable<boolean>,
     isLoading$: Observable<boolean>,
     isNavigating$: Observable<boolean>,
-    destroy$: Observable<void>,
+    destroyRef: DestroyRef,
     interactionReady$?: Observable<boolean>
   ): void {
     if (this.initialized) return;
@@ -45,7 +45,7 @@ export class NextButtonStateService {
       ready$
     ])
     .pipe(
-      takeUntil(destroy$), // Cleanup when component is destroyed
+      takeUntilDestroyed(destroyRef), // Cleanup when component is destroyed
       distinctUntilChanged(
         ([a1, b1, c1, d1], [a2, b2, c2, d2]) =>
           a1 === a2 && b1 === b2 && c1 === c2 && d1 === d2
