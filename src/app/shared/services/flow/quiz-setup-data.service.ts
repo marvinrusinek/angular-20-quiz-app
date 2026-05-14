@@ -48,7 +48,7 @@ export class QuizSetupDataService {
       if (!questions?.length) return;
       host.questionsArray = [...questions];
       host.totalQuestions.set(questions.length);
-      host.isQuizDataLoaded = true;
+      host.isQuizDataLoaded.set(true);
       host.cdRef.detectChanges();
     } catch (error: any) {
       // question loading failed
@@ -82,7 +82,7 @@ export class QuizSetupDataService {
   }
 
   async loadQuizData(host: Host): Promise<boolean> {
-    if (host.isQuizLoaded) return true;
+    if (host.isQuizLoaded()) return true;
     if (!host.quizId) return false;
 
     try {
@@ -97,7 +97,7 @@ export class QuizSetupDataService {
       host.currentQuestion = host.questions[safeIndex] ?? null;
 
       this.quizService.setCurrentQuiz(host.quiz);
-      host.isQuizLoaded = true;
+      host.isQuizLoaded.set(true);
       return true;
     } catch (error: any) {
       host.questions = [];
@@ -302,13 +302,13 @@ export class QuizSetupDataService {
   }
 
   loadQuizQuestionsForCurrentQuiz(host: Host): void {
-    host.isQuizDataLoaded = false;
+    host.isQuizDataLoaded.set(false);
     this.quizDataService.getQuestionsForQuiz(host.quizId).subscribe({
       next: (questions: QuizQuestion[]) => {
         this.applyQuestionsFromSession(host, questions);
-        host.isQuizDataLoaded = true;
+        host.isQuizDataLoaded.set(true);
       },
-      error: () => { host.isQuizDataLoaded = true; }
+      error: () => { host.isQuizDataLoaded.set(true); }
     });
   }
 

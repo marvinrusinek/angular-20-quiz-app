@@ -59,7 +59,7 @@ export class QuizSetupRouteService {
           this.quizResetService.performQuizSwitchResets(routeQuizId);
           this.resetComponentStateForQuizSwitch(host, routeQuizId);
           await loadQuestions(host);
-          host.isQuizLoaded = true;
+          host.isQuizLoaded.set(true);
         }
 
         host.currentQuestionIndex.set(idx);
@@ -117,8 +117,8 @@ export class QuizSetupRouteService {
     host.currentQuestionIndex.set(0);
     host.lastLoggedIndex = -1;
     host.navigatingToResults = false;
-    host.isQuizLoaded = false;
-    host.isQuizDataLoaded = false;
+    host.isQuizLoaded.set(false);
+    host.isQuizDataLoaded.set(false);
     host.totalQuestions.set(0);
     host.progressSig.set(0);
     host.quizId = routeQuizId;

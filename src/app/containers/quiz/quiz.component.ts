@@ -169,9 +169,8 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   readonly optionsToDisplaySig = signal<Option[]>([]);
   readonly explanationToDisplay = signal<string>('');
 
-  isLoading = false;
-  isQuizLoaded = false;
-  isQuizDataLoaded = false;
+  readonly isQuizLoaded = signal<boolean>(false);
+  readonly isQuizDataLoaded = signal<boolean>(false);
   public isQuizRenderReadySig = signal<boolean>(false);
   quizAlreadyInitialized = false;
   public hasOptionsLoaded = false;
@@ -226,7 +225,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
 
   @HostListener('window:focus')
   onTabFocus(): void {
-    if (!this.isLoading && !this.quizStateService.isLoading()) {
+    if (!this.quizStateService.isLoading()) {
       const idx = this.quizService.getCurrentQuestionIndex();
       const total = this.totalQuestions();
       if (idx >= 0 && idx < total) {
@@ -341,9 +340,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   // ── Template getters ──────────────────────────────────────────
-  public get showPaging(): boolean {
-    return this.isQuizDataLoaded && this.totalQuestions() > 0;
-  }
+  readonly showPaging = computed(() => this.isQuizDataLoaded() && this.totalQuestions() > 0);
 
   // Read the URL question index — used as a fallback when
   // this.currentQuestionIndex hasn't propagated yet during URL/dot

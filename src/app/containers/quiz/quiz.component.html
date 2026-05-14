@@ -42,7 +42,7 @@
                   }
                 </div>
 
-                @if (showPaging) {
+                @if (showPaging()) {
                   <div class="nav-buttons">
                     @if (shouldShowPrevButton) {
                       <button type="button" class="nav-btn" (click)="advanceToPreviousQuestion()"
@@ -79,7 +79,7 @@
                 </section>
               }
 
-                @if (showPaging) {
+                @if (showPaging()) {
                   <!-- Row 2: Pagination Dots (center) + Progress (right) -->
                   <section class="footer-row-2">
                     <div class="paging-dots">

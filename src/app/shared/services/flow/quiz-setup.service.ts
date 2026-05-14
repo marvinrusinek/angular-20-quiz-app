@@ -724,7 +724,7 @@ subscribeToTimerExpiry(host: Host): void {
     this.bridgeQuestionPayload(host);
 
     await this.loadQuestions(host);
-    host.isQuizLoaded = true;
+    host.isQuizLoaded.set(true);
 
     for (const [idx, status] of this.selectedOptionService.clickConfirmedDotStatus) {
       if (status === 'correct' || status === 'wrong') {
