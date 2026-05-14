@@ -1,6 +1,5 @@
 import {
-  ChangeDetectorRef, ChangeDetectionStrategy, Component, effect, input,
-  signal
+  ChangeDetectionStrategy, Component, effect, input, signal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
@@ -27,8 +26,7 @@ export class FeedbackComponent {
   constructor(
     private feedbackService: FeedbackService,
     private quizService: QuizService,
-    private selectedOptionService: SelectedOptionService,
-    private cdRef: ChangeDetectorRef
+    private selectedOptionService: SelectedOptionService
   ) {
     // Re-runs whenever the feedbackConfig signal input changes (replaces
     // the prior ngOnInit + ngOnChanges pair). Truthy-only gate matches the
@@ -38,7 +36,6 @@ export class FeedbackComponent {
       const cfg = this.feedbackConfig();
       if (cfg) {
         this.updateFeedback();
-        this.cdRef.markForCheck();
       }
     });
   }
@@ -50,7 +47,6 @@ export class FeedbackComponent {
     } else {
       this.displayMessage.set('');
     }
-    this.cdRef.detectChanges();
   }
 
 

@@ -1,6 +1,5 @@
 import {
-  ChangeDetectionStrategy, ChangeDetectorRef, Component, computed, DestroyRef,
-  effect, OnInit, signal
+  ChangeDetectionStrategy, Component, computed, DestroyRef, OnInit, signal
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
@@ -69,7 +68,6 @@ export class IntroductionComponent implements OnInit {
     private activatedRoute: ActivatedRoute,
     private router: Router,
     private fb: FormBuilder,
-    private cdRef: ChangeDetectorRef,
     private destroyRef: DestroyRef
   ) {
     // Initialize the form group with default values
@@ -77,14 +75,6 @@ export class IntroductionComponent implements OnInit {
       shouldShuffleOptions: [false],
       isImmediateFeedback: [false]
     });
-
-    effect(() => {
-      const quiz = this.selectedQuiz();
-      if (!quiz) return;
-  
-      this.cdRef.markForCheck();
-    });
-
   }
 
   ngOnInit(): void {
@@ -178,7 +168,6 @@ export class IntroductionComponent implements OnInit {
     if (this.isStartingQuiz()) return;
 
     this.isStartingQuiz.set(true);
-    this.cdRef.markForCheck();
 
     try {
       const targetQuizId = this.resolveTargetQuizId(quizId);
@@ -199,7 +188,6 @@ export class IntroductionComponent implements OnInit {
       await this.navigateToFirstQuestion(targetQuizId);
     } finally {
       this.isStartingQuiz.set(false);
-      this.cdRef.markForCheck();
     }
   }
 
@@ -357,9 +345,5 @@ export class IntroductionComponent implements OnInit {
     try {
       localStorage.setItem('quizId', quizId);
     } catch (storageError) { }
-  }
-
-  public get milestone(): string {
-    return this.selectedQuiz()?.milestone || 'Milestone not found';
   }
 }
