@@ -15,7 +15,7 @@ modular Angular architecture, and dynamic UI rendering.
 </p>
 
 <p align="center">
-<a href="https://stackblitz.com/~/github.com/marvinrusinek/angular-20-quiz-app" target="_blank">
+<a href="https://marvinrusinek.github.io/angular-20-quiz-app/" target="_blank">
 ▶ Launch Live Demo
 </a>
 </p>
