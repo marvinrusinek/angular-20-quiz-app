@@ -23,7 +23,7 @@ import { TimerService } from '../../../shared/services/features/timer/timer.serv
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class StatisticsComponent implements OnInit {
-  quizzes$: Observable<Quiz[]> = of([]);
+  readonly quizzes = this.quizDataService.quizzesSig;
   milestoneName$: Observable<string> = of('');
   // Signal input aliased to "quizId" so parent template binding stays the same.
   // Internal code may reassign the backing field, so we mirror via effect().
@@ -94,14 +94,12 @@ export class StatisticsComponent implements OnInit {
       completionTime: totalElapsedTime
     });
 
-    this.quizzes$ = this.quizDataService.getQuizzes();
-
     const cachedQuiz = this.quizDataService.getCachedQuizById(this.quizId);
 
     // Use milestone name when available.
     this.milestoneName$ = cachedQuiz?.milestone
       ? of(cachedQuiz.milestone)
-      : this.quizzes$.pipe(
+      : this.quizDataService.quizzes$.pipe(
           map((quizzes) =>
             quizzes.find((quiz) => quiz.quizId === this.quizId)?.milestone ??
             this.quizId

@@ -72,7 +72,7 @@ export class QuizService {
     return this.dataLoader.currentQuiz$;
   }
 
-  private questionsSig = signal<QuizQuestion[]>([]);
+  readonly questionsSig = signal<QuizQuestion[]>([]);
   questions$: Observable<QuizQuestion[]> = toObservable(this.questionsSig);
 
   private questionsQuizId: string | null = (() => {

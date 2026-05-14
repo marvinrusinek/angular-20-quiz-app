@@ -1,9 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, OnInit, Signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
-import { Observable, of } from 'rxjs';
 
-import { Quiz } from '../../../shared/models/Quiz.model';
 import { QuizMetadata } from '../../../shared/models/QuizMetadata.model';
 import { QuizService } from '../../../shared/services/data/quiz.service';
 import { QuizDataService } from '../../../shared/services/data/quizdata.service';
@@ -18,7 +16,7 @@ import { TimerService } from '../../../shared/services/features/timer/timer.serv
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ChallengeComponent implements OnInit {
-  quizzes$: Observable<Quiz[]> = of([]);
+  readonly quizzes = this.quizDataService.quizzesSig;
   quizName = '';
   currentQuizId = '';
 
@@ -48,8 +46,6 @@ export class ChallengeComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.quizzes$ = this.quizDataService.getQuizzes();
-
     // Get quizId from service (most reliable) or from route params
     this.currentQuizId = this.quizService.quizId ||
       this.activatedRoute.snapshot.paramMap.get('quizId') ||

@@ -1,4 +1,4 @@
-@for (quiz of quizzes$ | async; track quiz.quizId) {
+@for (quiz of quizzes(); track quiz.quizId) {
   @if (quiz.quizId === quizId) {
     <div class="statistics">
       
