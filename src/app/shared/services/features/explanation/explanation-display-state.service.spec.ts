@@ -39,10 +39,6 @@ describe('ExplanationDisplayStateService', () => {
 
   // ── Initial values ──────────────────────────────────────────────────
 
-  it('should have explanationText$ with initial value of empty string', () => {
-    expect(service.explanationText$.getValue()).toBe('');
-  });
-
   it('should have isExplanationTextDisplayedSig with initial value of false', () => {
     expect(service.isExplanationTextDisplayedSig()).toBe(false);
   });

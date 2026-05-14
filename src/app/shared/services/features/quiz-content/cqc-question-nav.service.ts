@@ -180,7 +180,6 @@ export class CqcQuestionNavService {
         ets.latestExplanation = '';
         ets.latestExplanationIndex = -1;
         ets.formattedExplanationSig.set('');
-        ets.explanationText$.next('');
 
         try { (ets as any)._fetSubject?.next({ idx: -1, text: '', token: 0 }); } catch { }
         try { ets.fetByIndex?.delete(idx); } catch { }

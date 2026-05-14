@@ -505,15 +505,6 @@ subscribeToTimerExpiry(host: Host): void {
     void this.handleNavigationToQuestion(host, host.currentQuestionIndex);
   }
 
-  initializeExplanationText(host: Host): void {
-    this.explanationTextService.explanationText$
-      .pipe(takeUntilDestroyed(host.destroyRef))
-      .subscribe((text: string | null) => {
-        host.explanationToDisplay = text || '';
-        host.cdRef.markForCheck();
-      });
-  }
-
   showExplanationForQuestion(host: Host, qIdx: number): void {
     const { explanationHtml } = this.quizContentLoaderService.prepareExplanationForQuestion({
       qIdx, questionsArray: host.questionsArray, quiz: host.quiz,
@@ -784,7 +775,6 @@ subscribeToTimerExpiry(host: Host): void {
     host.quizInitializationService.initializeAnswerSync(host.destroyRef);
 
     host.resetQuestionState();
-    this.initializeExplanationText(host);
 
     const confirmedStatus = this.selectedOptionService.clickConfirmedDotStatus.get(host.currentQuestionIndex);
     const isAnsweredOnRefresh = confirmedStatus === 'correct' || confirmedStatus === 'wrong';

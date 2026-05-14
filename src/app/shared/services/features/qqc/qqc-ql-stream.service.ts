@@ -556,7 +556,6 @@ export class QqcQlStreamService {
 
     this.explanationTextService.setResetComplete(false);
     this.explanationTextService.setShouldDisplayExplanation(false);
-    this.explanationTextService.explanationText$.next('');
 
     let explanationText = '';
     this.timerService.stopTimer?.(undefined, { force: true });
@@ -748,8 +747,6 @@ export class QqcQlStreamService {
     this.currentLoadAbortCtl = new AbortController();
     this.isLoadingSig.set(true);
 
-    this.explanationTextService.explanationText$.next('');
-
     try {
       let allQuestions: QuizQuestion[];
       if (this.quizService.isShuffleEnabled() && this.quizService.shuffledQuestions?.length > 0) {
@@ -811,7 +808,6 @@ export class QqcQlStreamService {
     if (index != null && index !== activeIndex) return;
 
     this.questionToDisplaySig.set('');
-    this.explanationTextService.explanationText$.next('');
     this.clearQA();
     this.quizStateService.setDisplayState({
       mode: 'question',

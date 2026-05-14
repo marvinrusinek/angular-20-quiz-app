@@ -154,7 +154,6 @@ export class QclQuestionFetchService {
 
       this.explanationTextService.setResetComplete(false);
       this.explanationTextService.setShouldDisplayExplanation(false);
-      this.explanationTextService.explanationText$.next('');
 
       const trimmedText = (fetchedQuestion?.questionText ?? '').trim() || 'No question available';
 

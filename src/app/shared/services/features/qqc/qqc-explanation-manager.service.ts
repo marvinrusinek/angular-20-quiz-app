@@ -164,10 +164,7 @@ export class QqcExplanationManagerService {
     const latestExplanation = (this.explanationTextService.getLatestExplanation() ?? '')
       .toString()
       .trim();
-    const serviceExplanation = (this.explanationTextService.explanationText$.getValue() ?? '')
-      .toString()
-      .trim();
-    const explanationText = rawExplanation || latestExplanation || serviceExplanation;
+    const explanationText = rawExplanation || latestExplanation;
 
     if (!explanationText) {
       return { shouldRestore: false, explanationText: '' };

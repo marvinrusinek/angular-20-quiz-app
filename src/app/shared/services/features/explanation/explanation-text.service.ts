@@ -171,10 +171,6 @@ export class ExplanationTextService {
   // Display state pass-through properties
   // ═══════════════════════════════════════════════════════════════════════
 
-  get explanationText$(): BehaviorSubject<string | null> {
-    return this.displayState.explanationText$;
-  }
-
   get isExplanationTextDisplayedSig(): WritableSignal<boolean> {
     return this.displayState.isExplanationTextDisplayedSig;
   }
