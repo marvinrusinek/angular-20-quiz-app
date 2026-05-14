@@ -55,9 +55,6 @@ export class IntroductionComponent implements OnInit {
     this.questionCountSig() === 1 ? 'question' : 'questions'
   );
 
-  shuffledQuestions: QuizQuestion[] = [];
-  shouldShuffleOptions = false;
-
   highlightPreference = false;
   isImmediateFeedback = false;
 
@@ -91,17 +88,6 @@ export class IntroductionComponent implements OnInit {
       this.cdRef.markForCheck();
     });
 
-    effect(() => {
-      const quiz = this.selectedQuiz();
-      const checked = this.isChecked();
-  
-      if (!quiz) {
-        return;
-      }
-  
-      this.shouldShuffleOptions = checked;
-      this.fetchAndHandleQuestions(quiz.quizId);
-    });
   }
 
   ngOnInit(): void {
@@ -112,7 +98,6 @@ export class IntroductionComponent implements OnInit {
       .valueChanges.pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((isChecked: boolean) => {
         this.highlightPreference = isChecked;
-        this.shouldShuffleOptions = isChecked;
         this.quizService.setCheckedShuffle(isChecked);
         this.isChecked.set(isChecked);
       });
@@ -193,31 +178,10 @@ export class IntroductionComponent implements OnInit {
     this.cdRef.markForCheck();
   }
 
-  private fetchAndHandleQuestions(quizId: string): void {
-    this.quizDataService
-      .getQuestionsForQuiz(quizId)
-      .pipe(
-        switchMap((questions: QuizQuestion[]) => {
-          // NOTE: Shuffle is handled by quiz.service.ts fetchQuizQuestions()
-          // Do NOT shuffle here - it would break question-option correspondence
-          return of(questions);
-        }),
-        catchError(() => {
-          return of([]);
-        }),
-        takeUntilDestroyed(this.destroyRef)
-      )
-      .subscribe((questions: QuizQuestion[]) => {
-        this.shuffledQuestions = questions;
-        this.cdRef.markForCheck();
-      });
-  }
-
   onSlideToggleChange(event: MatSlideToggleChange): void {
     const isChecked = event.checked;
-  
+
     this.highlightPreference = isChecked;
-    this.shouldShuffleOptions = isChecked;
     this.quizService.setCheckedShuffle(isChecked);
     this.isChecked.set(isChecked);
   }
