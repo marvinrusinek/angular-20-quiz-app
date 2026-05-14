@@ -124,7 +124,7 @@ export class QuizQuestionComponent extends BaseQuestion
   shufflePreferenceSubscription!: Subscription;
   idxSub!: Subscription;
   isMultipleAnswer!: boolean;
-  isLoading = true;
+  readonly isLoading = signal<boolean>(true);
   initialized = false;
   feedbackText = '';
   displayExplanation = false;

@@ -103,9 +103,9 @@ export class QqcOrchQuestionLoadService {
     });
 
     if (shouldPreserveVisualState) {
-      host.isLoading = false;
+      host.isLoading.set(false);
     } else {
-      host.isLoading = true;
+      host.isLoading.set(true);
       host.quizStateService.setLoading(true);
       host.quizStateService.setAnswerSelected(false);
       if (!host.quizStateService.isLoading()) host.quizStateService.startLoading();
@@ -193,7 +193,7 @@ export class QqcOrchQuestionLoadService {
       host.optionsToDisplay.set([]);
       return false;
     } finally {
-      host.isLoading = false;
+      host.isLoading.set(false);
       host.quizStateService.setLoading(false);
     }
   }
@@ -250,7 +250,7 @@ export class QqcOrchQuestionLoadService {
     host.initialized = true;
 
     host.quizId.set(host.activatedRoute.snapshot.paramMap.get('quizId'));
-    host.isLoading = true;
+    host.isLoading.set(true);
     try {
       const result = await host.initializer.performFullQuizInit({
         currentQuestionIndex: host.currentQuestionIndex(),
@@ -267,7 +267,7 @@ export class QqcOrchQuestionLoadService {
         host.quizId.set(result.quizId);
       }
     } finally {
-      host.isLoading = false;
+      host.isLoading.set(false);
     }
   }
 

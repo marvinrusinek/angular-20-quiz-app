@@ -17,7 +17,7 @@
               <codelab-quiz-content
                 [questionIndex]="currentQuestionIndex"
                 [questionToDisplay$]="questionToDisplay$"
-                [explanationToDisplay]="explanationToDisplay"
+                [explanationToDisplay]="explanationToDisplay()"
                 [displayState$]="displayState$" />
 
               <codelab-quiz-question
@@ -27,9 +27,9 @@
                 [explanation]="qa.explanation ?? ''"
                 [currentQuestionIndex]="currentQuestionIndex"
                 [displayState$]="displayState$"
-                [shouldRenderOptions]="shouldRenderOptions"
+                [shouldRenderOptions]="shouldRenderOptions()"
                 [questionToDisplay$]="questionToDisplay$"
-                [explanationToDisplay]="explanationToDisplay"
+                [explanationToDisplay]="explanationToDisplay()"
                 (events)="handleQuizQuestionEvent($event)" />
             </mat-card-content>
 

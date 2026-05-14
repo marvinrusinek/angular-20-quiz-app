@@ -179,8 +179,8 @@ export class QuizSetupDataService {
       host.optionsToDisplay = [];
       host.optionsToDisplaySig.set([]);
       host.hasOptionsLoaded = false;
-      host.shouldRenderOptions = false;
-      host.explanationToDisplay = '';
+      host.shouldRenderOptions.set(false);
+      host.explanationToDisplay.set('');
       this.explanationTextService.setExplanationText('', { index: host.currentQuestionIndex ?? 0 });
       return;
     }
@@ -192,8 +192,8 @@ export class QuizSetupDataService {
     host.optionsToDisplay = [...result.normalizedOptions];
     host.optionsToDisplaySig.set([...result.normalizedOptions]);
     host.hasOptionsLoaded = result.normalizedOptions.length > 0;
-    host.shouldRenderOptions = host.hasOptionsLoaded;
-    host.explanationToDisplay = result.trimmedExplanation;
+    host.shouldRenderOptions.set(host.hasOptionsLoaded);
+    host.explanationToDisplay.set(result.trimmedExplanation);
     const qqc = host.quizQuestionComponent?.();
     if (qqc) qqc.optionsToDisplay.set([...result.normalizedOptions]);
   }
@@ -317,7 +317,7 @@ export class QuizSetupDataService {
         host.combinedQuestionData.set(payload);
         host.qaToDisplay = { question: payload.question, options: payload.options };
         host.questionToDisplaySig.set(payload.question?.questionText?.trim() ?? 'No question available');
-        host.explanationToDisplay = payload.explanation ?? '';
+        host.explanationToDisplay.set(payload.explanation ?? '');
         host.question = payload.question;
         host.currentQuestion = payload.question;
         host.optionsToDisplay = [...payload.options];
@@ -349,7 +349,7 @@ export class QuizSetupDataService {
       quizId: host.quizId, questionIndex,
     });
     if (!result.handled) return;
-    host.explanationToDisplay = result.explanationText;
+    host.explanationToDisplay.set(result.explanationText);
     if (result.showExplanation) host.cdRef.detectChanges();
   }
 

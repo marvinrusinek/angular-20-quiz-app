@@ -168,7 +168,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
 
   optionsToDisplay: Option[] = [];
   optionsToDisplaySig = signal<Option[]>([]);
-  explanationToDisplay = '';
+  readonly explanationToDisplay = signal<string>('');
 
   isLoading = false;
   isQuizLoaded = false;
@@ -176,7 +176,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   public isQuizRenderReadySig = signal<boolean>(false);
   quizAlreadyInitialized = false;
   public hasOptionsLoaded = false;
-  public shouldRenderOptions = false;
+  public readonly shouldRenderOptions = signal<boolean>(false);
 
   previousIndex: number | null = null;
   isNavigatedByUrl = false;

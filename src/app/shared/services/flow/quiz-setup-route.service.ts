@@ -114,7 +114,7 @@ export class QuizSetupRouteService {
     host.optionsToDisplaySig.set([]);
     host.combinedQuestionData.set(null);
     host.questionToDisplaySig.set('');
-    host.explanationToDisplay = '';
+    host.explanationToDisplay.set('');
     host.currentQuestionIndex = 0;
     host.lastLoggedIndex = -1;
     host.navigatingToResults = false;
@@ -156,7 +156,7 @@ export class QuizSetupRouteService {
         host.cdRef.markForCheck();
 
         if (isNavigation) {
-          host.explanationToDisplay = '';
+          host.explanationToDisplay.set('');
           host.optionsToDisplay = [];
           host.updateDotStatus(idx);
         }
@@ -228,9 +228,9 @@ export class QuizSetupRouteService {
       host.questionToDisplaySig.set(result.question.questionText?.trim() ?? '');
       host.optionsToDisplay = [...result.options];
       host.optionsToDisplaySig.set([...result.options]);
-      host.explanationToDisplay = result.explanation;
+      host.explanationToDisplay.set(result.explanation);
       host.qaToDisplay = { question: result.question, options: result.options };
-      host.shouldRenderOptions = true;
+      host.shouldRenderOptions.set(true);
       host.cdRef.detectChanges();
 
       // Force question text (with multi-answer banner) into <h3 #qText>
@@ -306,7 +306,7 @@ export class QuizSetupRouteService {
     this.quizService.currentQuestionIndexSig.set(adjustedIndex);
     this.quizService.currentQuestionIndexSubject.next(adjustedIndex);
 
-    host.explanationToDisplay = '';
+    host.explanationToDisplay.set('');
     this.quizContentLoaderService.resetDisplayExplanationText(host.currentQuestionIndex);
     this.quizContentLoaderService.clearAllOptionStates();
     this.nextButtonStateService.setNextButtonState(false);

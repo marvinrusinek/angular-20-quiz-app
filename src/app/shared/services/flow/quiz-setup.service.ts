@@ -206,7 +206,7 @@ export class QuizSetupService {
       const needsRender = this.quizVisibilityRestoreService.handleVisibilityChange(isHidden, {
         currentQuestion: host.currentQuestion,
         optionsToDisplay: host.optionsToDisplay,
-        explanationToDisplay: host.explanationToDisplay,
+        explanationToDisplay: host.explanationToDisplay(),
         combinedQuestionData: host.combinedQuestionData,
         optionsToDisplaySig: host.optionsToDisplaySig
       });
@@ -343,7 +343,7 @@ export class QuizSetupService {
       currentQuestion: host.currentQuestion,
       optionsToDisplay: host.optionsToDisplay,
       liveSelections: host.getSelectionsForQuestion(idx),
-      explanationToDisplay: host.explanationToDisplay
+      explanationToDisplay: host.explanationToDisplay()
     });
 
     // Always mark progress against the authoritative current-question
@@ -510,13 +510,13 @@ subscribeToTimerExpiry(host: Host): void {
       qIdx, questionsArray: host.questionsArray, quiz: host.quiz,
       currentQuestionIndex: host.currentQuestionIndex, currentQuestion: host.currentQuestion,
     });
-    host.explanationToDisplay = explanationHtml;
+    host.explanationToDisplay.set(explanationHtml);
     host.cdRef.detectChanges();
   }
 
   onExplanationChanged(host: Host, explanation: string | any, index?: number): void {
     const resolved = this.quizContentLoaderService.resolveExplanationChange(
-      explanation, index, host.explanationToDisplay
+      explanation, index, host.explanationToDisplay()
     );
     if (!resolved) return;
 
@@ -630,7 +630,7 @@ subscribeToTimerExpiry(host: Host): void {
       }
     }
 
-    host.explanationToDisplay = resolved.text;
+    host.explanationToDisplay.set(resolved.text);
     this.explanationTextService.setExplanationText(resolved.text, { index: resolved.index });
     this.explanationTextService.setShouldDisplayExplanation(true);
   }
