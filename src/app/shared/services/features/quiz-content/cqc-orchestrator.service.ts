@@ -61,7 +61,6 @@ export class CqcOrchestratorService {
     host.emitContentAvailableState();
     host.loadQuizDataFromRoute();
     await host.initializeComponent();
-    host.setupCorrectAnswersTextDisplay();
 
     host.quizService.questions$
       .pipe(
@@ -435,11 +434,6 @@ export class CqcOrchestratorService {
           if (host.correctAnswersTextSig() !== newCorrectAnswersText) {
             host.correctAnswersTextSig.set(newCorrectAnswersText);
           }
-
-          const shouldDisplayCorrectAnswers = isMultipleAnswer && !explanationDisplayed;
-          if (host.shouldDisplayCorrectAnswersSubject.getValue() !== shouldDisplayCorrectAnswers) {
-            host.shouldDisplayCorrectAnswersSubject.next(shouldDisplayCorrectAnswers);
-          }
         }),
         map(() => void 0)
       );
@@ -675,37 +669,6 @@ export class CqcOrchestratorService {
       isNavigatingToPrevious: false,
       selectionMessage: ''
     };
-  }
-
-  runSetupCorrectAnswersTextDisplay(host: Host): void {
-    host.shouldDisplayCorrectAnswers$ = combineLatest([
-      host.shouldDisplayCorrectAnswers$.pipe(
-        startWith(false),
-        map((value: boolean) => value ?? false),
-        distinctUntilChanged()
-      ),
-      host.isExplanationDisplayed$.pipe(
-        startWith(false),
-        map((value: boolean) => value ?? false),
-        distinctUntilChanged()
-      )
-    ]).pipe(
-      map((arr: any) => !!arr[0] && !arr[1]),
-      distinctUntilChanged(),
-      catchError((_error: Error) => {
-        return of(false);
-      })
-    );
-
-    host.displayCorrectAnswersText$ = host.shouldDisplayCorrectAnswers$.pipe(
-      switchMap((shouldDisplay: boolean) => {
-        return shouldDisplay ? host.correctAnswersText$ : of(null);
-      }),
-      distinctUntilChanged(),
-      catchError((_error: Error) => {
-        return of(null);
-      })
-    );
   }
 
   runHaveSameOptionOrder(_host: Host, left: Option[] = [], right: Option[] = []): boolean {

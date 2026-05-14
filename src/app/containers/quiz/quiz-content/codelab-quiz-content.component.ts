@@ -90,15 +90,6 @@ export class CodelabQuizContentComponent implements OnInit, OnDestroy {
   questionIndexSubject = new BehaviorSubject<number>(0);
   currentIndex$ = this.questionIndexSubject.asObservable();
 
-  // Restored after commit ed9f41d2 ("Clean up CodelabQuizContentComponent")
-  // dropped them — runSetupCorrectAnswersTextDisplay reads both .pipe before
-  // reassigning them and crashes when they're undefined.
-  shouldDisplayCorrectAnswersSubject = new BehaviorSubject<boolean>(false);
-  shouldDisplayCorrectAnswers$: Observable<boolean> =
-    this.shouldDisplayCorrectAnswersSubject.asObservable();
-  isExplanationDisplayed$ = new BehaviorSubject<boolean>(false);
-  displayCorrectAnswersText$!: Observable<string | null>;
-
   isExplanationTextDisplayed$: Observable<boolean>;
 
   get _fetLocked(): boolean { return this.displayService._fetLockedSig(); }
@@ -116,7 +107,6 @@ export class CodelabQuizContentComponent implements OnInit, OnDestroy {
   readonly numberOfCorrectAnswers$ = of('0');
 
   readonly correctAnswersTextSig = signal<string>('');
-  readonly correctAnswersText$ = toObservable(this.correctAnswersTextSig);
 
   readonly questionRenderedSig = signal<boolean>(false);
 
@@ -338,10 +328,6 @@ export class CodelabQuizContentComponent implements OnInit, OnDestroy {
     formattedExplanation: string
   ): CombinedQuestionDataType {
     return this.orchestrator.runCalculateCombinedQuestionData(this, currentQuizData, numberOfCorrectAnswers, isExplanationDisplayed, formattedExplanation);
-  }
-
-  setupCorrectAnswersTextDisplay(): void {
-    this.orchestrator.runSetupCorrectAnswersTextDisplay(this);
   }
 
   setupShouldShowFet(): void {
