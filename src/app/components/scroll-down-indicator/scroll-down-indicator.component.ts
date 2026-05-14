@@ -1,13 +1,12 @@
 import {
-  ChangeDetectionStrategy, ChangeDetectorRef, Component, HostListener, input,
-  OnInit
+  ChangeDetectionStrategy, Component, HostListener, input, OnInit, signal
 } from '@angular/core';
 
 @Component({
   selector: 'app-scroll-down-indicator',
   standalone: true,
   template: `
-    @if (showIndicator) {
+    @if (showIndicator()) {
       <div class="scroll-indicator" (click)="scrollDown()">
         <i class="material-icons">keyboard_arrow_down</i>
       </div>
@@ -18,9 +17,7 @@ import {
 })
 export class ScrollDownIndicatorComponent implements OnInit {
   targetSelector = input<string>('');
-  showIndicator = false;
-
-  constructor(private cdRef: ChangeDetectorRef) {}
+  readonly showIndicator = signal(false);
 
   ngOnInit(): void {
     setTimeout(() => this.check(), 300);
@@ -38,18 +35,15 @@ export class ScrollDownIndicatorComponent implements OnInit {
 
   check(): void {
     const el = this.targetSelector
-      ? document.querySelector(this.targetSelector()) 
+      ? document.querySelector(this.targetSelector())
       : document.documentElement;
     if (!el) {
-      this.showIndicator = false;
+      this.showIndicator.set(false);
       return;
     }
     const rect = el.getBoundingClientRect();
     const shouldShow = (rect.bottom - window.innerHeight) > 20;
-    if (this.showIndicator !== shouldShow) {
-      this.showIndicator = shouldShow;
-      this.cdRef.detectChanges();
-    }
+    this.showIndicator.set(shouldShow);
   }
 
   scrollDown(): void {

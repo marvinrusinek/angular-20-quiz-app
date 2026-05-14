@@ -1,6 +1,6 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef,
-  effect, inject, input, model, OnInit, output, QueryList, ViewContainerRef
+  effect, inject, input, model, OnInit, output, QueryList, signal, ViewContainerRef
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
@@ -58,7 +58,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   hasComponentLoaded = false;
 
   override selectedOptionIndex = -1;
-  renderReady = false;
+  readonly renderReady = signal(false);
 
   private destroyRef = inject(DestroyRef);
 
@@ -126,7 +126,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
           feedback: undefined
         }));
         this.optionBindings.set(this.rebuildOptionBindings(this.optionBindingsSource));
-        this.renderReady = true;
+        this.renderReady.set(true);
         this.syncOptionsWithSelections();
         this.cdRef.markForCheck();
       } else {
@@ -199,7 +199,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
 
         //  Clear prior icons and bindings (clean slate)
         this.optionBindings.set([]);
-        this.renderReady = false;
+        this.renderReady.set(false);
 
         // Apply options synchronously (removed Promise.resolve to fix StackBlitz timing)
         this.applyIncomingOptions(this.incomingOptions, {
@@ -265,7 +265,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     }
 
     this.optionBindings.set(this.rebuildOptionBindings(this.optionBindingsSource));
-    this.renderReady = true;
+    this.renderReady.set(true);
     this.syncOptionsWithSelections();
     this.cdRef.markForCheck();
   }
@@ -511,9 +511,9 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   // Rebuild optionBindings from the latest optionsToDisplay.
   private rebuildOptionBindings(options: Option[]): OptionBindings[] {
     const rebuilt = this.answerBindingsService.rebuildOptionBindings(options);
-  
+
     this.optionBindings.set(rebuilt);
-    this.renderReady = true;
+    this.renderReady.set(true);
   
     requestAnimationFrame(() => {
       this.cdRef.markForCheck();
