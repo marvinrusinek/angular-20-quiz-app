@@ -3,7 +3,7 @@ import {
   DestroyRef, HostListener, OnDestroy, OnInit, signal, viewChild, ViewEncapsulation
 } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
-import { CommonModule, AsyncPipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Observable, Subscription } from 'rxjs';
 import { debounceTime, shareReplay } from 'rxjs/operators';
@@ -45,7 +45,7 @@ type AnimationState = 'animationStarted' | 'none';
   selector: 'codelab-quiz-component',
   standalone: true,
   imports: [
-    CommonModule, AsyncPipe, MatCardModule, MatTooltipModule,
+    CommonModule, MatCardModule, MatTooltipModule,
     QuizQuestionComponent, CodelabQuizHeaderComponent,
     CodelabQuizContentComponent, ScoreboardComponent,
     ThemeToggleComponent
