@@ -1,7 +1,7 @@
 import {
-  ChangeDetectionStrategy, Component, computed, DestroyRef, OnInit, signal
+  ChangeDetectionStrategy, Component, computed, DestroyRef, effect, OnInit, signal
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { ActivatedRoute, Params, Router } from '@angular/router';
 import {
@@ -75,19 +75,23 @@ export class IntroductionComponent implements OnInit {
       shouldShuffleOptions: [false],
       isImmediateFeedback: [false]
     });
+
+    const shuffleCtrl = this.preferencesForm.get('shouldShuffleOptions')!;
+    const shouldShuffle = toSignal(shuffleCtrl.valueChanges, {
+      initialValue: shuffleCtrl.value as boolean
+    });
+
+    effect(() => {
+      const isChecked = shouldShuffle();
+      this.highlightPreference = isChecked;
+      this.quizService.setCheckedShuffle(isChecked);
+      this.isChecked.set(isChecked);
+    });
   }
 
   ngOnInit(): void {
     this.quizService.clearStoredCorrectAnswersText();
     this.subscribeToRouteParameters();
-
-    this.preferencesForm.get('shouldShuffleOptions')!
-      .valueChanges.pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((isChecked: boolean) => {
-        this.highlightPreference = isChecked;
-        this.quizService.setCheckedShuffle(isChecked);
-        this.isChecked.set(isChecked);
-      });
   }
 
   private subscribeToRouteParameters(): void {

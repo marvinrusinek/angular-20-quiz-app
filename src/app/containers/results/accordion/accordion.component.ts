@@ -1,6 +1,6 @@
 import {
-  ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, effect,
-  input, OnInit
+  ChangeDetectionStrategy, Component, DestroyRef, effect,
+  input, OnInit, signal
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
@@ -27,7 +27,7 @@ import { ExplanationTextService } from '../../../shared/services/features/explan
 })
 export class AccordionComponent implements OnInit {
   readonly questionsInput = input<QuizQuestion[]>([], { alias: 'questions' });
-  questions: QuizQuestion[] = [];
+  readonly questions = signal<QuizQuestion[]>([]);
 
   readonly isShuffled = input(false);
   readonly accordionHeaderLabel = input('', { alias: "headerLabel" });
@@ -45,21 +45,19 @@ export class AccordionComponent implements OnInit {
     private timerService: TimerService,
     private selectedOptionService: SelectedOptionService,
     private explanationTextService: ExplanationTextService,
-    private cdRef: ChangeDetectorRef,
     private activatedRoute: ActivatedRoute,
     private destroyRef: DestroyRef
   ) {
     effect(() => {
       const incoming = this.questionsInput();
       if (Array.isArray(incoming) && incoming.length > 0) {
-        this.questions = incoming;
+        this.questions.set(incoming);
       }
     });
 
     effect(() => {
       const questions = this.quizService.questionsSig();
-      this.questions = questions;
-      this.cdRef.detectChanges();
+      this.questions.set(questions);
 
       if (questions.length === 0 && !this.hasRetried) {
         this.hasRetried = true;
@@ -105,8 +103,7 @@ export class AccordionComponent implements OnInit {
   private loadInitialQuestionsFromService(): void {
     const currentQuestions = this.quizService.questions;
     if (currentQuestions && currentQuestions.length > 0) {
-      this.questions = currentQuestions;
-      this.cdRef.detectChanges();  // force immediate update for OnPush
+      this.questions.set(currentQuestions);
     }
   }
 
@@ -123,8 +120,7 @@ export class AccordionComponent implements OnInit {
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe((qs: QuizQuestion[]) => {
           if (qs && qs.length > 0) {
-            this.questions = qs;
-            this.cdRef.detectChanges();  // force immediate update for OnPush
+            this.questions.set(qs);
           }
         });
     }, 100);
@@ -210,7 +206,7 @@ export class AccordionComponent implements OnInit {
   // Get selected options directly from SelectedOptionService for a given question index
   // Returns visual 1-based indices (Option 1, Option 2, etc.) in SELECTION ORDER (not sorted)
   getSelectedOptionsForQuestion(questionIndex: number): { text: string; visualIndex: number }[] {
-    const question = this.questions[questionIndex];
+    const question = this.questions()[questionIndex];
     if (!question || !question.options) return [];
 
     const matchOption = (sel: any): number => {

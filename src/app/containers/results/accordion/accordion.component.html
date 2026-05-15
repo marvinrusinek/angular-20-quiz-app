@@ -2,12 +2,12 @@
   Detailed Summary <i>({{ accordionHeaderLabel() }})</i>
 </h3>
 
-@if (questions.length === 0) {
+@if (questions().length === 0) {
   <p>No questions available to display. Please verify quiz data.</p>
 }
 
 <mat-accordion multi="true" #accordion="matAccordion">
-  @for (question of questions; track $index; let i = $index) {
+  @for (question of questions(); track $index; let i = $index) {
     <mat-expansion-panel #panel class="quiz-summary-question" hideToggle="true">
       <mat-expansion-panel-header>
         <mat-panel-description>

@@ -1,8 +1,8 @@
 import {
   ChangeDetectionStrategy, ChangeDetectorRef, Component, computed, DestroyRef,
-  HostListener, OnInit, signal
+  effect, HostListener, OnInit, signal
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -70,6 +70,14 @@ export class ResultsComponent implements OnInit {
 
   readonly showScrollIndicator = signal(true);
 
+  // Tracks whether ngOnInit already applied a synchronous snapshot, so the
+  // finalResult$ effect skips re-applying when the observable later emits.
+  private readonly hasSnapshot = signal(false);
+  private readonly finalResultStream = toSignal(
+    this.quizService.finalResult$,
+    { initialValue: null as FinalResult | null }
+  );
+
   constructor(
     private quizService: QuizService,
     private quizDataService: QuizDataService,
@@ -82,6 +90,16 @@ export class ResultsComponent implements OnInit {
     private cdRef: ChangeDetectorRef,
     private destroyRef: DestroyRef
   ) {
+    effect(() => {
+      if (this.hasSnapshot()) return;
+      const r = this.finalResultStream();
+      if (!r) return;
+      if (r.quizId) this.quizId.set(r.quizId);
+      this.finalResult.set(r);
+      this.applyFinalResultSnapshot(r);
+      this.updateHeaderLabel(r.total);
+      this.persistResultsToSession(r);
+    });
   }
 
   ngOnInit(): void {
@@ -117,6 +135,7 @@ export class ResultsComponent implements OnInit {
     }
 
     if (snapshot) {
+      this.hasSnapshot.set(true);
       if (snapshot.quizId) {
         this.quizId.set(snapshot.quizId);
       }
@@ -124,25 +143,8 @@ export class ResultsComponent implements OnInit {
       this.applyFinalResultSnapshot(snapshot);
       this.updateHeaderLabel(snapshot.total);
       this.persistResultsToSession(snapshot);
-      this.cdRef.markForCheck();
-      return;
     }
-
-    // Optional fallback
-    this.quizService.finalResult$
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(r => {
-        if (r?.quizId) {
-          this.quizId.set(r.quizId);
-        }
-        this.finalResult.set(r);
-        if (r) {
-          this.applyFinalResultSnapshot(r);
-          this.updateHeaderLabel(r.total);
-          this.persistResultsToSession(r);
-        }
-        this.cdRef.markForCheck();
-      });
+    // No snapshot: the constructor effect picks up finalResult$ emissions.
   }
 
   @HostListener('window:scroll', [])

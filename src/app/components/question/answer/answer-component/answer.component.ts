@@ -1,6 +1,6 @@
 import {
-  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef,
-  effect, inject, input, model, OnInit, output, QueryList, signal, ViewContainerRef
+  ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef,
+  effect, inject, input, model, OnInit, output, signal
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
@@ -33,10 +33,7 @@ import { BaseQuestion } from '../../base/base-question';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
-  implements OnInit, AfterViewInit {
-
-  viewContainerRefs!: QueryList<ViewContainerRef>;
-  viewContainerRef!: ViewContainerRef;
+  implements OnInit {
 
   readonly componentLoaded = output<any>();
   readonly optionSelected = output<{
@@ -208,18 +205,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       });
   }
 
-  ngAfterViewInit(): void {
-    if (this.viewContainerRefs) {
-      this.viewContainerRefs?.changes.subscribe(() => {
-        this.handleViewContainerRef();
-      });
-    } else {
-      // viewContainerRefs not initialized
-    }
-
-    this.cdRef.detectChanges();  // ensure change detection runs
-  }
-
   private resetSelectionState(): void {
     this.selectedOption = null;
     this.selectedOptions = [];
@@ -328,45 +313,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
         );
       }
     }
-  }
-
-  private handleViewContainerRef(): void {
-    if (this.hasComponentLoaded) return;
-
-    if (this.viewContainerRefs && this.viewContainerRefs.length > 0) {
-      // Assign the first available ViewContainerRef
-      this.viewContainerRef = this.viewContainerRefs.first;
-      this.loadQuizQuestionComponent();
-      this.hasComponentLoaded = true;  // prevent further attempts to load
-    }
-  }
-
-  private loadQuizQuestionComponent(): void {
-    if (this.hasComponentLoaded) return;
-
-    // Ensure that the current component container is cleared before loading a new one
-    if (this.viewContainerRef) {
-      this.viewContainerRef.clear();
-    } else {
-      return;
-    }
-
-    // Get the current question and determine the component to load
-    this.quizService.getCurrentQuestion(this.quizService.currentQuestionIndex)
-      .subscribe((currentQuestion: QuizQuestion | null) => {
-        if (!currentQuestion) return;
-        const isMultipleAnswer =
-          this.quizQuestionManagerService.isMultipleAnswerQuestion(currentQuestion);
-
-        if (isMultipleAnswer) {
-          this.type.set(isMultipleAnswer ? 'multiple' : 'single');
-          this.hasComponentLoaded = true;  // prevent further attempts to load
-          this.quizQuestionComponentLoaded.emit();  // notify listeners that component is loaded
-          this.cdRef.markForCheck();
-        } else {
-          // could not determine whether question is multiple answer
-        }
-      });
   }
 
   private async initializeAnswerConfig(): Promise<void> {
