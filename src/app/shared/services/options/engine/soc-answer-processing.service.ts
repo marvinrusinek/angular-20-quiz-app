@@ -208,7 +208,7 @@ export class SocAnswerProcessingService {
       effectiveCorrectIndices.every((ci: number) => durableSet.has(ci));
     try {
       const nrmAC = (t: any) => String(t ?? '').trim().toLowerCase();
-      const liveQAC: any = comp.currentQuestion
+      const liveQAC: any = comp.currentQuestion()
         ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]
         ?? (this.quizService as any)?.questions?.[qIdx];
       const bindingsAC: any[] = comp.optionBindings ?? [];
@@ -257,7 +257,7 @@ export class SocAnswerProcessingService {
         fetText = ((pristineFETQ as any)?.explanation ?? '').trim();
         // Also try live question objects
         if (!fetText) {
-          const liveQ = comp.currentQuestion
+          const liveQ = comp.currentQuestion()
             ?? comp.getQuestionAtDisplayIndex?.(qIdx)
             ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx];
           fetText = (liveQ?.explanation ?? '').trim();
@@ -273,7 +273,7 @@ export class SocAnswerProcessingService {
           const oneBasedIndices = effectiveCorrectIndices
             .map((ci: number) => ci + 1)
             .filter((n: number) => Number.isFinite(n) && n > 0);
-          const qForFormat = comp.currentQuestion
+          const qForFormat = comp.currentQuestion()
             ?? comp.getQuestionAtDisplayIndex?.(qIdx)
             ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]
             ?? (this.quizService as any)?.questions?.[qIdx];
@@ -514,7 +514,7 @@ export class SocAnswerProcessingService {
       (this.explanationTextService as any)._fetLocked = false;
       this.explanationTextService.unlockExplanation();
       comp.showExplanationChange.emit(true);
-      const singleFetQuestion = comp.currentQuestion
+      const singleFetQuestion = comp.currentQuestion()
         ?? comp.getQuestionAtDisplayIndex?.(qIdx)
         ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx];
 
@@ -646,7 +646,7 @@ export class SocAnswerProcessingService {
     // NOT incremented — the user didn't pick the correct answer.
     try {
       const nrmAR = (t: any) => String(t ?? '').trim().toLowerCase();
-      const liveQAR: any = comp.currentQuestion
+      const liveQAR: any = comp.currentQuestion()
         ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]
         ?? (this.quizService as any)?.questions?.[qIdx];
       const bindingsAR: any[] = Array.isArray(comp.optionBindings)
@@ -763,7 +763,7 @@ export class SocAnswerProcessingService {
       });
 
       // Resolve and emit the FET text.
-      const fetQuestionAR = comp.currentQuestion
+      const fetQuestionAR = comp.currentQuestion()
         ?? comp.getQuestionAtDisplayIndex?.(qIdx)
         ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx];
       const fetCtxAR = {
