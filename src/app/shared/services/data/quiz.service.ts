@@ -285,10 +285,6 @@ export class QuizService {
     }
   }
 
-  get shuffleEnabled(): boolean {
-    return this.isShuffleEnabled();
-  }
-
   initializeData(): void {
     const result = this.dataLoader.initializeData(this.quizId);
 
@@ -410,7 +406,7 @@ export class QuizService {
 
   getQuestionsInDisplayOrder(): QuizQuestion[] {
     const shuffled = this.shuffledQuestions ?? [];
-    return this.shuffleEnabled && shuffled.length
+    return this.isShuffleEnabled() && shuffled.length
       ? shuffled : (this.questions ?? []);
   }
 

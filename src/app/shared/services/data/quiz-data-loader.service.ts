@@ -316,10 +316,6 @@ export class QuizDataLoaderService {
     return this.shuffleEnabledSig();
   }
 
-  get shuffleEnabled(): boolean {
-    return this.isShuffleEnabled();
-  }
-
   setCheckedShuffle(isChecked: boolean): void {
     this.shuffleEnabledSig.set(isChecked);
     try {
