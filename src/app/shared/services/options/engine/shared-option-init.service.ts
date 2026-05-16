@@ -37,7 +37,7 @@ export interface SharedOptionComponentLike {
   showFeedbackForOption: { [key: string | number]: boolean };
   correctMessage: string;
   showFeedback: boolean;
-  shouldResetBackground: boolean;
+  shouldResetBackground: WritableSignal<boolean>;
   highlightCorrectAfterIncorrect: () => boolean;
   optionBindings: OptionBindings[];
   selectedOptionId: () => number | null;
@@ -72,7 +72,7 @@ export interface SharedOptionComponentLike {
   disableRenderTrigger: number;
   flashDisabledSet: Set<number>;
   forceDisableAll: boolean;
-  timerExpiredForQuestion: boolean;
+  timerExpiredForQuestion: WritableSignal<boolean>;
   _timerExpiryHandled: boolean;
   viewReady: boolean;
   optionsReady: boolean;

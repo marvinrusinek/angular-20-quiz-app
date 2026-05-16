@@ -18,7 +18,7 @@ export class QqcOrchTimerService {
 
     const soc = host.sharedOptionComponent?.();
     if (soc) {
-      soc.timerExpiredForQuestion = true;
+      soc.timerExpiredForQuestion.set(true);
 
       const displayOpts = soc.optionsToDisplay?.length
         ? soc.optionsToDisplay
