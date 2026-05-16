@@ -95,7 +95,7 @@ export class SharedOptionComponent
   readonly selectedOption = signal<Option | null>(null);
   public showFeedbackForOption!: { [key: string | number]: boolean };
   readonly correctMessage = signal<string>('');
-  public showFeedback = false;
+  readonly showFeedback = signal<boolean>(false);
   readonly shouldResetBackground = signal<boolean>(false);
   public optionBindings: OptionBindings[] = [];
   readonly selectedOptionIndex = signal<number | null>(null);
@@ -257,7 +257,7 @@ export class SharedOptionComponent
           this.lastFeedbackQuestionIndex = v;
           this.feedbackConfigs = {};
           this.showFeedbackForOption = {};
-          this.showFeedback = false;
+          this.showFeedback.set(false);
           this.highlightedOptionIds.clear();
           this.flashDisabledSet.clear();
           this.lockedIncorrectOptionIds.clear();

@@ -130,7 +130,7 @@ export class SharedOptionClickService {
 
       if (isRapidDuplicate) return;
 
-      if (comp.type === 'single' && !comp.isMultiMode && binding.option.selected && comp.showFeedback) {
+      if (comp.type === 'single' && !comp.isMultiMode && binding.option.selected && comp.showFeedback()) {
         return;
       }
 
@@ -196,7 +196,7 @@ export class SharedOptionClickService {
         emitExplanationFn,
         (b: any, i: number, ev: any, existingCtx: any) => {
           this.updateOptionAndUI(comp, b, i, ev, existingCtx || state);
-          state.showFeedback = comp.showFeedback;
+          state.showFeedback = comp.showFeedback();
           state.showFeedbackForOption = comp.showFeedbackForOption;
           state.feedbackConfigs = comp.feedbackConfigs;
           state.lastFeedbackOptionId = comp.lastFeedbackOptionId;
@@ -213,7 +213,7 @@ export class SharedOptionClickService {
     comp.lastClickTimestamp = state.lastClickTimestamp;
     comp.hasUserClicked = state.hasUserClicked;
     comp.freezeOptionBindings = state.freezeOptionBindings;
-    comp.showFeedback = state.showFeedback;
+    comp.showFeedback.set(state.showFeedback);
     comp.showFeedbackForOption = state.showFeedbackForOption;
     comp.feedbackConfigs = state.feedbackConfigs;
     comp.lastFeedbackOptionId = state.lastFeedbackOptionId;
@@ -381,7 +381,7 @@ export class SharedOptionClickService {
 
     // â”€â”€â”€ Post-click feedback display â”€â”€â”€
     comp._feedbackDisplay = null;
-    if (comp.showFeedback) {
+    if (comp.showFeedback()) {
       const clickedBinding = comp.optionBindings[index];
       if (clickedBinding) {
         const key = comp.keyOf(clickedBinding.option, index);
@@ -475,7 +475,7 @@ export class SharedOptionClickService {
 
     comp.feedbackConfigs = { ...ctx.feedbackConfigs };
     comp.showFeedbackForOption = { ...ctx.showFeedbackForOption };
-    comp.showFeedback = ctx.showFeedback;
+    comp.showFeedback.set(ctx.showFeedback);
     comp.lastFeedbackOptionId = Number(ctx.lastFeedbackOptionId);
     comp.lastFeedbackQuestionIndex = ctx.lastFeedbackQuestionIndex;
     const isChecked = 'checked' in event ? event.checked : true;
@@ -505,7 +505,7 @@ export class SharedOptionClickService {
       comp.optionBindings = comp.optionBindings.map((b: any) => ({
         ...b,
         showFeedbackForOption: { ...comp.showFeedbackForOption },
-        showFeedback: comp.showFeedback,
+        showFeedback: comp.showFeedback(),
         disabled: comp.computeDisabledState(b.option, b.index)
       }));
     }

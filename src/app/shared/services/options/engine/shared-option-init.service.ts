@@ -36,7 +36,7 @@ export interface SharedOptionComponentLike {
   selectedOption: WritableSignal<Option | null>;
   showFeedbackForOption: { [key: string | number]: boolean };
   correctMessage: WritableSignal<string>;
-  showFeedback: boolean;
+  showFeedback: WritableSignal<boolean>;
   shouldResetBackground: WritableSignal<boolean>;
   highlightCorrectAfterIncorrect: () => boolean;
   optionBindings: OptionBindings[];
@@ -185,7 +185,7 @@ export class SharedOptionInitService {
     comp.feedbackConfigs = {};
     comp.showFeedbackForOption = {};
     comp._feedbackDisplay = null;
-    comp.showFeedback = false;
+    comp.showFeedback.set(false);
     // CRITICAL: Reset hasUserClicked so that new question starts fresh.
     // Without this, hasUserClicked from Q1 leaks into Q2 and blocks
     // all guard-protected paths (rehydrateUiFromState, initializeFromConfig, etc.)
@@ -468,7 +468,7 @@ export class SharedOptionInitService {
               comp.highlightedOptionIds.clear();
               comp.selectedOptions.clear();
               comp.feedbackConfigs = {};
-              comp.showFeedback = false;
+              comp.showFeedback.set(false);
               comp.showFeedbackForOption = {};
 
               // Reset option bindings to clear visual state
@@ -549,7 +549,7 @@ export class SharedOptionInitService {
             }
 
             if (hasSelection) {
-              comp.showFeedback = true;
+              comp.showFeedback.set(true);
 
               // Only overwrite lastFeedbackOptionId if it's invalid or no longer selected.
               // This ensures feedback stays with the most recently clicked option (which
@@ -644,7 +644,7 @@ export class SharedOptionInitService {
     comp.selectedOptionIndex.set(-1);
     comp.showFeedbackForOption = {};
     comp.correctMessage.set('');
-    comp.showFeedback = false;
+    comp.showFeedback.set(false);
     comp.shouldResetBackground.set(false);
     comp.optionsRestored = false;
     comp.currentQuestion.set(null);

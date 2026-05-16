@@ -105,7 +105,7 @@ export class SocOptionUiService {
       }
     }
 
-    comp.showFeedback = true;
+    comp.showFeedback.set(true);
     comp.updateHighlighting();
     comp.emitExplanation(comp.resolvedQuestionIndex ?? 0);
     comp.cdRef.markForCheck();
@@ -243,7 +243,7 @@ export class SocOptionUiService {
       showFeedbackForOption: comp.showFeedbackForOption,
       updateFeedbackState: (id: number) => {
         if (!comp.showFeedbackForOption) comp.showFeedbackForOption = {};
-        comp.showFeedback = true;
+        comp.showFeedback.set(true);
         comp.showFeedbackForOption[id] = true;
       }
     });

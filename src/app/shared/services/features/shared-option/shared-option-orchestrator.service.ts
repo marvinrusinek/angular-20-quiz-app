@@ -209,7 +209,7 @@ export class SharedOptionOrchestratorService {
     const ctx = host.buildFeedbackContext();
     const result = host.feedbackManager.displayFeedbackForOption(option, index, optionId, ctx);
     if (!result) return;
-    host.showFeedback = result.showFeedback;
+    host.showFeedback.set(result.showFeedback);
     host.showFeedbackForOption = result.showFeedbackForOption;
     host.feedbackConfigs = result.feedbackConfigs;
     host.currentFeedbackConfig = result.currentFeedbackConfig;
@@ -223,11 +223,11 @@ export class SharedOptionOrchestratorService {
     const result = host.feedbackManager.rebuildShowFeedbackMapFromBindings(
       host.optionBindings, host.lastFeedbackOptionId, host.selectedOptionHistory
     );
-    host.showFeedback = result.showFeedback;
+    host.showFeedback.set(result.showFeedback);
     host.showFeedbackForOption = result.showFeedbackForOption;
     for (const b of host.optionBindings ?? []) {
       b.showFeedbackForOption = host.showFeedbackForOption;
-      if (host.showFeedback) b.showFeedback = true;
+      if (host.showFeedback()) b.showFeedback = true;
     }
     host.cdRef.detectChanges();
   }
@@ -247,7 +247,7 @@ export class SharedOptionOrchestratorService {
         rawSelectedId,
         host.selectedOptionHistory
     );
-    if (host.showFeedback) {
+    if (host.showFeedback()) {
       host.rebuildShowFeedbackMapFromBindings();
     }
     host.cdRef.markForCheck();

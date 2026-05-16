@@ -222,7 +222,7 @@ export class SharedOptionBindingService {
     comp.optionBindings = this.optionBindingFactory.createBindings({
       optionsToDisplay: comp.optionsToDisplay,
       type: comp.resolveInteractionType(),
-      showFeedback: comp.showFeedback,
+      showFeedback: comp.showFeedback(),
       showFeedbackForOption: {},
       highlightCorrectAfterIncorrect: comp.highlightCorrectAfterIncorrect(),
       shouldResetBackground: comp.shouldResetBackground(),
@@ -552,7 +552,7 @@ export class SharedOptionBindingService {
 
         if (activeIdx >= 0) {
           comp.lastFeedbackOptionId = activeIdx;
-          comp.showFeedback = true;
+          comp.showFeedback.set(true);
         }
 
         if (!comp._feedbackDisplay) {
@@ -714,7 +714,7 @@ export class SharedOptionBindingService {
       optionsToDisplay: comp.optionsToDisplay,
       selectedOption: comp.selectedOption(),
       currentQuestion: comp.currentQuestion(),
-      showFeedback: comp.showFeedback,
+      showFeedback: comp.showFeedback(),
       correctMessage: comp.correctMessage(),
       showCorrectMessage: !!comp.correctMessage(),
       explanationText: '',
@@ -738,7 +738,7 @@ export class SharedOptionBindingService {
       index: idx,
       feedback: option.feedback ?? 'No feedback available',
       isCorrect: option.correct ?? false,
-      showFeedback: comp.showFeedback,
+      showFeedback: comp.showFeedback(),
       showFeedbackForOption: comp.showFeedbackForOption,
       highlightCorrectAfterIncorrect: comp.highlightCorrectAfterIncorrect(),
       highlightIncorrect: selected && !option.correct,

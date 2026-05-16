@@ -324,7 +324,7 @@ export class SocAnswerProcessingService {
       comp.cdRef.detectChanges();
     });
 
-    comp.showFeedback = true;
+    comp.showFeedback.set(true);
     comp.cdRef.detectChanges();
 
     // Multi-answer: when all correct options are selected, also
