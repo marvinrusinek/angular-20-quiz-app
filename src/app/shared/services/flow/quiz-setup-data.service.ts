@@ -152,7 +152,7 @@ export class QuizSetupDataService {
 
   applyQuestionsFromSession(host: Host, questions: QuizQuestion[]): void {
     const result = this.quizContentLoaderService.hydrateQuestionsFromSession({
-      questions, quiz: host.quiz, selectedQuiz: host.selectedQuiz,
+      questions, quiz: host.quiz, selectedQuiz: host.selectedQuiz(),
     });
 
     host.questions = result.hydratedQuestions;
@@ -160,8 +160,9 @@ export class QuizSetupDataService {
     if (result.quizQuestions && host.quiz) {
       host.quiz = { ...host.quiz, questions: result.quizQuestions };
     }
-    if (result.selectedQuizQuestions && host.selectedQuiz) {
-      host.selectedQuiz = { ...host.selectedQuiz, questions: result.selectedQuizQuestions };
+    const currentSelectedQuiz = host.selectedQuiz();
+    if (result.selectedQuizQuestions && currentSelectedQuiz) {
+      host.selectedQuiz.set({ ...currentSelectedQuiz, questions: result.selectedQuizQuestions });
     }
 
     this.syncQuestionSnapshotFromSession(host, result.hydratedQuestions);
@@ -170,7 +171,7 @@ export class QuizSetupDataService {
   private syncQuestionSnapshotFromSession(host: Host, hydratedQuestions: QuizQuestion[]): void {
     const result = this.quizContentLoaderService.syncQuestionSnapshot({
       hydratedQuestions, currentQuestionIndex: host.currentQuestionIndex(),
-      previousIndex: host.previousIndex, serviceCurrentIndex: this.quizService?.currentQuestionIndex,
+      previousIndex: host.previousIndex(), serviceCurrentIndex: this.quizService?.currentQuestionIndex,
     });
     if (result.isEmpty) {
       host.questionToDisplaySig.set('');
@@ -207,7 +208,7 @@ export class QuizSetupDataService {
           void this.router.navigate(['/select']);
           return;
         }
-        host.selectedQuiz = quizData;
+        host.selectedQuiz.set(quizData);
         this.quizContentLoaderService.initializeFetForQuizData(quizData);
         await this.initializeQuiz(host);
         this.quizContentLoaderService.initializeFetForShuffledQuiz();
@@ -362,11 +363,11 @@ export class QuizSetupDataService {
       question: host.question(),
       optionsToDisplay: host.optionsToDisplaySig(),
       currentQuestionIndex: idx,
-      answers: host.answers
+      answers: host.answers()
     });
 
     if (!result.option) return;
-    host.answers = result.answers;
+    host.answers.set(result.answers);
     void this.updateQuestionStateAndExplanation(host, idx);
   }
 }

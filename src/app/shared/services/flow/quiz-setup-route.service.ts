@@ -297,10 +297,10 @@ export class QuizSetupRouteService {
 
     this.quizContentLoaderService.lockAndPurgeFet(adjustedIndex);
 
-    if (host.previousIndex === adjustedIndex && !host.isNavigatedByUrl) return;
+    if (host.previousIndex() === adjustedIndex && !host.isNavigatedByUrl) return;
 
     host.currentQuestionIndex.set(adjustedIndex);
-    host.previousIndex = adjustedIndex;
+    host.previousIndex.set(adjustedIndex);
     this.quizService.currentQuestionIndexSig.set(adjustedIndex);
     this.quizService.currentQuestionIndexSubject.next(adjustedIndex);
 

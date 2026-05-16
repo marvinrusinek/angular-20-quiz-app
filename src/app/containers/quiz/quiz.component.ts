@@ -60,7 +60,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   readonly sharedOptionComponent = viewChild(SharedOptionComponent);
   readonly nextButtonTooltip = viewChild<MatTooltip>('nextButton');
 
-  selectedQuiz: Quiz | null = null;
+  readonly selectedQuiz = signal<Quiz | null>(null);
   readonly currentQuestion = signal<QuizQuestion | null>(null);
   quiz!: Quiz;
   quizId = '';
@@ -78,7 +78,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   indexSubscription!: Subscription;
   subscriptions: Subscription = new Subscription();
 
-  answers: Option[] = [];
+  readonly answers = signal<Option[]>([]);
   readonly selectionMessage = this.selectionMessageService.selectionMessageSig;
   showScrollIndicator = false;
 
@@ -175,7 +175,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   public hasOptionsLoaded = false;
   public readonly shouldRenderOptions = signal<boolean>(false);
 
-  previousIndex: number | null = null;
+  readonly previousIndex = signal<number | null>(null);
   isNavigatedByUrl = false;
   navigatingToResults = false;
 
