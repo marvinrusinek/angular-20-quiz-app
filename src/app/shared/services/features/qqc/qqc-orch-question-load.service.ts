@@ -79,7 +79,7 @@ export class QqcOrchQuestionLoadService {
     host.forceQuestionDisplay = true;
 
     const shouldPreserveVisualState = host.questionLoader.canRenderQuestionInstantly(
-      host.questionsArray,
+      host.questionsArray(),
       host.currentQuestionIndex()
     );
     const explanationSnapshot = host.explanationManager.captureExplanationSnapshot({
@@ -150,7 +150,7 @@ export class QqcOrchQuestionLoadService {
 
       const loadResult = await host.questionLoader.performLoadQuestionPostReset({
         currentQuestionIndex: host.currentQuestionIndex(),
-        questionsArray: host.questionsArray,
+        questionsArray: host.questionsArray(),
         quizId: host.quizId(),
         signal,
         questions: host.questions
@@ -162,7 +162,7 @@ export class QqcOrchQuestionLoadService {
         return false;
       }
 
-      host.questionsArray = loadResult.questionsArray;
+      host.questionsArray.set(loadResult.questionsArray);
       host.currentQuestion.set(loadResult.currentQuestion);
       host.optionsToDisplay.set(loadResult.optionsToDisplay);
       host.updateShouldRenderOptions(host.optionsToDisplay());
@@ -211,7 +211,7 @@ export class QqcOrchQuestionLoadService {
 
         const routeResult = await host.questionLoader.performRouteChangeUpdate({
           zeroBasedIndex,
-          questionsArray: host.questionsArray,
+          questionsArray: host.questionsArray(),
           loadQuestion: () => host.loadQuestion(),
           isAnyOptionSelected: (idx: number) => host.isAnyOptionSelected(idx),
           updateExplanationText: (idx: number) => host.updateExplanationText(idx),
@@ -254,7 +254,7 @@ export class QqcOrchQuestionLoadService {
     try {
       const result = await host.initializer.performFullQuizInit({
         currentQuestionIndex: host.currentQuestionIndex(),
-        questionsArray: host.questionsArray,
+        questionsArray: host.questionsArray(),
         routeQuizId: host.quizId() ?? null,
         setQuestionOptions: () => host.setQuestionOptions(),
         questionLoader: host.questionLoader,
@@ -262,7 +262,7 @@ export class QqcOrchQuestionLoadService {
         getExplanationText: (idx: number) => host.explanationManager.getExplanationText(idx)
       });
       if (result) {
-        host.questionsArray = result.questionsArray;
+        host.questionsArray.set(result.questionsArray);
         host.questions = result.questions;
         host.quizId.set(result.quizId);
       }
@@ -279,7 +279,7 @@ export class QqcOrchQuestionLoadService {
     if (!result) return;
 
     host.questions = result.questions;
-    host.questionsArray = result.questions;
+    host.questionsArray.set(result.questions);
     if (result.quiz) host.quiz = result.quiz;
     if (!host.quiz) return;
 

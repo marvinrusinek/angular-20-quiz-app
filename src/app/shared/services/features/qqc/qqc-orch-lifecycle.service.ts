@@ -142,11 +142,11 @@ export class QqcOrchLifecycleService {
       document.addEventListener('visibilitychange', host.onVisibilityChange.bind(host));
 
       host.questionLoader.initializeComponentState({
-        questionsArray: host.questionsArray,
+        questionsArray: host.questionsArray(),
         currentQuestionIndex: host.currentQuestionIndex(),
       }).then((result: any) => {
         if (!result) return;
-        host.questionsArray = result.questionsArray;
+        host.questionsArray.set(result.questionsArray);
         host.currentQuestionIndex.set(result.currentQuestionIndex);
         host.currentQuestion.set(result.currentQuestion);
         const cq = host.currentQuestion();
@@ -199,7 +199,7 @@ export class QqcOrchLifecycleService {
       const firstQuestionIndex = host.initializer.parseQuestionIndexFromRoute(questionIndexParam);
       const firstQResult = host.initializer.setQuestionFirst({
         index: firstQuestionIndex,
-        questionsArray: host.questionsArray
+        questionsArray: host.questionsArray()
       });
       if (firstQResult) {
         host.currentQuestion.set(firstQResult.currentQuestion);
@@ -283,7 +283,7 @@ export class QqcOrchLifecycleService {
     const index = host.currentQuestionIndex();
 
     const setupResult = await host.questionLoader.performAfterViewInitQuestionSetup({
-      questionsArray: host.questionsArray,
+      questionsArray: host.questionsArray(),
       currentQuestionIndex: index,
       getFormattedExplanation: (q: QuizQuestion, i: number) => host.explanationManager.getFormattedExplanation(q, i),
       updateExplanationUI: (i: number, text: string) => host.updateExplanationUI(i, text)

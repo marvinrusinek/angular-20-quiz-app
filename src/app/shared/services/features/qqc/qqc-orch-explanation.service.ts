@@ -133,23 +133,23 @@ export class QqcOrchExplanationService {
     host.resetExplanation();
 
     const ensureLoaded = async () => {
-      const r = await host.questionLoader.ensureQuestionsLoaded(host.questionsArray, host.quizId());
+      const r = await host.questionLoader.ensureQuestionsLoaded(host.questionsArray(), host.quizId());
       if (r.loaded && r.questions) {
         host.questions = r.questions;
-        host.questionsArray = r.questions;
+        host.questionsArray.set(r.questions);
       }
       return r.loaded;
     };
 
     const result = await host.explanationFlow.performFetchAndSetExplanation({
       questionIndex,
-      questionsArray: host.questionsArray,
+      questionsArray: host.questionsArray(),
       quizId: host.quizId(),
       isAnswered: host.isAnswered(),
       shouldDisplayExplanation: host.shouldDisplayExplanation,
       ensureQuestionsLoaded: ensureLoaded,
       ensureQuestionIsFullyLoaded: (idx: number) =>
-        host.questionLoader.ensureQuestionIsFullyLoaded(idx, host.questionsArray, host.quizId()),
+        host.questionLoader.ensureQuestionIsFullyLoaded(idx, host.questionsArray(), host.quizId()),
       prepareExplanationText: (idx: number) => host.prepareAndSetExplanationText(idx),
       isAnyOptionSelected: (idx: number) => host.isAnyOptionSelected(idx)
     });
@@ -169,7 +169,7 @@ export class QqcOrchExplanationService {
 
   runUpdateExplanationUI(host: Host, questionIndex: number, explanationText: string): void {
     const validated = host.explanationFlow.performUpdateExplanationUI({
-      questionsArray: host.questionsArray,
+      questionsArray: host.questionsArray(),
       questionIndex
     });
     if (!validated) return;
@@ -258,7 +258,7 @@ export class QqcOrchExplanationService {
     return host.explanationDisplay.updateExplanationText(
       { index, 
         normalizeIndex: (idx: number) => host.normalizeIndex(idx), 
-        questionsArray: host.questionsArray, 
+        questionsArray: host.questionsArray(), 
         currentQuestionIndex: host.currentQuestionIndex(), 
         currentQuestion: host.currentQuestion(), 
         optionsToDisplay: host.optionsToDisplay(), 
