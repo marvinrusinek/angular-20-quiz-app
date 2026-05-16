@@ -373,6 +373,12 @@ export class SocAnswerProcessingService {
       setTimeout(stamp, 0);
       setTimeout(stamp, 50);
     }
+
+    // INCORRECT CLICK + ALL-INCORRECT-EXHAUSTED auto-reveal for multi-answer.
+    // Mirrors the single-answer block in processSingleAnswerClick (~line 642).
+    // Fires only when every incorrect option has been clicked — disables
+    // remaining incorrects and auto-highlights any unclicked correct options.
+    this.triggerAllIncorrectsExhaustedAutoReveal(comp, index, qIdx);
   }
 
   /**
@@ -640,10 +646,12 @@ export class SocAnswerProcessingService {
     }
 
     // INCORRECT CLICK + ALL-INCORRECT-EXHAUSTED auto-reveal:
-    // After the user has selected every incorrect option for this single-
-    // answer question, auto-highlight the canonical correct option and
-    // emit FET so the question reaches a resolved visual state. Score is
-    // NOT incremented — the user didn't pick the correct answer.
+    // After the user has selected every incorrect option for this question,
+    // auto-highlight every canonical correct option and emit FET so the
+    // question reaches a resolved visual state. Works for both single-
+    // and multi-answer questions: the size of `pristineCorrectTextsAR`
+    // can be 1 (single) or N (multi). Score is NOT incremented — the
+    // user didn't fully pick the correct answer(s).
     try {
       const nrmAR = (t: any) => String(t ?? '').trim().toLowerCase();
       const liveQAR: any = comp.currentQuestion()
@@ -654,11 +662,12 @@ export class SocAnswerProcessingService {
         : (typeof comp.optionBindings === 'function' ? comp.optionBindings() : []);
       if (!bindingsAR.length) return;
 
-      // Pristine correct text(s) from cache — single-answer auto-reveal
-      // only fires when there's exactly one canonical correct option.
+      // Pristine correct text(s) from cache. Must have at least one
+      // canonical correct option to reveal.
       const pristineCorrectTextsAR =
         this.quizService.getPristineCorrectTextsForQuestion(liveQAR?.questionText);
-      if (pristineCorrectTextsAR.size !== 1) return;
+      if (pristineCorrectTextsAR.size < 1) return;
+      const isMultiModeAR = pristineCorrectTextsAR.size > 1;
 
       // Collect every selected text for this question. For single-answer,
       // selectedOptionsMap holds only the latest click (each click replaces
@@ -773,7 +782,7 @@ export class SocAnswerProcessingService {
         quizId: comp.quizId?.() ?? comp.quizId ?? '',
         optionBindings: comp.optionBindings ?? [],
         optionsToDisplay: comp.optionsToDisplay ?? [],
-        isMultiMode: false
+        isMultiMode: isMultiModeAR
       };
       let fetTextAR = '';
       try {
@@ -802,6 +811,211 @@ export class SocAnswerProcessingService {
         this.explanationTextService.lockExplanation();
         this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
         comp.showExplanationChange.emit(true);
+      }
+
+      setTimeout(() => {
+        try { comp.emitExplanation?.(qIdx, true); } catch { /* ignore */ }
+      }, 0);
+
+      comp.cdRef?.markForCheck?.();
+      comp.cdRef?.detectChanges?.();
+    } catch { /* never throw from auto-reveal */ }
+  }
+
+  /**
+   * AUTO-REVEAL helper: when the user has selected every incorrect option
+   * for the given question, auto-highlight every canonical correct option,
+   * emit FET, and stop the timer. Works for both single- and multi-answer
+   * questions — the size of pristineCorrectTextsAR can be 1 (single) or N
+   * (multi). Score is NOT incremented (user didn't fully pick correctly).
+   *
+   * NOTE: processSingleAnswerClick has an inline copy of identical logic
+   * around line 642 for historical reasons. Future cleanup: consolidate
+   * once this multi-answer call site is verified stable.
+   */
+  private triggerAllIncorrectsExhaustedAutoReveal(comp: any, index: number, qIdx: number): void {
+    try {
+      const nrmAR = (t: any) => String(t ?? '').trim().toLowerCase();
+      const liveQAR: any = comp.currentQuestion()
+        ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]
+        ?? (this.quizService as any)?.questions?.[qIdx];
+      const bindingsAR: any[] = Array.isArray(comp.optionBindings)
+        ? comp.optionBindings
+        : (typeof comp.optionBindings === 'function' ? comp.optionBindings() : []);
+      if (!bindingsAR.length) return;
+
+      // Pristine correct text(s) from cache. Must have at least one
+      // canonical correct option to reveal.
+      const pristineCorrectTextsAR =
+        this.quizService.getPristineCorrectTextsForQuestion(liveQAR?.questionText);
+      if (pristineCorrectTextsAR.size < 1) return;
+      const isMultiModeAR = pristineCorrectTextsAR.size > 1;
+
+      // Collect every selected text for this question. For single-answer,
+      // selectedOptionsMap holds only the latest click (each click replaces
+      // the previous), so we MUST read from comp._multiSelectByQuestion —
+      // a Set<number> of every clicked binding index for this qIdx.
+      const selectedTextsAR = new Set<string>();
+      const durableClicksAR0: Set<number> | undefined =
+        comp._multiSelectByQuestion?.get(qIdx);
+      if (durableClicksAR0) {
+        for (const ci of durableClicksAR0) {
+          const tx = nrmAR(bindingsAR[ci]?.option?.text);
+          if (tx) selectedTextsAR.add(tx);
+        }
+      }
+      // Belt-and-suspenders: also include the just-clicked option in case
+      // the durable set hasn't been populated yet on this CD cycle.
+      const clickedTextAR = nrmAR(comp.optionBindings?.[index]?.option?.text);
+      if (clickedTextAR) selectedTextsAR.add(clickedTextAR);
+      // And merge any in-memory map entries.
+      const selectionsAR =
+        this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
+      for (const s of selectionsAR) {
+        const tx = nrmAR(s?.text);
+        if (tx) selectedTextsAR.add(tx);
+      }
+
+      // Build the set of incorrect bindings by text — option whose text is
+      // not in the pristine correct set.
+      const incorrectTextsAR = new Set<string>();
+      for (const b of bindingsAR) {
+        const tx = nrmAR(b?.option?.text);
+        if (tx && !pristineCorrectTextsAR.has(tx)) incorrectTextsAR.add(tx);
+      }
+      if (incorrectTextsAR.size === 0) return;
+      const allIncorrectSelected =
+        [...incorrectTextsAR].every(t => selectedTextsAR.has(t));
+      if (!allIncorrectSelected) return;
+
+      // All incorrects exhausted — auto-reveal the correct answer(s).
+      try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
+      this.nextButtonStateService.setNextButtonState(true);
+      this.explanationTextService.fetBypassForQuestion.set(qIdx, true);
+      if (!(this.quizService as any)._multiAnswerPerfect) {
+        (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
+      }
+      (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
+
+      // Unlock the explanation BEFORE setting new FET — without this,
+      // a previous question's lockExplanation() would silently swallow
+      // setExplanationText() calls and the FET would never display.
+      (this.explanationTextService as any)._fetLocked = false;
+      this.explanationTextService.unlockExplanation();
+      // Emit early so the explanation panel becomes visible before we
+      // resolve and write the text (mirrors processMultiAnswerClick's
+      // all-correct-selected path at line 246).
+      comp.showExplanationChange.emit(true);
+
+      // Highlight the canonical correct option(s) + disable everything else.
+      const correctIdxsAR: number[] = [];
+      for (const [bi, b] of bindingsAR.entries()) {
+        const tx = nrmAR(b?.option?.text);
+        if (tx && pristineCorrectTextsAR.has(tx)) correctIdxsAR.push(bi);
+      }
+
+      if (!comp.disabledOptionsPerQuestion.has(qIdx)) {
+        comp.disabledOptionsPerQuestion.set(qIdx, new Set<number>());
+      }
+      const disabledSetAR = comp.disabledOptionsPerQuestion.get(qIdx)!;
+      const correctSetAR = new Set(correctIdxsAR);
+      disabledSetAR.clear();
+      for (let i = 0; i < bindingsAR.length; i++) {
+        if (!correctSetAR.has(i)) disabledSetAR.add(i);
+      }
+
+      const durableClicksAR = comp._multiSelectByQuestion?.get(qIdx);
+      const historySetAR = new Set<number>(durableClicksAR ?? []);
+      historySetAR.add(index);
+
+      // Defer the optionBindings rebuild to a microtask so the FET emission
+      // below happens FIRST while bindings are still stable. Mirrors the
+      // all-correct-selected path which rebuilds bindings via queueMicrotask
+      // (~line 337) AFTER its synchronous FET write.
+      queueMicrotask(() => {
+        comp.optionBindings = bindingsAR.map((ob: any, bi: number) => {
+          const isCorrectBinding = correctSetAR.has(bi);
+          const isClicked = bi === index;
+          const wasPreviouslyClicked = historySetAR.has(bi) && !isClicked && !isCorrectBinding;
+          return {
+            ...ob,
+            disabled: !isCorrectBinding && !isClicked,
+            isSelected: isClicked,
+            isCorrect: isCorrectBinding,
+            _autoRevealedCorrect: isCorrectBinding,
+            option: ob?.option ? {
+              ...ob.option,
+              selected: isClicked,
+              highlight: isClicked || wasPreviouslyClicked || isCorrectBinding,
+              showIcon: isClicked || wasPreviouslyClicked || isCorrectBinding,
+              active: isCorrectBinding,
+              _autoRevealedCorrect: isCorrectBinding
+            } : ob?.option,
+            cssClasses: {
+              ...(ob?.cssClasses || {}),
+              'correct-option': isCorrectBinding,
+              'incorrect-option': !isCorrectBinding && (isClicked || wasPreviouslyClicked)
+            }
+          };
+        });
+        comp.cdRef?.detectChanges?.();
+      });
+
+      // Resolve and emit the FET text.
+      const fetQuestionAR = comp.currentQuestion()
+        ?? comp.getQuestionAtDisplayIndex?.(qIdx)
+        ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx];
+      const fetCtxAR = {
+        resolvedIndex: qIdx,
+        question: fetQuestionAR,
+        currentQuestion: comp.currentQuestion(),
+        quizId: comp.quizId?.() ?? comp.quizId ?? '',
+        optionBindings: comp.optionBindings ?? [],
+        optionsToDisplay: comp.optionsToDisplay ?? [],
+        isMultiMode: isMultiModeAR
+      };
+      let fetTextAR = '';
+      try {
+        fetTextAR = this.sharedOptionExplanationService.resolveExplanationText(fetCtxAR as any)?.trim()
+          || fetQuestionAR?.explanation || '';
+      } catch { /* ignore */ }
+
+      // For multi-answer, format like "Options X and Y are correct because ..."
+      // to match the all-correct-selected path's formatting (~line 281).
+      if (isMultiModeAR && fetTextAR) {
+        try {
+          const oneBasedIndices = correctIdxsAR
+            .map((ci: number) => ci + 1)
+            .filter((n: number) => Number.isFinite(n) && n > 0);
+          if (fetQuestionAR && oneBasedIndices.length > 0) {
+            fetTextAR = this.explanationTextService.formatExplanation(
+              fetQuestionAR,
+              oneBasedIndices,
+              fetTextAR
+            );
+          }
+        } catch { /* ignore */ }
+      }
+      if (fetTextAR) {
+        this.explanationTextService._activeIndex = qIdx;
+        (this.explanationTextService as any).latestExplanation = fetTextAR;
+        (this.explanationTextService as any).latestExplanationIndex = qIdx;
+        this.explanationTextService.setExplanationText(fetTextAR, {
+          force: true,
+          context: `question:${qIdx}`,
+          index: qIdx
+        });
+        this.explanationTextService.emitFormatted(qIdx, fetTextAR);
+        this.explanationTextService.setShouldDisplayExplanation(true, {
+          context: `question:${qIdx}`,
+          force: true
+        } as any);
+        this.explanationTextService.setIsExplanationTextDisplayed(true, {
+          context: `question:${qIdx}`,
+          force: true
+        } as any);
+        this.explanationTextService.lockExplanation();
+        this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
       }
 
       setTimeout(() => {

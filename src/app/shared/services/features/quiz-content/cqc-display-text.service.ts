@@ -103,7 +103,13 @@ export class CqcDisplayTextService {
             }
           } catch { /* ignore */ }
           const isMultiAnswer = multiCorrectCount > 1;
-          const multiAnswerBlocked = isMultiAnswer && hasRealInteraction && !isResolvedForGuard && !isTimedOutForIdx;
+          // AUTO-REVEAL BYPASS: when soc-answer-processing's auto-reveal sets
+          // fetBypassForQuestion, treat multi-answer FET writes as allowed —
+          // otherwise the FET LOCK below skips, and subsequent question-text
+          // emissions overwrite the auto-revealed FET back to the question.
+          const fetBypassActive =
+            host.explanationTextService?.fetBypassForQuestion?.get(currentIdx) === true;
+          const multiAnswerBlocked = isMultiAnswer && hasRealInteraction && !isResolvedForGuard && !isTimedOutForIdx && !fetBypassActive;
 
           const isExplanation = lowerText.length > 0
             && !isQuestionText
@@ -242,7 +248,7 @@ export class CqcDisplayTextService {
               const isMultiQ = host.quizService.multipleAnswer || rawCorrectCountBlock > 1;
 
               if (isFetText && isMultiQ) {
-                if (!this.fetGuard.isScoredCorrectAtDisplay(host, currentIdx)) {
+                if (!this.fetGuard.isScoredCorrectAtDisplay(host, currentIdx) && !fetBypassActive) {
                   const qText = this.fetGuard.buildQuestionDisplayHTML(host, currentIdx);
                   if (qText) {
                     this.fetGuard.writeQText(host, qText);
@@ -252,7 +258,7 @@ export class CqcDisplayTextService {
               }
 
               if (isFetText && !isMultiQ) {
-                if (!this.fetGuard.isScoredCorrectAtDisplay(host, currentIdx)) {
+                if (!this.fetGuard.isScoredCorrectAtDisplay(host, currentIdx) && !fetBypassActive) {
                   const qText = this.fetGuard.buildQuestionDisplayHTML(host, currentIdx);
                   if (qText) {
                     this.fetGuard.writeQText(host, qText);

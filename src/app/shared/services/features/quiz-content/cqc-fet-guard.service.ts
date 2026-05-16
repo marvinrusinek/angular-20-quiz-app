@@ -272,8 +272,16 @@ export class CqcFetGuardService {
           }
           const isMulti = correctTotal >= 2;
 
+          // AUTO-REVEAL BYPASS: when fetBypassForQuestion is set for this idx,
+          // the all-incorrects-exhausted auto-reveal explicitly wants the FET
+          // to display even though scoring marks the question as not correct.
+          // Without this carve-out, the NUCLEAR GATE below rewrites the FET
+          // back to question text and the auto-revealed FET never appears.
+          const fetBypassActive =
+            host.explanationTextService?.fetBypassForQuestion?.get(activeIdx) === true;
+
           if (!isMulti) {
-            if (!this.isScoredCorrectAtDisplay(host, activeIdx)) {
+            if (!this.isScoredCorrectAtDisplay(host, activeIdx) && !fetBypassActive) {
               const rebuilt = this.buildQuestionDisplayHTML(host, activeIdx);
               safe = rebuilt || (liveQ?.questionText ?? '').trim() || '';
               host.qTextHtmlSig?.set(safe);
@@ -284,7 +292,7 @@ export class CqcFetGuardService {
             }
           }
           if (isMulti) {
-            if (!this.isScoredCorrectAtDisplay(host, activeIdx)) {
+            if (!this.isScoredCorrectAtDisplay(host, activeIdx) && !fetBypassActive) {
               const rebuilt = this.buildQuestionDisplayHTML(host, activeIdx);
               safe = rebuilt || (liveQ?.questionText ?? '').trim() || '';
               host.qTextHtmlSig?.set(safe);
@@ -849,6 +857,13 @@ export class CqcFetGuardService {
       const idx = this.getActiveIdx(host);
       const timedOutVal = host.timedOutIdxSubject?.getValue?.() ?? -1;
       if (timedOutVal >= 0 && timedOutVal === idx) return true;
+
+      // AUTO-REVEAL BYPASS: when soc-answer-processing's auto-reveal sets
+      // fetBypassForQuestion for this idx, treat the question as "resolved"
+      // so the watchdog stops reverting the FET back to question text.
+      if (host.explanationTextService?.fetBypassForQuestion?.get(idx) === true) {
+        return true;
+      }
 
       const liveQ = this.getLiveQuestion(host, idx);
       const pristineCorrectTexts = this.getPristineCorrectTexts(host, liveQ);
