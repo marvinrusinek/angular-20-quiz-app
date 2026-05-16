@@ -213,7 +213,7 @@ export class SharedOptionOrchestratorService {
     host.showFeedbackForOption = result.showFeedbackForOption;
     host.feedbackConfigs = result.feedbackConfigs;
     host.currentFeedbackConfig = result.currentFeedbackConfig;
-    host.activeFeedbackConfig = result.activeFeedbackConfig;
+    host.activeFeedbackConfig.set(result.activeFeedbackConfig);
     host.lastFeedbackOptionId = result.lastFeedbackOptionId;
     host.lastFeedbackQuestionIndex = result.lastFeedbackQuestionIndex;
     host.cdRef.markForCheck();

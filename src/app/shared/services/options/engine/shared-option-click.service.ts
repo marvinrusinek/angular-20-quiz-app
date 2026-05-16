@@ -389,10 +389,11 @@ export class SharedOptionClickService {
         const byIdx = (Object.values(comp.feedbackConfigs) as FeedbackProps[]).find(
           (c: any) => c?.idx === index && c.showFeedback
         );
+        const activeCfg = comp.activeFeedbackConfig();
         let cfg: FeedbackProps | undefined =
           (byKey?.showFeedback ? byKey : undefined) ??
           byIdx ??
-          (comp.activeFeedbackConfig?.showFeedback ? comp.activeFeedbackConfig : undefined);
+          (activeCfg?.showFeedback ? activeCfg : undefined);
 
         if (cfg?.showFeedback) {
           cfg = this.clickHandler.overrideMultiAnswerFeedback(
@@ -484,7 +485,7 @@ export class SharedOptionClickService {
     const feedbackKey = comp.keyOf(optionBinding.option, index);
     const syncedConfig = comp.feedbackConfigs[feedbackKey] as FeedbackProps | undefined;
     if (syncedConfig?.showFeedback) {
-      comp.activeFeedbackConfig = syncedConfig;
+      comp.activeFeedbackConfig.set(syncedConfig);
       comp.currentFeedbackConfig = syncedConfig;
       comp._lastClickFeedback = {
         index,

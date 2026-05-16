@@ -55,7 +55,7 @@ export interface SharedOptionComponentLike {
   feedbackBindings: FeedbackProps[];
   currentFeedbackConfig: FeedbackProps;
   feedbackConfigs: { [key: string]: FeedbackProps };
-  activeFeedbackConfig: FeedbackProps | null;
+  activeFeedbackConfig: WritableSignal<FeedbackProps | null>;
   _feedbackDisplay: { idx: number; config: FeedbackProps } | null;
   selectedOptions: Set<number | string>;
   clickedOptionIds: Set<number | string>;
@@ -514,7 +514,7 @@ export class SharedOptionInitService {
             );
 
             comp.feedbackConfigs = {};
-            comp.activeFeedbackConfig = null;
+            comp.activeFeedbackConfig.set(null);
 
             let lastSelectedId = -1;
             let hasSelection = false;
@@ -544,7 +544,7 @@ export class SharedOptionInitService {
               };
 
               if (comp.feedbackConfigs[key].showFeedback) {
-                comp.activeFeedbackConfig = comp.feedbackConfigs[key];
+                comp.activeFeedbackConfig.set(comp.feedbackConfigs[key]);
               }
             }
 

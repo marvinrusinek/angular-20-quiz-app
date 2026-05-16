@@ -110,7 +110,7 @@ export class SharedOptionComponent
   feedbackBindings: FeedbackProps[] = [];
   currentFeedbackConfig!: FeedbackProps;
   feedbackConfigs: { [key: string]: FeedbackProps } = {};
-  activeFeedbackConfig: FeedbackProps | null = null;
+  readonly activeFeedbackConfig = signal<FeedbackProps | null>(null);
   // Simple, bulletproof feedback tracker: set synchronously at the end of runOptionContentClick.
   // Bypasses complex service pipeline; cleared on question change.
   // Must be public for template access.
@@ -264,7 +264,7 @@ export class SharedOptionComponent
           this.forceDisableAll = false;
           this._feedbackDisplay = null;
           this._lastClickFeedback = null;
-          this.activeFeedbackConfig = null;
+          this.activeFeedbackConfig.set(null);
           // Reset the radio-group form value so Q3's index-3 click ("All of
           // the above") doesn't carry over and auto-check Q5's NgModule
           // (also at displayIndex 3). The pre-checked state suppresses
