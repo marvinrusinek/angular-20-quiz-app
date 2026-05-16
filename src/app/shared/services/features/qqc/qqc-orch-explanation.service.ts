@@ -39,7 +39,7 @@ export class QqcOrchExplanationService {
       host.navigationHandler.persistStateOnHide({
         quizId: host.quizId()!,
         currentQuestionIndex: resolveIdx(),
-        displayExplanation: host.displayExplanation
+        displayExplanation: host.displayExplanation()
       });
       host.navigationHandler.resetExplanationStateOnHide();
       await host.navigationHandler.captureElapsedOnHide();
@@ -49,7 +49,7 @@ export class QqcOrchExplanationService {
     try {
       const { shouldExpire, expiredIndex } = await host.navigationHandler.handleFastPathExpiry({
         currentQuestionIndex: resolveIdx(),
-        displayExplanation: host.displayExplanation,
+        displayExplanation: host.displayExplanation(),
         normalizeIndex: (idx: number) => host.normalizeIndex(idx)
       });
       if (shouldExpire) {
@@ -84,8 +84,8 @@ export class QqcOrchExplanationService {
 
       host.displayMode.set(restoreResult.displayMode as 'question' | 'explanation');
       host.optionsToDisplay.set(restoreResult.optionsToDisplay);
-      host.feedbackText = restoreResult.feedbackText;
-      host.displayExplanation = restoreResult.shouldShowExplanation;
+      host.feedbackText.set(restoreResult.feedbackText);
+      host.displayExplanation.set(restoreResult.shouldShowExplanation);
       host.safeSetDisplayState(
         restoreResult.shouldShowExplanation
           ? { mode: 'explanation', answered: true }
@@ -105,7 +105,7 @@ export class QqcOrchExplanationService {
 
   async runUpdateExplanationDisplay(host: Host, shouldDisplay: boolean): Promise<void> {
     host.showExplanationChange.emit(shouldDisplay);
-    host.displayExplanation = shouldDisplay;
+    host.displayExplanation.set(shouldDisplay);
     if (shouldDisplay) {
       setTimeout(async () => {
         const result = await host.explanationDisplay.performUpdateExplanationDisplay({
@@ -146,7 +146,7 @@ export class QqcOrchExplanationService {
       questionsArray: host.questionsArray(),
       quizId: host.quizId(),
       isAnswered: host.isAnswered(),
-      shouldDisplayExplanation: host.shouldDisplayExplanation,
+      shouldDisplayExplanation: host.shouldDisplayExplanation(),
       ensureQuestionsLoaded: ensureLoaded,
       ensureQuestionIsFullyLoaded: (idx: number) =>
         host.questionLoader.ensureQuestionIsFullyLoaded(idx, host.questionsArray(), host.quizId()),
@@ -161,7 +161,7 @@ export class QqcOrchExplanationService {
       host.explanationToDisplayChange.emit(host.explanationToDisplay() ?? '');
     } else if (result.explanationToDisplay) {
       host.explanationToDisplay.set(host.explanationFlow.getExplanationErrorText());
-      if (host.isAnswered() && host.shouldDisplayExplanation) {
+      if (host.isAnswered() && host.shouldDisplayExplanation()) {
         host.emitExplanationChange(host.explanationToDisplay() ?? '', true);
       }
     }
@@ -178,7 +178,7 @@ export class QqcOrchExplanationService {
       host.quizService.setCurrentQuestion(validated.currentQuestion);
       new Promise<void>((resolve) => setTimeout(resolve, 100))
         .then(async () => {
-          if (host.shouldDisplayExplanation && (await host.isAnyOptionSelected(validated.adjustedIndex))) {
+          if (host.shouldDisplayExplanation() && (await host.isAnyOptionSelected(validated.adjustedIndex))) {
             host.emitExplanationChange('', false);
             host.explanationToDisplay.set(explanationText);
             host.emitExplanationChange(host.explanationToDisplay() ?? '', true);
@@ -193,7 +193,7 @@ export class QqcOrchExplanationService {
     const result = await host.explanationFlow.updateExplanationIfAnswered({
       index,
       question,
-      shouldDisplayExplanation: host.shouldDisplayExplanation,
+      shouldDisplayExplanation: host.shouldDisplayExplanation(),
       isAnyOptionSelected: (idx: number) => host.isAnyOptionSelected(idx),
       getFormattedExplanation: (q: QuizQuestion, idx: number) =>
         host.explanationManager.getFormattedExplanation(q, idx)
@@ -229,19 +229,19 @@ export class QqcOrchExplanationService {
   }
 
   runApplyExplanationFlags(host: Host, flags: any): void {
-    host.forceQuestionDisplay = flags.forceQuestionDisplay;
+    host.forceQuestionDisplay.set(flags.forceQuestionDisplay);
     host.readyForExplanationDisplay = flags.readyForExplanationDisplay;
     host.isExplanationReady = flags.isExplanationReady;
     host.isExplanationLocked = flags.isExplanationLocked;
     host.explanationLocked = flags.explanationLocked;
-    host.explanationVisible = flags.explanationVisible;
-    host.displayExplanation = flags.displayExplanation;
-    host.shouldDisplayExplanation = flags.shouldDisplayExplanation;
+    host.explanationVisible.set(flags.explanationVisible);
+    host.displayExplanation.set(flags.displayExplanation);
+    host.shouldDisplayExplanation.set(flags.shouldDisplayExplanation);
   }
 
   runResetExplanation(host: Host, force = false): void {
     const result = host.explanationFlow.performResetExplanation({ force, questionIndex: host.fixedQuestionIndex ?? host.currentQuestionIndex() ?? 0 });
-    host.displayExplanation = result.displayExplanation;
+    host.displayExplanation.set(result.displayExplanation);
     host.explanationToDisplay.set(result.explanationToDisplay);
     if (!result.blocked) {
       host.emitExplanationChange('', false);

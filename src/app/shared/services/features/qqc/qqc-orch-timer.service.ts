@@ -51,7 +51,7 @@ export class QqcOrchTimerService {
       updateBindingsAndOptions: () => host.disableAllBindingsAndOptions(),
       markForCheck: () => host.cdRef.markForCheck()
     });
-    host.displayExplanation = true;
+    host.displayExplanation.set(true);
     host.showExplanationChange.emit(true);
     host.explanationToDisplay.set(result.explanationToDisplay);
     host.explanationToDisplayChange?.emit(result.explanationToDisplay);
@@ -136,8 +136,8 @@ export class QqcOrchTimerService {
       questions: host.questions(),
       currentQuestionType: host.currentQuestion()?.type
     });
-    host.feedbackText = expiryState.feedbackText;
-    host.displayExplanation = expiryState.displayExplanation;
+    host.feedbackText.set(expiryState.feedbackText);
+    host.displayExplanation.set(expiryState.displayExplanation);
     host.showExplanationChange?.emit(true);
     host.cdRef.markForCheck();
 

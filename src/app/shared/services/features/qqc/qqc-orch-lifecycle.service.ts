@@ -83,7 +83,7 @@ export class QqcOrchLifecycleService {
     host.subscriptionWiring.createRouteParamSubscription({
       activatedRoute: host.activatedRoute,
       onRouteChange: async (questionIndex: number) => {
-        host.explanationVisible = false;
+        host.explanationVisible.set(false);
         host.explanationText.set('');
         try {
           const question = await firstValueFrom(host.quizService.getQuestionByIndex(questionIndex));
@@ -152,8 +152,8 @@ export class QqcOrchLifecycleService {
         const cq = host.currentQuestion();
         if (cq) {
           host.generateFeedbackText(cq).then(
-            (text: string) => { host.feedbackText = text; },
-            () => { host.feedbackText = 'Unable to generate feedback.'; }
+            (text: string) => { host.feedbackText.set(text); },
+            () => { host.feedbackText.set('Unable to generate feedback.'); }
           );
         }
       });

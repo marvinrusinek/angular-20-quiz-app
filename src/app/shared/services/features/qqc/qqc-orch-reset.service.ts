@@ -21,7 +21,7 @@ export class QqcOrchResetService {
     host.options.set(result.resetOptions);
 
     if (!result.preserveExplanation) {
-      host.feedbackText = result.feedbackText;
+      host.feedbackText.set(result.feedbackText);
       host.applyDisplayState(result.displayState);
       host.quizStateService.setDisplayState(host.displayState());
       host.updateDisplayMode(result.displayMode);
@@ -77,7 +77,7 @@ export class QqcOrchResetService {
       host.cdRef.detectChanges();
     }
 
-    host.displayExplanation = result.displayExplanation;
+    host.displayExplanation.set(result.displayExplanation);
     host.updateDisplayMode(result.displayMode);
     if (result.hasSelections) {
       host.showExplanationChange?.emit(true);

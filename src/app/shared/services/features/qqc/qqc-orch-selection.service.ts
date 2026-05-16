@@ -76,7 +76,7 @@ export class QqcOrchSelectionService {
     });
     host.displayMode.set('explanation');
     host.isAnswered.set(true);
-    host.displayExplanation = true;
+    host.displayExplanation.set(true);
     host.explanationToDisplay.set(computed.formatted);
     host.explanationToDisplayChange?.emit(computed.formatted);
   }

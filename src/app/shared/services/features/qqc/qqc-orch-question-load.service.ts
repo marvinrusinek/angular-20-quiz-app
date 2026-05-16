@@ -76,7 +76,7 @@ export class QqcOrchQuestionLoadService {
     host.readyForExplanationDisplay = false;
     host.isExplanationReady = false;
     host.isExplanationLocked = true;
-    host.forceQuestionDisplay = true;
+    host.forceQuestionDisplay.set(true);
 
     const shouldPreserveVisualState = host.questionLoader.canRenderQuestionInstantly(
       host.questionsArray(),
@@ -89,9 +89,9 @@ export class QqcOrchQuestionLoadService {
       quizId: host.quizId(),
       isAnswered: host.isAnswered(),
       displayMode: host.displayMode(),
-      shouldDisplayExplanation: host.shouldDisplayExplanation,
-      explanationVisible: host.explanationVisible,
-      displayExplanation: host.displayExplanation,
+      shouldDisplayExplanation: host.shouldDisplayExplanation(),
+      explanationVisible: host.explanationVisible(),
+      displayExplanation: host.displayExplanation(),
       displayStateAnswered: host.displayState().answered
     });
     const shouldKeepExplanationVisible = explanationSnapshot.shouldRestore;
@@ -125,11 +125,11 @@ export class QqcOrchQuestionLoadService {
         host.renderReady.set(false);
         host.displayMode.set(clearResult.displayState.mode);
         host.isAnswered.set(clearResult.displayState.answered);
-        host.forceQuestionDisplay = clearResult.forceQuestionDisplay;
+        host.forceQuestionDisplay.set(clearResult.forceQuestionDisplay);
         host.readyForExplanationDisplay = clearResult.readyForExplanationDisplay;
         host.isExplanationReady = clearResult.isExplanationReady;
         host.isExplanationLocked = clearResult.isExplanationLocked;
-        host.feedbackText = clearResult.feedbackText;
+        host.feedbackText.set(clearResult.feedbackText);
       } else {
         const restoreResult = host.explanationFlow.computeRestoreAfterReset({
           questionIndex: lockedIndex,
@@ -188,7 +188,7 @@ export class QqcOrchQuestionLoadService {
 
       return true;
     } catch (error) {
-      host.feedbackText = 'Error loading question. Please try again.';
+      host.feedbackText.set('Error loading question. Please try again.');
       host.currentQuestion.set(null);
       host.optionsToDisplay.set([]);
       return false;
@@ -206,7 +206,7 @@ export class QqcOrchQuestionLoadService {
         host.initializer.handleRouteChangeParsing({ rawParam, totalQuestions: host.totalQuestions() }),
       onRouteChange: async (zeroBasedIndex: number, _displayIndex: number) => {
         host.currentQuestionIndex.set(zeroBasedIndex);
-        host.explanationVisible = false;
+        host.explanationVisible.set(false);
         host.explanationText.set('');
 
         const routeResult = await host.questionLoader.performRouteChangeUpdate({
@@ -215,7 +215,7 @@ export class QqcOrchQuestionLoadService {
           loadQuestion: () => host.loadQuestion(),
           isAnyOptionSelected: (idx: number) => host.isAnyOptionSelected(idx),
           updateExplanationText: (idx: number) => host.updateExplanationText(idx),
-          shouldDisplayExplanation: host.shouldDisplayExplanation,
+          shouldDisplayExplanation: host.shouldDisplayExplanation(),
           questionForm: host.questionForm
         });
 
@@ -223,19 +223,19 @@ export class QqcOrchQuestionLoadService {
         host.currentQuestion.set(routeResult.currentQuestion);
         host.optionsToDisplay.set(routeResult.optionsToDisplay);
 
-        if (host.shouldDisplayExplanation) {
+        if (host.shouldDisplayExplanation()) {
           host.showExplanationChange.emit(true);
           const transition = host.explanationDisplay.computeExplanationModeTransition(
-            host.shouldDisplayExplanation,
+            host.shouldDisplayExplanation(),
             host.displayMode()
           );
           if (transition) {
             host.applyDisplayState(transition.displayState);
             host.updateDisplayMode(transition.displayMode);
             const f = transition.explanationFlags;
-            host.shouldDisplayExplanation = f.shouldDisplayExplanation;
-            host.explanationVisible = f.explanationVisible;
-            host.forceQuestionDisplay = f.forceQuestionDisplay;
+            host.shouldDisplayExplanation.set(f.shouldDisplayExplanation);
+            host.explanationVisible.set(f.explanationVisible);
+            host.forceQuestionDisplay.set(f.forceQuestionDisplay);
             host.readyForExplanationDisplay = f.readyForExplanationDisplay;
             host.isExplanationReady = f.isExplanationReady;
             host.isExplanationLocked = f.isExplanationLocked;

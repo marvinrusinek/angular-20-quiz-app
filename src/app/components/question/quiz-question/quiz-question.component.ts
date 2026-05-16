@@ -126,16 +126,16 @@ export class QuizQuestionComponent extends BaseQuestion
   isMultipleAnswer!: boolean;
   readonly isLoading = signal<boolean>(true);
   initialized = false;
-  feedbackText = '';
-  displayExplanation = false;
+  readonly feedbackText = signal<string>('');
+  readonly displayExplanation = signal<boolean>(false);
   override sharedOptionConfig: SharedOptionConfig | null = null;
   shouldRenderFinalOptions = false;
   explanationLocked = false;  // flag to lock explanation
-  explanationVisible = false;
+  readonly explanationVisible = signal<boolean>(false);
   displaySubscriptions: Subscription[] = [];
   displayModeSubscription!: Subscription;
   lastOptionsQuestionSignature: string | null = null;
-  shouldDisplayExplanation = false;
+  readonly shouldDisplayExplanation = signal<boolean>(false);
   
   readonly displayMode = signal<'question' | 'explanation'>('question');
   readonly isAnswered = signal(false);
@@ -145,7 +145,7 @@ export class QuizQuestionComponent extends BaseQuestion
     answered: this.isAnswered()
   }));
 
-  forceQuestionDisplay = true;
+  readonly forceQuestionDisplay = signal<boolean>(true);
   readyForExplanationDisplay = false;
   isExplanationReady = false;
   isExplanationLocked = true;
@@ -375,8 +375,8 @@ export class QuizQuestionComponent extends BaseQuestion
 
   public async generateFeedbackText(question: QuizQuestion): Promise<string> {
     if (!this.optionsToDisplay()?.length) this.populateOptionsToDisplay();
-    this.feedbackText = this.feedbackManager.generateFeedbackText(question, this.optionsToDisplay());
-    this.feedbackTextChange.emit(this.feedbackText); return this.feedbackText;
+    this.feedbackText.set(this.feedbackManager.generateFeedbackText(question, this.optionsToDisplay()));
+    this.feedbackTextChange.emit(this.feedbackText()); return this.feedbackText();
   }
 
   async initializeQuiz(): Promise<void> {

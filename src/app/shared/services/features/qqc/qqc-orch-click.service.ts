@@ -225,7 +225,7 @@ export class QqcOrchClickService {
         const displayQForFet = host.quizService.getQuestionsInDisplayOrder?.()?.[lockedIndex] ?? q;
         host.explanationFlow.triggerMultiAnswerFet({ lockedIndex, question: displayQForFet }).then((fetResult: any) => {
           if (host.currentQuestionIndex() !== lockedIndex || !fetResult) return;
-          host.displayExplanation = true;
+          host.displayExplanation.set(true);
           host.displayMode.set('explanation');
           host.isAnswered.set(true);
           host.showExplanationChange.emit(true);
@@ -266,11 +266,11 @@ export class QqcOrchClickService {
               questionIndex: i,
               currentQuestionIndex: host.currentQuestionIndex(),
               questionType: host.question()?.type,
-              forceQuestionDisplay: host.forceQuestionDisplay,
+              forceQuestionDisplay: host.forceQuestionDisplay(),
               lastAllCorrect: host._lastAllCorrect,
             });
             if (coreResult.isAnswered) host.isAnswered.set(true);
-            host.forceQuestionDisplay = coreResult.forceQuestionDisplay;
+            host.forceQuestionDisplay.set(coreResult.forceQuestionDisplay);
             if (coreResult.displayStateAnswered) {
               host.isAnswered.set(coreResult.displayStateAnswered);
               host.displayMode.set(coreResult.displayStateMode);
