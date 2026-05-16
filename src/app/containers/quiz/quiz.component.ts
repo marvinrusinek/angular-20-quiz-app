@@ -1,6 +1,16 @@
 import {
-  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, computed,
-  DestroyRef, HostListener, OnDestroy, OnInit, signal, viewChild, ViewEncapsulation
+  AfterViewInit,
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  computed,
+  DestroyRef,
+  HostListener,
+  OnDestroy,
+  OnInit,
+  signal,
+  viewChild,
+  ViewEncapsulation,
 } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
@@ -44,16 +54,20 @@ type AnimationState = 'animationStarted' | 'none';
   selector: 'codelab-quiz-component',
   standalone: true,
   imports: [
-    CommonModule, MatCardModule, MatTooltipModule,
-    QuizQuestionComponent, CodelabQuizHeaderComponent,
-    CodelabQuizContentComponent, ScoreboardComponent,
-    ThemeToggleComponent
+    CommonModule,
+    MatCardModule,
+    MatTooltipModule,
+    QuizQuestionComponent,
+    CodelabQuizHeaderComponent,
+    CodelabQuizContentComponent,
+    ScoreboardComponent,
+    ThemeToggleComponent,
   ],
   templateUrl: './quiz.component.html',
   styleUrls: ['./quiz.component.scss'],
   animations: [ChangeRouteAnimation.changeRoute],
   encapsulation: ViewEncapsulation.None,
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   readonly quizQuestionComponent = viewChild(QuizQuestionComponent);
@@ -80,7 +94,6 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
 
   readonly answers = signal<Option[]>([]);
   readonly selectionMessage = this.selectionMessageService.selectionMessageSig;
-  showScrollIndicator = false;
 
   combinedQuestionData = signal<QuestionPayload | null>(null);
   combinedQuestionDataView = computed(() => {
@@ -104,12 +117,14 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
             return {
               question: urlQ,
               options: urlQ.options,
-              explanation: urlQ.explanation ?? ''
+              explanation: urlQ.explanation ?? '',
             };
           }
         }
       }
-    } catch { /* non-browser env */ }
+    } catch {
+      /* non-browser env */
+    }
 
     if (!payload?.question) return payload;
 
@@ -123,7 +138,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
         return {
           question: correctQ,
           options: correctQ.options ?? [],
-          explanation: correctQ.explanation ?? ''
+          explanation: correctQ.explanation ?? '',
         };
       }
     }
@@ -230,10 +245,14 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   @HostListener('window:scroll')
-  onScroll(): void { this.checkScrollIndicator(); }
+  onScroll(): void {
+    this.checkScrollIndicator();
+  }
 
   @HostListener('window:resize')
-  onResize(): void { this.checkScrollIndicator(); }
+  onResize(): void {
+    this.checkScrollIndicator();
+  }
 
   private scrollIndicatorEl: HTMLElement | null = null;
 
@@ -244,7 +263,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
     const cardRect = quizCard.getBoundingClientRect();
-    const shouldShow = (cardRect.bottom - window.innerHeight) > 80;
+    const shouldShow = cardRect.bottom - window.innerHeight > 80;
     if (shouldShow && !this.scrollIndicatorEl) {
       this.createScrollIndicator();
     } else if (!shouldShow && this.scrollIndicatorEl) {
@@ -254,8 +273,10 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private createScrollIndicator(): void {
     const el = document.createElement('div');
-    el.style.cssText = 'position:fixed;bottom:20px;left:0;right:0;margin:0 auto;z-index:9999;width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.95);box-shadow:0 4px 12px rgba(0,0,0,0.25);display:flex;justify-content:center;align-items:center;cursor:pointer;animation:scrollBounce 2s infinite;';
-    el.innerHTML = '<i class="material-icons" style="font-size:32px;color:#1e90ff;">keyboard_arrow_down</i>';
+    el.style.cssText =
+      'position:fixed;bottom:20px;left:0;right:0;margin:0 auto;z-index:9999;width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.95);box-shadow:0 4px 12px rgba(0,0,0,0.25);display:flex;justify-content:center;align-items:center;cursor:pointer;animation:scrollBounce 2s infinite;';
+    el.innerHTML =
+      '<i class="material-icons" style="font-size:32px;color:#1e90ff;">keyboard_arrow_down</i>';
     el.addEventListener('click', () => this.scrollToBottom());
     document.body.appendChild(el);
     this.scrollIndicatorEl = el;
@@ -296,7 +317,9 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     const idx = this.quizRouteService.getRouteQuestionIndex(this.activatedRoute, this.router);
     this.currentQuestionIndex.set(idx);
     this.quizService.setCurrentQuestionIndex(idx);
-    try { localStorage.setItem('savedQuestionIndex', JSON.stringify(idx)); } catch {}
+    try {
+      localStorage.setItem('savedQuestionIndex', JSON.stringify(idx));
+    } catch {}
   }
 
   async ngAfterViewInit(): Promise<void> {
@@ -355,7 +378,9 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
           return parsed - 1;
         }
       }
-    } catch { /* non-browser env */ }
+    } catch {
+      /* non-browser env */
+    }
     return sigIdx;
   }
 
@@ -384,8 +409,9 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     const question: QuizQuestion | null =
       this.question() ??
       ((this.quizService as any).currentQuestion?.value as QuizQuestion | null) ??
-      (this.quizService.questions?.[idx] ?? null) ??
-      ((this.quizService as any).shuffledQuestions?.[idx] ?? null);
+      this.quizService.questions?.[idx] ??
+      (this.quizService as any).shuffledQuestions?.[idx] ??
+      null;
 
     if (!question) return false;
     const selected = this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
@@ -418,7 +444,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  public advanceToNextQuestion(): Promise<void> { 
+  public advanceToNextQuestion(): Promise<void> {
     return this.quizSetupService.advanceQuestion(this, 'next');
   }
   public advanceToPreviousQuestion(): Promise<void> {
@@ -432,11 +458,12 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     this.quizNavigationService.recordElapsedAndGoToResults(this.currentQuestionIndex());
 
     // Navigate to results from the component
-    const quizId = this.quizId()
-      || this.quizService.quizId
-      || this.quizService.getCurrentQuizId()
-      || this.activatedRoute.snapshot.paramMap.get('quizId')
-      || '';
+    const quizId =
+      this.quizId() ||
+      this.quizService.quizId ||
+      this.quizService.getCurrentQuizId() ||
+      this.activatedRoute.snapshot.paramMap.get('quizId') ||
+      '';
     if (quizId) {
       this.router.navigateByUrl(`/quiz/results/${quizId}`);
     }
@@ -449,13 +476,19 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   // ── Progress / dots ────────────────────────────────────────────
   updateProgressValue(): void {
     const total = this.totalCount;
-    if (total <= 0) { this.cdRef.markForCheck(); return; }
+    if (total <= 0) {
+      this.cdRef.markForCheck();
+      return;
+    }
     this.progressSig.set(Math.round((this.answeredQuestionIndices.size / total) * 100));
     try {
       sessionStorage.setItem('quizProgress', String(this.progressSig()));
       sessionStorage.setItem('quizProgressQuizId', this.quizId());
-      sessionStorage.setItem('answeredQuestionIndices', JSON.stringify([...this.answeredQuestionIndices]));
-    } catch { }
+      sessionStorage.setItem(
+        'answeredQuestionIndices',
+        JSON.stringify([...this.answeredQuestionIndices])
+      );
+    } catch {}
     this.cdRef.detectChanges();
   }
 
@@ -483,7 +516,9 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
           }
         }
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     this.updateProgressValue();
   }
@@ -502,7 +537,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
       currentQuestionIndex: this.currentQuestionIndex(),
       optionsToDisplay: this.optionsToDisplaySig(),
       currentQuestion: this.currentQuestion(),
-      questionsArray: this.questionsArray()
+      questionsArray: this.questionsArray(),
     };
   }
 
@@ -510,7 +545,10 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.dotStatusService.getSelectionsForQuestion({ index, ...this._dotParams });
   }
 
-  getQuestionStatus(index: number, options?: { forceRecompute?: boolean }): 'correct' | 'wrong' | 'pending' {
+  getQuestionStatus(
+    index: number,
+    options?: { forceRecompute?: boolean }
+  ): 'correct' | 'wrong' | 'pending' {
     return this.dotStatusService.getQuestionStatusSimple({ index, ...this._dotParams, options });
   }
 
