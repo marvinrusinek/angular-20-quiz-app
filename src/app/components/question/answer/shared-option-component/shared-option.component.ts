@@ -1,4 +1,4 @@
-﻿import {
+import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef,
   DoCheck, effect, HostListener, input, OnDestroy, OnInit, output, signal
 } from '@angular/core';
@@ -127,7 +127,7 @@ export class SharedOptionComponent
   lastSelectedOptionId: number | string = -1;
   lastClickedOptionId: number | string | null = null;
   lastClickTimestamp: number | null = null;
-  hasUserClicked = false;
+  readonly hasUserClicked = signal<boolean>(false);
   freezeOptionBindings = false;
   highlightedOptionIds: Set<number | string> = new Set();
 

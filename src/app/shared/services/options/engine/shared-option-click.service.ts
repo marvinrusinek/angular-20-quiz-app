@@ -211,7 +211,7 @@ export class SharedOptionClickService {
     comp.disableRenderTrigger = state.disableRenderTrigger;
     comp.lastClickedOptionId = state.lastClickedOptionId;
     comp.lastClickTimestamp = state.lastClickTimestamp;
-    comp.hasUserClicked = state.hasUserClicked;
+    comp.hasUserClicked.set(state.hasUserClicked);
     comp.freezeOptionBindings = state.freezeOptionBindings;
     comp.showFeedback.set(state.showFeedback);
     comp.showFeedbackForOption = state.showFeedbackForOption;

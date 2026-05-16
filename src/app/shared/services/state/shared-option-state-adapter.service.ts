@@ -133,7 +133,7 @@ export class SharedOptionStateAdapterService {
       lastClickedOptionId: ui?.lastClickedOptionId ?? host.lastClickedOptionId,
       lastClickTimestamp: ui?.lastClickTimestamp ?? host.lastClickTimestamp,
 
-      hasUserClicked: ui?.hasUserClicked ?? host.hasUserClicked,
+      hasUserClicked: ui?.hasUserClicked ?? host.hasUserClicked(),
       freezeOptionBindings: ui?.freezeOptionBindings ?? host.freezeOptionBindings,
       showFeedback: ui?.showFeedback ?? host.showFeedback(),
       disableRenderTrigger: ui?.disableRenderTrigger ?? host.disableRenderTrigger,
@@ -183,7 +183,7 @@ export class SharedOptionStateAdapterService {
     host.lastFeedbackQuestionIndex = state.lastFeedbackQuestionIndex;
     host.lastClickedOptionId = state.lastClickedOptionId;
     host.lastClickTimestamp = state.lastClickTimestamp;
-    host.hasUserClicked = state.hasUserClicked;
+    host.hasUserClicked.set(state.hasUserClicked);
     host.freezeOptionBindings = state.freezeOptionBindings;
     host.showFeedback.set(state.showFeedback);
 

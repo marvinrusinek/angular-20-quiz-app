@@ -32,7 +32,7 @@ export class SharedOptionBindingService {
       return;
     }
 
-    if (comp.freezeOptionBindings || comp.hasUserClicked) return;
+    if (comp.freezeOptionBindings || comp.hasUserClicked()) return;
 
     const bindings = comp.optionsToDisplay.map((option: any, idx: number) => {
       const isCorrect = option.correct ?? false;
@@ -101,7 +101,7 @@ export class SharedOptionBindingService {
       // On refresh (no user click), force isSelected=false so the checkbox
       // [checked] binding doesn't flash. rehydrateUiFromState will set the
       // authoritative selection state from saved data afterward.
-      const trustOptionSelected = !!comp.hasUserClicked;
+      const trustOptionSelected = !!comp.hasUserClicked();
       comp.optionBindings = newOptions.map((option: any, idx: number) => ({
         option: { ...option, highlight: false, showIcon: false },
         index: idx,
@@ -121,7 +121,7 @@ export class SharedOptionBindingService {
       })) as unknown as OptionBindings[];
     } else {
       let idx = 0;
-      const trustSel = !!comp.hasUserClicked;
+      const trustSel = !!comp.hasUserClicked();
       for (const binding of comp.optionBindings ?? []) {
         const updated = newOptions[idx];
         if (updated) {
@@ -165,7 +165,7 @@ export class SharedOptionBindingService {
   }
 
   generateOptionBindings(comp: any): void {
-    if (comp.hasUserClicked && comp.optionBindings?.length > 0) return;
+    if (comp.hasUserClicked() && comp.optionBindings?.length > 0) return;
 
     const currentIndex = comp.getActiveQuestionIndex() ?? 0;
 
@@ -330,8 +330,8 @@ export class SharedOptionBindingService {
       // options the user never selected. rehydrateUiFromState (called
       // immediately after this loop) handles refresh highlighting
       // authoritatively with its own clean-slate + match logic.
-      const useHighlightSet = comp.hasUserClicked && highlightSet.has(effectiveId);
-      const useSelected = comp.hasUserClicked ? isSelected : false;
+      const useHighlightSet = comp.hasUserClicked() && highlightSet.has(effectiveId);
+      const useSelected = comp.hasUserClicked() ? isSelected : false;
       opt.highlight = useSelected || useHighlightSet;
 
       // Pass the GUARDED selection state to getBindings so that on refresh
@@ -404,7 +404,7 @@ export class SharedOptionBindingService {
   rehydrateUiFromState(comp: any, _reason: string): void {
     try {
       // Guard: if the user has already clicked or bindings are frozen,
-      if (comp.hasUserClicked || comp.freezeOptionBindings) return;
+      if (comp.hasUserClicked() || comp.freezeOptionBindings) return;
 
       // Universal clean-slate
       if (comp.optionBindings?.length) {
@@ -623,14 +623,14 @@ export class SharedOptionBindingService {
       && (comp.timeoutCorrectOptionKeys?.has(optionKey) || !!b.option.correct);
 
     let shouldHighlight: boolean;
-    if (isMulti && comp.hasUserClicked) {
+    if (isMulti && comp.hasUserClicked()) {
       // Hard Guard: For multi-answer live interaction, the durable click set
       // is the only authority for which options should highlight.
       const qIdx = comp.getActiveQuestionIndex?.() ?? qIndex;
       const durableSet: Set<number> | undefined = comp._multiSelectByQuestion?.get(qIdx);
       const isInDurableSet = durableSet ? durableSet.has(i) : false;
       shouldHighlight = isInDurableSet || showCorrectOnTimeout;
-    } else if (!comp.hasUserClicked) {
+    } else if (!comp.hasUserClicked()) {
       // REFRESH PATH (both single & multi): Binding state is unreliable
       // because multiple init paths (generateOptionBindings, initializeFromConfig,
       // setOptionBindingsIfChanged) overwrite each other. Query the persisted

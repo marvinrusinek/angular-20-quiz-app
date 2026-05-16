@@ -66,7 +66,7 @@ export interface SharedOptionComponentLike {
   lastSelectedOptionId: number | string;
   lastClickedOptionId: number | string | null;
   lastClickTimestamp: number | null;
-  hasUserClicked: boolean;
+  hasUserClicked: WritableSignal<boolean>;
   freezeOptionBindings: boolean;
   highlightedOptionIds: Set<number | string>;
   disableRenderTrigger: number;
@@ -189,7 +189,7 @@ export class SharedOptionInitService {
     // CRITICAL: Reset hasUserClicked so that new question starts fresh.
     // Without this, hasUserClicked from Q1 leaks into Q2 and blocks
     // all guard-protected paths (rehydrateUiFromState, initializeFromConfig, etc.)
-    comp.hasUserClicked = false;
+    comp.hasUserClicked.set(false);
     comp.freezeOptionBindings = false;
     comp.selectedOptionHistory = [];
 
@@ -636,7 +636,7 @@ export class SharedOptionInitService {
    * Corresponds to SharedOptionComponent.initializeFromConfig().
    */
   initializeFromConfig(comp: SharedOptionComponentLike): void {
-    if (comp.freezeOptionBindings || comp.hasUserClicked) return;
+    if (comp.freezeOptionBindings || comp.hasUserClicked()) return;
 
     // Full reset
     comp.optionBindings = [];
