@@ -87,7 +87,7 @@ export class QqcOrchResetService {
     }
 
     host.questionFresh = result.questionFresh;
-    host.timedOut = result.timedOut;
+    host.timedOut.set(result.timedOut);
     host._timerStoppedForQuestion = result.timerStoppedForQuestion;
     host._lastAllCorrect = result.lastAllCorrect;
     host.lastLoggedIndex = result.lastLoggedIndex;

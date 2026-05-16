@@ -73,9 +73,9 @@ export class QqcOrchQuestionLoadService {
   }
 
   async runLoadQuestion(host: Host, signal?: AbortSignal): Promise<boolean> {
-    host.readyForExplanationDisplay = false;
-    host.isExplanationReady = false;
-    host.isExplanationLocked = true;
+    host.readyForExplanationDisplay.set(false);
+    host.isExplanationReady.set(false);
+    host.isExplanationLocked.set(true);
     host.forceQuestionDisplay.set(true);
 
     const shouldPreserveVisualState = host.questionLoader.canRenderQuestionInstantly(
@@ -126,9 +126,9 @@ export class QqcOrchQuestionLoadService {
         host.displayMode.set(clearResult.displayState.mode);
         host.isAnswered.set(clearResult.displayState.answered);
         host.forceQuestionDisplay.set(clearResult.forceQuestionDisplay);
-        host.readyForExplanationDisplay = clearResult.readyForExplanationDisplay;
-        host.isExplanationReady = clearResult.isExplanationReady;
-        host.isExplanationLocked = clearResult.isExplanationLocked;
+        host.readyForExplanationDisplay.set(clearResult.readyForExplanationDisplay);
+        host.isExplanationReady.set(clearResult.isExplanationReady);
+        host.isExplanationLocked.set(clearResult.isExplanationLocked);
         host.feedbackText.set(clearResult.feedbackText);
       } else {
         const restoreResult = host.explanationFlow.computeRestoreAfterReset({
@@ -236,9 +236,9 @@ export class QqcOrchQuestionLoadService {
             host.shouldDisplayExplanation.set(f.shouldDisplayExplanation);
             host.explanationVisible.set(f.explanationVisible);
             host.forceQuestionDisplay.set(f.forceQuestionDisplay);
-            host.readyForExplanationDisplay = f.readyForExplanationDisplay;
-            host.isExplanationReady = f.isExplanationReady;
-            host.isExplanationLocked = f.isExplanationLocked;
+            host.readyForExplanationDisplay.set(f.readyForExplanationDisplay);
+            host.isExplanationReady.set(f.isExplanationReady);
+            host.isExplanationLocked.set(f.isExplanationLocked);
           }
         }
       }
@@ -246,8 +246,8 @@ export class QqcOrchQuestionLoadService {
   }
 
   async runInitializeQuiz(host: Host): Promise<void> {
-    if (host.initialized) return;
-    host.initialized = true;
+    if (host.initialized()) return;
+    host.initialized.set(true);
 
     host.quizId.set(host.activatedRoute.snapshot.paramMap.get('quizId'));
     host.isLoading.set(true);

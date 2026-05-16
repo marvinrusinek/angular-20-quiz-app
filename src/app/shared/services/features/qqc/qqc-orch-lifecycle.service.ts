@@ -112,7 +112,7 @@ export class QqcOrchLifecycleService {
       destroyRef: host.destroyRef,
       timerStop$: host.timerService.stop$,
       onTimerStopped: () => {
-        const reason = host.timedOut ? 'timeout' : 'stopped';
+        const reason = host.timedOut() ? 'timeout' : 'stopped';
         host.handleTimerStoppedForActiveQuestion(reason);
       }
     });

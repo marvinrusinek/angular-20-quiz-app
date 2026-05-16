@@ -13,8 +13,8 @@ type Host = QuizQuestionComponent;
 export class QqcOrchTimerService {
 
   runOnQuestionTimedOut(host: Host, targetIndex?: number): void {
-    if (host.timedOut) return;
-    host.timedOut = true;
+    if (host.timedOut()) return;
+    host.timedOut.set(true);
 
     const soc = host.sharedOptionComponent?.();
     if (soc) {

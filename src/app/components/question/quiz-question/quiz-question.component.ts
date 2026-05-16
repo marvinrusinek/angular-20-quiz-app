@@ -125,7 +125,7 @@ export class QuizQuestionComponent extends BaseQuestion
   idxSub!: Subscription;
   isMultipleAnswer!: boolean;
   readonly isLoading = signal<boolean>(true);
-  initialized = false;
+  readonly initialized = signal<boolean>(false);
   readonly feedbackText = signal<string>('');
   readonly displayExplanation = signal<boolean>(false);
   override sharedOptionConfig: SharedOptionConfig | null = null;
@@ -146,9 +146,9 @@ export class QuizQuestionComponent extends BaseQuestion
   }));
 
   readonly forceQuestionDisplay = signal<boolean>(true);
-  readyForExplanationDisplay = false;
-  isExplanationReady = false;
-  isExplanationLocked = true;
+  readonly readyForExplanationDisplay = signal<boolean>(false);
+  readonly isExplanationReady = signal<boolean>(false);
+  readonly isExplanationLocked = signal<boolean>(true);
   _formattedByIndex = new Map<number, string>();
   handledOnExpiry = new Set<number>();
   lastSerializedOptions = '';
@@ -173,7 +173,7 @@ export class QuizQuestionComponent extends BaseQuestion
   public feedbackConfigs: Record<FeedbackKey, FeedbackConfig> = {};
   public lastFeedbackOptionId: FeedbackKey = -1 as const;
   lastResetFor = -1;
-  timedOut = false;
+  readonly timedOut = signal<boolean>(false);
 
   // Tracks whether we already stopped for this question
   _timerStoppedForQuestion = false;
@@ -274,7 +274,7 @@ export class QuizQuestionComponent extends BaseQuestion
   readonly questionPayload = input<QuestionPayload | null>(null);
 
   resetUIForNewQuestion(): void {
-    this.timedOut = false;
+    this.timedOut.set(false);
     this._timerStoppedForQuestion = false;
     this.sharedOptionComponent()?.resetUIForNewQuestion();
     this.updateShouldRenderOptions([]);

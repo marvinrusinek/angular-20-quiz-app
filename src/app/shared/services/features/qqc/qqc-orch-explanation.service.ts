@@ -230,9 +230,9 @@ export class QqcOrchExplanationService {
 
   runApplyExplanationFlags(host: Host, flags: any): void {
     host.forceQuestionDisplay.set(flags.forceQuestionDisplay);
-    host.readyForExplanationDisplay = flags.readyForExplanationDisplay;
-    host.isExplanationReady = flags.isExplanationReady;
-    host.isExplanationLocked = flags.isExplanationLocked;
+    host.readyForExplanationDisplay.set(flags.readyForExplanationDisplay);
+    host.isExplanationReady.set(flags.isExplanationReady);
+    host.isExplanationLocked.set(flags.isExplanationLocked);
     host.explanationLocked = flags.explanationLocked;
     host.explanationVisible.set(flags.explanationVisible);
     host.displayExplanation.set(flags.displayExplanation);
