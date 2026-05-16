@@ -62,7 +62,7 @@ export class QuizSetupDataService {
       ?? host.questionsArray?.[initialIdx];
     if (!initialQuestion?.options?.length) return;
 
-    host.currentQuestion = initialQuestion;
+    host.currentQuestion.set(initialQuestion);
     host.questionToDisplaySig.set(initialQuestion.questionText?.trim() ?? '');
     const payload = {
       question: initialQuestion,
@@ -94,7 +94,7 @@ export class QuizSetupDataService {
 
       const safeIndex = Math.min(Math.max(host.currentQuestionIndex() ?? 0, 0), host.questions.length - 1);
       host.currentQuestionIndex.set(safeIndex);
-      host.currentQuestion = host.questions[safeIndex] ?? null;
+      host.currentQuestion.set(host.questions[safeIndex] ?? null);
 
       this.quizService.setCurrentQuiz(host.quiz);
       host.isQuizLoaded.set(true);
@@ -175,7 +175,7 @@ export class QuizSetupDataService {
     if (result.isEmpty) {
       host.questionToDisplaySig.set('');
       host.qaToDisplay = undefined;
-      host.currentQuestion = null;
+      host.currentQuestion.set(null);
       host.optionsToDisplaySig.set([]);
       host.hasOptionsLoaded = false;
       host.shouldRenderOptions.set(false);
@@ -185,7 +185,7 @@ export class QuizSetupDataService {
     }
     host.currentQuestionIndex.set(result.normalizedIndex);
     host.question.set(result.question);
-    host.currentQuestion = result.question;
+    host.currentQuestion.set(result.question);
     host.qaToDisplay = { question: result.question!, options: result.normalizedOptions };
     host.questionToDisplaySig.set(result.trimmedQuestionText);
     host.optionsToDisplaySig.set([...result.normalizedOptions]);
@@ -297,7 +297,7 @@ export class QuizSetupDataService {
         );
       }
       host.currentQuestionIndex.set(safeIdx);
-      host.currentQuestion = questions[safeIdx];
+      host.currentQuestion.set(questions[safeIdx]);
     });
   }
 
@@ -320,7 +320,7 @@ export class QuizSetupDataService {
         host.questionToDisplaySig.set(payload.question?.questionText?.trim() ?? 'No question available');
         host.explanationToDisplay.set(payload.explanation ?? '');
         host.question.set(payload.question);
-        host.currentQuestion = payload.question;
+        host.currentQuestion.set(payload.question);
         host.optionsToDisplaySig.set([...payload.options]);
         host.cdRef.detectChanges();
       });

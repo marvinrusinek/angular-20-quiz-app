@@ -205,7 +205,7 @@ export class QuizSetupService {
 
     this.sharedVisibilityService.pageVisibility$.subscribe((isHidden: boolean) => {
       const needsRender = this.quizVisibilityRestoreService.handleVisibilityChange(isHidden, {
-        currentQuestion: host.currentQuestion,
+        currentQuestion: host.currentQuestion(),
         optionsToDisplay: host.optionsToDisplaySig(),
         explanationToDisplay: host.explanationToDisplay(),
         combinedQuestionData: host.combinedQuestionData,
@@ -276,8 +276,8 @@ export class QuizSetupService {
     this.quizService.currentQuestion$.subscribe({
       next: (newQuestion: QuizQuestion | null) => {
         if (!newQuestion) return;
-        host.currentQuestion = null;
-        setTimeout(() => { host.currentQuestion = { ...newQuestion }; }, 10);
+        host.currentQuestion.set(null);
+        setTimeout(() => { host.currentQuestion.set({ ...newQuestion }); }, 10);
       },
       error: () => { }
     });
@@ -302,8 +302,8 @@ export class QuizSetupService {
     const authQ = _isShuf
       ? ((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[idx]
         ?? (this.quizService as any)?.shuffledQuestions?.[idx]
-        ?? host.currentQuestion)
-      : (this.quizService.questions?.[idx] ?? host.currentQuestion);
+        ?? host.currentQuestion())
+      : (this.quizService.questions?.[idx] ?? host.currentQuestion());
     const correctCount = (authQ?.options ?? []).filter(
       (o: any) => o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true'
     ).length;
@@ -341,7 +341,7 @@ export class QuizSetupService {
       option, idx, quizId: host.quizId,
       currentQuestionIndex: host.currentQuestionIndex(),
       questionsArray: host.questionsArray,
-      currentQuestion: host.currentQuestion,
+      currentQuestion: host.currentQuestion(),
       optionsToDisplay: host.optionsToDisplaySig(),
       liveSelections: host.getSelectionsForQuestion(idx),
       explanationToDisplay: host.explanationToDisplay()
@@ -512,7 +512,7 @@ subscribeToTimerExpiry(host: Host): void {
   showExplanationForQuestion(host: Host, qIdx: number): void {
     const { explanationHtml } = this.quizContentLoaderService.prepareExplanationForQuestion({
       qIdx, questionsArray: host.questionsArray, quiz: host.quiz,
-      currentQuestionIndex: host.currentQuestionIndex(), currentQuestion: host.currentQuestion,
+      currentQuestionIndex: host.currentQuestionIndex(), currentQuestion: host.currentQuestion(),
     });
     host.explanationToDisplay.set(explanationHtml);
     host.cdRef.detectChanges();

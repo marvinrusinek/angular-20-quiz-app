@@ -1,4 +1,4 @@
-﻿import { ChangeDetectorRef, Injectable } from '@angular/core';
+﻿import { ChangeDetectorRef, Injectable, WritableSignal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormGroup } from '@angular/forms';
 import {
@@ -41,7 +41,7 @@ export interface SharedOptionComponentLike {
   highlightCorrectAfterIncorrect: () => boolean;
   optionBindings: OptionBindings[];
   selectedOptionId: () => number | null;
-  selectedOptionIndex: number | null;
+  selectedOptionIndex: WritableSignal<number | null>;
   isNavigatingBackwards: boolean;
   renderReady: { set: (v: boolean) => void; (): boolean };
   finalRenderReady$: () => Observable<boolean> | null;
@@ -641,7 +641,7 @@ export class SharedOptionInitService {
     // Full reset
     comp.optionBindings = [];
     comp.selectedOption = null;
-    comp.selectedOptionIndex = -1;
+    comp.selectedOptionIndex.set(-1);
     comp.showFeedbackForOption = {};
     comp.correctMessage = '';
     comp.showFeedback = false;

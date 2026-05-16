@@ -98,7 +98,7 @@ export class SharedOptionComponent
   public showFeedback = false;
   public shouldResetBackground = false;
   public optionBindings: OptionBindings[] = [];
-  public selectedOptionIndex: number | null = null;
+  readonly selectedOptionIndex = signal<number | null>(null);
   public isNavigatingBackwards = false;
   readonly finalRenderReady$ = input<Observable<boolean> | null>(null);
   readonly questionVersion = input<number>(0);  // increments every time questionIndex changes

@@ -716,7 +716,7 @@ export class SharedOptionBindingService {
       showCorrectMessage: !!comp.correctMessage,
       explanationText: '',
       showExplanation: false,
-      selectedOptionIndex: comp.selectedOptionIndex,
+      selectedOptionIndex: comp.selectedOptionIndex(),
       highlight: shouldHighlight
     };
   }

@@ -62,7 +62,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   readonly nextButtonTooltip = viewChild<MatTooltip>('nextButton');
 
   selectedQuiz: Quiz | null = null;
-  currentQuestion: QuizQuestion | null = null;
+  readonly currentQuestion = signal<QuizQuestion | null>(null);
   quiz!: Quiz;
   quizId = '';
   readonly question = signal<QuizQuestion | null>(null);
@@ -326,7 +326,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
 
   resetQuestionState(): void {
     this.quizResetService.resetQuestionServiceState();
-    this.currentQuestion = null;
+    this.currentQuestion.set(null);
     this.question.set(null);
     this.optionsToDisplaySig.set([]);
     this.quizQuestionComponent()?.resetFeedback?.();
@@ -502,7 +502,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
       quizId: this.quizId,
       currentQuestionIndex: this.currentQuestionIndex(),
       optionsToDisplay: this.optionsToDisplaySig(),
-      currentQuestion: this.currentQuestion,
+      currentQuestion: this.currentQuestion(),
       questionsArray: this.questionsArray
     };
   }

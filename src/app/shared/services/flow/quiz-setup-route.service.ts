@@ -109,7 +109,7 @@ export class QuizSetupRouteService {
 
   private resetComponentStateForQuizSwitch(host: Host, routeQuizId: string): void {
     host.questionsArray = [];
-    host.currentQuestion = null;
+    host.currentQuestion.set(null);
     host.optionsToDisplaySig.set([]);
     host.combinedQuestionData.set(null);
     host.questionToDisplaySig.set('');
@@ -146,7 +146,7 @@ export class QuizSetupRouteService {
         });
 
         if (question) {
-          host.currentQuestion = question;
+          host.currentQuestion.set(question);
           host.questionToDisplaySig.set(question.questionText?.trim() ?? '');
           host.combinedQuestionData.set({
             question, options: question.options, explanation: question.explanation
@@ -218,7 +218,7 @@ export class QuizSetupRouteService {
       if (!result.success || !result.question) return;
 
       host.totalQuestions.set(result.totalQuestions);
-      host.currentQuestion = result.question;
+      host.currentQuestion.set(result.question);
       host.question.set(result.question);
       const payload = {
         question: result.question, options: result.options, explanation: result.explanation
@@ -340,7 +340,7 @@ export class QuizSetupRouteService {
       this.timerService.resetTimer();
       this.timerService.startTimer(this.timerService.timePerQuestion, this.timerService.isCountdown, true);
       this.resetFeedbackState(host);
-      host.currentQuestion = result.question;
+      host.currentQuestion.set(result.question);
       host.combinedQuestionData.set({
         question: result.question, options: result.question.options ?? [], explanation: result.question.explanation ?? ''
       });
