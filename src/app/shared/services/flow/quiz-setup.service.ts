@@ -86,8 +86,8 @@ export class QuizSetupService {
       .pipe(takeUntilDestroyed(host.destroyRef))
       .subscribe((params: any) => {
         host.quizId.set(params['quizId'] ?? '');
-        host.questionIndex = +params['questionIndex'];
-        host.currentQuestionIndex.set(host.questionIndex - 1);
+        host.questionIndex.set(+params['questionIndex']);
+        host.currentQuestionIndex.set(host.questionIndex() - 1);
         void this.dataService.loadQuizData(host);
       });
   }

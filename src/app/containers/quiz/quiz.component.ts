@@ -130,7 +130,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     return payload;
   });
 
-  questionIndex = 0;
+  readonly questionIndex = signal<number>(0);
   readonly currentQuestionIndex = signal<number>(0);
   lastLoggedIndex = -1;
   readonly totalQuestions = signal<number>(0);
@@ -184,7 +184,6 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   animationStateSig = signal<AnimationState>('none');
 
   displayState$ = this.quizStateService.displayState$;
-  qaToDisplay?: { question: QuizQuestion; options: Option[] };
 
   constructor(
     public quizService: QuizService,

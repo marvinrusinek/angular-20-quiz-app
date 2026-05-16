@@ -177,7 +177,6 @@ export class QuizSetupDataService {
     });
     if (result.isEmpty) {
       host.questionToDisplaySig.set('');
-      host.qaToDisplay = undefined;
       host.currentQuestion.set(null);
       host.optionsToDisplaySig.set([]);
       host.hasOptionsLoaded.set(false);
@@ -189,7 +188,6 @@ export class QuizSetupDataService {
     host.currentQuestionIndex.set(result.normalizedIndex);
     host.question.set(result.question);
     host.currentQuestion.set(result.question);
-    host.qaToDisplay = { question: result.question!, options: result.normalizedOptions };
     host.questionToDisplaySig.set(result.trimmedQuestionText);
     host.optionsToDisplaySig.set([...result.normalizedOptions]);
     host.hasOptionsLoaded.set(result.normalizedOptions.length > 0);
@@ -231,7 +229,7 @@ export class QuizSetupDataService {
     const currentIdx = host.currentQuestionIndex();
     const targetIdx = Number.isFinite(currentIdx) && currentIdx >= 0
       ? currentIdx
-      : (Number.isFinite(host.questionIndex) && host.questionIndex >= 0 ? host.questionIndex : 0);
+      : (Number.isFinite(host.questionIndex()) && host.questionIndex() >= 0 ? host.questionIndex() : 0);
 
     if (targetIdx >= 0) {
       this.quizContentLoaderService.fetchAndSubscribeQuestionAndOptions(host.quizId(), targetIdx);
@@ -319,7 +317,6 @@ export class QuizSetupDataService {
     const sub = this.quizContentLoaderService.createNormalizedQuestionPayload$()
       .subscribe((payload: QuestionPayload) => {
         host.combinedQuestionData.set(payload);
-        host.qaToDisplay = { question: payload.question, options: payload.options };
         host.questionToDisplaySig.set(payload.question?.questionText?.trim() ?? 'No question available');
         host.explanationToDisplay.set(payload.explanation ?? '');
         host.question.set(payload.question);

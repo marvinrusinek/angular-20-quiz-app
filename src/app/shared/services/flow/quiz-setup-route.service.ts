@@ -227,7 +227,6 @@ export class QuizSetupRouteService {
       host.questionToDisplaySig.set(result.question.questionText?.trim() ?? '');
       host.optionsToDisplaySig.set([...result.options]);
       host.explanationToDisplay.set(result.explanation);
-      host.qaToDisplay = { question: result.question, options: result.options };
       host.shouldRenderOptions.set(true);
       host.cdRef.detectChanges();
 
@@ -257,8 +256,8 @@ export class QuizSetupRouteService {
       .pipe(takeUntilDestroyed(host.destroyRef))
       .subscribe((params: Params) => {
         host.quizId.set(params['quizId'] ?? '');
-        host.questionIndex = +params['questionIndex'];
-        host.currentQuestionIndex.set(host.questionIndex - 1);
+        host.questionIndex.set(+params['questionIndex']);
+        host.currentQuestionIndex.set(host.questionIndex() - 1);
       });
   }
 
@@ -272,7 +271,7 @@ export class QuizSetupRouteService {
           return;
         }
         host.quizId.set(quizData.quizId);
-        host.questionIndex = +host.activatedRoute.snapshot.params['questionIndex'];
+        host.questionIndex.set(+host.activatedRoute.snapshot.params['questionIndex']);
       });
   }
 
