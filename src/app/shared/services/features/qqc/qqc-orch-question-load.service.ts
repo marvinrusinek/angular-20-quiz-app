@@ -280,8 +280,8 @@ export class QqcOrchQuestionLoadService {
 
     host.questions = result.questions;
     host.questionsArray.set(result.questions);
-    if (result.quiz) host.quiz = result.quiz;
-    if (!host.quiz) return;
+    if (result.quiz) host.quiz.set(result.quiz);
+    if (!host.quiz()) return;
 
     host.quizService.questionsLoaded$.pipe(
       take(1), debounceTime(100)
