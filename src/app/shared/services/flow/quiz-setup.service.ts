@@ -1,7 +1,7 @@
 ﻿import { Injectable } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
-import { debounceTime, filter, shareReplay } from 'rxjs/operators';
+import { filter } from 'rxjs/operators';
 
 import { QuizPersistenceService } from '../state/quiz-persistence.service';
 import { QuizOptionProcessingService } from './quiz-option-processing.service';
@@ -262,10 +262,6 @@ export class QuizSetupService {
       })
     );
 
-    host.isButtonEnabled$ = this.selectedOptionService
-      .isOptionSelected$()
-      .pipe(debounceTime(300), shareReplay(1));
-
     this.selectedOptionService.selectedOption$.subscribe((selections: any[]) => {
       const qIndex = selections?.[0]?.questionIndex ?? host.currentQuestionIndex();
       if (selections && selections.length > 0) host.markQuestionAnswered(qIndex);
@@ -281,8 +277,6 @@ export class QuizSetupService {
       },
       error: () => { }
     });
-
-    host.isContentAvailable$ = this.quizDataService.isContentAvailable$;
   }
 
   // â”€â”€ onOptionSelected â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

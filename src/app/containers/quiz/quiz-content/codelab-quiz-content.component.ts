@@ -67,7 +67,6 @@ export class CodelabQuizContentComponent implements OnInit, OnDestroy {
 
   currentQuestionIndexValue = 0;
   currentQuestionIndex$!: Observable<number>;
-  nextQuestion$: Observable<QuizQuestion | null>;
 
   // Read live from the navigation service signal — no local mirror needed.
   get isNavigatingToPrevious(): boolean {
@@ -168,8 +167,6 @@ export class CodelabQuizContentComponent implements OnInit, OnDestroy {
     private orchestrator: CqcOrchestratorService,
     public destroyRef: DestroyRef
   ) {
-    this.nextQuestion$ = this.quizService.nextQuestion$;
-
     this.formattedExplanation$ = this.displayService.createFormattedExplanation$(this.currentIndex$);
     this.activeFetText$ = this.displayService.createActiveFetText$(this.currentIndex$);
 

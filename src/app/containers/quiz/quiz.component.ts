@@ -6,7 +6,6 @@ import { toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Observable, Subscription } from 'rxjs';
-import { debounceTime, shareReplay } from 'rxjs/operators';
 import { MatCardModule } from '@angular/material/card';
 import { MatTooltip, MatTooltipModule } from '@angular/material/tooltip';
 
@@ -181,8 +180,6 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   navigatingToResults = false;
 
   readonly nextButtonEnabled = this.nextButtonStateService.isButtonEnabled;
-  isButtonEnabled$: Observable<boolean>;
-  isContentAvailable$: Observable<boolean>;
 
   animationStateSig = signal<AnimationState>('none');
 
@@ -209,8 +206,6 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     public cdRef: ChangeDetectorRef,
     public destroyRef: DestroyRef
   ) {
-    this.isButtonEnabled$ = this.selectedOptionService.isOptionSelected$().pipe(debounceTime(300), shareReplay(1));
-    this.isContentAvailable$ = this.quizDataService.isContentAvailable$;
     this.quizSetupService.wireConstructor(this);
   }
 
