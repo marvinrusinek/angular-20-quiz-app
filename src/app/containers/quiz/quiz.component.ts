@@ -63,7 +63,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   readonly selectedQuiz = signal<Quiz | null>(null);
   readonly currentQuestion = signal<QuizQuestion | null>(null);
   readonly quiz = signal<Quiz | null>(null);
-  quizId = '';
+  readonly quizId = signal<string>('');
   readonly question = signal<QuizQuestion | null>(null);
   questions: QuizQuestion[] = [];
   readonly questionsArray = signal<QuizQuestion[]>([]);
@@ -433,7 +433,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     this.quizNavigationService.recordElapsedAndGoToResults(this.currentQuestionIndex());
 
     // Navigate to results from the component
-    const quizId = this.quizId
+    const quizId = this.quizId()
       || this.quizService.quizId
       || this.quizService.getCurrentQuizId()
       || this.activatedRoute.snapshot.paramMap.get('quizId')
@@ -454,7 +454,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     this.progressSig.set(Math.round((this.answeredQuestionIndices.size / total) * 100));
     try {
       sessionStorage.setItem('quizProgress', String(this.progressSig()));
-      sessionStorage.setItem('quizProgressQuizId', this.quizId);
+      sessionStorage.setItem('quizProgressQuizId', this.quizId());
       sessionStorage.setItem('answeredQuestionIndices', JSON.stringify([...this.answeredQuestionIndices]));
     } catch { }
     this.cdRef.detectChanges();
@@ -499,7 +499,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private get _dotParams() {
     return {
-      quizId: this.quizId,
+      quizId: this.quizId(),
       currentQuestionIndex: this.currentQuestionIndex(),
       optionsToDisplay: this.optionsToDisplaySig(),
       currentQuestion: this.currentQuestion(),
@@ -541,7 +541,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     const quizId = this.quizService.quizId || this.quizService.getCurrentQuizId();
     this.dotStatusService.clearForIndex(index);
     this.selectedOptionService.lastClickedCorrectByQuestion.clear();
-    this.quizPersistence.clearPersistedDotStatus(this.quizId, index);
+    this.quizPersistence.clearPersistedDotStatus(this.quizId(), index);
     this.selectedOptionService.resetLocksForQuestion(index);
     this.quizService.setCurrentQuestionIndex(index);
     this.router.navigate(['/quiz/question', quizId, index + 1]);

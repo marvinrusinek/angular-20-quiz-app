@@ -52,7 +52,7 @@ export class QuizSetupRouteService {
       .pipe(filter((event) => event instanceof NavigationEnd))
       .subscribe(async () => {
         const { routeQuizId, index: idx, isQuizSwitch } =
-          this.quizRouteService.parseNavigationEndParams(host.activatedRoute, host.quizId);
+          this.quizRouteService.parseNavigationEndParams(host.activatedRoute, host.quizId());
 
         if (isQuizSwitch && routeQuizId) {
           this.quizNavigationService.resetForNewQuiz();
@@ -121,12 +121,12 @@ export class QuizSetupRouteService {
     host.isQuizDataLoaded.set(false);
     host.totalQuestions.set(0);
     host.progressSig.set(0);
-    host.quizId = routeQuizId;
+    host.quizId.set(routeQuizId);
     this.quizService.setQuizId(routeQuizId);
   }
 
   fetchTotalQuestions(host: Host): void {
-    this.quizService.getTotalQuestionsCount(host.quizId)
+    this.quizService.getTotalQuestionsCount(host.quizId())
       .pipe()
       .subscribe((total: number) => {
         host.totalQuestions.set(total);
@@ -142,7 +142,7 @@ export class QuizSetupRouteService {
         host.lastLoggedIndex = idx;
         host.currentQuestionIndex.set(idx);
         const { question, isNavigation } = this.quizContentLoaderService.handleQuestionIndexTransition({
-          idx, prevIdx, quizId: host.quizId, questionsArray: host.questionsArray()
+          idx, prevIdx, quizId: host.quizId(), questionsArray: host.questionsArray()
         });
 
         if (question) {
@@ -198,14 +198,14 @@ export class QuizSetupRouteService {
     const index = Number(indexParam) - 1;
     if (!quizId || isNaN(index) || index < 0) return;
 
-    if (host.quizId && host.quizId !== quizId) {
+    if (host.quizId() && host.quizId() !== quizId) {
       this.dotStatusService.clearAllMaps();
       this.quizPersistence.clearClickConfirmedDotStatus(host.totalQuestions() || 20);
       host.progressSig.set(0);
       this.quizStateService.reset();
     }
 
-    host.quizId = quizId;
+    host.quizId.set(quizId);
     host.currentQuestionIndex.set(index);
     this.quizService.setQuizId(quizId);
     this.quizService.setCurrentQuestionIndex(index);
@@ -256,7 +256,7 @@ export class QuizSetupRouteService {
     host.activatedRoute.params
       .pipe(takeUntilDestroyed(host.destroyRef))
       .subscribe((params: Params) => {
-        host.quizId = params['quizId'];
+        host.quizId.set(params['quizId'] ?? '');
         host.questionIndex = +params['questionIndex'];
         host.currentQuestionIndex.set(host.questionIndex - 1);
       });
@@ -271,7 +271,7 @@ export class QuizSetupRouteService {
           void this.router.navigate(['/select']);
           return;
         }
-        host.quizId = quizData.quizId;
+        host.quizId.set(quizData.quizId);
         host.questionIndex = +host.activatedRoute.snapshot.params['questionIndex'];
       });
   }
@@ -329,10 +329,10 @@ export class QuizSetupRouteService {
   async loadQuestionByRouteIndex(host: Host, routeIndex: number): Promise<void> {
     try {
       const result = await this.quizContentLoaderService.loadQuestionByRoute({
-        routeIndex, quiz: host.quiz(), quizId: host.quizId, totalQuestions: host.totalQuestions(),
+        routeIndex, quiz: host.quiz(), quizId: host.quizId(), totalQuestions: host.totalQuestions(),
       });
       if (result.questionIndex === -1) {
-        void this.router.navigate(['/question/', host.quizId, 1]);
+        void this.router.navigate(['/question/', host.quizId(), 1]);
         return;
       }
       if (!result.success || !result.question) return;

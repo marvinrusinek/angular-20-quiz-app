@@ -85,7 +85,7 @@ export class QuizSetupService {
     host.activatedRoute.params
       .pipe(takeUntilDestroyed(host.destroyRef))
       .subscribe((params: any) => {
-        host.quizId = params['quizId'];
+        host.quizId.set(params['quizId'] ?? '');
         host.questionIndex = +params['questionIndex'];
         host.currentQuestionIndex.set(host.questionIndex - 1);
         void this.dataService.loadQuizData(host);
@@ -249,7 +249,7 @@ export class QuizSetupService {
     host.subscriptions.add(
       this.quizService.questions$.subscribe((questions: QuizQuestion[]) => {
         const serviceQuizId = this.quizService.getCurrentQuizId();
-        if (questions?.length && (!host.quizId || serviceQuizId === host.quizId)) {
+        if (questions?.length && (!host.quizId() || serviceQuizId === host.quizId())) {
           const shuffled = this.quizService.shuffledQuestions;
           const effectiveQuestions =
             this.quizService.isShuffleEnabled() && shuffled?.length > 0
@@ -332,7 +332,7 @@ export class QuizSetupService {
     }
 
     await this.quizOptionProcessingService.processOptionClick({
-      option, idx, quizId: host.quizId,
+      option, idx, quizId: host.quizId(),
       currentQuestionIndex: host.currentQuestionIndex(),
       questionsArray: host.questionsArray(),
       currentQuestion: host.currentQuestion(),
@@ -357,7 +357,7 @@ export class QuizSetupService {
     const confirmed = this.selectedOptionService.clickConfirmedDotStatus.get(idx);
     const dotStatus = confirmed || this.dotStatusService.dotStatusCache.get(idx);
     if (dotStatus === 'correct' || dotStatus === 'wrong') {
-      this.quizPersistence.setPersistedDotStatus(host.quizId, idx, dotStatus);
+      this.quizPersistence.setPersistedDotStatus(host.quizId(), idx, dotStatus);
     }
 
     host.cdRef.detectChanges();
@@ -372,7 +372,7 @@ export class QuizSetupService {
       host.updateDotStatus(idx);
       const delayedDotStatus = this.dotStatusService.dotStatusCache.get(idx);
       if (delayedDotStatus === 'correct' || delayedDotStatus === 'wrong') {
-        this.quizPersistence.setPersistedDotStatus(host.quizId, idx, delayedDotStatus);
+        this.quizPersistence.setPersistedDotStatus(host.quizId(), idx, delayedDotStatus);
       }
       host.cdRef.detectChanges();
     }, 150);
@@ -384,12 +384,12 @@ export class QuizSetupService {
     this.quizContentLoaderService.snapshotLeavingQuestion({
       leavingIdx,
       leavingDotClass: host.getDotClass(leavingIdx),
-      quizId: host.quizId,
-      getScoringKey: (idx: number) => this.dotStatusService.getScoringKey(host.quizId, idx),
+      quizId: host.quizId(),
+      getScoringKey: (idx: number) => this.dotStatusService.getScoringKey(host.quizId(), idx),
     });
     const leavingDotClass = host.getDotClass(leavingIdx);
-    if (leavingDotClass.includes('correct')) this.quizPersistence.setPersistedDotStatus(host.quizId, leavingIdx, 'correct');
-    else if (leavingDotClass.includes('wrong')) this.quizPersistence.setPersistedDotStatus(host.quizId, leavingIdx, 'wrong');
+    if (leavingDotClass.includes('correct')) this.quizPersistence.setPersistedDotStatus(host.quizId(), leavingIdx, 'correct');
+    else if (leavingDotClass.includes('wrong')) this.quizPersistence.setPersistedDotStatus(host.quizId(), leavingIdx, 'wrong');
     host.animationStateSig.set('animationStarted');
     this.selectedOptionService.setAnswered(false);
     this.quizStateService.resetInteraction();
@@ -399,7 +399,7 @@ export class QuizSetupService {
         this.dotStatusService.clearForIndex(destIndex);
         this.selectedOptionService.lastClickedCorrectByQuestion.delete(destIndex);
         this.selectedOptionService.clickConfirmedDotStatus.delete(destIndex);
-        this.quizPersistence.clearPersistedDotStatus(host.quizId, destIndex);
+        this.quizPersistence.clearPersistedDotStatus(host.quizId(), destIndex);
         try { sessionStorage.removeItem('dot_confirmed_' + destIndex); } catch {}
       }
     }
@@ -426,7 +426,7 @@ export class QuizSetupService {
 
   restartQuiz(host: Host): void {
     const totalQs = host.totalQuestions();
-    this.quizResetService.performRestartServiceResets(host.quizId, totalQs);
+    this.quizResetService.performRestartServiceResets(host.quizId(), totalQs);
     this.dotStatusService.clearAllMaps();
     host.quizQuestionComponent?.()?.selectedIndices?.clear();
     this.timerService.stopTimer?.(undefined, { force: true });
@@ -449,7 +449,7 @@ export class QuizSetupService {
       (this.quizStateService as any).persistInteractionState?.();
     } catch {}
 
-    this.router.navigate(['/quiz/question', host.quizId, 1])
+    this.router.navigate(['/quiz/question', host.quizId(), 1])
       .then(() => {
         host.currentQuestionIndex.set(0);
         this.quizResetService.applyPostRestartState(host.totalQuestions(), () => {
@@ -672,7 +672,7 @@ subscribeToTimerExpiry(host: Host): void {
 
     const quizId = await host.initializeQuizId();
     if (!quizId) return;
-    host.quizId = quizId;
+    host.quizId.set(quizId);
 
     try { localStorage.setItem('lastQuizId', quizId); } catch {}
 
@@ -685,10 +685,10 @@ subscribeToTimerExpiry(host: Host): void {
     } catch {}
 
     if (freshFromResults) {
-      this.quizResetService.performRestartServiceResets(host.quizId, host.totalQuestions() || 20);
+      this.quizResetService.performRestartServiceResets(host.quizId(), host.totalQuestions() || 20);
       this.dotStatusService.clearAllMaps();
       this.quizPersistence.clearClickConfirmedDotStatus(host.totalQuestions() || 20);
-      this.quizPersistence.clearAllPersistedDotStatus(host.quizId);
+      this.quizPersistence.clearAllPersistedDotStatus(host.quizId());
       this.selectedOptionService.lastClickedCorrectByQuestion.clear();
       this.selectedOptionService.clearRefreshBackup();
       this.selectedOptionService.clearState();
@@ -709,7 +709,7 @@ subscribeToTimerExpiry(host: Host): void {
     }
 
     const cleared = this.quizResetService.clearStaleProgressAndDotStateForFreshStart(
-      host.currentQuestionIndex(), host.quizId, host.totalQuestions()
+      host.currentQuestionIndex(), host.quizId(), host.totalQuestions()
     );
     if (cleared) host.progressSig.set(0);
 
@@ -733,7 +733,7 @@ subscribeToTimerExpiry(host: Host): void {
       try {
         const savedQuizId = sessionStorage.getItem('quizProgressQuizId');
         const savedProgress = sessionStorage.getItem('quizProgress');
-        if (savedQuizId === host.quizId && savedProgress) {
+        if (savedQuizId === host.quizId() && savedProgress) {
           const parsed = parseInt(savedProgress, 10);
           if (!isNaN(parsed) && parsed > 0) {
             host.progressSig.set(parsed);

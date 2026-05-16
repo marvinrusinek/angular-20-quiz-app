@@ -44,7 +44,7 @@ export class QuizSetupDataService {
 
   async loadQuestions(host: Host): Promise<void> {
     try {
-      const questions = await this.quizService.fetchQuizQuestions(host.quizId);
+      const questions = await this.quizService.fetchQuizQuestions(host.quizId());
       if (!questions?.length) return;
       host.questionsArray.set([...questions]);
       host.totalQuestions.set(questions.length);
@@ -83,10 +83,10 @@ export class QuizSetupDataService {
 
   async loadQuizData(host: Host): Promise<boolean> {
     if (host.isQuizLoaded()) return true;
-    if (!host.quizId) return false;
+    if (!host.quizId()) return false;
 
     try {
-      const result = await this.quizContentLoaderService.loadQuizDataFromService(host.quizId);
+      const result = await this.quizContentLoaderService.loadQuizDataFromService(host.quizId());
       if (!result) return false;
 
       host.quiz.set(result.quiz);
@@ -234,7 +234,7 @@ export class QuizSetupDataService {
       : (Number.isFinite(host.questionIndex) && host.questionIndex >= 0 ? host.questionIndex : 0);
 
     if (targetIdx >= 0) {
-      this.quizContentLoaderService.fetchAndSubscribeQuestionAndOptions(host.quizId, targetIdx);
+      this.quizContentLoaderService.fetchAndSubscribeQuestionAndOptions(host.quizId(), targetIdx);
     }
     this.quizService.setCurrentQuestionIndex(targetIdx);
 
@@ -253,9 +253,9 @@ export class QuizSetupDataService {
     if (!Number.isFinite(idx) || idx < 0) {
       host.currentQuestionIndex.set(0);
     }
-    host.quizId = host.activatedRoute.snapshot.paramMap.get('quizId') ?? '';
+    host.quizId.set(host.activatedRoute.snapshot.paramMap.get('quizId') ?? '');
     await this.quizContentLoaderService.prepareQuizSession({
-      quizId: host.quizId,
+      quizId: host.quizId(),
       applyQuestionsFromSession: (questions: QuizQuestion[]) => this.applyQuestionsFromSession(host, questions)
     });
   }
@@ -283,7 +283,7 @@ export class QuizSetupDataService {
   }
 
   initializeQuestionStreams(host: Host): void {
-    host.questions$ = this.quizDataService.getQuestionsForQuiz(host.quizId);
+    host.questions$ = this.quizDataService.getQuestionsForQuiz(host.quizId());
     host.questions$.subscribe((questions: QuizQuestion[]) => {
       if (!questions?.length) return;
       // Honour the URL-derived index that initializeQuestionIndex set
@@ -296,7 +296,7 @@ export class QuizSetupDataService {
       const safeIdx = idx < questions.length ? idx : 0;
       for (const [index] of questions.entries()) {
         this.quizStateService.setQuestionState(
-          host.quizId, index, this.quizStateService.createDefaultQuestionState()
+          host.quizId(), index, this.quizStateService.createDefaultQuestionState()
         );
       }
       host.currentQuestionIndex.set(safeIdx);
@@ -306,7 +306,7 @@ export class QuizSetupDataService {
 
   loadQuizQuestionsForCurrentQuiz(host: Host): void {
     host.isQuizDataLoaded.set(false);
-    this.quizDataService.getQuestionsForQuiz(host.quizId).subscribe({
+    this.quizDataService.getQuestionsForQuiz(host.quizId()).subscribe({
       next: (questions: QuizQuestion[]) => {
         this.applyQuestionsFromSession(host, questions);
         host.isQuizDataLoaded.set(true);
@@ -349,7 +349,7 @@ export class QuizSetupDataService {
 
   async updateQuestionStateAndExplanation(host: Host, questionIndex: number): Promise<void> {
     const result = await this.quizContentLoaderService.evaluateQuestionStateAndExplanation({
-      quizId: host.quizId, questionIndex,
+      quizId: host.quizId(), questionIndex,
     });
     if (!result.handled) return;
     host.explanationToDisplay.set(result.explanationText);
