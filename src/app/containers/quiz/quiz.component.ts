@@ -343,32 +343,37 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   // matching the URL, otherwise Prev/Restart/Show-Results all
   // disappear on direct URL nav to a non-Q1 question.
   private getEffectiveQuestionIndex(): number {
+    // Always read the signal first so consumers wrapped in computed() pick
+    // up `currentQuestionIndex` as a reactive dependency on every code path.
+    const sigIdx = this.currentQuestionIndex();
     try {
-      const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
-      if (m) {
-        const urlIdx = Number(m[1]) - 1;
-        if (urlIdx >= 0) return urlIdx;
+      // Path shape: /question/<quizId>/<num>. Split + indexOf avoids a regex.
+      const parts = window.location.pathname.split('/').filter(Boolean);
+      const qPos = parts.indexOf('question');
+      if (qPos >= 0 && qPos + 2 < parts.length) {
+        const parsed = Number(parts[qPos + 2]);
+        if (Number.isInteger(parsed) && parsed > 0) {
+          return parsed - 1;
+        }
       }
     } catch { /* non-browser env */ }
-    return this.currentQuestionIndex();
+    return sigIdx;
   }
 
-  public get shouldShowPrevButton(): boolean {
-    return this.getEffectiveQuestionIndex() > 0;
-  }
+  readonly shouldShowPrevButton = computed(() => this.getEffectiveQuestionIndex() > 0);
 
-  public get shouldShowRestartButton(): boolean {
+  readonly shouldShowRestartButton = computed(() => {
     const idx = this.getEffectiveQuestionIndex();
     const serviceCount = this.quizService.questions?.length || 0;
     const effectiveTotal = Math.max(this.totalQuestions(), serviceCount);
     return idx > 0 && idx <= effectiveTotal - 1;
-  }
+  });
 
-  public get shouldShowNextButton(): boolean {
+  readonly shouldShowNextButton = computed(() => {
     const serviceCount = this.quizService.questions?.length || 0;
     const effectiveTotal = Math.max(this.totalQuestions(), serviceCount);
     return this.getEffectiveQuestionIndex() < effectiveTotal - 1;
-  }
+  });
 
   public get shouldShowResultsButton(): boolean {
     const serviceCount = this.quizService.questions?.length || 0;
