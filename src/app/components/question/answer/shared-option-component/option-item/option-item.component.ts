@@ -165,7 +165,7 @@ export class OptionItemComponent implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
         this._directTimerExpired = true;
-        this._directTimerExpiredForIndex = this.timerService.expiredForQuestionIndex;
+        this._directTimerExpiredForIndex = this.timerService.expiredForQuestionIndexSig();
         this.cdRef.markForCheck();
         this.cdRef.detectChanges();
       });
@@ -231,7 +231,7 @@ export class OptionItemComponent implements OnInit {
     // Legacy fallback: parent input-based check
     if (!this.timerExpired()) return false;
 
-    const expiredPlain = this.timerService.expiredForQuestionIndex;
+    const expiredPlain = this.timerService.expiredForQuestionIndexSig();
     return expiredPlain < 0 || expiredPlain === qIdx;
   }
 

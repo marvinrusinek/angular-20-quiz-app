@@ -62,7 +62,7 @@ export class QuizResetService {
         this.timerService.resetTimer();
         this.timerService.startTimer(
           this.timerService.timePerQuestion,
-          this.timerService.isCountdown,
+          this.timerService.isCountdown(),
           true
         );
       });

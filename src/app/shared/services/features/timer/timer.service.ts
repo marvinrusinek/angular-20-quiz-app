@@ -1,4 +1,4 @@
-﻿import { Injectable, OnDestroy, signal } from '@angular/core';
+﻿import { computed, Injectable, OnDestroy, signal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { Subject, Subscription, timer } from 'rxjs';
 import { finalize, takeUntil, tap } from 'rxjs/operators';
@@ -29,8 +29,6 @@ export class TimerService implements OnDestroy {
   })();
 
   isTimerRunning = false;  // tracks whether the timer is currently running
-  /** Derived from timerTypeSig â€” single source of truth. */
-  get isCountdown(): boolean { return this.timerTypeSig() === 'countdown'; }
   isTimerStoppedForCurrentQuestion = false;
   stoppedForQuestion = new Set<number>();
 
@@ -51,6 +49,8 @@ export class TimerService implements OnDestroy {
   }
   readonly timerTypeSig = signal<'countdown' | 'stopwatch'>(TimerService._initTimerType());
   public timerType$ = toObservable(this.timerTypeSig);
+  /** Derived from timerTypeSig — single source of truth. */
+  readonly isCountdown = computed(() => this.timerTypeSig() === 'countdown');
 
   readonly stopSig = signal<number>(0);
   public stop$ = toObservable(this.stopSig);
@@ -65,8 +65,6 @@ export class TimerService implements OnDestroy {
   private hasExpiredForRun = false;
   /** Signal version â€” read this in OnPush templates so Angular auto-tracks it. */
   public readonly expiredForQuestionIndexSig = signal(-1);
-  /** Derived from expiredForQuestionIndexSig â€” single source of truth. */
-  public get expiredForQuestionIndex(): number { return this.expiredForQuestionIndexSig(); }
 
   constructor(
     private quizService: QuizService,
@@ -449,7 +447,7 @@ export class TimerService implements OnDestroy {
     this.stopTimer?.(undefined, { force: true });
     this.resetTimer();
     this.resetTimerFlagsFor(questionIndex);
-    this.startTimer(this.timePerQuestion, this.isCountdown, true);
+    this.startTimer(this.timePerQuestion, this.isCountdown(), true);
   }
 
   public resetTimerFlagsFor(questionIndex: number): void {

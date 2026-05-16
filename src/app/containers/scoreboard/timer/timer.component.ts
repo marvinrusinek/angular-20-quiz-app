@@ -30,7 +30,7 @@ export class TimerComponent {
   private readonly timerTypeSig = toSignal(
     this.timerService.timerType$,
     {
-      initialValue: this.timerService.isCountdown ? 'countdown' : 'stopwatch'
+      initialValue: this.timerService.isCountdown() ? 'countdown' : 'stopwatch'
     }
   );
 

@@ -577,7 +577,7 @@ export class QqcQlStreamService {
     } else {
       this.timerService.startTimer(
         this.timerService.timePerQuestion,
-        this.timerService.isCountdown,
+        this.timerService.isCountdown(),
         true
       );
     }

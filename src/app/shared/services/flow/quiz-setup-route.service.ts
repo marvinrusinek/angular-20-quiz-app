@@ -338,7 +338,7 @@ export class QuizSetupRouteService {
       if (!result.success || !result.question) return;
       host.currentQuestionIndex.set(result.questionIndex);
       this.timerService.resetTimer();
-      this.timerService.startTimer(this.timerService.timePerQuestion, this.timerService.isCountdown, true);
+      this.timerService.startTimer(this.timerService.timePerQuestion, this.timerService.isCountdown(), true);
       this.resetFeedbackState(host);
       host.currentQuestion.set(result.question);
       host.combinedQuestionData.set({
