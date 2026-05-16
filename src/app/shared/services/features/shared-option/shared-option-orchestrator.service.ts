@@ -190,7 +190,7 @@ export class SharedOptionOrchestratorService {
       type: host.type as 'single' | 'multiple',
       selectedOptions: host.selectedOptions,
       optionBindings: host.optionBindings,
-      timerExpiredForQuestion: host.timerExpiredForQuestion,
+      timerExpiredForQuestion: host.timerExpiredForQuestion(),
       activeQuestionIndex: host.getActiveQuestionIndex(),
       showFeedbackForOption: host.showFeedbackForOption,
       feedbackConfigs: host.feedbackConfigs,
@@ -291,7 +291,7 @@ export class SharedOptionOrchestratorService {
       host.highlightedOptionIds,
       host.flashDisabledSet,
       host.isLocked(binding, binding.index),
-      host.timerExpiredForQuestion
+      host.timerExpiredForQuestion()
     );
   }
 
@@ -371,7 +371,7 @@ export class SharedOptionOrchestratorService {
     host.selectedOptionHistory = [];
     host.feedbackConfigs = {};
     host.lockedIncorrectOptionIds.clear();
-    host.timerExpiredForQuestion = false;
+    host.timerExpiredForQuestion.set(false);
     host._timerExpiryHandled = false;
     host.forceDisableAll = false;
     host.timeoutCorrectOptionKeys?.clear?.();

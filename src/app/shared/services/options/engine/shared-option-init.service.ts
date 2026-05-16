@@ -149,7 +149,7 @@ export class SharedOptionInitService {
     comp.disabledOptionsPerQuestion.clear();
     comp.lockedIncorrectOptionIds.clear();
     comp.flashDisabledSet.clear();
-    comp.timerExpiredForQuestion = false;
+    comp.timerExpiredForQuestion.set(false);
     comp._timerExpiryHandled = false;
     comp.timeoutCorrectOptionKeys.clear();
     comp.forceDisableAll = false;  // reset forceDisableAll for new question
@@ -216,7 +216,7 @@ export class SharedOptionInitService {
    */
   subscribeToTimerExpiration(comp: SharedOptionComponentLike): void {
     this.timerService.expired$.pipe(takeUntilDestroyed(comp.destroyRef)).subscribe(() => {
-      comp.timerExpiredForQuestion = true;
+      comp.timerExpiredForQuestion.set(true);
       const question = comp.currentQuestion()
         || comp.config()?.currentQuestion
         || comp.getQuestionAtDisplayIndex(comp.currentQuestionIndex)

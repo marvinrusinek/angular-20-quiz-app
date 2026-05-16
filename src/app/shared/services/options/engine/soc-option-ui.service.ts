@@ -152,7 +152,7 @@ export class SocOptionUiService {
           comp.highlightedOptionIds,
           comp.flashDisabledSet,
           isLocked,
-          comp.timerExpiredForQuestion
+          comp.timerExpiredForQuestion()
         );
 
         binding.optionIcon = this.optionService.getOptionIcon(binding, binding.index);
@@ -161,7 +161,7 @@ export class SocOptionUiService {
           binding,
           binding.index,
           binding.disabled,
-          comp.timerExpiredForQuestion
+          comp.timerExpiredForQuestion()
         );
       }
     }

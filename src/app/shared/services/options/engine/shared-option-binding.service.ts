@@ -619,7 +619,7 @@ export class SharedOptionBindingService {
     const isActuallySelected = b.isSelected;
 
     const optionKey = this.optionService.keyOf(b.option, i);
-    const showCorrectOnTimeout = comp.timerExpiredForQuestion
+    const showCorrectOnTimeout = comp.timerExpiredForQuestion()
       && (comp.timeoutCorrectOptionKeys?.has(optionKey) || !!b.option.correct);
 
     let shouldHighlight: boolean;
@@ -764,7 +764,7 @@ export class SharedOptionBindingService {
 
     if (comp._feedbackDisplay?.idx === i && comp._feedbackDisplay.config?.showFeedback) {
       config = comp._feedbackDisplay.config;
-    } else if (comp.timerExpiredForQuestion) {
+    } else if (comp.timerExpiredForQuestion()) {
       const key = comp.keyOf(b.option, i);
       const cfg = comp.feedbackConfigs?.[key];
       if (cfg?.showFeedback) config = cfg;

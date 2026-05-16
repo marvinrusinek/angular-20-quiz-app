@@ -28,7 +28,7 @@
               [currentQuestionIndex]="getActiveQuestionIndex()"
               [feedbackConfig]="feedbackConfigs[keyOf(b.option, i)]"
               [sharedOptionConfig]="getSharedOptionConfig(b, i)"
-              [timerExpired]="timerExpiredForQuestion"
+              [timerExpired]="timerExpiredForQuestion()"
               (optionUI)="onOptionUI($event)"
             />
             <ng-container *ngTemplateOutlet="feedbackBlock; context: { b: b, i: i }" />
@@ -48,7 +48,7 @@
               [currentQuestionIndex]="getActiveQuestionIndex()"
               [feedbackConfig]="feedbackConfigs[keyOf(b.option, i)]"
               [sharedOptionConfig]="getSharedOptionConfig(b, i)"
-              [timerExpired]="timerExpiredForQuestion"
+              [timerExpired]="timerExpiredForQuestion()"
               (optionUI)="onOptionUI($event)"
             />
             <ng-container *ngTemplateOutlet="feedbackBlock; context: { b: b, i: i }" />

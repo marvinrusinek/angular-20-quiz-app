@@ -149,7 +149,7 @@ export class SharedOptionComponent
   public flashDisabledSet = new Set<number>();
   lockedIncorrectOptionIds = new Set<number>();
   public forceDisableAll = false;
-  public timerExpiredForQuestion = false;  // track timer expiration
+  readonly timerExpiredForQuestion = signal<boolean>(false);  // track timer expiration
   timeoutCorrectOptionKeys = new Set<string>();
   resolvedQuestionIndex: number | null = null;
 
@@ -224,7 +224,7 @@ export class SharedOptionComponent
         // Per-binding _timerExpiredStamped flags can also stick when the
         // binding objects are mutated in place.
         if (_lastQIdxForStampCleanup !== undefined && _lastQIdxForStampCleanup !== v) {
-          this.timerExpiredForQuestion = false;
+          this.timerExpiredForQuestion.set(false);
           this._timerExpiryHandled = false;
           for (const b of this.optionBindings ?? []) {
             if (!b) continue;
@@ -413,7 +413,7 @@ export class SharedOptionComponent
       const duration = this.timerService.timePerQuestion;
       if (elapsed > 0 && elapsed >= duration && !this._timerExpiryHandled) {
         this._timerExpiryHandled = true;
-        this.timerExpiredForQuestion = true;
+        this.timerExpiredForQuestion.set(true);
 
         // Get correct answer texts from canonical question data
         const qIdx = this.currentQuestionIndex ?? this.quizService.currentQuestionIndex ?? 0;
@@ -589,7 +589,7 @@ export class SharedOptionComponent
   // options or when timer expired
   public getOptionCursor(binding: OptionBindings, index: number): string {
     return this.optionService.getOptionCursor(
-      binding, index, this.isDisabled(binding, index), this.timerExpiredForQuestion
+      binding, index, this.isDisabled(binding, index), this.timerExpiredForQuestion()
     );
   }
 
@@ -807,7 +807,7 @@ export class SharedOptionComponent
     if (this._feedbackDisplay !== null && this._feedbackDisplay.idx === i) {
       return true;
     }
-    if (this.timerExpiredForQuestion) {
+    if (this.timerExpiredForQuestion()) {
       const key = this.keyOf(b.option, i);
       return !!this.feedbackConfigs[key]?.showFeedback;
     }
