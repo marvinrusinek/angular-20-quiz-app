@@ -42,7 +42,7 @@ export interface SharedOptionComponentLike {
   optionBindings: OptionBindings[];
   selectedOptionId: () => number | null;
   selectedOptionIndex: WritableSignal<number | null>;
-  isNavigatingBackwards: boolean;
+  isNavigatingBackwards: WritableSignal<boolean>;
   renderReady: { set: (v: boolean) => void; (): boolean };
   finalRenderReady$: () => Observable<boolean> | null;
   questionVersion: () => number;
@@ -51,7 +51,7 @@ export interface SharedOptionComponentLike {
   // --- Public state ---
   selectedOptionMap: Map<number | string, boolean>;
   finalRenderReady: boolean;
-  isSelected: boolean;
+  isSelected: WritableSignal<boolean>;
   feedbackBindings: FeedbackProps[];
   currentFeedbackConfig: FeedbackProps;
   feedbackConfigs: { [key: string]: FeedbackProps };
@@ -109,7 +109,7 @@ export interface SharedOptionComponentLike {
   // --- Form ---
   form: FormGroup;
 
-  optionBindingsInitialized: boolean;
+  optionBindingsInitialized: WritableSignal<boolean>;
 
   // --- Methods the service delegates back to ---
   getActiveQuestionIndex(): number;
@@ -334,21 +334,21 @@ export class SharedOptionInitService {
    */
   private initializeOptionBindings(comp: SharedOptionComponentLike): void {
     try {
-      if (comp.optionBindingsInitialized) return;
+      if (comp.optionBindingsInitialized()) return;
 
-      comp.optionBindingsInitialized = true;
+      comp.optionBindingsInitialized.set(true);
 
       const options = comp.optionsToDisplay;
 
       if (!options?.length) {
-        comp.optionBindingsInitialized = false;
+        comp.optionBindingsInitialized.set(false);
         return;
       }
 
       // Use generateOptionBindings for consistency (handles deduplication, showOptions, etc.)
       comp.generateOptionBindings();
     } catch {
-      comp.optionBindingsInitialized = false;
+      comp.optionBindingsInitialized.set(false);
     }
   }
 
@@ -594,9 +594,9 @@ export class SharedOptionInitService {
 
         const selId = comp.selectedOptionId();
         if (selId != null) {
-          comp.isSelected = selectedIds.includes(selId);
+          comp.isSelected.set(selectedIds.includes(selId));
         } else {
-          comp.isSelected = false;
+          comp.isSelected.set(false);
         }
 
         comp.cdRef.markForCheck();

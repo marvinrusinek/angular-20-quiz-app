@@ -99,14 +99,14 @@ export class SharedOptionComponent
   readonly shouldResetBackground = signal<boolean>(false);
   public optionBindings: OptionBindings[] = [];
   readonly selectedOptionIndex = signal<number | null>(null);
-  public isNavigatingBackwards = false;
+  readonly isNavigatingBackwards = signal<boolean>(false);
   readonly finalRenderReady$ = input<Observable<boolean> | null>(null);
   readonly questionVersion = input<number>(0);  // increments every time questionIndex changes
   readonly sharedOptionConfig = input<SharedOptionConfig>(undefined as unknown as SharedOptionConfig);
   public selectedOptionMap = new Map<number | string, boolean>();
   public perQuestionHistory = new Set<number | string>();
   public ui!: SharedOptionUiState;
-  public isSelected = false;
+  readonly isSelected = signal<boolean>(false);
   feedbackBindings: FeedbackProps[] = [];
   currentFeedbackConfig!: FeedbackProps;
   feedbackConfigs: { [key: string]: FeedbackProps } = {};
@@ -178,7 +178,7 @@ export class SharedOptionComponent
   selectionSub?: import('rxjs').Subscription;
   finalRenderReadySub?: import('rxjs').Subscription;
   lastProcessedQuestionIndex = -1;
-  optionBindingsInitialized = false;
+  readonly optionBindingsInitialized = signal<boolean>(false);
 
   constructor(
     public quizService: QuizService,
@@ -316,7 +316,7 @@ export class SharedOptionComponent
       if (v !== undefined) this.optionBindings = v;
     });
     effect(() => {
-      this.isNavigatingBackwards = this.isNavigatingBackwardsInput();
+      this.isNavigatingBackwards.set(this.isNavigatingBackwardsInput());
     });
     effect(() => {
       this.renderReady.set(this.renderReadyInput());

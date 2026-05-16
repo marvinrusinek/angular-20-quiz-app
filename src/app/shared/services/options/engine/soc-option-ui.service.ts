@@ -109,7 +109,7 @@ export class SocOptionUiService {
     comp.updateHighlighting();
     comp.emitExplanation(comp.resolvedQuestionIndex ?? 0);
     comp.cdRef.markForCheck();
-    comp.isNavigatingBackwards = false;
+    comp.isNavigatingBackwards.set(false);
   }
 
   applySelectionsUI(comp: any, selectedOptions: any[]): void {

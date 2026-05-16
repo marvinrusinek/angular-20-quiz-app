@@ -54,7 +54,7 @@ export class QqcOrchLifecycleService {
       onNavigatingBack: () => {
         const soc = host.sharedOptionComponent?.();
         if (soc) {
-          soc.isNavigatingBackwards = true;
+          soc.isNavigatingBackwards.set(true);
         }
         host.resetUIForNewQuestion();
       },
