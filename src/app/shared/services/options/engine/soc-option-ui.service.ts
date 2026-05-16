@@ -25,7 +25,7 @@ export class SocOptionUiService {
     const normalizedId = (optionId != null && !isNaN(Number(optionId))) ? Number(optionId) : null;
     const effectiveId = (normalizedId !== null && normalizedId > -1) ? normalizedId : index;
 
-    const correctCount = (comp.currentQuestion?.options?.filter((o: any) => {
+    const correctCount = (comp.currentQuestion()?.options?.filter((o: any) => {
       const c = (o as any).correct;
       return c === true || String(c) === 'true' || c === 1 || c === '1';
     }).length ?? 0);
@@ -215,7 +215,7 @@ export class SocOptionUiService {
     const displayQuestion = comp.getQuestionAtDisplayIndex(activeIdx);
     const fallbackOptions =
       displayQuestion?.options?.length
-        ? displayQuestion.options : comp.currentQuestion?.options;
+        ? displayQuestion.options : comp.currentQuestion()?.options;
 
     if (
       Array.isArray(comp.optionsToDisplay) &&

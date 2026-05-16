@@ -178,7 +178,7 @@ export class SocAnswerProcessingService {
         correctMessage,
         selectedOption: { ...freshOption, correct: isClickedCorrect },
         options: comp.optionsToDisplay ?? [],
-        question: comp.currentQuestion ?? null,
+        question: comp.currentQuestion() ?? null,
         idx: index
       } as FeedbackProps
     };
@@ -251,7 +251,7 @@ export class SocAnswerProcessingService {
         const fetQText = isShuffled
           ? ((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText
             ?? (this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText)
-          : (comp.currentQuestion?.questionText
+          : (comp.currentQuestion()?.questionText
             ?? (this.quizService as any)?.questions?.[qIdx]?.questionText);
         const pristineFETQ = this.quizService.getPristineQuestionByText(fetQText);
         fetText = ((pristineFETQ as any)?.explanation ?? '').trim();
@@ -397,7 +397,7 @@ export class SocAnswerProcessingService {
     // incorrects after all correct answers are selected.
     try {
       const nrmGuard = (t: any) => String(t ?? '').trim().toLowerCase();
-      const liveQText = comp.currentQuestion?.questionText
+      const liveQText = comp.currentQuestion()?.questionText
         ?? (this.quizService as any)?.questions?.[qIdx]?.questionText
         ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText;
       const pristineCorrectTexts =
@@ -432,13 +432,13 @@ export class SocAnswerProcessingService {
     let correctIdxs: number[] = [];
     try {
       const allQs: any[] = (this.quizService as any)?.questions ?? [];
-      const passedText = (comp.currentQuestion?.questionText || '').trim().toLowerCase();
+      const passedText = (comp.currentQuestion()?.questionText || '').trim().toLowerCase();
       let canonicalQ: any = null;
       if (passedText && allQs.length) {
         const idx = allQs.findIndex((q: any) => (q?.questionText || '').trim().toLowerCase() === passedText);
         if (idx >= 0) canonicalQ = allQs[idx];
       }
-      if (!canonicalQ) canonicalQ = allQs[qIdx] ?? comp.currentQuestion;
+      if (!canonicalQ) canonicalQ = allQs[qIdx] ?? comp.currentQuestion();
       const rawOpts = canonicalQ?.options ?? [];
       correctIdxs = rawOpts
         .map((o: any, i: number) => {
@@ -480,12 +480,12 @@ export class SocAnswerProcessingService {
               (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText,
               (this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText,
               (this.quizService as any)?.questions?.[qIdx]?.questionText,
-              comp.currentQuestion?.questionText
+              comp.currentQuestion()?.questionText
             ]
           : [
               (this.quizService as any)?.questions?.[qIdx]?.questionText,
               (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText,
-              comp.currentQuestion?.questionText
+              comp.currentQuestion()?.questionText
             ];
         for (const qText of candidates) {
           if (!qText) continue;
@@ -523,7 +523,7 @@ export class SocAnswerProcessingService {
         const singleFetCtxSync = {
           resolvedIndex: qIdx,
           question: singleFetQuestion,
-          currentQuestion: comp.currentQuestion,
+          currentQuestion: comp.currentQuestion(),
           quizId: comp.quizId?.() ?? comp.quizId ?? '',
           optionBindings: comp.optionBindings ?? [],
           optionsToDisplay: comp.optionsToDisplay ?? [],
@@ -557,7 +557,7 @@ export class SocAnswerProcessingService {
       const singleFetCtx = {
         resolvedIndex: qIdx,
         question: singleFetQuestion,
-        currentQuestion: comp.currentQuestion,
+        currentQuestion: comp.currentQuestion(),
         quizId: comp.quizId?.() ?? comp.quizId ?? '',
         optionBindings: comp.optionBindings ?? [],
         optionsToDisplay: comp.optionsToDisplay ?? [],
@@ -769,7 +769,7 @@ export class SocAnswerProcessingService {
       const fetCtxAR = {
         resolvedIndex: qIdx,
         question: fetQuestionAR,
-        currentQuestion: comp.currentQuestion,
+        currentQuestion: comp.currentQuestion(),
         quizId: comp.quizId?.() ?? comp.quizId ?? '',
         optionBindings: comp.optionBindings ?? [],
         optionsToDisplay: comp.optionsToDisplay ?? [],
