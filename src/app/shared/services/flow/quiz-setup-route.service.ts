@@ -116,7 +116,7 @@ export class QuizSetupRouteService {
     host.explanationToDisplay.set('');
     host.currentQuestionIndex.set(0);
     host.lastLoggedIndex = -1;
-    host.navigatingToResults = false;
+    host.navigatingToResults.set(false);
     host.isQuizLoaded.set(false);
     host.isQuizDataLoaded.set(false);
     host.totalQuestions.set(0);
@@ -283,7 +283,7 @@ export class QuizSetupRouteService {
         map((params: Params) => +params['questionIndex']),
         distinctUntilChanged(),
         tap((currentIndex: number) => {
-          host.isNavigatedByUrl = true;
+          host.isNavigatedByUrl.set(true);
           void this.updateContentBasedOnIndex(host, currentIndex);
         })
       )
@@ -297,7 +297,7 @@ export class QuizSetupRouteService {
 
     this.quizContentLoaderService.lockAndPurgeFet(adjustedIndex);
 
-    if (host.previousIndex() === adjustedIndex && !host.isNavigatedByUrl) return;
+    if (host.previousIndex() === adjustedIndex && !host.isNavigatedByUrl()) return;
 
     host.currentQuestionIndex.set(adjustedIndex);
     host.previousIndex.set(adjustedIndex);
@@ -322,7 +322,7 @@ export class QuizSetupRouteService {
     } catch (error: any) {
       // content update failed
     } finally {
-      host.isNavigatedByUrl = false;
+      host.isNavigatedByUrl.set(false);
     }
   }
 

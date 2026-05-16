@@ -180,7 +180,7 @@ export class QuizSetupDataService {
       host.qaToDisplay = undefined;
       host.currentQuestion.set(null);
       host.optionsToDisplaySig.set([]);
-      host.hasOptionsLoaded = false;
+      host.hasOptionsLoaded.set(false);
       host.shouldRenderOptions.set(false);
       host.explanationToDisplay.set('');
       this.explanationTextService.setExplanationText('', { index: host.currentQuestionIndex() ?? 0 });
@@ -192,8 +192,8 @@ export class QuizSetupDataService {
     host.qaToDisplay = { question: result.question!, options: result.normalizedOptions };
     host.questionToDisplaySig.set(result.trimmedQuestionText);
     host.optionsToDisplaySig.set([...result.normalizedOptions]);
-    host.hasOptionsLoaded = result.normalizedOptions.length > 0;
-    host.shouldRenderOptions.set(host.hasOptionsLoaded);
+    host.hasOptionsLoaded.set(result.normalizedOptions.length > 0);
+    host.shouldRenderOptions.set(host.hasOptionsLoaded());
     host.explanationToDisplay.set(result.trimmedExplanation);
     const qqc = host.quizQuestionComponent?.();
     if (qqc) qqc.optionsToDisplay.set([...result.normalizedOptions]);
@@ -218,8 +218,8 @@ export class QuizSetupDataService {
   }
 
   private async initializeQuiz(host: Host): Promise<void> {
-    if (host.quizAlreadyInitialized) return;
-    host.quizAlreadyInitialized = true;
+    if (host.quizAlreadyInitialized()) return;
+    host.quizAlreadyInitialized.set(true);
 
     await this.prepareQuizSession(host);
 

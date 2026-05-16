@@ -171,13 +171,13 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   readonly isQuizLoaded = signal<boolean>(false);
   readonly isQuizDataLoaded = signal<boolean>(false);
   public isQuizRenderReadySig = signal<boolean>(false);
-  quizAlreadyInitialized = false;
-  public hasOptionsLoaded = false;
+  readonly quizAlreadyInitialized = signal<boolean>(false);
+  readonly hasOptionsLoaded = signal<boolean>(false);
   public readonly shouldRenderOptions = signal<boolean>(false);
 
   readonly previousIndex = signal<number | null>(null);
-  isNavigatedByUrl = false;
-  navigatingToResults = false;
+  readonly isNavigatedByUrl = signal<boolean>(false);
+  readonly navigatingToResults = signal<boolean>(false);
 
   readonly nextButtonEnabled = this.nextButtonStateService.isButtonEnabled;
 
@@ -426,8 +426,8 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.quizSetupService.advanceQuestion(this, 'previous');
   }
   public advanceToResults(): void {
-    if (this.navigatingToResults) return;
-    this.navigatingToResults = true;
+    if (this.navigatingToResults()) return;
+    this.navigatingToResults.set(true);
 
     // Record elapsed time and stop timer (no navigation from service)
     this.quizNavigationService.recordElapsedAndGoToResults(this.currentQuestionIndex());
