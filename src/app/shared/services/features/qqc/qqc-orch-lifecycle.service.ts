@@ -94,7 +94,7 @@ export class QqcOrchLifecycleService {
 
     const initialIdx = host.lifecycle.computeInitialQuestionIndex(host.activatedRoute);
     host.currentQuestionIndex.set(initialIdx.currentQuestionIndex);
-    host.fixedQuestionIndex = initialIdx.fixedQuestionIndex;
+    host.fixedQuestionIndex.set(initialIdx.fixedQuestionIndex);
 
     const loaded = await host.loadQuestion();
     if (!loaded) return;
@@ -252,7 +252,7 @@ export class QqcOrchLifecycleService {
   }
 
   async runAfterViewInit(host: Host): Promise<void> {
-    const idx = host.fixedQuestionIndex ?? host.currentQuestionIndex() ?? 0;
+    const idx = host.fixedQuestionIndex() ?? host.currentQuestionIndex() ?? 0;
     host.resetForQuestion(idx);
 
     host.lifecycle.deferRenderReadySubscription({

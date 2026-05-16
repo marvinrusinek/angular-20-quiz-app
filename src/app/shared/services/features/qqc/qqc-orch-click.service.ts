@@ -54,7 +54,7 @@ export class QqcOrchClickService {
 
     if (host._clickGate) return;
     host._clickGate = true;
-    host.questionFresh = false;
+    host.questionFresh.set(false);
 
     try {
       const clickResult = host.clickOrchestrator.performSynchronousClickFlow({

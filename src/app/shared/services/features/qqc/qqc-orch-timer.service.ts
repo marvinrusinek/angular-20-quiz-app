@@ -111,7 +111,7 @@ export class QqcOrchTimerService {
       timerStoppedForQuestion: host._timerStoppedForQuestion,
       currentQuestionIndex: host.currentQuestionIndex(),
       questions: host.questions(),
-      questionFresh: host.questionFresh,
+      questionFresh: host.questionFresh(),
       optionsToDisplay: host.optionsToDisplay(),
       sharedOptionBindings: host.sharedOptionComponent?.()?.optionBindings,
       currentQuestion: host.currentQuestion(),
@@ -148,7 +148,7 @@ export class QqcOrchTimerService {
       currentQuestionIndex: host.currentQuestionIndex(),
       currentQuestion: host.currentQuestion(),
       formattedByIndex: host._formattedByIndex,
-      fixedQuestionIndex: host.fixedQuestionIndex,
+      fixedQuestionIndex: host.fixedQuestionIndex(),
       updateExplanationText: (idx: number) => host.updateExplanationText(idx)
     });
 
@@ -159,7 +159,7 @@ export class QqcOrchTimerService {
           index: i0,
           normalizeIndex: (idx: number) => host.normalizeIndex(idx),
           formattedByIndex: host._formattedByIndex,
-          fixedQuestionIndex: host.fixedQuestionIndex,
+          fixedQuestionIndex: host.fixedQuestionIndex(),
           currentQuestionIndex: host.currentQuestionIndex(),
           updateExplanationText: (idx: number) => host.updateExplanationText(idx)
         })

@@ -102,7 +102,7 @@ export class QuizQuestionComponent extends BaseQuestion
   questionsObservableSubscription!: Subscription;
   override questionForm: FormGroup = new FormGroup({});
   readonly totalQuestions = signal<number>(0);
-  fixedQuestionIndex = 0;
+  readonly fixedQuestionIndex = signal<number>(0);
   lastLoggedIndex = -1;
   lastLoggedQuestionIndex = -1;
   lastProcessedQuestionIndex = -1;
@@ -169,7 +169,7 @@ export class QuizQuestionComponent extends BaseQuestion
   _pendingRAF: number | null = null;
   _msgTok = 0;
 
-  questionFresh = true;
+  readonly questionFresh = signal<boolean>(true);
   public feedbackConfigs: Record<FeedbackKey, FeedbackConfig> = {};
   public lastFeedbackOptionId: FeedbackKey = -1 as const;
   lastResetFor = -1;

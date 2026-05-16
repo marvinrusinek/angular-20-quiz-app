@@ -240,7 +240,7 @@ export class QqcOrchExplanationService {
   }
 
   runResetExplanation(host: Host, force = false): void {
-    const result = host.explanationFlow.performResetExplanation({ force, questionIndex: host.fixedQuestionIndex ?? host.currentQuestionIndex() ?? 0 });
+    const result = host.explanationFlow.performResetExplanation({ force, questionIndex: host.fixedQuestionIndex() ?? host.currentQuestionIndex() ?? 0 });
     host.displayExplanation.set(result.displayExplanation);
     host.explanationToDisplay.set(result.explanationToDisplay);
     if (!result.blocked) {
