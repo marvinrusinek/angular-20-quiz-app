@@ -70,7 +70,7 @@ export class QuizSetupRouteService {
         // has question data after URL navigation. Prefer quizService.questions
         // getter which returns shuffled data when shuffle is active.
         const question = this.quizService.questions?.[idx]
-          ?? host.questionsArray?.[idx] ?? null;
+          ?? host.questionsArray()?.[idx] ?? null;
         if (question && question.options?.length > 0) {
           const payload = {
             question,
@@ -108,7 +108,7 @@ export class QuizSetupRouteService {
   }
 
   private resetComponentStateForQuizSwitch(host: Host, routeQuizId: string): void {
-    host.questionsArray = [];
+    host.questionsArray.set([]);
     host.currentQuestion.set(null);
     host.optionsToDisplaySig.set([]);
     host.combinedQuestionData.set(null);
@@ -142,7 +142,7 @@ export class QuizSetupRouteService {
         host.lastLoggedIndex = idx;
         host.currentQuestionIndex.set(idx);
         const { question, isNavigation } = this.quizContentLoaderService.handleQuestionIndexTransition({
-          idx, prevIdx, quizId: host.quizId, questionsArray: host.questionsArray
+          idx, prevIdx, quizId: host.quizId, questionsArray: host.questionsArray()
         });
 
         if (question) {

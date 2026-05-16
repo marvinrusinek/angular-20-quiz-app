@@ -221,7 +221,7 @@ export class QuizSetupService {
         const isAnswered = this.selectedOptionService.isQuestionAnswered(idx);
         if (!isAnswered) this.selectionMessageService.forceBaseline(idx);
         const question = this.quizService.questions?.[idx]
-          ?? host.questionsArray?.[idx] ?? null;
+          ?? host.questionsArray()?.[idx] ?? null;
         if (question) {
           const displayHTML = this.routeService.buildQuestionDisplayHTML(question);
           if (displayHTML) {
@@ -255,7 +255,7 @@ export class QuizSetupService {
             this.quizService.isShuffleEnabled() && shuffled?.length > 0
               ? shuffled : questions;
           host.questions = effectiveQuestions;
-          host.questionsArray = [...effectiveQuestions];
+          host.questionsArray.set([...effectiveQuestions]);
           host.totalQuestions.set(effectiveQuestions.length);
           host.cdRef.markForCheck();
         }
@@ -334,7 +334,7 @@ export class QuizSetupService {
     await this.quizOptionProcessingService.processOptionClick({
       option, idx, quizId: host.quizId,
       currentQuestionIndex: host.currentQuestionIndex(),
-      questionsArray: host.questionsArray,
+      questionsArray: host.questionsArray(),
       currentQuestion: host.currentQuestion(),
       optionsToDisplay: host.optionsToDisplaySig(),
       liveSelections: host.getSelectionsForQuestion(idx),
@@ -458,7 +458,7 @@ export class QuizSetupService {
         });
 
         const question = this.quizService.questions?.[0]
-          ?? host.questionsArray?.[0]
+          ?? host.questionsArray()?.[0]
           ?? null;
         if (question) {
           const displayHTML = this.routeService.buildQuestionDisplayHTML(question);
@@ -505,7 +505,7 @@ subscribeToTimerExpiry(host: Host): void {
 
   showExplanationForQuestion(host: Host, qIdx: number): void {
     const { explanationHtml } = this.quizContentLoaderService.prepareExplanationForQuestion({
-      qIdx, questionsArray: host.questionsArray, quiz: host.quiz(),
+      qIdx, questionsArray: host.questionsArray(), quiz: host.quiz(),
       currentQuestionIndex: host.currentQuestionIndex(), currentQuestion: host.currentQuestion(),
     });
     host.explanationToDisplay.set(explanationHtml);

@@ -66,7 +66,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   quizId = '';
   readonly question = signal<QuizQuestion | null>(null);
   questions: QuizQuestion[] = [];
-  questionsArray: QuizQuestion[] = [];
+  readonly questionsArray = signal<QuizQuestion[]>([]);
   questions$: Observable<QuizQuestion[]> = this.quizService.questions$;
   readonly questionsList = this.quizService.questionsSig;
 
@@ -503,7 +503,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
       currentQuestionIndex: this.currentQuestionIndex(),
       optionsToDisplay: this.optionsToDisplaySig(),
       currentQuestion: this.currentQuestion(),
-      questionsArray: this.questionsArray
+      questionsArray: this.questionsArray()
     };
   }
 

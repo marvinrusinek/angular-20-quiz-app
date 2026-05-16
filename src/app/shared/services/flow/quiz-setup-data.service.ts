@@ -46,7 +46,7 @@ export class QuizSetupDataService {
     try {
       const questions = await this.quizService.fetchQuizQuestions(host.quizId);
       if (!questions?.length) return;
-      host.questionsArray = [...questions];
+      host.questionsArray.set([...questions]);
       host.totalQuestions.set(questions.length);
       host.isQuizDataLoaded.set(true);
       host.cdRef.detectChanges();
@@ -59,7 +59,7 @@ export class QuizSetupDataService {
   private pushInitialQuestionPayload(host: Host): void {
     const initialIdx = host.currentQuestionIndex() || 0;
     const initialQuestion = this.quizService.questions?.[initialIdx]
-      ?? host.questionsArray?.[initialIdx];
+      ?? host.questionsArray()?.[initialIdx];
     if (!initialQuestion?.options?.length) return;
 
     host.currentQuestion.set(initialQuestion);
