@@ -35,7 +35,7 @@ export interface SharedOptionComponentLike {
   config: () => SharedOptionConfig;
   selectedOption: WritableSignal<Option | null>;
   showFeedbackForOption: { [key: string | number]: boolean };
-  correctMessage: string;
+  correctMessage: WritableSignal<string>;
   showFeedback: boolean;
   shouldResetBackground: WritableSignal<boolean>;
   highlightCorrectAfterIncorrect: () => boolean;
@@ -76,7 +76,7 @@ export interface SharedOptionComponentLike {
   _timerExpiryHandled: boolean;
   viewReady: WritableSignal<boolean>;
   optionsReady: boolean;
-  showOptions: boolean;
+  showOptions: WritableSignal<boolean>;
   showNoOptionsFallback: boolean;
 
   // --- Private-ish fields exposed for the service ---
@@ -283,9 +283,9 @@ export class SharedOptionInitService {
 
         // If we have options and bindings but display flags aren't set, fix them
         if (comp.optionsToDisplay?.length && comp.optionBindings?.length) {
-          if (!comp.showOptions || !comp.renderReady()) {
+          if (!comp.showOptions() || !comp.renderReady()) {
 
-            comp.showOptions = true;
+            comp.showOptions.set(true);
             comp.renderReady.set(true);
             comp.optionsReady = true;
             comp.showNoOptionsFallback = false;
@@ -374,16 +374,16 @@ export class SharedOptionInitService {
     // Immediately set display flags if options are available
     if (comp.optionsToDisplay?.length > 0) {
       comp.renderReady.set(true);
-      comp.showOptions = true;
+      comp.showOptions.set(true);
       comp.optionsReady = true;
       comp.cdRef.detectChanges();
     }
 
     // Fallback: retry after short delay for Stackblitz timing issues
     setTimeout(() => {
-      if (comp.optionsToDisplay?.length > 0 && !comp.showOptions) {
+      if (comp.optionsToDisplay?.length > 0 && !comp.showOptions()) {
         comp.renderReady.set(true);
-        comp.showOptions = true;
+        comp.showOptions.set(true);
         comp.optionsReady = true;
         comp.cdRef.detectChanges();
       }
@@ -643,7 +643,7 @@ export class SharedOptionInitService {
     comp.selectedOption.set(null);
     comp.selectedOptionIndex.set(-1);
     comp.showFeedbackForOption = {};
-    comp.correctMessage = '';
+    comp.correctMessage.set('');
     comp.showFeedback = false;
     comp.shouldResetBackground.set(false);
     comp.optionsRestored = false;

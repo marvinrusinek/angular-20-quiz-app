@@ -94,7 +94,7 @@ export class SharedOptionComponent
   public type: 'single' | 'multiple' = 'single';
   readonly selectedOption = signal<Option | null>(null);
   public showFeedbackForOption!: { [key: string | number]: boolean };
-  public correctMessage = '';
+  readonly correctMessage = signal<string>('');
   public showFeedback = false;
   readonly shouldResetBackground = signal<boolean>(false);
   public optionBindings: OptionBindings[] = [];
@@ -134,7 +134,7 @@ export class SharedOptionComponent
   // Counter to force OnPush re-render when disabled state changes
   disableRenderTrigger = 0;
 
-  showOptions = false;
+  readonly showOptions = signal<boolean>(false);
   form!: FormGroup;
 
   readonly renderReady = signal(false);

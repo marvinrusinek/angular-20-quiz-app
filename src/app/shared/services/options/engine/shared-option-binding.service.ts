@@ -77,13 +77,13 @@ export class SharedOptionBindingService {
       // replace them with stale option.selected data, causing a flash
       // of incorrect highlights before the next CD cycle corrects them.
       if (comp.optionBindingsInitialized && comp.optionBindings?.length > 0) {
-        comp.showOptions = true;
+        comp.showOptions.set(true);
         comp.renderReady.set(true);
         comp.cdRef.markForCheck();
         return;
       }
       comp.optionBindings = bindings;
-      comp.showOptions = true;
+      comp.showOptions.set(true);
       comp.renderReady.set(true);
       comp.cdRef.detectChanges();
     });
@@ -134,7 +134,7 @@ export class SharedOptionBindingService {
     }
 
     comp.optionsReady = true;
-    comp.showOptions = true;
+    comp.showOptions.set(true);
 
     // Re-apply persisted refresh state. initializeFromConfig calls this
     // method AFTER generateOptionBindings already rehydrated, so the
@@ -237,7 +237,7 @@ export class SharedOptionBindingService {
     const hasFreshFeedback = Object.keys(comp.feedbackConfigs).length > 0;
     if (!hasFreshFeedback) comp.rebuildShowFeedbackMapFromBindings();
 
-    comp.showOptions = true;
+    comp.showOptions.set(true);
     comp.optionsReady = true;
     comp.renderReady.set(true);
 
@@ -715,8 +715,8 @@ export class SharedOptionBindingService {
       selectedOption: comp.selectedOption(),
       currentQuestion: comp.currentQuestion(),
       showFeedback: comp.showFeedback,
-      correctMessage: comp.correctMessage,
-      showCorrectMessage: !!comp.correctMessage,
+      correctMessage: comp.correctMessage(),
+      showCorrectMessage: !!comp.correctMessage(),
       explanationText: '',
       showExplanation: false,
       selectedOptionIndex: comp.selectedOptionIndex(),

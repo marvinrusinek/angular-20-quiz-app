@@ -420,7 +420,7 @@ export class SharedOptionOrchestratorService {
     return (
       !!host.form &&
       host.renderReady() &&
-      host.showOptions &&
+      host.showOptions() &&
       Array.isArray(host.optionBindings) &&
       host.optionBindings.length > 0 &&
       host.optionBindings.every((b: OptionBindings) => !!b.option)
