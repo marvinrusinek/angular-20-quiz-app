@@ -321,6 +321,11 @@ export class SelectedOptionService {
     // Remove from selection and feedback maps
     if (this.selectedOptionsMap.has(idx)) this.selectedOptionsMap.delete(idx);
     this._selectionHistory.delete(idx);
+    // _refreshBackup is the in-memory fallback that getSelectedOptionsForQuestion
+    // reads when sessionStorage is empty — without clearing it, prior clicks
+    // resurface and the autoreveal "all incorrects selected" check fires
+    // on the very first new click of a 2nd-visit question.
+    this._refreshBackup.delete(idx);
 
     this.feedbackState.deleteFeedbackForQuestion(idx);
     this.optionSnapshotByQuestion?.delete(idx);

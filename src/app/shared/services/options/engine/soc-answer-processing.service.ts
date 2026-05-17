@@ -707,6 +707,17 @@ export class SocAnswerProcessingService {
       if (incorrectTextsAR.size === 0) return;
       const allIncorrectSelected =
         [...incorrectTextsAR].every(t => selectedTextsAR.has(t));
+      // TEMP DIAGNOSTIC — remove after autoreveal trigger bug is fixed
+      console.log('[autoreveal.check]', {
+        qIdx, index,
+        clickedText: clickedTextAR,
+        selectedTextsAR: [...selectedTextsAR],
+        incorrectTextsAR: [...incorrectTextsAR],
+        pristineCorrectTextsAR: [...pristineCorrectTextsAR],
+        durableClicks: durableClicksAR0 ? [...durableClicksAR0] : null,
+        selectionsAR: selectionsAR.map((s: any) => s?.text),
+        wouldFire: allIncorrectSelected
+      });
       if (!allIncorrectSelected) return;
 
       // All incorrects exhausted — auto-reveal the correct answer.
@@ -886,6 +897,17 @@ export class SocAnswerProcessingService {
       if (incorrectTextsAR.size === 0) return;
       const allIncorrectSelected =
         [...incorrectTextsAR].every(t => selectedTextsAR.has(t));
+      // TEMP DIAGNOSTIC — remove after autoreveal trigger bug is fixed
+      console.log('[autoreveal.check.v2]', {
+        qIdx, index,
+        clickedText: clickedTextAR,
+        selectedTextsAR: [...selectedTextsAR],
+        incorrectTextsAR: [...incorrectTextsAR],
+        pristineCorrectTextsAR: [...pristineCorrectTextsAR],
+        durableClicks: durableClicksAR0 ? [...durableClicksAR0] : null,
+        selectionsAR: selectionsAR.map((s: any) => s?.text),
+        wouldFire: allIncorrectSelected
+      });
       if (!allIncorrectSelected) return;
 
       // All incorrects exhausted — auto-reveal the correct answer(s).

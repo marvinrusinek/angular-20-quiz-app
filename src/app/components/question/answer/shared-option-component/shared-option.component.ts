@@ -252,6 +252,10 @@ export class SharedOptionComponent
           }
           this.selectedOptionMap.clear();
           this.perQuestionHistory.clear();
+          // Clear durable per-question click history for the INCOMING
+          // question so a 2nd visit doesn't see "all incorrects already
+          // clicked" and trigger autoreveal on the very first new click.
+          this._multiSelectByQuestion?.delete(v);
           this.selectedOptionHistory = [];
           this.lastFeedbackOptionId = -1;
           this.lastFeedbackQuestionIndex = v;
@@ -284,33 +288,28 @@ export class SharedOptionComponent
         _lastQIdxForStampCleanup = v;
         this.currentQuestionIndex = v;
 
-        // Second-pass scrub: the synchronous cleanup above operates on
-        // whatever was in optionBindings() at the moment the effect fired,
-        // which is often the OUTGOING question's bindings (not the
-        // incoming question's). Re-scrub via microtask once the new
-        // bindings have settled so the incoming question always starts
-        // with disabled=false and clean cssClasses.
-        queueMicrotask(() => {
-          for (const b of this.optionBindings() ?? []) {
-            if (!b) continue;
-            delete (b as any)._timerExpiredStamped;
-            delete (b as any)._timerExpiredStampedForIndex;
-            delete (b as any)._autoRevealedCorrect;
-            if (b.cssClasses) {
-              delete b.cssClasses['correct-option'];
-              delete b.cssClasses['incorrect-option'];
+        // Narrow microtask scrub: only strip stale STAMP flags (not
+        // disabled/highlight/showFeedback). The full scrub diverged
+        // binding visual state from the underlying data state, causing
+        // click-on-wrong to register internally without visual feedback.
+        // The strict isTimerStamped / isTimerExpiredForThisQuestion guards
+        // in option-item already prevent the gray-stamps from rendering;
+        // this scrub is now just defense-in-depth for the stamp flags.
+        if (!this.selectedOptionService.isQuestionLocked?.(v)) {
+          queueMicrotask(() => {
+            this._multiSelectByQuestion?.delete(v);
+            for (const b of this.optionBindings() ?? []) {
+              if (!b) continue;
+              delete (b as any)._timerExpiredStamped;
+              delete (b as any)._timerExpiredStampedForIndex;
+              delete (b as any)._autoRevealedCorrect;
+              if (b.option) {
+                delete (b.option as any)._autoRevealedCorrect;
+              }
             }
-            b.disabled = false;
-            b.highlight = false;
-            b.showFeedback = false;
-            b.highlightCorrect = false;
-            b.highlightIncorrect = false;
-            if (b.option) {
-              delete (b.option as any)._autoRevealedCorrect;
-            }
-          }
-          this.cdRef.markForCheck();
-        });
+            this.cdRef.markForCheck();
+          });
+        }
       }
     });
     effect(() => {
