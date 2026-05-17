@@ -28,7 +28,7 @@ export interface SharedOptionUiState {
 }
 
 export interface SharedOptionHost {
-  optionBindings: OptionBindings[];
+  optionBindings: WritableSignal<OptionBindings[]>;
   optionsToDisplay: Option[];
   currentQuestionIndex: number;
 
@@ -116,7 +116,7 @@ export class SharedOptionStateAdapterService {
     const ui = host.ui;
 
     return {
-      optionBindings: host.optionBindings,
+      optionBindings: host.optionBindings(),
       optionsToDisplay: host.optionsToDisplay,
       currentQuestionIndex: host.currentQuestionIndex,
 
@@ -153,7 +153,7 @@ export class SharedOptionStateAdapterService {
    */
   syncBack(host: SharedOptionHost, state: OptionInteractionState): void {
     // bindings can be replaced by the interaction engine
-    host.optionBindings = state.optionBindings;
+    host.optionBindings.set(state.optionBindings);
 
     if (host.ui) {
       host.ui.disableRenderTrigger = state.disableRenderTrigger;
