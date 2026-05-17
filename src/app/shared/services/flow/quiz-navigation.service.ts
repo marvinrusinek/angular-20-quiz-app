@@ -135,9 +135,17 @@ export class QuizNavigationService {
       this.timerService.resetTimer();
       this.timerService.resetTimerFlagsFor(index);
 
-      // Clear stale selections on destinations that weren't locked-correct
-      // so highlights from a prior incorrect attempt don't carry over when
-      // the user navigates back. Locked-correct questions keep their state.
+      // Clear stale selections on both source AND destination when neither
+      // is locked-correct. Source clearing prevents Q1's wrong picks from
+      // bleeding into Q2's rendering during the transition (option-item
+      // isDisabled() can briefly read Q1's selections via a stale
+      // currentQuestionIndex). Destination clearing handles the
+      // back-navigation case. Locked-correct questions keep their state.
+      const sourceIdx = this.quizService.getCurrentQuestionIndex();
+      if (sourceIdx >= 0 && sourceIdx !== index &&
+          !this.optionLockState.isQuestionLocked(sourceIdx)) {
+        this.selectedOptionService.clearSelectionsForQuestion(sourceIdx);
+      }
       if (!this.optionLockState.isQuestionLocked(index)) {
         this.selectedOptionService.clearSelectionsForQuestion(index);
       }

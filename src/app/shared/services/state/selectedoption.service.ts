@@ -325,13 +325,23 @@ export class SelectedOptionService {
     this.feedbackState.deleteFeedbackForQuestion(idx);
     this.optionSnapshotByQuestion?.delete(idx);
 
-    // Clear any lingering lock states
+    // Clear any lingering lock states. clearLockedOptionsMap only wipes
+    // _lockedOptionsMap; unlockAllOptionsForQuestion also wipes
+    // _lockedByQuestion, which option-ui-sync populates via lockOption()
+    // for every disabled binding and which persists across navigation,
+    // causing 2nd-visit options to remain disabled.
     this.lockState.clearLockedOptionsMap(idx);
+    this.lockState.unlockAllOptionsForQuestion(idx);
 
     // Clear the durable per-question sessionStorage key — shared-option
     // binding rebuild reads sel_Q<idx> as its source, so leaving it in
     // place rehydrates the prior selections after the in-memory clear.
     this.persistence.clearPerQuestionSessionKey(idx);
+
+    // Propagate to the reactive signal — option-item.isDisabled reads
+    // selectedOptionsMapSig (not the raw Map), so without this push,
+    // sibling bindings still see the stale entry and stay disabled.
+    this.selectedOptionsMapSig.set(new Map(this.selectedOptionsMap));
   }
 
   // Method to get the current option selected state
