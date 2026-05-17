@@ -301,6 +301,17 @@ export class OptionItemComponent implements OnInit {
 
   getOptionClasses(): { [key: string]: boolean } {
     const classes = { ...this.binding().cssClasses };
+    // TEMP DIAGNOSTIC — final-stage class assignment. Logs whenever
+    // `correct-option: true` is present in the returned class map,
+    // showing exactly which branch put it there.
+    const _DBG_QIDX = this.quizService.currentQuestionIndex ?? this.currentQuestionIndex();
+    const _DBG_TEXT = this.binding()?.option?.text;
+    const _DBG_LOG_IF_CORRECT = (branch: string, extra?: any) => {
+      if (classes['correct-option'] === true) {
+        console.log('[getOptionClasses=correct-option]', { branch, qIdx: _DBG_QIDX, idx: this.displayIndex(), text: _DBG_TEXT, ...(extra || {}) });
+      }
+    };
+    _DBG_LOG_IF_CORRECT('spread-from-binding.cssClasses');
 
     // If the timer-expiry handler pre-stamped CSS classes on this binding
     // FOR THIS question, return them directly â€” do NOT let downstream
@@ -327,6 +338,7 @@ export class OptionItemComponent implements OnInit {
     if (shouldHighlight) {
       if (isCorrect) {
         classes['correct-option'] = true;
+        _DBG_LOG_IF_CORRECT('shouldHighlight+isCorrect', { isSelected: this.binding()?.isSelected, optHighlight: this.binding()?.option?.highlight, wasSelected: (this as any)._wasSelected, autoRev: (this.binding() as any)?._autoRevealedCorrect, optAutoRev: (this.binding()?.option as any)?._autoRevealedCorrect });
         classes['incorrect-option'] = false;
       } else {
         classes['incorrect-option'] = true;

@@ -461,68 +461,62 @@ export class SharedOptionComponent
       }
     });
 
-    // Independent timer-expiry watcher: uses the elapsed time signal
-    // directly, bypassing expired$ and all orchestrator chains.
-    // When elapsed time reaches the time-per-question, apply correct
-    // answer highlighting via direct DOM manipulation.
+    // Independent timer-expiry watcher: triggers when the timer service
+    // authoritatively reports the CURRENT question as expired. Updates
+    // bindings via cssClasses so Angular's ngClass paints correctly —
+    // no direct DOM manipulation (which bypassed reactive cleanup and
+    // left .correct-option leaked on revisited questions).
     effect(() => {
+      // Track BOTH signals so the effect re-fires when either changes —
+      // but gate on the authoritative expired-index check below.
       const elapsed = this.timerService.elapsedTimeSig();
+      const expiredForIdx = this.timerService.expiredForQuestionIndexSig();
       const duration = this.timerService.timePerQuestion;
-      if (elapsed > 0 && elapsed >= duration && !this._timerExpiryHandled) {
-        this._timerExpiryHandled = true;
-        this.timerExpiredForQuestion.set(true);
+      const qIdx = this.currentQuestionIndex ?? this.quizService.currentQuestionIndex ?? 0;
+      // Authoritative gate: only fire when the timer service explicitly
+      // marks THIS question as expired. The old `elapsed >= duration`
+      // check could fire on stale elapsed reads during Q→Q transitions,
+      // stamping the next question's bindings as expired.
+      if (expiredForIdx !== qIdx) return;
+      if (!(elapsed > 0 && elapsed >= duration)) return;
+      if (this._timerExpiryHandled) return;
 
-        // Get correct answer texts from canonical question data
-        const qIdx = this.currentQuestionIndex ?? this.quizService.currentQuestionIndex ?? 0;
-        const question = this.quizService.questions?.[qIdx] ?? this.currentQuestion();
-        const displayOpts = this.optionsToDisplay?.length
-          ? this.optionsToDisplay
-          : question?.options ?? [];
-        const correctTexts = new Set<string>();
-        for (const opt of displayOpts) {
-          if (opt?.correct === true || String(opt?.correct) === 'true') {
-            correctTexts.add(((opt.text as string) || '').trim().toLowerCase());
-          }
+      this._timerExpiryHandled = true;
+      this.timerExpiredForQuestion.set(true);
+
+      // Get correct answer texts from canonical question data
+      const question = this.quizService.questions?.[qIdx] ?? this.currentQuestion();
+      const displayOpts = this.optionsToDisplay?.length
+        ? this.optionsToDisplay
+        : question?.options ?? [];
+      const correctTexts = new Set<string>();
+      for (const opt of displayOpts) {
+        if (opt?.correct === true || String(opt?.correct) === 'true') {
+          correctTexts.add(((opt.text as string) || '').trim().toLowerCase());
         }
-
-        // Stamp bindings, scoped to this question index so navigating to
-        // the next question does NOT inherit the disabled/highlight stamps.
-        for (const b of (this.optionBindings() ?? [])) {
-          if (!b) continue;
-          const optText = ((b.option?.text as string) || '').trim().toLowerCase();
-          const isCorrect = correctTexts.has(optText);
-          if (!b.cssClasses) b.cssClasses = {};
-          b.cssClasses!['correct-option'] = isCorrect;
-          b.cssClasses!['incorrect-option'] = !isCorrect && !!b.isSelected;
-          (b as any)._timerExpiredStamped = true;
-          (b as any)._timerExpiredStampedForIndex = qIdx;
-          b.disabled = true;
-        }
-
-        this.cdRef.markForCheck();
-        this.cdRef.detectChanges();
-
-        // DOM fallback: directly add CSS classes after Angular renders.
-        // Bail out if the user has already navigated away â€” without this
-        // guard, the deferred timeout fires after Q2 has rendered and
-        // re-applies pointer-events:none + correct-option to Q2's rows,
-        // making them appear disabled/highlighted on the new question.
-        const stampedForIdx = qIdx;
-        setTimeout(() => {
-          const liveIdx =
-            this.currentQuestionIndex ?? this.quizService.currentQuestionIndex ?? 0;
-          if (liveIdx !== stampedForIdx) return;
-
-          for (const el of Array.from(document.querySelectorAll('.option-row'))) {
-            const textEl = el.querySelector('.option-text');
-            const text = ((textEl?.textContent as string) || '').trim().toLowerCase();
-            if (correctTexts.has(text)) {
-              el.classList.add('correct-option');
-            }
-            (el as HTMLElement).style.pointerEvents = 'none';
-          }
-        }, 50);
       }
+
+      // Stamp bindings via cssClasses + new ref so OnPush option-items
+      // re-render. ngClass will apply correct-option/incorrect-option
+      // classes through the normal Angular pipeline.
+      const updated = (this.optionBindings() ?? []).map((b: any) => {
+        if (!b) return b;
+        const optText = ((b.option?.text as string) || '').trim().toLowerCase();
+        const isCorrect = correctTexts.has(optText);
+        return {
+          ...b,
+          cssClasses: {
+            ...(b.cssClasses || {}),
+            'correct-option': isCorrect,
+            'incorrect-option': !isCorrect && !!b.isSelected
+          },
+          _timerExpiredStamped: true,
+          _timerExpiredStampedForIndex: qIdx,
+          disabled: true
+        };
+      });
+      this.optionBindings.set(updated);
+      this.cdRef.markForCheck();
     });
   }
 
