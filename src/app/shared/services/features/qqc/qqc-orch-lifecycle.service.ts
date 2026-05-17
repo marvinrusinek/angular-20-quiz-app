@@ -17,7 +17,8 @@ type Host = QuizQuestionComponent;
 export class QqcOrchLifecycleService {
 
   async runOnInit(host: Host): Promise<void> {
-    host.idxSub = host.lifecycle.createIndexTimerSubscription({
+    host.lifecycle.createIndexTimerSubscription({
+      destroyRef: host.destroyRef,
       currentQuestionIndex$: host.quizService.currentQuestionIndex$,
       elapsedTime$: host.timerService.elapsedTime$,
       timePerQuestion: host.timerService.timePerQuestion,
@@ -293,7 +294,6 @@ export class QqcOrchLifecycleService {
 
   runOnDestroy(host: Host): void {
     try { document.removeEventListener('visibilitychange', host.onVisibilityChange.bind(host)); } catch {}
-    host.idxSub?.unsubscribe();
     try { host.nextButtonStateService.cleanupNextButtonStateStream(); } catch {}
   }
 }

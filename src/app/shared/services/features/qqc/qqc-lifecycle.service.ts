@@ -1,4 +1,5 @@
-import { Injectable } from '@angular/core';
+import { DestroyRef, Injectable } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { Observable, Subscription } from 'rxjs';
 import {
@@ -31,6 +32,7 @@ export class QqcLifecycleService {
    * Extracted from ngOnInit (lines 432–468).
    */
   createIndexTimerSubscription(params: {
+    destroyRef: DestroyRef;
     currentQuestionIndex$: Observable<number>;
     elapsedTime$: Observable<number>;
     timePerQuestion: number;
@@ -40,8 +42,8 @@ export class QqcLifecycleService {
     emitPassiveNow: (i0: number) => void;
     prewarmResolveFormatted: (i0: number) => void;
     onTimerExpiredFor: (i0: number) => void;
-  }): import('rxjs').Subscription {
-    return params.currentQuestionIndex$.pipe(
+  }): void {
+    params.currentQuestionIndex$.pipe(
       map((i: number) => params.normalizeIndex(i)),
       distinctUntilChanged(),
 
@@ -66,7 +68,8 @@ export class QqcLifecycleService {
           take(1),
           map((): number => i0)
         )
-      )
+      ),
+      takeUntilDestroyed(params.destroyRef)
     )
     .subscribe((i0: number) => params.onTimerExpiredFor(i0));
   }

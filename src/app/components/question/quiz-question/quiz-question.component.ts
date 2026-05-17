@@ -117,7 +117,6 @@ export class QuizQuestionComponent extends BaseQuestion
   answers: any[] = [];
   shuffleOptions = true;
   override showFeedbackForOption: { [optionId: number]: boolean } = {};
-  idxSub!: Subscription;
   isMultipleAnswer!: boolean;
   readonly isLoading = signal<boolean>(true);
   readonly initialized = signal<boolean>(false);
