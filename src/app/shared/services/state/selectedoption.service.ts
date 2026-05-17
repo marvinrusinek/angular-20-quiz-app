@@ -320,12 +320,18 @@ export class SelectedOptionService {
 
     // Remove from selection and feedback maps
     if (this.selectedOptionsMap.has(idx)) this.selectedOptionsMap.delete(idx);
+    this._selectionHistory.delete(idx);
 
     this.feedbackState.deleteFeedbackForQuestion(idx);
     this.optionSnapshotByQuestion?.delete(idx);
 
     // Clear any lingering lock states
     this.lockState.clearLockedOptionsMap(idx);
+
+    // Clear the durable per-question sessionStorage key — shared-option
+    // binding rebuild reads sel_Q<idx> as its source, so leaving it in
+    // place rehydrates the prior selections after the in-memory clear.
+    this.persistence.clearPerQuestionSessionKey(idx);
   }
 
   // Method to get the current option selected state
