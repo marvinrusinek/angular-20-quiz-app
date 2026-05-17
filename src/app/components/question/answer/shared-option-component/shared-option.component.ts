@@ -283,6 +283,34 @@ export class SharedOptionComponent
         }
         _lastQIdxForStampCleanup = v;
         this.currentQuestionIndex = v;
+
+        // Second-pass scrub: the synchronous cleanup above operates on
+        // whatever was in optionBindings() at the moment the effect fired,
+        // which is often the OUTGOING question's bindings (not the
+        // incoming question's). Re-scrub via microtask once the new
+        // bindings have settled so the incoming question always starts
+        // with disabled=false and clean cssClasses.
+        queueMicrotask(() => {
+          for (const b of this.optionBindings() ?? []) {
+            if (!b) continue;
+            delete (b as any)._timerExpiredStamped;
+            delete (b as any)._timerExpiredStampedForIndex;
+            delete (b as any)._autoRevealedCorrect;
+            if (b.cssClasses) {
+              delete b.cssClasses['correct-option'];
+              delete b.cssClasses['incorrect-option'];
+            }
+            b.disabled = false;
+            b.highlight = false;
+            b.showFeedback = false;
+            b.highlightCorrect = false;
+            b.highlightIncorrect = false;
+            if (b.option) {
+              delete (b.option as any)._autoRevealedCorrect;
+            }
+          }
+          this.cdRef.markForCheck();
+        });
       }
     });
     effect(() => {

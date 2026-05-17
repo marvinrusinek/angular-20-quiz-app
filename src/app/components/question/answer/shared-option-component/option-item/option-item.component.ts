@@ -201,6 +201,11 @@ export class OptionItemComponent implements OnInit {
 
       const myText = nrm(this.binding().option.text);
       if (!selectedTexts.has(myText)) {
+        // TEMP DIAGNOSTIC — remove after Q2 dark-gray bug is fixed
+        console.log('[applyMultiAnswerDisableState→disabled]', {
+          _qIdx, myText, selectedTexts: [...selectedTexts],
+          pristineCorrectTexts: [...pristineCorrectTexts]
+        });
         this.binding().disabled = true;
         if (this.binding().option) (this.binding().option as any).active = false;
       }
@@ -228,11 +233,13 @@ export class OptionItemComponent implements OnInit {
       return true;
     }
 
-    // Legacy fallback: parent input-based check
-    if (!this.timerExpired()) return false;
-
-    const expiredPlain = this.timerService.expiredForQuestionIndexSig();
-    return expiredPlain < 0 || expiredPlain === qIdx;
+    // STRICT: drop the legacy parent-input fallback. timerExpired() can
+    // remain true from Q1's expiry even after navigation to Q2, and the
+    // permissive `expiredPlain < 0` branch then treats Q2 as expired,
+    // stamping all of Q2's bindings as disabled (dark gray). Require
+    // signal/direct-subscription scope match — both checks above already
+    // gate on qIdx, so falling through here means "not expired for me".
+    return false;
   }
 
   get optionId(): number {
@@ -342,8 +349,12 @@ export class OptionItemComponent implements OnInit {
   }
 
   isDisabled(): boolean {
+    const _DBG_TEXT = this.binding()?.option?.text;
+    const _DBG_LOG = (path: string, extra?: any) => {
+      console.log('[isDisabled→true]', { path, qIdx: this.quizService.currentQuestionIndex ?? this.currentQuestionIndex(), idx: this.displayIndex(), text: _DBG_TEXT, ...(extra || {}) });
+    };
     // Timer-expiry handler stamped all bindings as disabled
-    if (this.isTimerStamped()) return true;
+    if (this.isTimerStamped()) { _DBG_LOG('isTimerStamped'); return true; }
 
     let _type = this.type();
     const _qIdx = this.quizService.currentQuestionIndex ?? this.currentQuestionIndex();
@@ -370,7 +381,7 @@ export class OptionItemComponent implements OnInit {
     // component dirty whenever selections mutate (no need for manual
     // markForCheck or input-ref-change tricks).
     if (_type === 'multiple') {
-      if (this.isTimerExpiredForThisQuestion()) return true;
+      if (this.isTimerExpiredForThisQuestion()) { _DBG_LOG('multi.timerExpired'); return true; }
 
       const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
       const liveQT = nrm(
@@ -392,7 +403,9 @@ export class OptionItemComponent implements OnInit {
           [...pristineCorrectTexts].every(t => selectedTexts.has(t));
         if (allPristineCorrectSelected) {
           const myText = nrm(this.binding()?.option?.text);
-          return !selectedTexts.has(myText);
+          const r = !selectedTexts.has(myText);
+          if (r) _DBG_LOG('multi.allCorrectSelected.notMine', { myText, selectedTexts: [...selectedTexts], pristineCorrectTexts: [...pristineCorrectTexts] });
+          return r;
         }
       }
 
@@ -401,6 +414,7 @@ export class OptionItemComponent implements OnInit {
       const perfectMap = 
         (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
       if (perfectMap?.get(_qIdx) === true && this.binding()?.disabled === true) {
+        _DBG_LOG('multi.perfectMap+bindingDisabled');
         return true;
       }
       return false;
@@ -444,6 +458,7 @@ export class OptionItemComponent implements OnInit {
       }
       return correctTextsSA.has(nrmSA(s?.text));
     });
+    if (hasCorrectSelection) _DBG_LOG('single.hasCorrectSelection', { selections: selections.map((s: any) => ({ text: s?.text, correct: s?.correct })), correctTextsSA: [...correctTextsSA] });
     return hasCorrectSelection;
   }
 
@@ -458,7 +473,10 @@ export class OptionItemComponent implements OnInit {
     if (!stamped) return false;
 
     const stampedFor = (this.binding() as any)?._timerExpiredStampedForIndex;
-    if (stampedFor == null) return true;  // legacy stamps with no scope
+    // STRICT: a stamp without scope can't be trusted (it might be from a
+    // prior question whose bindings got mutated in place). Require the
+    // scope to match the active question.
+    if (stampedFor == null) return false;
 
     const qIdx = this.quizService.currentQuestionIndex ?? this.currentQuestionIndex();
     return stampedFor === qIdx;
@@ -595,8 +613,12 @@ export class OptionItemComponent implements OnInit {
       }
 
       // Dark gray for disabled unselected options (e.g. remaining
-      // incorrect after all correct answers selected in multi-answer)
-      if (this.binding()?.disabled && !this.binding()?.isSelected) return '#a0a0a0';
+      // incorrect after all correct answers selected in multi-answer).
+      // Gate on isDisabled() (authoritative) instead of the raw
+      // binding.disabled flag — the flag can linger as true from a
+      // prior question's timer-expiry stamping while isDisabled()
+      // correctly returns false, producing a gray-but-enabled option.
+      if (this.isDisabled() && !this.binding()?.isSelected) return '#a0a0a0';
 
       // Multi-answer data-driven gray: when the user has selected every
       // pristine-correct option for this question, every unselected
