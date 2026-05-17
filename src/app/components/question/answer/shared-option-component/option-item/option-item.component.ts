@@ -276,6 +276,13 @@ export class OptionItemComponent implements OnInit {
   }
 
   getOptionIcon(_option?: any, _i?: number): string {
+    // AUTO-REVEAL backup: persistent custom flag wins over any state that
+    // might wipe option.showIcon (mirrors the backup in
+    // getOptionBackgroundColor that paints the green background).
+    if ((this.binding() as any)?._autoRevealedCorrect === true ||
+        (this.binding()?.option as any)?._autoRevealedCorrect === true) {
+      return 'check';
+    }
     if (this.isTimerStamped()) {
       return this.isStampedCorrect() ? 'check' : 'close';
     }
@@ -463,6 +470,13 @@ export class OptionItemComponent implements OnInit {
   }
 
   shouldShowIcon(_option?: any, _i?: number): boolean {
+    // AUTO-REVEAL backup: persistent custom flag wins over downstream
+    // pipelines that wipe option.showIcon back to false (mirrors the
+    // backup in getOptionBackgroundColor that paints the green background).
+    if ((this.binding() as any)?._autoRevealedCorrect === true ||
+        (this.binding()?.option as any)?._autoRevealedCorrect === true) {
+      return true;
+    }
     if (this.isTimerStamped()) {
       if (this.isStampedCorrect()) return true;
       return !!this.binding()?.isSelected || this._wasSelected;
