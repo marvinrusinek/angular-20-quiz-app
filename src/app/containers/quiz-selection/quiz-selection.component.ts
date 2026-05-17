@@ -43,7 +43,7 @@ import { BackToTopComponent } from '../../components/back-to-top/back-to-top.com
 })
 export class QuizSelectionComponent implements OnInit {
   readonly quizzes = this.quizDataService.quizzesSig;
-  private completedQuizIds = new Set<string>();
+  private readonly completedQuizIds = signal<ReadonlySet<string>>(new Set());
   
   readonly accessedCount = signal(0);
   readonly totalQuizCountSig = signal(0);
@@ -71,7 +71,7 @@ export class QuizSelectionComponent implements OnInit {
   private animationStateSignal = signal<AnimationState>('none');
   readonly animationState$ = toObservable(this.animationStateSignal);
   readonly animationStateSig = this.animationStateSignal.asReadonly();
-  selectionParams!: QuizSelectionParams;
+  readonly selectionParams = signal<QuizSelectionParams | null>(null);
 
   constructor(
     private quizService: QuizService,
@@ -85,7 +85,7 @@ export class QuizSelectionComponent implements OnInit {
 
   private initializeQuizSelection(): void {
     this.restoreSessionAccessState();
-    this.selectionParams = this.quizService.returnQuizSelectionParams();
+    this.selectionParams.set(this.quizService.returnQuizSelectionParams());
     this.loadQuizCatalog();
   }
 
@@ -113,7 +113,7 @@ export class QuizSelectionComponent implements OnInit {
     );
 
     for (const id of completedIds) {
-      this.completedQuizIds.add(id);
+      this.completedQuizIds.update(s => new Set(s).add(id));
       this.quizDataService.updateQuizStatus(id, QuizStatus.COMPLETED);
     }
 
@@ -188,7 +188,7 @@ export class QuizSelectionComponent implements OnInit {
       this.quizService.setQuizId(quizId);
       const currentQuiz = this.quizDataService.getCachedQuizById(quizId);
       const isCompleted = currentQuiz?.status === QuizStatus.COMPLETED
-        || this.completedQuizIds.has(quizId);
+        || this.completedQuizIds().has(quizId);
       this.quizService.quizCompleted = isCompleted;
 
       // If quiz is completed, go to results instead of intro
@@ -222,10 +222,10 @@ export class QuizSelectionComponent implements OnInit {
     const classes = ['status-link'];
     if (
       quiz.status === QuizStatus.STARTED && (
-        !this.selectionParams.quizCompleted ||
-        quiz.quizId === this.selectionParams.startedQuizId ||
-        quiz.quizId === this.selectionParams.continueQuizId ||
-        this.completedQuizIds.has(quiz.quizId)
+        !this.selectionParams()?.quizCompleted ||
+        quiz.quizId === this.selectionParams()?.startedQuizId ||
+        quiz.quizId === this.selectionParams()?.continueQuizId ||
+        this.completedQuizIds().has(quiz.quizId)
       )
     ) {
       classes.push('link');
@@ -234,7 +234,7 @@ export class QuizSelectionComponent implements OnInit {
   }
 
   getTooltip(quiz: Quiz): string {
-    if (quiz.status === QuizStatus.COMPLETED || this.completedQuizIds.has(quiz.quizId)) {
+    if (quiz.status === QuizStatus.COMPLETED || this.completedQuizIds().has(quiz.quizId)) {
       return 'Completed';
     }
     switch (quiz.status) {
@@ -251,14 +251,14 @@ export class QuizSelectionComponent implements OnInit {
     const hasKnownStatus = quiz.status === QuizStatus.STARTED
       || quiz.status === QuizStatus.CONTINUE
       || quiz.status === QuizStatus.COMPLETED;
-    const isCompletedQuiz = this.completedQuizIds.has(quiz.quizId);
+    const isCompletedQuiz = this.completedQuizIds().has(quiz.quizId);
     return hasKnownStatus || isCompletedQuiz;
   }
 
   getLinkRouterLink(quiz: Quiz): string[] {
     const quizId = quiz.quizId;
     const isCompleted = quiz.status === QuizStatus.COMPLETED
-      || this.completedQuizIds.has(quizId);
+      || this.completedQuizIds().has(quizId);
     return isCompleted ? ['/results/', quizId] : ['/intro/', quizId];
   }
 
@@ -272,7 +272,7 @@ export class QuizSelectionComponent implements OnInit {
         return 'done';
       default:
         // Fallback: if this quiz matches the completedQuizId, show checkmark
-        if (this.completedQuizIds.has(quiz.quizId)) return 'done';
+        if (this.completedQuizIds().has(quiz.quizId)) return 'done';
         return '';
     }
   }
@@ -283,6 +283,6 @@ export class QuizSelectionComponent implements OnInit {
 
   public isCompleted(quiz: any): boolean {
     return (quiz?.status ?? '').toString().toLowerCase() === 'completed'
-      || this.completedQuizIds.has(quiz?.quizId);
+      || this.completedQuizIds().has(quiz?.quizId);
   }
 }
