@@ -573,6 +573,8 @@ export class OptionItemComponent implements OnInit {
     // directly via inline style.
     if ((this.binding() as any)?._autoRevealedCorrect === true ||
         (this.binding()?.option as any)?._autoRevealedCorrect === true) {
+      // TEMP DIAGNOSTIC — paints green via autoreveal backup
+      console.log('[bgColor=GREEN.autoRevealBackup]', { qIdx: this.quizService.currentQuestionIndex ?? this.currentQuestionIndex(), idx: this.displayIndex(), text: this.binding()?.option?.text });
       return '#43e756';
     }
     if (this.isOptionCorrect()) {
@@ -581,6 +583,8 @@ export class OptionItemComponent implements OnInit {
         (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
       if (perfectMapARBg?.get(_qIdxARBg) === true ||
           this.binding()?.cssClasses?.['correct-option'] === true) {
+        // TEMP DIAGNOSTIC — paints green via perfectMap / correct-option class
+        console.log('[bgColor=GREEN.perfectMapOrCssClass]', { qIdx: _qIdxARBg, idx: this.displayIndex(), text: this.binding()?.option?.text, perfectMap: perfectMapARBg?.get(_qIdxARBg), correctOptionClass: this.binding()?.cssClasses?.['correct-option'] });
         return '#43e756';
       }
     }
@@ -658,7 +662,10 @@ export class OptionItemComponent implements OnInit {
     }
 
     // Green if correct, red if incorrect
-    return this.isOptionCorrect() ? '#43e756' : '#ff0000';
+    const result = this.isOptionCorrect() ? '#43e756' : '#ff0000';
+    // TEMP DIAGNOSTIC — paints via the catch-all final return
+    console.log('[bgColor=' + result + '.finalCatchAll]', { qIdx: this.quizService.currentQuestionIndex ?? this.currentQuestionIndex(), idx: this.displayIndex(), text: this.binding()?.option?.text, isCorrect: this.isOptionCorrect() });
+    return result;
   }
 
   private getSelectionsForCurrentBinding(): any[] {
