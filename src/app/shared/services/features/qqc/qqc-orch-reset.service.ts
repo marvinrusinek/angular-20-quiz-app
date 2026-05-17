@@ -39,7 +39,7 @@ export class QqcOrchResetService {
     setTimeout(() => {
       const soc = host.sharedOptionComponent?.();
       if (soc) {
-        soc.freezeOptionBindings = false;
+        soc.freezeOptionBindings.set(false);
         soc.showFeedbackForOption = {};
       }
     }, 0);

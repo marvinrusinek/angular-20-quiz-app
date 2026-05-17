@@ -168,7 +168,7 @@ export class SharedOptionClickService {
       ...baseCtx,
       disabledOptionsPerQuestion: comp.disabledOptionsPerQuestion,
       correctClicksPerQuestion: comp.correctClicksPerQuestion,
-      freezeOptionBindings: comp.freezeOptionBindings,
+      freezeOptionBindings: comp.freezeOptionBindings(),
       disableRenderTrigger: comp.disableRenderTrigger,
       currentQuestion: comp.currentQuestion(),
       currentQuestionIndex: baseCtx.getActiveQuestionIndex(),
@@ -176,7 +176,7 @@ export class SharedOptionClickService {
       explanationToDisplayChange: comp.explanationToDisplayChange
     };
 
-    comp.freezeOptionBindings = true;
+    comp.freezeOptionBindings.set(true);
     state.freezeOptionBindings = true;
 
     const _isShuffledForFET = (this.quizService as any)?.isShuffleEnabled?.()
@@ -204,7 +204,7 @@ export class SharedOptionClickService {
         }
       );
     } finally {
-      comp.freezeOptionBindings = false;
+      comp.freezeOptionBindings.set(false);
       state.freezeOptionBindings = false;
     }
 
@@ -212,7 +212,7 @@ export class SharedOptionClickService {
     comp.lastClickedOptionId = state.lastClickedOptionId;
     comp.lastClickTimestamp = state.lastClickTimestamp;
     comp.hasUserClicked.set(state.hasUserClicked);
-    comp.freezeOptionBindings = state.freezeOptionBindings;
+    comp.freezeOptionBindings.set(state.freezeOptionBindings);
     comp.showFeedback.set(state.showFeedback);
     comp.showFeedbackForOption = state.showFeedbackForOption;
     comp.feedbackConfigs = state.feedbackConfigs;

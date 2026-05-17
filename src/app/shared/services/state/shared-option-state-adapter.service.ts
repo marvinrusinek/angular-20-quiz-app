@@ -51,9 +51,9 @@ export interface SharedOptionHost {
   lastClickedOptionId: number | string | null;
   lastClickTimestamp: number | null;
 
-  hasUserClicked: boolean;
-  freezeOptionBindings: boolean;
-  showFeedback: boolean;
+  hasUserClicked: WritableSignal<boolean>;
+  freezeOptionBindings: WritableSignal<boolean>;
+  showFeedback: WritableSignal<boolean>;
   disableRenderTrigger: number;
 
   selectedOptionMap?: Map<number | string, boolean>;
@@ -134,7 +134,7 @@ export class SharedOptionStateAdapterService {
       lastClickTimestamp: ui?.lastClickTimestamp ?? host.lastClickTimestamp,
 
       hasUserClicked: ui?.hasUserClicked ?? host.hasUserClicked(),
-      freezeOptionBindings: ui?.freezeOptionBindings ?? host.freezeOptionBindings,
+      freezeOptionBindings: ui?.freezeOptionBindings ?? host.freezeOptionBindings(),
       showFeedback: ui?.showFeedback ?? host.showFeedback(),
       disableRenderTrigger: ui?.disableRenderTrigger ?? host.disableRenderTrigger,
 
@@ -184,7 +184,7 @@ export class SharedOptionStateAdapterService {
     host.lastClickedOptionId = state.lastClickedOptionId;
     host.lastClickTimestamp = state.lastClickTimestamp;
     host.hasUserClicked.set(state.hasUserClicked);
-    host.freezeOptionBindings = state.freezeOptionBindings;
+    host.freezeOptionBindings.set(state.freezeOptionBindings);
     host.showFeedback.set(state.showFeedback);
 
     host.disabledOptionsPerQuestion = state.disabledOptionsPerQuestion;

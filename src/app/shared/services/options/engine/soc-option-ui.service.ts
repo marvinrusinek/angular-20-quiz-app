@@ -1,4 +1,4 @@
-﻿import { Injectable } from '@angular/core';
+import { Injectable } from '@angular/core';
 
 import { OptionBindings } from '../../../models/OptionBindings.model';
 import { SelectedOption } from '../../../models/SelectedOption.model';
@@ -114,7 +114,7 @@ export class SocOptionUiService {
 
   applySelectionsUI(comp: any, selectedOptions: any[]): void {
     if (!comp.optionsToDisplay?.length) return;
-    if (comp.hasUserClicked() || comp.freezeOptionBindings) return;
+    if (comp.hasUserClicked() || comp.freezeOptionBindings()) return;
 
     const selIndices = new Set<number>();
     for (const s of selectedOptions) {

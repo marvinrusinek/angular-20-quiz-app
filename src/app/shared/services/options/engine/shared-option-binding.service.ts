@@ -28,11 +28,11 @@ export class SharedOptionBindingService {
   synchronizeOptionBindings(comp: any): void {
     if (!Array.isArray(comp.optionsToDisplay) || comp.optionsToDisplay.length === 0) {
       const hasSelection = comp.optionBindings?.some((opt: any) => opt.isSelected);
-      if (!hasSelection && !comp.freezeOptionBindings) comp.optionBindings = [];
+      if (!hasSelection && !comp.freezeOptionBindings()) comp.optionBindings = [];
       return;
     }
 
-    if (comp.freezeOptionBindings || comp.hasUserClicked()) return;
+    if (comp.freezeOptionBindings() || comp.hasUserClicked()) return;
 
     const bindings = comp.optionsToDisplay.map((option: any, idx: number) => {
       const isCorrect = option.correct ?? false;
@@ -266,7 +266,7 @@ export class SharedOptionBindingService {
       comp.optionBindingsInitialized.set(false);
       return;
     }
-    if (comp.freezeOptionBindings) return;
+    if (comp.freezeOptionBindings()) return;
     const cqForFeedback = comp.currentQuestion();
     if (!cqForFeedback) return;
 
@@ -404,7 +404,7 @@ export class SharedOptionBindingService {
   rehydrateUiFromState(comp: any, _reason: string): void {
     try {
       // Guard: if the user has already clicked or bindings are frozen,
-      if (comp.hasUserClicked() || comp.freezeOptionBindings) return;
+      if (comp.hasUserClicked() || comp.freezeOptionBindings()) return;
 
       // Universal clean-slate
       if (comp.optionBindings?.length) {

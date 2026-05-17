@@ -128,7 +128,7 @@ export class SharedOptionComponent
   lastClickedOptionId: number | string | null = null;
   lastClickTimestamp: number | null = null;
   readonly hasUserClicked = signal<boolean>(false);
-  freezeOptionBindings = false;
+  readonly freezeOptionBindings = signal<boolean>(false);
   highlightedOptionIds: Set<number | string> = new Set();
 
   // Counter to force OnPush re-render when disabled state changes

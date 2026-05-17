@@ -67,7 +67,7 @@ export interface SharedOptionComponentLike {
   lastClickedOptionId: number | string | null;
   lastClickTimestamp: number | null;
   hasUserClicked: WritableSignal<boolean>;
-  freezeOptionBindings: boolean;
+  freezeOptionBindings: WritableSignal<boolean>;
   highlightedOptionIds: Set<number | string>;
   disableRenderTrigger: number;
   flashDisabledSet: Set<number>;
@@ -190,7 +190,7 @@ export class SharedOptionInitService {
     // Without this, hasUserClicked from Q1 leaks into Q2 and blocks
     // all guard-protected paths (rehydrateUiFromState, initializeFromConfig, etc.)
     comp.hasUserClicked.set(false);
-    comp.freezeOptionBindings = false;
+    comp.freezeOptionBindings.set(false);
     comp.selectedOptionHistory = [];
 
     // Cancel any pending deferred emitExplanation from the previous question
@@ -636,7 +636,7 @@ export class SharedOptionInitService {
    * Corresponds to SharedOptionComponent.initializeFromConfig().
    */
   initializeFromConfig(comp: SharedOptionComponentLike): void {
-    if (comp.freezeOptionBindings || comp.hasUserClicked()) return;
+    if (comp.freezeOptionBindings() || comp.hasUserClicked()) return;
 
     // Full reset
     comp.optionBindings = [];
