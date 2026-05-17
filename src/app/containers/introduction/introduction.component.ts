@@ -54,9 +54,6 @@ export class IntroductionComponent implements OnInit {
   );
   readonly introImgSig = signal('');
 
-  highlightPreference = false;
-  isImmediateFeedback = false;
-
   constructor(
     private quizService: QuizService,
     private quizDataService: QuizDataService,
@@ -83,7 +80,6 @@ export class IntroductionComponent implements OnInit {
 
     effect(() => {
       const isChecked = shouldShuffle();
-      this.highlightPreference = isChecked;
       this.quizService.setCheckedShuffle(isChecked);
       this.isChecked.set(isChecked);
     });
@@ -163,7 +159,6 @@ export class IntroductionComponent implements OnInit {
   onSlideToggleChange(event: MatSlideToggleChange): void {
     const isChecked = event.checked;
 
-    this.highlightPreference = isChecked;
     this.quizService.setCheckedShuffle(isChecked);
     this.isChecked.set(isChecked);
   }
