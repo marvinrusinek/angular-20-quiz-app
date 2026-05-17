@@ -185,12 +185,10 @@ export class QqcOrchLifecycleService {
       await host.initializeQuiz();
       await host.initializeQuizDataAndRouting();
 
-      const quizQuestionSub = host.initializer.initializeQuizQuestion({
+      host.initializer.initializeQuizQuestion({
+        destroyRef: host.destroyRef,
         onQuestionsLoaded: (_questions: QuizQuestion[]) => {}
       });
-      if (quizQuestionSub) {
-        host.questionsObservableSubscription = quizQuestionSub;
-      }
 
       const questionIndexParam = host.activatedRoute.snapshot.paramMap.get('questionIndex');
       const firstQuestionIndex = host.initializer.parseQuestionIndexFromRoute(questionIndexParam);
@@ -295,7 +293,6 @@ export class QqcOrchLifecycleService {
   runOnDestroy(host: Host): void {
     try { document.removeEventListener('visibilitychange', host.onVisibilityChange.bind(host)); } catch {}
     host.idxSub?.unsubscribe();
-    host.questionsObservableSubscription?.unsubscribe();
     host.sharedVisibilitySubscription?.unsubscribe();
     host.resetFeedbackSubscription?.unsubscribe();
     host.resetStateSubscription?.unsubscribe();

@@ -1,4 +1,5 @@
-﻿import { Injectable } from '@angular/core';
+﻿import { DestroyRef, Injectable } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormControl, FormGroup } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { map } from 'rxjs/operators';
@@ -344,14 +345,15 @@ export class QqcInitializerService {
    * Extracted from initializeQuizQuestion().
    */
   initializeQuizQuestion(params: {
+    destroyRef: DestroyRef;
     onQuestionsLoaded: (questions: QuizQuestion[]) => void;
-  }): Subscription | null {
-    if (!this.quizStateService || !this.quizService) return null;
-    if (this.quizStateService.getQuizQuestionCreated()) return null;
+  }): void {
+    if (!this.quizStateService || !this.quizService) return;
+    if (this.quizStateService.getQuizQuestionCreated()) return;
 
     this.quizStateService.setQuizQuestionCreated();
 
-    return this.quizService
+    this.quizService
       .getAllQuestions()
       .pipe(
         map((questions: QuizQuestion[]) => {
@@ -371,7 +373,8 @@ export class QqcInitializerService {
             }
           }
           return questions;
-        })
+        }),
+        takeUntilDestroyed(params.destroyRef)
       )
       .subscribe({
         next: (questions: QuizQuestion[]) => {

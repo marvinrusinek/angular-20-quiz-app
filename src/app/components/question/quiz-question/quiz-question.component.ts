@@ -99,7 +99,6 @@ export class QuizQuestionComponent extends BaseQuestion
   readonly quiz = signal<Quiz | null>(null);
   readonly questions = signal<QuizQuestion[]>([]);
   readonly questionsArray = signal<QuizQuestion[]>([]);
-  questionsObservableSubscription!: Subscription;
   override questionForm: FormGroup = new FormGroup({});
   readonly totalQuestions = signal<number>(0);
   readonly fixedQuestionIndex = signal<number>(0);
