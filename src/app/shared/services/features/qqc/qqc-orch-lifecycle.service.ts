@@ -232,12 +232,11 @@ export class QqcOrchLifecycleService {
         }
       });
 
-      const resetSubs = host.subscriptionWiring.createResetSubscriptions({
+      host.subscriptionWiring.createResetSubscriptions({
+        destroyRef: host.destroyRef,
         onResetFeedback: () => host.resetFeedback(),
         onResetState: () => host.resetState()
       });
-      host.resetFeedbackSubscription = resetSubs[0];
-      host.resetStateSubscription = resetSubs[1];
 
       host.subscriptionWiring.createTotalQuestionsSubscription({
         quizId: host.quizId()!,
@@ -295,8 +294,6 @@ export class QqcOrchLifecycleService {
   runOnDestroy(host: Host): void {
     try { document.removeEventListener('visibilitychange', host.onVisibilityChange.bind(host)); } catch {}
     host.idxSub?.unsubscribe();
-    host.resetFeedbackSubscription?.unsubscribe();
-    host.resetStateSubscription?.unsubscribe();
     try { host.nextButtonStateService.cleanupNextButtonStateStream(); } catch {}
   }
 }

@@ -101,14 +101,17 @@ export class QqcSubscriptionWiringService {
    * Returns an array of subscriptions for bulk teardown.
    * Extracted from setupSubscriptions().
    */
-  createResetSubscriptions(callbacks: {
+  createResetSubscriptions(params: {
+    destroyRef: DestroyRef;
     onResetFeedback: () => void;
     onResetState: () => void;
-  }): Subscription[] {
-    return [
-      this.resetStateService.resetFeedback$.subscribe(callbacks.onResetFeedback),
-      this.resetStateService.resetState$.subscribe(callbacks.onResetState)
-    ];
+  }): void {
+    this.resetStateService.resetFeedback$
+      .pipe(takeUntilDestroyed(params.destroyRef))
+      .subscribe(params.onResetFeedback);
+    this.resetStateService.resetState$
+      .pipe(takeUntilDestroyed(params.destroyRef))
+      .subscribe(params.onResetState);
   }
 
   /**
