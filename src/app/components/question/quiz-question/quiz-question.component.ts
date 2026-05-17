@@ -133,7 +133,6 @@ export class QuizQuestionComponent extends BaseQuestion
   explanationLocked = false;  // flag to lock explanation
   readonly explanationVisible = signal<boolean>(false);
   displaySubscriptions: Subscription[] = [];
-  displayModeSubscription!: Subscription;
   lastOptionsQuestionSignature: string | null = null;
   readonly shouldDisplayExplanation = signal<boolean>(false);
   
@@ -161,7 +160,6 @@ export class QuizQuestionComponent extends BaseQuestion
   readonly questionPayload$ = toObservable(this.questionPayloadSig);
 
   readonly renderReady = signal(false);
-  renderReadySubscription?: Subscription;
 
   waitingForReady = false;
   deferredClick?: { option: SelectedOption | null, index: number, checked: boolean, wasReselected?: boolean };

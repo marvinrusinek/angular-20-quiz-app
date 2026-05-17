@@ -135,8 +135,8 @@ export class QuizSetupRouteService {
   }
 
   subscribeToQuestionIndex(host: Host): void {
-    host.indexSubscription = this.quizService.currentQuestionIndex$
-      .pipe(distinctUntilChanged())
+    this.quizService.currentQuestionIndex$
+      .pipe(distinctUntilChanged(), takeUntilDestroyed(host.destroyRef))
       .subscribe((idx: number) => {
         const prevIdx = host.lastLoggedIndex;
         host.lastLoggedIndex = idx;

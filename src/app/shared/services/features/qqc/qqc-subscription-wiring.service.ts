@@ -1,10 +1,8 @@
 ﻿import { DestroyRef, Injectable } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
-import { Observable, of, Subscription } from 'rxjs';
-import {
-  catchError, distinctUntilChanged, filter, map, skip, tap
-} from 'rxjs/operators';
+import { Observable, Subscription } from 'rxjs';
+import { filter, skip, tap } from 'rxjs/operators';
 
 import { Option } from '../../../models/Option.model';
 import { QuestionPayload } from '../../../models/QuestionPayload.model';
@@ -28,20 +26,6 @@ export class QqcSubscriptionWiringService {
     private resetStateService: ResetStateService,
     private router: Router
   ) {}
-
-  /**
-   * Creates the display mode subscription (isAnswered -> mode).
-   * Extracted from initializeDisplayModeSubscription().
-   */
-  createDisplayModeSubscription(currentQuestionIndex: number): Subscription {
-    return this.quizService.isAnswered(currentQuestionIndex)
-      .pipe(
-        map((isAnswered) => (isAnswered ? 'explanation' : 'question')),
-        distinctUntilChanged(),
-        catchError(() => of('question'))
-      )
-      .subscribe();
-  }
 
   /**
    * Creates the page visibility subscription.

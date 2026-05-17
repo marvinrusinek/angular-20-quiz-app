@@ -1,4 +1,5 @@
 ﻿import { Injectable } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { firstValueFrom } from 'rxjs';
 import { take } from 'rxjs/operators';
 
@@ -122,10 +123,6 @@ export class QqcOrchLifecycleService {
 
       host.populateOptionsToDisplay();
 
-      host.displayModeSubscription = host.subscriptionWiring.createDisplayModeSubscription(
-        host.currentQuestionIndex()
-      );
-
       const renderReady$ = host.lifecycle.createRenderReadyObservable({
         questionPayload$: host.questionPayload$,
         setCurrentQuestion: (q: QuizQuestion | null) => { host.currentQuestion.set(q); },
@@ -137,7 +134,7 @@ export class QqcOrchLifecycleService {
         // toObservable-derived stream consumers.
         emitRenderReady: (val: boolean) => host.renderReady.set(val)
       });
-      host.renderReadySubscription = renderReady$.subscribe();
+      renderReady$.pipe(takeUntilDestroyed(host.destroyRef)).subscribe();
 
       document.addEventListener('visibilitychange', host.onVisibilityChange.bind(host));
 
@@ -302,8 +299,6 @@ export class QqcOrchLifecycleService {
     host.sharedVisibilitySubscription?.unsubscribe();
     host.resetFeedbackSubscription?.unsubscribe();
     host.resetStateSubscription?.unsubscribe();
-    host.displayModeSubscription?.unsubscribe();
-    host.renderReadySubscription?.unsubscribe();
     host.shufflePreferenceSubscription?.unsubscribe();
     try { host.nextButtonStateService.cleanupNextButtonStateStream(); } catch {}
   }
