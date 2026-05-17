@@ -29,7 +29,7 @@ export interface QuizSessionState {
   userAnswers: any[];
   selectedOptionsMap: Map<number, SelectedOption[]>;
   correctCount: number;
-  totalQuestions: number;
+  totalQuestions: WritableSignal<number>;
 
   // Subjects that need to be emitted to
   currentQuestionSig: WritableSignal<QuizQuestion | null>;
@@ -40,7 +40,6 @@ export interface QuizSessionState {
   currentOptionsSig: WritableSignal<Option[]>;
   optionsSource: Subject<Option[]>;
   questionPayloadSig: WritableSignal<any>;
-  totalQuestionsSig: WritableSignal<number>;
   badgeTextSig: WritableSignal<string>;
 
   // Methods that need to be called
@@ -208,8 +207,7 @@ export class QuizSessionManagerService {
 
     const newQuizId = quizId;
 
-    state.totalQuestions = sanitizedQuestions.length;
-    state.totalQuestionsSig.set(state.totalQuestions);
+    state.totalQuestions.set(sanitizedQuestions.length);
 
     const boundedIndex = Math.min(
       Math.max(state.currentQuestionIndex ?? 0, 0),

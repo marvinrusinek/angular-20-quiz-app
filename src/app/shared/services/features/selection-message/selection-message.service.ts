@@ -195,7 +195,7 @@ export class SelectionMessageService {
   }
 
   public forceNextButtonMessage(index: number, opts: { isLastQuestion?: boolean } = {}): void {
-    const total = this.quizService.totalQuestions;
+    const total = this.quizService.totalQuestions();
     const isLast = opts.isLastQuestion ?? (total > 0 && index === total - 1);
     const nextMsg = isLast ? SHOW_RESULTS_MSG : NEXT_BTN_MSG;
     this.releaseBaseline(index);
@@ -227,7 +227,7 @@ export class SelectionMessageService {
 
   public async setSelectionMessage(isAnswered: boolean): Promise<void> {
     const i0 = this.quizService.currentQuestionIndex;
-    const total = this.quizService.totalQuestions;
+    const total = this.quizService.totalQuestions();
     if (i0 < 0 || !this._baselineReleased.has(i0) && !isAnswered) return;
 
     queueMicrotask(() => {
@@ -355,7 +355,7 @@ export class SelectionMessageService {
 
     const msg = this.computeFinalMessage({
       index,
-      total: this.quizService.totalQuestions,
+      total: this.quizService.totalQuestions(),
       qType,
       opts: optionsNow
     });

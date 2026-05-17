@@ -120,7 +120,7 @@ export class QqcQlFetchService {
     questionsArray: QuizQuestion[];
     quizId: string;
   }): { shouldRedirect: boolean; trueTotal: number } {
-    const serviceTotal = this.quizService.totalQuestions || 0;
+    const serviceTotal = this.quizService.totalQuestions() || 0;
     const localTotal = params.questionsArray.length || 0;
     const authoritativeCount = this.quizDataService.getCachedQuizById(params.quizId)?.questions?.length || 0;
     const trueTotal = Math.max(serviceTotal, localTotal, authoritativeCount);

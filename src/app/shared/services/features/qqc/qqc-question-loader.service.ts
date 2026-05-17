@@ -594,7 +594,7 @@ export class QqcQuestionLoaderService {
 
     // Set totalQuestions before selection messages are computed
     if (questionsArray?.length > 0) {
-      this.quizService.totalQuestions = questionsArray.length;
+      this.quizService.totalQuestions.set(questionsArray.length);
     }
 
     if (questionsArray.length === 0) return null;

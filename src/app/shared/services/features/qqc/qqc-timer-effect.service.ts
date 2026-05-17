@@ -233,7 +233,7 @@ export class QqcTimerEffectService {
 
       const anySelected = canonicalOpts.some(opt => !!opt?.selected);
       if (!anySelected) {
-        const total = params.totalQuestions ?? this.quizService?.totalQuestions ?? 0;
+        const total = params.totalQuestions ?? this.quizService?.totalQuestions() ?? 0;
         const isLastQuestion = total > 0 && i0 === total - 1;
         this.selectionMessageService.forceNextButtonMessage(i0, {
           isLastQuestion

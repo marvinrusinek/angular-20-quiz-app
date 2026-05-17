@@ -22,14 +22,14 @@ export class ChallengeComponent implements OnInit {
 
   private readonly correctAnswersCount: Signal<number> = this.quizService.correctAnswersCountSig;
   readonly percentageCorrect = computed(() => {
-    const total = this.quizService.totalQuestions;
+    const total = this.quizService.totalQuestions();
     if (!total) return 0;
     return Math.round((100 * this.correctAnswersCount()) / total);
   });
 
   quizMetadata: Partial<QuizMetadata> = {
-    totalQuestions: this.quizService.totalQuestions,
-    totalQuestionsAttempted: this.quizService.totalQuestions,
+    totalQuestions: this.quizService.totalQuestions(),
+    totalQuestionsAttempted: this.quizService.totalQuestions(),
     correctAnswersCount: this.quizService.correctAnswersCountSig,
     percentage: this.percentageCorrect(),
     completionTime: this.timerService.calculateTotalElapsedTime(

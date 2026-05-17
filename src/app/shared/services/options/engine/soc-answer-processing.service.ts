@@ -190,7 +190,7 @@ export class SocAnswerProcessingService {
     })) as Option[];
     const selMsg = this.selectionMessageService.computeFinalMessage({
       index: qIdx,
-      total: this.quizService?.totalQuestions ?? 0,
+      total: this.quizService?.totalQuestions() ?? 0,
       qType: QuestionType.MultipleAnswer,
       opts: optsForMsg
     });

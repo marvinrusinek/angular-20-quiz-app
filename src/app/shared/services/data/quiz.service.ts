@@ -92,7 +92,7 @@ export class QuizService {
   answers: Option[] = [];
   resources: Resource[] = [];
 
-  totalQuestions = 0;
+  readonly totalQuestions = signal<number>(0);
   get correctCount(): number { return this.scoringService.correctCountSig(); }
   set correctCount(val: number) { this.scoringService.correctCountSig.set(val); }
 
@@ -125,8 +125,7 @@ export class QuizService {
     toObservable(this.currentQuestionSig);
 
   currentOptionsSig = signal<Option[]>([]);
-  totalQuestionsSig = signal<number>(0);
-  totalQuestions$: Observable<number> = toObservable(this.totalQuestionsSig);
+  totalQuestions$: Observable<number> = toObservable(this.totalQuestions);
 
   readonly questionDataSig = signal<any>(null);
   questionData$ = toObservable(this.questionDataSig);
@@ -290,13 +289,9 @@ export class QuizService {
 
     this.quizId = result.resolvedQuizId;
     this.questions = result.questions;
-    this.totalQuestions = result.totalQuestions;
+    this.totalQuestions.set(result.totalQuestions);
     this.quizData = this.dataLoader.quizData;
     this.quizInitialState = this.dataLoader.quizInitialState;
-
-    if (this.questions.length > 0) {
-      this.totalQuestionsSig.set(this.totalQuestions);
-    }
   }
 
   public setActiveQuiz(quiz: Quiz): void {
@@ -311,8 +306,7 @@ export class QuizService {
     }
     this.questionsQuizId = quiz.quizId;
     this.questions = quiz.questions ?? [];
-    this.totalQuestions = (quiz.questions ?? []).length;
-    this.totalQuestionsSig.set(this.totalQuestions);
+    this.totalQuestions.set((quiz.questions ?? []).length);
 
     // Load resources for this quiz
     this.loadResourcesForQuiz(quiz.quizId);
@@ -347,8 +341,7 @@ export class QuizService {
       }
       this.questionsQuizId = q.quizId;
       this.questions = q.questions;
-      this.totalQuestions = q.questions.length;
-      this.totalQuestionsSig.set(this.totalQuestions);
+      this.totalQuestions.set(q.questions.length);
     }
   }
 
@@ -417,7 +410,7 @@ export class QuizService {
       (qs) => { this._questions = qs; }
     );
     this.quizId = quizId;
-    this.totalQuestions = questions.length;
+    this.totalQuestions.set(questions.length);
     return questions;
   }
 
@@ -633,11 +626,11 @@ export class QuizService {
   }
 
   saveHighScores(): void {
-    this.scoringService.saveHighScores(this.quizId, this.totalQuestions);
+    this.scoringService.saveHighScores(this.quizId, this.totalQuestions());
   }
 
   calculatePercentageOfCorrectlyAnsweredQuestions(): number {
-    return this.scoringService.calculatePercentageOfCorrectlyAnsweredQuestions(this.totalQuestions);
+    return this.scoringService.calculatePercentageOfCorrectlyAnsweredQuestions(this.totalQuestions());
   }
 
   private shouldShuffle(): boolean {

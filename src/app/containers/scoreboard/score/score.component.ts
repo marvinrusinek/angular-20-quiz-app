@@ -29,8 +29,8 @@ export class ScoreComponent implements OnInit {
   );
   private readonly totalQuestionsSig = computed<number>(() => {
     const fromStream = this.questionsSig()?.length ?? 0;
-    if (fromStream === 0 && this.quizService.totalQuestions > 0) {
-      return this.quizService.totalQuestions;
+    if (fromStream === 0 && this.quizService.totalQuestions() > 0) {
+      return this.quizService.totalQuestions();
     }
     return fromStream;
   });

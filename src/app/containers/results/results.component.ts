@@ -114,16 +114,16 @@ export class ResultsComponent implements OnInit {
     );
 
     this.updateHeaderLabel(
-      this.quizService.totalQuestions || this.detailedSummaryQuestions().length
+      this.quizService.totalQuestions() || this.detailedSummaryQuestions().length
     );
 
     // Try in-memory snapshot first
     let snapshot = this.quizService.getFinalResultSnapshot();
 
     // If no snapshot exists, build one from current service state
-    if (!snapshot && this.quizService.totalQuestions > 0) {
+    if (!snapshot && this.quizService.totalQuestions() > 0) {
       const correct = this.quizService.correctAnswersCountSig();
-      const total = this.quizService.totalQuestions;
+      const total = this.quizService.totalQuestions();
       snapshot = {
         quizId: this.quizId() || this.quizService.quizId,
         correct,
@@ -214,7 +214,7 @@ export class ResultsComponent implements OnInit {
   }
 
   private applyFinalResultSnapshot(snapshot: FinalResult): void {
-    this.quizService.totalQuestions = snapshot.total;
+    this.quizService.totalQuestions.set(snapshot.total);
     this.quizService.sendCorrectCountToResults(snapshot.correct);
   }
 

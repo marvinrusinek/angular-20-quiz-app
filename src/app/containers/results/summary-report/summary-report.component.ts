@@ -76,8 +76,8 @@ export class SummaryReportComponent implements OnInit {
     try {
       // Initialize quizMetadata in initComponent when service data is available
       this.quizMetadata.set({
-        totalQuestions: this.quizService.totalQuestions,
-        totalQuestionsAttempted: this.quizService.totalQuestions,
+        totalQuestions: this.quizService.totalQuestions(),
+        totalQuestionsAttempted: this.quizService.totalQuestions(),
         correctAnswersCount: this.quizService.correctAnswersCountSig,
         percentage:
           this.quizService.calculatePercentageOfCorrectlyAnsweredQuestions(),
@@ -104,7 +104,7 @@ export class SummaryReportComponent implements OnInit {
         quizId: this.quizId,
         attemptDateTime: new Date(),
         score: this.quizMetadata().percentage ?? 0,
-        totalQuestions: this.quizService.totalQuestions
+        totalQuestions: this.quizService.totalQuestions()
       });
     } catch (error) {
       // Fallback to ensure UI doesn't look broken

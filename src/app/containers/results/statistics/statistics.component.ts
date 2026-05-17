@@ -92,8 +92,8 @@ export class StatisticsComponent implements OnInit {
 
     // Initialize quizMetadata in initComponent when service data is available
     this.quizMetadata.set({
-      totalQuestions: this.quizService.totalQuestions,
-      totalQuestionsAttempted: this.quizService.totalQuestions,
+      totalQuestions: this.quizService.totalQuestions(),
+      totalQuestionsAttempted: this.quizService.totalQuestions(),
       correctAnswersCount: this.quizService.correctAnswersCountSig,
       percentage: this.calculatePercentageOfCorrectlyAnsweredQuestions(),
       completionTime: totalElapsedTime
@@ -118,7 +118,7 @@ export class StatisticsComponent implements OnInit {
   }
 
   calculatePercentageOfCorrectlyAnsweredQuestions(): number {
-    const total = this.quizService.totalQuestions;
+    const total = this.quizService.totalQuestions();
     if (total === 0) return 0; // Prevent NaN
 
     return Math.round(

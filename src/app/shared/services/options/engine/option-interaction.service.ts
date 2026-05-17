@@ -701,7 +701,7 @@ export class OptionInteractionService {
     try {
       const message = this.selectionMessageService.computeFinalMessage({
         index: qIdx,
-        total: this.quizService?.totalQuestions,
+        total: this.quizService?.totalQuestions(),
         qType: isMultipleMode ? QuestionType.MultipleAnswer : QuestionType.SingleAnswer,
         opts: state.optionBindings.map((b, i) => ({
           ...b.option,
