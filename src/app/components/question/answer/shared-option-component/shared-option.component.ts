@@ -284,32 +284,39 @@ export class SharedOptionComponent
               el.classList.remove('incorrect-option');
             }
           } catch { /* ignore â€” non-browser env */ }
+
+          // Narrow microtask scrub — ONLY on actual Q→Q transition (inside
+          // this if-block), not on every effect re-fire. Without this gate,
+          // the click pipeline's signal writes re-trigger the effect and
+          // the scrub wipes the just-clicked option.selected back to false.
+          const _perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
+          const _isResolved = this.selectedOptionService.isQuestionLocked?.(v) === true
+                              || _perfectMap?.get(v) === true;
+          if (!_isResolved) {
+            queueMicrotask(() => {
+              this._multiSelectByQuestion?.delete(v);
+              for (const b of this.optionBindings() ?? []) {
+                if (!b) continue;
+                delete (b as any)._timerExpiredStamped;
+                delete (b as any)._timerExpiredStampedForIndex;
+                delete (b as any)._autoRevealedCorrect;
+                if (b.option) {
+                  delete (b.option as any)._autoRevealedCorrect;
+                  // Reset option-level state that persists on shared refs
+                  // across navigations — without this, prior-visit clicks
+                  // make preserveOptionHighlighting re-render them as
+                  // highlighted on revisit.
+                  (b.option as any).selected = false;
+                  (b.option as any).highlight = false;
+                  (b.option as any).showIcon = false;
+                }
+              }
+              this.cdRef.markForCheck();
+            });
+          }
         }
         _lastQIdxForStampCleanup = v;
         this.currentQuestionIndex = v;
-
-        // Narrow microtask scrub: only strip stale STAMP flags (not
-        // disabled/highlight/showFeedback). The full scrub diverged
-        // binding visual state from the underlying data state, causing
-        // click-on-wrong to register internally without visual feedback.
-        // The strict isTimerStamped / isTimerExpiredForThisQuestion guards
-        // in option-item already prevent the gray-stamps from rendering;
-        // this scrub is now just defense-in-depth for the stamp flags.
-        if (!this.selectedOptionService.isQuestionLocked?.(v)) {
-          queueMicrotask(() => {
-            this._multiSelectByQuestion?.delete(v);
-            for (const b of this.optionBindings() ?? []) {
-              if (!b) continue;
-              delete (b as any)._timerExpiredStamped;
-              delete (b as any)._timerExpiredStampedForIndex;
-              delete (b as any)._autoRevealedCorrect;
-              if (b.option) {
-                delete (b.option as any)._autoRevealedCorrect;
-              }
-            }
-            this.cdRef.markForCheck();
-          });
-        }
       }
     });
     effect(() => {
