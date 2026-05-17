@@ -9,6 +9,7 @@ import { QuestionType } from '../../models/question-type.enum';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { ExplanationTextService } from '../features/explanation/explanation-text.service';
 import { NextButtonStateService } from '../state/next-button-state.service';
+import { OptionLockStateService } from '../state/option-lock-state.service';
 import { QqcQuestionLoaderService } from '../features/qqc/qqc-question-loader.service';
 import { QuizQuestionManagerService } from '../flow/quizquestionmgr.service';
 import { QuizService } from '../data/quiz.service';
@@ -52,6 +53,7 @@ export class QuizNavigationService {
   constructor(
     private explanationTextService: ExplanationTextService,
     private nextButtonStateService: NextButtonStateService,
+    private optionLockState: OptionLockStateService,
     private quizQuestionLoaderService: QqcQuestionLoaderService,
     private quizQuestionManagerService: QuizQuestionManagerService,
     private quizService: QuizService,
@@ -132,6 +134,13 @@ export class QuizNavigationService {
       this.timerService.stopTimer(undefined, { force: true });
       this.timerService.resetTimer();
       this.timerService.resetTimerFlagsFor(index);
+
+      // Clear stale selections on destinations that weren't locked-correct
+      // so highlights from a prior incorrect attempt don't carry over when
+      // the user navigates back. Locked-correct questions keep their state.
+      if (!this.optionLockState.isQuestionLocked(index)) {
+        this.selectedOptionService.clearSelectionsForQuestion(index);
+      }
 
       // Update Service State (Index) - Update AFTER router nav success
       this.quizService.setCurrentQuestionIndex(index);
