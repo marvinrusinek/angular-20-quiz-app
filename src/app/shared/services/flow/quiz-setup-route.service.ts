@@ -262,7 +262,7 @@ export class QuizSetupRouteService {
   }
 
   subscribeRouterAndInit(host: Host): void {
-    host.routerSubscription = host.activatedRoute.data
+    host.activatedRoute.data
       .pipe(takeUntilDestroyed(host.destroyRef))
       .subscribe((data: any) => {
         const quizData = data['quizData'];
