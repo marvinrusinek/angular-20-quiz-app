@@ -10,9 +10,12 @@ export class OptionSelectionPolicyService {
     showFeedbackForOption: Record<number, boolean>;
     updateFeedbackState: (id: number) => void;
   }): void {
-    const { optionBindings, selectedBinding } = params;
+    const { selectedBinding } = params;
+    // RESOLVE: optionBindings may be a signal (-clean) or plain array (-main)
+    const _raw = (params as any).optionBindings;
+    const optionBindings: any[] = typeof _raw === 'function' ? (_raw() ?? []) : (_raw ?? []);
 
-    for (const binding of optionBindings ?? []) {
+    for (const binding of optionBindings) {
       const isTarget = binding === selectedBinding;
 
       if (!isTarget && binding.isSelected) {

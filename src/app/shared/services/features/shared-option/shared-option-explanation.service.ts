@@ -188,6 +188,10 @@ export class SharedOptionExplanationService {
     }
     const isMultiAnswer = correctCount > 1 || this.quizService.multipleAnswer;
 
+    // RESOLVE: optionBindings may be a signal (-clean) or array (-main)
+    const _rawOb1 = optionBindings as any;
+    const _ob1: any[] = typeof _rawOb1 === 'function' ? (_rawOb1() ?? []) : (_rawOb1 ?? []);
+    optionBindings = _ob1;
     const visualOptions = (Array.isArray(optionBindings) && optionBindings.length > 0)
       ? optionBindings.map((b: OptionBindings) => b.option)
       : (optionsToDisplay ?? []);
@@ -445,7 +449,10 @@ export class SharedOptionExplanationService {
    * for correct "Option N" labeling (shuffle-safe).
    */
   resolveExplanationText(ctx: ExplanationContext): string {
-    const { resolvedIndex: displayIndex, question, optionBindings, optionsToDisplay, currentQuestion, quizId } = ctx;
+    const { resolvedIndex: displayIndex, question, optionsToDisplay, currentQuestion, quizId } = ctx;
+    // RESOLVE: ctx.optionBindings may be a signal (-clean) or array (-main)
+    const _rawOb2 = (ctx as any).optionBindings;
+    const optionBindings: any[] = typeof _rawOb2 === 'function' ? (_rawOb2() ?? []) : (_rawOb2 ?? []);
     // Use ctx.question (resolved from display index) over currentQuestion (can be null)
     const effectiveQuestion = question ?? currentQuestion;
 

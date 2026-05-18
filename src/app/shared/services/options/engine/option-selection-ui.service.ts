@@ -11,6 +11,9 @@ export class OptionSelectionUiService {
     rawSelectedId: number | string,
     selectedOptionHistory: (number | string)[]
   ): void {
+    // RESOLVE: optionBindings may be a signal (-clean) or plain array (-main)
+    const _rawOb = optionBindings as any;
+    optionBindings = typeof _rawOb === 'function' ? (_rawOb() ?? []) : (_rawOb ?? []);
     const parsedId =
       typeof rawSelectedId === 'string'
         ? Number.parseInt(rawSelectedId, 10)

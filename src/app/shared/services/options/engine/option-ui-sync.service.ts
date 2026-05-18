@@ -130,13 +130,16 @@ export class OptionUiSyncService {
       } catch { /* ignore */ }
       const historySet = new Set(ctx.selectedOptionHistory);
 
+      // RESOLVE: ctx.optionBindings may be a signal (-clean) or array (-main)
+      const _rawObB = ctx.optionBindings as any;
+      const _obB: any[] = typeof _rawObB === 'function' ? (_rawObB() ?? []) : (_rawObB ?? []);
       // Build NEW binding refs so OnPush option-item children re-render.
       // In-place mutation here used to leak through to the visible state
       // ONLY when something downstream (e.g. processSingleAnswerClick's
       // pristineSingleCorrect branch) replaced the bindings array later.
       // Incorrect single-answer clicks have no such downstream rebuild,
       // so the red-highlight on the wrong option never appeared.
-      ctx.optionBindings = ctx.optionBindings.map((b, i) => {
+      ctx.optionBindings = _obB.map((b: any, i: number) => {
         const isCurrent = (i === index);
         const inHistory = historySet.has(i);
         return {

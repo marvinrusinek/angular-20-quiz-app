@@ -403,6 +403,9 @@ export class SharedOptionFeedbackService {
     lastFeedbackOptionId: number | string,
     selectedOptionHistory: (number | string)[]
   ): RebuildFeedbackMapResult {
+    // RESOLVE: optionBindings may be a signal (-clean) or array (-main)
+    const _rawRb = optionBindings as any;
+    optionBindings = typeof _rawRb === 'function' ? (_rawRb() ?? []) : (_rawRb ?? []);
     const showMap: Record<string | number, boolean> = {};
 
     // Prefer lastFeedbackOptionId for the anchor; it tracks the most recent click reliably
@@ -519,6 +522,9 @@ export class SharedOptionFeedbackService {
     optionsToDisplay: Option[],
     optionBindings: OptionBindings[]
   ): RegenerateFeedbackResult | null {
+    // RESOLVE: optionBindings may be a signal (-clean) or array (-main)
+    const _rawRg = optionBindings as any;
+    optionBindings = typeof _rawRg === 'function' ? (_rawRg() ?? []) : (_rawRg ?? []);
     if (idx < 0 || !optionsToDisplay?.length) return null;
 
     // Use getQuestionAtDisplayIndex for shuffle-aware question lookup
@@ -575,6 +581,9 @@ export class SharedOptionFeedbackService {
     optionBindings: OptionBindings[],
     ctx: FeedbackContext
   ): FeedbackProps[] {
+    // RESOLVE: optionBindings may be a signal (-clean) or array (-main)
+    const _rawIb = optionBindings as any;
+    optionBindings = typeof _rawIb === 'function' ? (_rawIb() ?? []) : (_rawIb ?? []);
     if (optionBindings?.some((b) => b.isSelected)) {
       return optionBindings.map((_, idx) => this.getDefaultFeedbackProps(idx, ctx));
     }
