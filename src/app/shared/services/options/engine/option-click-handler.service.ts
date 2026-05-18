@@ -314,7 +314,10 @@ export class OptionClickHandlerService {
     const isCorrectFlag = (o: any) =>
       o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || String(o.correct) === '1');
 
-    const correctCountFromBindings = optionBindings.filter(b => isCorrectFlag(b.option)).length;
+    // RESOLVE: optionBindings may be a signal (-clean) or plain array (-main)
+    const _rawOb = optionBindings as any;
+    const _ob: any[] = typeof _rawOb === 'function' ? (_rawOb() ?? []) : (_rawOb ?? []);
+    const correctCountFromBindings = _ob.filter((b: any) => isCorrectFlag(b.option)).length;
     if (correctCountFromBindings <= 1) return cfg;
 
     const isClickedCorrect = isCorrectFlag(clickedBinding.option);
@@ -322,8 +325,8 @@ export class OptionClickHandlerService {
     let correctSelected = 0;
     let incorrectSelected = 0;
 
-    for (let bi = 0; bi < optionBindings.length; bi++) {
-      const b = optionBindings[bi];
+    for (let bi = 0; bi < _ob.length; bi++) {
+      const b = _ob[bi];
       const bCorrect = isCorrectFlag(b.option);
       if (bCorrect) correctIdxs.push(bi + 1);
       if (b.isSelected || b.option?.selected) {

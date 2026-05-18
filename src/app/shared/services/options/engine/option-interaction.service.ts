@@ -705,11 +705,14 @@ export class OptionInteractionService {
 
     // MESSAGE UPDATE
     try {
+      // RESOLVE: state.optionBindings may be a signal in -clean / array in -main
+      const _rawSob = state.optionBindings as any;
+      const _sob: any[] = typeof _rawSob === 'function' ? (_rawSob() ?? []) : (_rawSob ?? []);
       const message = this.selectionMessageService.computeFinalMessage({
         index: qIdx,
         total: this.quizService?.totalQuestions(),
         qType: isMultipleMode ? QuestionType.MultipleAnswer : QuestionType.SingleAnswer,
-        opts: state.optionBindings.map((b, i) => ({
+        opts: _sob.map((b: any, i: number) => ({
           ...b.option,
           selected: futureKeys.has(i)
         })) as Option[]

@@ -74,11 +74,16 @@ export class OptionUiSyncService {
     this.resetFeedbackAnchorIfQuestionChanged(currentIndex, ctx);
 
     const checked = 'checked' in event ? (event as MatCheckboxChange).checked : true;
-    const correctCountInBindings = ctx.optionBindings.filter(b => isCorrectHelper(b.option)).length;
+    // RESOLVE: ctx.optionBindings may be a signal (-clean) or plain array (-main)
+    const _rawCob = ctx.optionBindings as any;
+    const _cob: any[] = typeof _rawCob === 'function' ? (_rawCob() ?? []) : (_rawCob ?? []);
+    // Normalize back onto ctx so downstream code sees an array, not a signal
+    (ctx as any).optionBindings = _cob;
+    const correctCountInBindings = _cob.filter((b: any) => isCorrectHelper(b.option)).length;
     // Canonical fallback: when binding flags are stale/missing, recover
     // the correct count from quizInitialState (pristine source). Use the
     // higher of the two so single-answer detection isn't weakened.
-    const canonicalCorrectCount = this.resolveCanonicalCorrectCount(ctx.optionBindings);
+    const canonicalCorrectCount = this.resolveCanonicalCorrectCount(_cob);
     const effectiveCorrectCount = Math.max(correctCountInBindings, canonicalCorrectCount);
 
     // Authoritative Type Resolution
