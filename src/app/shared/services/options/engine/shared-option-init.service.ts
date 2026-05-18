@@ -158,7 +158,12 @@ export class SharedOptionInitService {
     // handler in shared-option.component.ts. Without this, Q2's options
     // inherit Q1's _timerExpiredStamped flag, and isDisabled() returns
     // true for every option on the new question via isTimerStamped().
-    for (const b of (comp as any).optionBindings ?? []) {
+    // RESOLVE: comp.optionBindings is a signal in -clean / plain array in -main.
+    const _rawBindings = (comp as any).optionBindings;
+    const _bindings: any[] = typeof _rawBindings === 'function'
+      ? (_rawBindings() ?? [])
+      : (_rawBindings ?? []);
+    for (const b of _bindings) {
       if (!b) continue;
       delete (b as any)._timerExpiredStamped;
       if (b.cssClasses) {

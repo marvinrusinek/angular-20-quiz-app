@@ -209,8 +209,13 @@ export class OptionInteractionService {
     // map is fine for live dot rendering; the sessionStorage value drives
     // the DOT-CONFIRMED FALLBACK LOCK on refresh.
 
-    const bindingsForScore = state.optionBindings ?? [];
-    const correctCountInBindings = bindingsForScore.filter(b => isCorrectHelper(b.option)).length;
+    // RESOLVE: state.optionBindings may be a signal (-clean) or plain array (-main).
+    // Call as function if it's a signal, otherwise use directly.
+    const _rawBindings = state.optionBindings as any;
+    const bindingsForScore: any[] = typeof _rawBindings === 'function'
+      ? (_rawBindings() ?? [])
+      : (_rawBindings ?? []);
+    const correctCountInBindings = bindingsForScore.filter((b: any) => isCorrectHelper(b.option)).length;
 
     // PRISTINE correct-count: bindings can have mutated correct flags (e.g.
     // only 1 of 2 shown as correct). Cross-check against quizInitialState
