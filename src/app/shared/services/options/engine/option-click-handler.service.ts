@@ -484,16 +484,6 @@ export class OptionClickHandlerService {
     const flashDisabled = flashDisabledSet.has(index) || flashDisabledSet.has(lockId);
 
     const result = !!(disabledBySet || forceDisabled || questionLocked || optionLocked || lockedIncorrect || flashDisabled);
-    if (result) {
-      // TEMP DIAGNOSTIC — remove after Q2 dark-gray bug is fixed
-      console.log('[computeDisabledState=true]', {
-        qIndex, index, lockId, text: option?.text,
-        disabledBySet, forceDisabled, questionLocked, optionLocked, lockedIncorrect, flashDisabled,
-        disabledSet: disabledSet ? [...disabledSet] : null,
-        lockedIncorrectIds: [...lockedIncorrectOptionIds],
-        flashDisabledIds: [...flashDisabledSet]
-      });
-    }
     return result;
   }
 

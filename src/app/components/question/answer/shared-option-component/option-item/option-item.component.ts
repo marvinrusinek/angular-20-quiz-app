@@ -201,11 +201,6 @@ export class OptionItemComponent implements OnInit {
 
       const myText = nrm(this.binding().option.text);
       if (!selectedTexts.has(myText)) {
-        // TEMP DIAGNOSTIC — remove after Q2 dark-gray bug is fixed
-        console.log('[applyMultiAnswerDisableState→disabled]', {
-          _qIdx, myText, selectedTexts: [...selectedTexts],
-          pristineCorrectTexts: [...pristineCorrectTexts]
-        });
         this.binding().disabled = true;
         if (this.binding().option) (this.binding().option as any).active = false;
       }
