@@ -494,17 +494,41 @@ export class QuizService {
   setCurrentQuestionIndex(idx: number) {
     const safeIndex = Number.isFinite(idx) ? Math.max(0, Math.trunc(idx)) : 0;
 
-    // Wipe the incoming question's _multiAnswerPerfect entry — every
-    // navigation path (Next/Previous buttons, dots, route changes, direct
-    // restore, etc.) routes through this setter, so clearing here
-    // guarantees stale "resolved" flags don't survive a revisit. Without
-    // this, option-item.isDisabled() would return true via the
-    // multi.perfectMap+bindingDisabled branch on a 2nd visit.
+    // Conditionally wipe _multiAnswerPerfect[safeIndex] — ONLY clear if
+    // the user did NOT actually answer the question correctly on the
+    // prior visit. Genuinely-correct answers should preserve their
+    // green/disabled visual on revisit. We check by comparing
+    // selectedOptionsMap[idx] selections against the question's
+    // canonical correct texts.
     const _perfectMap = (this as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
     const _before = _perfectMap?.get(safeIndex);
-    _perfectMap?.delete(safeIndex);
-    if (_before !== undefined) {
-      console.log('[quizService.setCurrentQuestionIndex.clearedPerfect]', { idx: safeIndex, before: _before });
+    if (_before === true) {
+      try {
+        const _selections = this.selectedOptionsMap.get(safeIndex) ?? [];
+        const _question = this.questions?.[safeIndex];
+        const _correctTexts = new Set(
+          (_question?.options ?? [])
+            .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+            .map((o: any) => String(o?.text ?? '').trim().toLowerCase())
+            .filter((t: string) => !!t)
+        );
+        const _selectedTexts = new Set(
+          _selections
+            .map((s: any) => String(s?.text ?? '').trim().toLowerCase())
+            .filter((t: string) => !!t)
+        );
+        const _userAnsweredCorrectly =
+          _correctTexts.size > 0 &&
+          [...(_correctTexts as Set<string>)].every((t: string) => _selectedTexts.has(t));
+        if (!_userAnsweredCorrectly) {
+          _perfectMap?.delete(safeIndex);
+        } else {
+        }
+      } catch {
+        // If the check fails for any reason, fall back to clearing
+        // (safer than leaving a possibly-stale flag set).
+        _perfectMap?.delete(safeIndex);
+      }
     }
 
     // Setter routes to both currentQuestionIndexSig and ...Subject.

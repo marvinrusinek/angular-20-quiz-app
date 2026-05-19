@@ -117,8 +117,6 @@ export class QuizNavigationService {
   }
 
   public async navigateToQuestion(index: number): Promise<boolean> {
-    // TEMP DIAGNOSTIC — verify this function is even called
-    console.log('[nav.enter.navigateToQuestion]', { index });
     // HARD reset render state before route change
     this.resetRenderStateBeforeNavigation(index);
 
@@ -158,8 +156,6 @@ export class QuizNavigationService {
       const _beforeDest = perfectMap?.get(index);
       perfectMap?.delete(index);
       if (sourceIdx >= 0 && sourceIdx !== index) perfectMap?.delete(sourceIdx);
-      // TEMP DIAGNOSTIC — verify the clear actually runs and the map is now empty for dest
-      console.log('[nav.clearPerfectMap]', { destIdx: index, sourceIdx, beforeDest: _beforeDest, afterDest: perfectMap?.get(index), mapKeys: perfectMap ? [...perfectMap.keys()] : null });
 
       // Update Service State (Index) - Update AFTER router nav success
       this.quizService.setCurrentQuestionIndex(index);

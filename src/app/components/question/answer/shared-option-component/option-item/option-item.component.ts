@@ -308,7 +308,6 @@ export class OptionItemComponent implements OnInit {
     const _DBG_TEXT = this.binding()?.option?.text;
     const _DBG_LOG_IF_CORRECT = (branch: string, extra?: any) => {
       if (classes['correct-option'] === true) {
-        console.log('[getOptionClasses=correct-option]', { branch, qIdx: _DBG_QIDX, idx: this.displayIndex(), text: _DBG_TEXT, ...(extra || {}) });
       }
     };
     _DBG_LOG_IF_CORRECT('spread-from-binding.cssClasses');
@@ -363,7 +362,6 @@ export class OptionItemComponent implements OnInit {
   isDisabled(): boolean {
     const _DBG_TEXT = this.binding()?.option?.text;
     const _DBG_LOG = (path: string, extra?: any) => {
-      console.log('[isDisabled→true]', { path, qIdx: this.quizService.currentQuestionIndex ?? this.currentQuestionIndex(), idx: this.displayIndex(), text: _DBG_TEXT, ...(extra || {}) });
     };
     // Timer-expiry handler stamped all bindings as disabled
     if (this.isTimerStamped()) { _DBG_LOG('isTimerStamped'); return true; }
@@ -585,8 +583,6 @@ export class OptionItemComponent implements OnInit {
     // directly via inline style.
     if ((this.binding() as any)?._autoRevealedCorrect === true ||
         (this.binding()?.option as any)?._autoRevealedCorrect === true) {
-      // TEMP DIAGNOSTIC — paints green via autoreveal backup
-      console.log('[bgColor=GREEN.autoRevealBackup]', { qIdx: this.quizService.currentQuestionIndex ?? this.currentQuestionIndex(), idx: this.displayIndex(), text: this.binding()?.option?.text });
       return '#43e756';
     }
     if (this.isOptionCorrect()) {
@@ -595,8 +591,6 @@ export class OptionItemComponent implements OnInit {
         (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
       if (perfectMapARBg?.get(_qIdxARBg) === true ||
           this.binding()?.cssClasses?.['correct-option'] === true) {
-        // TEMP DIAGNOSTIC — paints green via perfectMap / correct-option class
-        console.log('[bgColor=GREEN.perfectMapOrCssClass]', { qIdx: _qIdxARBg, idx: this.displayIndex(), text: this.binding()?.option?.text, perfectMap: perfectMapARBg?.get(_qIdxARBg), correctOptionClass: this.binding()?.cssClasses?.['correct-option'] });
         return '#43e756';
       }
     }
@@ -675,8 +669,6 @@ export class OptionItemComponent implements OnInit {
 
     // Green if correct, red if incorrect
     const result = this.isOptionCorrect() ? '#43e756' : '#ff0000';
-    // TEMP DIAGNOSTIC — paints via the catch-all final return
-    console.log('[bgColor=' + result + '.finalCatchAll]', { qIdx: this.quizService.currentQuestionIndex ?? this.currentQuestionIndex(), idx: this.displayIndex(), text: this.binding()?.option?.text, isCorrect: this.isOptionCorrect() });
     return result;
   }
 

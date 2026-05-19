@@ -102,7 +102,6 @@ export class SocAnswerProcessingService {
       if (!(this.quizService as any)._multiAnswerPerfect) {
         (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
       }
-      console.log('[setPerfect@L105.processMultiAnswerClick]', { qIdx, clickStateRemaining: clickState.remaining });
       (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
     }
 
@@ -239,7 +238,6 @@ export class SocAnswerProcessingService {
       if (!(this.quizService as any)._multiAnswerPerfect) {
         (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
       }
-      console.log('[setPerfect@L241.allCorrectInDurable]', { qIdx });
       (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
 
       (this.explanationTextService as any)._fetLocked = false;
@@ -517,7 +515,6 @@ export class SocAnswerProcessingService {
       if (!(this.quizService as any)._multiAnswerPerfect) {
         (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
       }
-      console.log('[setPerfect@L518.pristineSingleCorrect]', { qIdx });
       (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
 
       (this.explanationTextService as any)._fetLocked = false;
@@ -710,17 +707,6 @@ export class SocAnswerProcessingService {
       if (incorrectTextsAR.size === 0) return;
       const allIncorrectSelected =
         [...incorrectTextsAR].every(t => selectedTextsAR.has(t));
-      // TEMP DIAGNOSTIC — remove after autoreveal trigger bug is fixed
-      console.log('[autoreveal.check]', {
-        qIdx, index,
-        clickedText: clickedTextAR,
-        selectedTextsAR: [...selectedTextsAR],
-        incorrectTextsAR: [...incorrectTextsAR],
-        pristineCorrectTextsAR: [...pristineCorrectTextsAR],
-        durableClicks: durableClicksAR0 ? [...durableClicksAR0] : null,
-        selectionsAR: selectionsAR.map((s: any) => s?.text),
-        wouldFire: allIncorrectSelected
-      });
       if (!allIncorrectSelected) return;
 
       // All incorrects exhausted — auto-reveal the correct answer.
@@ -900,17 +886,6 @@ export class SocAnswerProcessingService {
       if (incorrectTextsAR.size === 0) return;
       const allIncorrectSelected =
         [...incorrectTextsAR].every(t => selectedTextsAR.has(t));
-      // TEMP DIAGNOSTIC — remove after autoreveal trigger bug is fixed
-      console.log('[autoreveal.check.v2]', {
-        qIdx, index,
-        clickedText: clickedTextAR,
-        selectedTextsAR: [...selectedTextsAR],
-        incorrectTextsAR: [...incorrectTextsAR],
-        pristineCorrectTextsAR: [...pristineCorrectTextsAR],
-        durableClicks: durableClicksAR0 ? [...durableClicksAR0] : null,
-        selectionsAR: selectionsAR.map((s: any) => s?.text),
-        wouldFire: allIncorrectSelected
-      });
       if (!allIncorrectSelected) return;
 
       // All incorrects exhausted — auto-reveal the correct answer(s).
