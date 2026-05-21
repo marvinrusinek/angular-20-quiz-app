@@ -1,5 +1,5 @@
 import {
-  ChangeDetectionStrategy, Component, computed, DestroyRef, effect, OnInit, signal
+  ChangeDetectionStrategy, Component, computed, DestroyRef, effect, inject, OnInit, signal
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
@@ -43,6 +43,20 @@ import { SelectedOptionService } from '../../shared/services/state/selectedoptio
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class IntroductionComponent implements OnInit {
+  // ── injects ─────────────────────────────────────────────────────
+  private readonly dotStatusService = inject(QuizDotStatusService);
+  private readonly quizDataService = inject(QuizDataService);
+  private readonly quizNavigationService = inject(QuizNavigationService);
+  private readonly quizPersistence = inject(QuizPersistenceService);
+  private readonly quizService = inject(QuizService);
+  private readonly quizShuffleService = inject(QuizShuffleService);
+  private readonly selectedOptionService = inject(SelectedOptionService);
+  private readonly activatedRoute = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly fb = inject(FormBuilder);
+  private readonly router = inject(Router);
+
+  // ── remaining variables ─────────────────────────────────────────
   quizId: string | undefined;
   readonly selectedQuiz = signal<Quiz | null>(null);
   preferencesForm: FormGroup;
@@ -54,19 +68,7 @@ export class IntroductionComponent implements OnInit {
   );
   readonly introImgSig = signal('');
 
-  constructor(
-    private quizService: QuizService,
-    private quizDataService: QuizDataService,
-    private dotStatusService: QuizDotStatusService,
-    private quizShuffleService: QuizShuffleService,
-    private quizNavigationService: QuizNavigationService,
-    private quizPersistence: QuizPersistenceService,
-    private selectedOptionService: SelectedOptionService,
-    private activatedRoute: ActivatedRoute,
-    private router: Router,
-    private fb: FormBuilder,
-    private destroyRef: DestroyRef
-  ) {
+  constructor() {
     // Initialize the form group with default values
     this.preferencesForm = this.fb.group({
       shouldShuffleOptions: [false],
@@ -88,6 +90,40 @@ export class IntroductionComponent implements OnInit {
   ngOnInit(): void {
     this.quizService.clearStoredCorrectAnswersText();
     this.subscribeToRouteParameters();
+  }
+
+  onSlideToggleChange(event: MatSlideToggleChange): void {
+    const isChecked = event.checked;
+
+    this.quizService.setCheckedShuffle(isChecked);
+    this.isChecked.set(isChecked);
+  }
+
+  async onStartQuiz(quizId?: string): Promise<void> {
+    if (this.isStartingQuiz()) return;
+
+    this.isStartingQuiz.set(true);
+
+    try {
+      const targetQuizId = this.resolveTargetQuizId(quizId);
+      if (!targetQuizId) return;
+
+      this.clearCachesAndResetSession(targetQuizId);
+
+      const activeQuiz = await this.resolveActiveQuiz(targetQuizId);
+      if (!activeQuiz) return;
+
+      const shouldShuffleOptions = !!this.preferencesForm.value?.shouldShuffleOptions;
+      this.applySelectedQuizState(activeQuiz, targetQuizId, shouldShuffleOptions);
+
+      this.resetQuizForFreshStart(targetQuizId);
+
+      await this.prepareAndSetCurrentQuiz(activeQuiz, targetQuizId);
+
+      await this.navigateToFirstQuestion(targetQuizId);
+    } finally {
+      this.isStartingQuiz.set(false);
+    }
   }
 
   private subscribeToRouteParameters(): void {
@@ -128,7 +164,7 @@ export class IntroductionComponent implements OnInit {
       console.warn('[QuizSelection] Quiz was not found or failed to load.');
       return;
     }
-  
+
     console.debug('[QuizSelection] Quiz loaded:', quiz.quizId);
   }
 
@@ -154,40 +190,6 @@ export class IntroductionComponent implements OnInit {
     this.selectedQuiz.set(null);
     this.introImgSig.set('');
     this.questionCountSig.set(0);
-  }
-
-  onSlideToggleChange(event: MatSlideToggleChange): void {
-    const isChecked = event.checked;
-
-    this.quizService.setCheckedShuffle(isChecked);
-    this.isChecked.set(isChecked);
-  }
-
-  async onStartQuiz(quizId?: string): Promise<void> {
-    if (this.isStartingQuiz()) return;
-
-    this.isStartingQuiz.set(true);
-
-    try {
-      const targetQuizId = this.resolveTargetQuizId(quizId);
-      if (!targetQuizId) return;
-
-      this.clearCachesAndResetSession(targetQuizId);
-
-      const activeQuiz = await this.resolveActiveQuiz(targetQuizId);
-      if (!activeQuiz) return;
-
-      const shouldShuffleOptions = !!this.preferencesForm.value?.shouldShuffleOptions;
-      this.applySelectedQuizState(activeQuiz, targetQuizId, shouldShuffleOptions);
-
-      this.resetQuizForFreshStart(targetQuizId);
-
-      await this.prepareAndSetCurrentQuiz(activeQuiz, targetQuizId);
-
-      await this.navigateToFirstQuestion(targetQuizId);
-    } finally {
-      this.isStartingQuiz.set(false);
-    }
   }
 
   // Resolve which quiz id the user is starting: explicit override → field
@@ -293,21 +295,21 @@ export class IntroductionComponent implements OnInit {
         quizId,
         1,
       ]);
-    
+
       if (!fallbackSucceeded) {
         console.warn(
           '[QuizSelection] Fallback navigation returned false.',
           { quizId }
         );
       }
-    
+
       return fallbackSucceeded;
     } catch (fallbackErr: unknown) {
       console.error(
         '[QuizSelection] Fallback navigation failed.',
         { quizId, error: fallbackErr }
       );
-    
+
       return false;
     }
   }
