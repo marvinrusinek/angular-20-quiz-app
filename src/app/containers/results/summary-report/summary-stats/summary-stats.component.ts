@@ -13,6 +13,7 @@ import { QuizScore } from '../../../../shared/models/QuizScore.model';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SummaryStatsComponent {
+  // ── inputs ──────────────────────────────────────────────────────
   readonly quizMetadata = input<Partial<QuizMetadata> | null>({
     correctAnswersCount: signal(0),
     totalQuestions: 0,
