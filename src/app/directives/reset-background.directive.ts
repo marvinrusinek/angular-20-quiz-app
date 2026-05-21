@@ -1,4 +1,4 @@
-import { Directive, ElementRef, Renderer2, OnDestroy, input } from '@angular/core';
+import { Directive, ElementRef, inject, Renderer2, OnDestroy, input } from '@angular/core';
 import { Subscription } from 'rxjs';
 
 import { ResetBackgroundService } from '../shared/services/ui/reset-background.service';
@@ -8,14 +8,18 @@ import { ResetBackgroundService } from '../shared/services/ui/reset-background.s
   standalone: true
 })
 export class ResetBackgroundDirective implements OnDestroy {
+  // ── injects ─────────────────────────────────────────────────────
+  private readonly resetBackgroundService = inject(ResetBackgroundService);
+  private readonly el = inject(ElementRef);
+  private readonly renderer = inject(Renderer2);
+
+  // ── inputs ──────────────────────────────────────────────────────
   readonly appResetBackground = input(false);
+
+  // ── remaining variables ─────────────────────────────────────────
   private resetBackgroundSubscription: Subscription;
 
-  constructor(
-    private el: ElementRef,
-    private renderer: Renderer2,
-    private resetBackgroundService: ResetBackgroundService
-  ) {
+  constructor() {
     this.resetBackgroundSubscription =
       this.resetBackgroundService.shouldResetBackground$.subscribe((value) => {
         if (value) {
