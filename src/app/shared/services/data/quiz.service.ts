@@ -1,4 +1,4 @@
-﻿import { Injectable, signal, WritableSignal } from '@angular/core';
+﻿import { inject, Injectable, signal, WritableSignal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { BehaviorSubject, from, Observable, of, Subject } from 'rxjs';
 import { distinctUntilChanged, map } from 'rxjs/operators';
@@ -26,6 +26,18 @@ import { QuizSessionManagerService } from './quiz-session-manager.service';
 
 @Injectable({ providedIn: 'root' })
 export class QuizService {
+  // ── injects ─────────────────────────────────────────────────────
+  public readonly answerEvaluation = inject(QuizAnswerEvaluationService);
+  public readonly bannerService = inject(QuizBannerService);
+  public readonly dataLoader = inject(QuizDataLoaderService);
+  public readonly optionsService = inject(QuizOptionsService);
+  public readonly questionEmitter = inject(QuizQuestionEmitterService);
+  public readonly questionResolver = inject(QuizQuestionResolverService);
+  private readonly quizShuffleService = inject(QuizShuffleService);
+  private readonly quizStateService = inject(QuizStateService);
+  public readonly scoringService = inject(QuizScoringService);
+  public readonly sessionManager = inject(QuizSessionManagerService);
+
   /**
    * Field-style accessor backed by currentQuestionIndexSig (the signal
    * source of truth) and currentQuestionIndexSubject (the sync BS
@@ -220,18 +232,7 @@ export class QuizService {
   // Emitted with the target question index just before navigation hydrates it
   readonly preReset$ = this._preReset$.asObservable();
 
-  constructor(
-    private quizShuffleService: QuizShuffleService,
-    private quizStateService: QuizStateService,
-    public dataLoader: QuizDataLoaderService,
-    public questionResolver: QuizQuestionResolverService,
-    public optionsService: QuizOptionsService,
-    public scoringService: QuizScoringService,
-    public answerEvaluation: QuizAnswerEvaluationService,
-    public questionEmitter: QuizQuestionEmitterService,
-    public sessionManager: QuizSessionManagerService,
-    public bannerService: QuizBannerService
-  ) {
+  constructor() {
     // Scoring state is loaded in QuizScoringService constructor (loadQuestionCorrectness)
     this.scoringService.restoreScoreFromPersistence(this.quizId);
     this.initializeData();
