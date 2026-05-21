@@ -34,18 +34,35 @@ import { BaseQuestion } from '../../base/base-question';
 })
 export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   implements OnInit {
+  // ── injects ─────────────────────────────────────────────────────
+  private readonly answerBindingsService = inject(AnswerBindingsService);
+  private readonly answerOptionsService = inject(AnswerOptionsService);
+  private readonly answerSelectionService = inject(AnswerSelectionService);
+  protected readonly quizQuestionLoaderService = inject(QqcQuestionLoaderService);
+  protected readonly quizQuestionManagerService = inject(QuizQuestionManagerService);
+  private readonly destroyRef = inject(DestroyRef);
 
+  // ── outputs ─────────────────────────────────────────────────────
   readonly componentLoaded = output<any>();
   readonly optionSelected = output<{
     option: SelectedOption,
     index: number,
     checked: boolean
   }>();
-  readonly questionData = model<QuizQuestion>(undefined as unknown as QuizQuestion);
+  readonly quizQuestionComponentLoaded = output<void>();
+
+  // ── inputs ──────────────────────────────────────────────────────
   readonly isNavigatingBackwards = input<boolean>(false);
-  readonly currentQuestionIndex = model<number>(undefined as unknown as number);
   readonly quizId = input<string>(undefined as unknown as string);
   readonly form = input<FormGroup>(undefined as unknown as FormGroup);
+  readonly questionIndex = input<number | null>(null);
+
+  // ── models ──────────────────────────────────────────────────────
+  readonly questionData = model<QuizQuestion>(undefined as unknown as QuizQuestion);
+  readonly currentQuestionIndex = model<number>(undefined as unknown as number);
+
+  // ── remaining variables ─────────────────────────────────────────
+  readonly renderReady = signal(false);
   private optionBindingsSource: Option[] = [];
   override showFeedbackForOption: { [optionId: number]: boolean } = {};
   override selectedOption: SelectedOption | null = null;
@@ -53,38 +70,17 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   incomingOptions: Option[] = [];
   override sharedOptionConfig!: SharedOptionConfig;
   hasComponentLoaded = false;
-
   override selectedOptionIndex = -1;
-  readonly renderReady = signal(false);
 
-  private destroyRef = inject(DestroyRef);
-
-  readonly quizQuestionComponentLoaded = output<void>();
-
-  readonly questionIndex = input<number | null>(null);
-
-  constructor(
-    protected quizQuestionLoaderService: QqcQuestionLoaderService,
-    protected quizQuestionManagerService: QuizQuestionManagerService,
-    public override dynamicComponentService: DynamicComponentService,
-    public override feedbackService: FeedbackService,
-    public override quizService: QuizService,
-    public override quizStateService: QuizStateService,
-    public override selectedOptionService: SelectedOptionService,
-    private answerOptionsService: AnswerOptionsService,
-    private answerSelectionService: AnswerSelectionService,
-    private answerBindingsService: AnswerBindingsService,
-    public override fb: FormBuilder,
-    public override cdRef: ChangeDetectorRef
-  ) {
+  constructor() {
     super(
-      fb,
-      dynamicComponentService,
-      feedbackService,
-      quizService,
-      quizStateService,
-      selectedOptionService,
-      cdRef
+      inject(FormBuilder),
+      inject(DynamicComponentService),
+      inject(FeedbackService),
+      inject(QuizService),
+      inject(QuizStateService),
+      inject(SelectedOptionService),
+      inject(ChangeDetectorRef)
     );
 
     // React to signal-input updates from the dynamic loader (replaces ngOnChanges)
@@ -202,6 +198,102 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       });
   }
 
+  public override async initializeSharedOptionConfig(): Promise<void> {
+    await super.initializeSharedOptionConfig();
+    if (this.sharedOptionConfig) {
+      this.sharedOptionConfig.type = this.type();
+    }
+  }
+
+  public override async onOptionClicked(
+    payload: OptionClickedPayload,
+  ): Promise<void> {
+    if (!payload || !payload.option) return;
+
+    const activeQuestionIndex = this.getActiveQuestionIndex();
+
+    const enrichedOption =
+      this.answerSelectionService.buildEnrichedSelectedOption(
+        payload,
+        activeQuestionIndex,
+        this.optionsToDisplay()
+      );
+
+    this.selectedOption = enrichedOption;
+
+    this.selectedOptions =
+      this.answerSelectionService.updateSelectedOptionsArray(
+        this.selectedOptions,
+        enrichedOption,
+        this.type()
+      );
+
+    const question = this.resolveQuestion(activeQuestionIndex);
+
+    if (!question) return;
+
+    const optionsSource =
+      this.answerOptionsService.resolveOptionsSource(
+        this.optionsToDisplay(),
+        question
+      );
+
+    const isMultiAnswer =
+      this.answerOptionsService.isMultipleAnswerQuestion(
+        question,
+        optionsSource,
+        this.type()
+      );
+
+    this.answerSelectionService.syncSelectedOptionService(
+      activeQuestionIndex,
+      enrichedOption,
+      isMultiAnswer
+    );
+
+    const complete =
+      this.answerSelectionService.updateQuestionCompletionState(
+        this.questionIndex(),
+        question
+      );
+
+    this.answerSelectionService.updateScoringAndAnswerSelectedState(
+      activeQuestionIndex,
+      optionsSource,
+      this.selectedOptions,
+      isMultiAnswer,
+      complete
+    );
+
+    const updatedBindings =
+      this.answerBindingsService.updateVisualBindings(
+        this.optionBindings(),
+        enrichedOption,
+        this.type()
+      );
+
+    this.optionBindings.set(updatedBindings);
+
+    this.answerSelectionService.updateDotStatus(
+      activeQuestionIndex,
+      enrichedOption
+    );
+
+    this.emitCleanOptionClickedPayload(payload, enrichedOption);
+  }
+
+  override async loadDynamicComponent(
+    _question: QuizQuestion,
+    _options: Option[],
+    _questionIndex: number
+  ): Promise<void> {
+    // AnswerComponent doesn't load dynamic children, so we
+    // simply fulfill the contract and return a resolved promise.
+    return;
+    // If the base implementation does something essential, call:
+    // return super.loadDynamicComponent(_question, _options, _questionIndex);
+  }
+
   private resetSelectionState(): void {
     this.selectedOption = null;
     this.selectedOptions = [];
@@ -252,56 +344,56 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   }
 
   /**
-   * Hydrates the local 'optionsToDisplay' or Input options with state 
+   * Hydrates the local 'optionsToDisplay' or Input options with state
    * from the SelectedOptionService.
    */
   private syncOptionsWithSelections(): void {
     const index = this.currentQuestionIndex();
-  
+
     if (index === null || index === undefined || index < 0) return;
-  
+
     const savedSelections =
       this.selectedOptionService.getSelectedOptionsForQuestion(index) ?? [];
-  
+
     if (!savedSelections.length || !this.optionsToDisplay()?.length) return;
-  
+
     const isMulti = this.type() === 'multiple';
-  
+
     for (const option of this.optionsToDisplay()) {
       if (isMulti) {
         option.selected = false;
         continue;
       }
-  
+
       const savedIds = new Set(savedSelections.map(selection => String(selection.optionId)));
-  
+
       const savedTexts = new Set(
         savedSelections.map(selection =>
           (selection.text || '').trim().toLowerCase(),
         )
       );
-  
+
       const idMatch =
         option.optionId != null && savedIds.has(String(option.optionId));
-  
+
       const textMatch =
         !!(option.text && savedTexts.has(option.text.trim().toLowerCase()));
-  
+
       option.selected = idMatch || textMatch;
     }
-  
+
     const updatedBindings =
       this.answerBindingsService.hydrateBindingsFromSavedSelections(
         this.optionBindings(),
         savedSelections,
         isMulti
       );
-  
+
     this.optionBindings.set(updatedBindings);
-  
+
     if (this.type() === 'single' && this.form()) {
       const selectedId = savedSelections[0]?.optionId;
-  
+
       if (selectedId != null) {
         this.form().patchValue(
           { selectedOptionId: selectedId },
@@ -321,116 +413,32 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     }
   }
 
-  public override async initializeSharedOptionConfig(): Promise<void> {
-    await super.initializeSharedOptionConfig();
-    if (this.sharedOptionConfig) {
-      this.sharedOptionConfig.type = this.type();
-    }
-  }
-
-  public override async onOptionClicked(
-    payload: OptionClickedPayload,
-  ): Promise<void> {
-    if (!payload || !payload.option) return;
-  
-    const activeQuestionIndex = this.getActiveQuestionIndex();
-  
-    const enrichedOption =
-      this.answerSelectionService.buildEnrichedSelectedOption(
-        payload,
-        activeQuestionIndex,
-        this.optionsToDisplay()
-      );
-  
-    this.selectedOption = enrichedOption;
-  
-    this.selectedOptions =
-      this.answerSelectionService.updateSelectedOptionsArray(
-        this.selectedOptions,
-        enrichedOption,
-        this.type()
-      );
-  
-    const question = this.resolveQuestion(activeQuestionIndex);
-  
-    if (!question) return;
-  
-    const optionsSource =
-      this.answerOptionsService.resolveOptionsSource(
-        this.optionsToDisplay(),
-        question
-      );
-  
-    const isMultiAnswer =
-      this.answerOptionsService.isMultipleAnswerQuestion(
-        question,
-        optionsSource,
-        this.type()
-      );
-  
-    this.answerSelectionService.syncSelectedOptionService(
-      activeQuestionIndex,
-      enrichedOption,
-      isMultiAnswer
-    );
-  
-    const complete =
-      this.answerSelectionService.updateQuestionCompletionState(
-        this.questionIndex(),
-        question
-      );
-  
-    this.answerSelectionService.updateScoringAndAnswerSelectedState(
-      activeQuestionIndex,
-      optionsSource,
-      this.selectedOptions,
-      isMultiAnswer,
-      complete
-    );
-  
-    const updatedBindings =
-      this.answerBindingsService.updateVisualBindings(
-        this.optionBindings(),
-        enrichedOption,
-        this.type()
-      );
-  
-    this.optionBindings.set(updatedBindings);
-
-    this.answerSelectionService.updateDotStatus(
-      activeQuestionIndex,
-      enrichedOption
-    );
-  
-    this.emitCleanOptionClickedPayload(payload, enrichedOption);
-  }
-
   private getActiveQuestionIndex(): number {
     return typeof this.currentQuestionIndex() === 'number'
       ? this.currentQuestionIndex()
       : 0;
   }
-  
+
   private resolveQuestion(activeQuestionIndex: number): QuizQuestion | undefined {
     const serviceQuestion = this.quizService.questions?.[activeQuestionIndex];
     const question = serviceQuestion ?? this.questionData();
-  
+
     if (!question) {
       console.warn(
         '[AnswerComponent] No question available for active index:',
         activeQuestionIndex
       );
-  
+
       return undefined;
     }
-  
+
     if (!serviceQuestion) {
       console.warn(
         '[AnswerComponent] Falling back to questionData() because quizService.questions did not contain question at index:',
         activeQuestionIndex
       );
     }
-  
+
     return question;
   }
 
@@ -444,7 +452,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       checked: enrichedOption.selected === true,
       wasReselected: originalPayload.wasReselected ?? false
     };
-  
+
     this.optionClicked.emit(cleanPayload);
   }
 
@@ -455,23 +463,11 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
 
     this.optionBindings.set(rebuilt);
     this.renderReady.set(true);
-  
+
     requestAnimationFrame(() => {
       this.cdRef.markForCheck();
     });
-  
-    return rebuilt;
-  }
 
-  override async loadDynamicComponent(
-    _question: QuizQuestion,
-    _options: Option[],
-    _questionIndex: number
-  ): Promise<void> {
-    // AnswerComponent doesn't load dynamic children, so we
-    // simply fulfill the contract and return a resolved promise.
-    return;
-    // If the base implementation does something essential, call:
-    // return super.loadDynamicComponent(_question, _options, _questionIndex);
+    return rebuilt;
   }
 }
