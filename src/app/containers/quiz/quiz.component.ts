@@ -6,6 +6,7 @@ import {
   computed,
   DestroyRef,
   HostListener,
+  inject,
   OnDestroy,
   OnInit,
   signal,
@@ -70,10 +71,32 @@ type AnimationState = 'animationStarted' | 'none';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
+  // ── injects ─────────────────────────────────────────────────────
+  private readonly nextButtonStateService = inject(NextButtonStateService);
+  public readonly quizQuestionLoaderService = inject(QqcQuestionLoaderService);
+  private readonly quizDataService = inject(QuizDataService);
+  private readonly dotStatusService = inject(QuizDotStatusService);
+  public readonly quizInitializationService = inject(QuizInitializationService);
+  private readonly quizNavigationService = inject(QuizNavigationService);
+  private readonly quizPersistence = inject(QuizPersistenceService);
+  private readonly quizResetService = inject(QuizResetService);
+  private readonly quizRouteService = inject(QuizRouteService);
+  public readonly quizService = inject(QuizService);
+  private readonly quizSetupService = inject(QuizSetupService);
+  public readonly quizStateService = inject(QuizStateService);
+  private readonly selectedOptionService = inject(SelectedOptionService);
+  private readonly selectionMessageService = inject(SelectionMessageService);
+  public readonly activatedRoute = inject(ActivatedRoute);
+  public readonly cdRef = inject(ChangeDetectorRef);
+  public readonly destroyRef = inject(DestroyRef);
+  private readonly router = inject(Router);
+
+  // ── viewChilds ──────────────────────────────────────────────────
   readonly quizQuestionComponent = viewChild(QuizQuestionComponent);
   readonly sharedOptionComponent = viewChild(SharedOptionComponent);
   readonly nextButtonTooltip = viewChild<MatTooltip>('nextButton');
 
+  // ── remaining variables ─────────────────────────────────────────
   readonly selectedQuiz = signal<Quiz | null>(null);
   readonly currentQuestion = signal<QuizQuestion | null>(null);
   readonly quiz = signal<Quiz | null>(null);
@@ -81,16 +104,29 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   readonly question = signal<QuizQuestion | null>(null);
   readonly questions = signal<QuizQuestion[]>([]);
   readonly questionsArray = signal<QuizQuestion[]>([]);
-  questions$: Observable<QuizQuestion[]> = this.quizService.questions$;
   readonly questionsList = this.quizService.questionsSig;
-
-  currentQuestion$ = this.quizStateService.currentQuestion$;
-  subscriptions: Subscription = new Subscription();
-
   readonly answers = signal<Option[]>([]);
   readonly selectionMessage = this.selectionMessageService.selectionMessageSig;
-
   combinedQuestionData = signal<QuestionPayload | null>(null);
+  readonly questionIndex = signal<number>(0);
+  readonly currentQuestionIndex = signal<number>(0);
+  readonly totalQuestions = signal<number>(0);
+  readonly progressSig = signal<number>(0);
+  questionToDisplaySig = signal<string>('');
+  readonly optionsToDisplaySig = signal<Option[]>([]);
+  readonly explanationToDisplay = signal<string>('');
+  readonly isQuizLoaded = signal<boolean>(false);
+  readonly isQuizDataLoaded = signal<boolean>(false);
+  public isQuizRenderReadySig = signal<boolean>(false);
+  readonly quizAlreadyInitialized = signal<boolean>(false);
+  readonly hasOptionsLoaded = signal<boolean>(false);
+  public readonly shouldRenderOptions = signal<boolean>(false);
+  readonly previousIndex = signal<number | null>(null);
+  readonly isNavigatedByUrl = signal<boolean>(false);
+  readonly navigatingToResults = signal<boolean>(false);
+  readonly nextButtonEnabled = this.nextButtonStateService.isButtonEnabled;
+  animationStateSig = signal<AnimationState>('none');
+
   combinedQuestionDataView = computed(() => {
     const payload = this.combinedQuestionData();
 
@@ -140,14 +176,6 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     return payload;
   });
 
-  readonly questionIndex = signal<number>(0);
-  readonly currentQuestionIndex = signal<number>(0);
-  lastLoggedIndex = -1;
-  readonly totalQuestions = signal<number>(0);
-  readonly progressSig = signal<number>(0);
-  public answeredQuestionIndices = new Set<number>();
-
-  questionToDisplaySig = signal<string>('');
   // Derive the displayed question text from the URL-authoritative
   // combinedQuestionDataView rather than questionToDisplaySig directly.
   // questionToDisplaySig is written from many code paths (some still
@@ -173,54 +201,53 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     const banner = `(${numCorrect} ${suffix} correct)`;
     return `${baseText} <span class="correct-count">${banner}</span>`;
   });
+
+  // ── Template getters ──────────────────────────────────────────
+  readonly showPaging = computed(() => this.isQuizDataLoaded() && this.totalQuestions() > 0);
+
+  readonly shouldShowPrevButton = computed(() => this.getEffectiveQuestionIndex() > 0);
+
+  readonly shouldShowRestartButton = computed(() => {
+    const idx = this.getEffectiveQuestionIndex();
+    const serviceCount = this.quizService.questions?.length || 0;
+    const effectiveTotal = Math.max(this.totalQuestions(), serviceCount);
+    return idx > 0 && idx <= effectiveTotal - 1;
+  });
+
+  readonly shouldShowNextButton = computed(() => {
+    const serviceCount = this.quizService.questions?.length || 0;
+    const effectiveTotal = Math.max(this.totalQuestions(), serviceCount);
+    return this.getEffectiveQuestionIndex() < effectiveTotal - 1;
+  });
+
+  questions$: Observable<QuizQuestion[]> = this.quizService.questions$;
+  currentQuestion$ = this.quizStateService.currentQuestion$;
+  subscriptions: Subscription = new Subscription();
   public questionToDisplay$ = toObservable(this.questionToDisplayTextView);
-
-  readonly optionsToDisplaySig = signal<Option[]>([]);
-  readonly explanationToDisplay = signal<string>('');
-
-  readonly isQuizLoaded = signal<boolean>(false);
-  readonly isQuizDataLoaded = signal<boolean>(false);
-  public isQuizRenderReadySig = signal<boolean>(false);
-  readonly quizAlreadyInitialized = signal<boolean>(false);
-  readonly hasOptionsLoaded = signal<boolean>(false);
-  public readonly shouldRenderOptions = signal<boolean>(false);
-
-  readonly previousIndex = signal<number | null>(null);
-  readonly isNavigatedByUrl = signal<boolean>(false);
-  readonly navigatingToResults = signal<boolean>(false);
-
-  readonly nextButtonEnabled = this.nextButtonStateService.isButtonEnabled;
-
-  animationStateSig = signal<AnimationState>('none');
-
   displayState$ = this.quizStateService.displayState$;
-
-  constructor(
-    public quizService: QuizService,
-    private quizDataService: QuizDataService,
-    public quizInitializationService: QuizInitializationService,
-    private quizNavigationService: QuizNavigationService,
-    public quizQuestionLoaderService: QqcQuestionLoaderService,
-    public quizStateService: QuizStateService,
-    private nextButtonStateService: NextButtonStateService,
-    private selectionMessageService: SelectionMessageService,
-    private selectedOptionService: SelectedOptionService,
-    private dotStatusService: QuizDotStatusService,
-    private quizPersistence: QuizPersistenceService,
-    private quizResetService: QuizResetService,
-    private quizRouteService: QuizRouteService,
-    private quizSetupService: QuizSetupService,
-    public activatedRoute: ActivatedRoute,
-    private router: Router,
-    public cdRef: ChangeDetectorRef,
-    public destroyRef: DestroyRef
-  ) {
-    this.quizSetupService.wireConstructor(this);
-  }
-
+  lastLoggedIndex = -1;
+  public answeredQuestionIndices = new Set<number>();
   public _processingOptionClick = false;
   public _lastClickTime = 0;
   public _lastOptionId = -1;
+  private scrollIndicatorEl: HTMLElement | null = null;
+
+  constructor() {
+    this.quizSetupService.wireConstructor(this);
+  }
+
+  async ngOnInit(): Promise<void> {
+    return this.quizSetupService.runOnInit(this);
+  }
+
+  async ngAfterViewInit(): Promise<void> {
+    return this.quizSetupService.runAfterViewInit(this);
+  }
+
+  ngOnDestroy(): void {
+    this.removeScrollIndicator();
+    this.quizSetupService.runOnDestroy(this);
+  }
 
   @HostListener('window:keydown', ['$event'])
   async onGlobalKey(event: KeyboardEvent): Promise<void> {
@@ -249,8 +276,6 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     this.checkScrollIndicator();
   }
 
-  private scrollIndicatorEl: HTMLElement | null = null;
-
   checkScrollIndicator(): void {
     const quizCard = document.querySelector('.quiz-card');
     if (!quizCard) {
@@ -266,30 +291,8 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  private createScrollIndicator(): void {
-    const el = document.createElement('div');
-    el.style.cssText =
-      'position:fixed;bottom:20px;left:0;right:0;margin:0 auto;z-index:9999;width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.95);box-shadow:0 4px 12px rgba(0,0,0,0.25);display:flex;justify-content:center;align-items:center;cursor:pointer;animation:scrollBounce 2s infinite;';
-    el.innerHTML =
-      '<i class="material-icons" style="font-size:32px;color:#1e90ff;">keyboard_arrow_down</i>';
-    el.addEventListener('click', () => this.scrollToBottom());
-    document.body.appendChild(el);
-    this.scrollIndicatorEl = el;
-  }
-
-  private removeScrollIndicator(): void {
-    if (this.scrollIndicatorEl) {
-      this.scrollIndicatorEl.remove();
-      this.scrollIndicatorEl = null;
-    }
-  }
-
   scrollToBottom(): void {
     window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
-  }
-
-  async ngOnInit(): Promise<void> {
-    return this.quizSetupService.runOnInit(this);
   }
 
   async initializeQuizId(): Promise<string | null> {
@@ -317,10 +320,6 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     } catch {}
   }
 
-  async ngAfterViewInit(): Promise<void> {
-    return this.quizSetupService.runAfterViewInit(this);
-  }
-
   public normalizeQuestionIndex(rawIndex: number | undefined): number {
     const current = this.currentQuestionIndex();
     if (!Number.isInteger(rawIndex)) return current;
@@ -345,54 +344,6 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     this.quizQuestionComponent()?.resetState?.();
     this.cdRef.detectChanges();
   }
-
-  ngOnDestroy(): void {
-    this.removeScrollIndicator();
-    this.quizSetupService.runOnDestroy(this);
-  }
-
-  // ── Template getters ──────────────────────────────────────────
-  readonly showPaging = computed(() => this.isQuizDataLoaded() && this.totalQuestions() > 0);
-
-  // Read the URL question index — used as a fallback when
-  // this.currentQuestionIndex hasn't propagated yet during URL/dot
-  // navigation. The button-visibility getters depend on the index
-  // matching the URL, otherwise Prev/Restart/Show-Results all
-  // disappear on direct URL nav to a non-Q1 question.
-  private getEffectiveQuestionIndex(): number {
-    // Always read the signal first so consumers wrapped in computed() pick
-    // up `currentQuestionIndex` as a reactive dependency on every code path.
-    const sigIdx = this.currentQuestionIndex();
-    try {
-      // Path shape: /question/<quizId>/<num>. Split + indexOf avoids a regex.
-      const parts = window.location.pathname.split('/').filter(Boolean);
-      const qPos = parts.indexOf('question');
-      if (qPos >= 0 && qPos + 2 < parts.length) {
-        const parsed = Number(parts[qPos + 2]);
-        if (Number.isInteger(parsed) && parsed > 0) {
-          return parsed - 1;
-        }
-      }
-    } catch {
-      /* non-browser env */
-    }
-    return sigIdx;
-  }
-
-  readonly shouldShowPrevButton = computed(() => this.getEffectiveQuestionIndex() > 0);
-
-  readonly shouldShowRestartButton = computed(() => {
-    const idx = this.getEffectiveQuestionIndex();
-    const serviceCount = this.quizService.questions?.length || 0;
-    const effectiveTotal = Math.max(this.totalQuestions(), serviceCount);
-    return idx > 0 && idx <= effectiveTotal - 1;
-  });
-
-  readonly shouldShowNextButton = computed(() => {
-    const serviceCount = this.quizService.questions?.length || 0;
-    const effectiveTotal = Math.max(this.totalQuestions(), serviceCount);
-    return this.getEffectiveQuestionIndex() < effectiveTotal - 1;
-  });
 
   public get shouldShowResultsButton(): boolean {
     const serviceCount = this.quizService.questions?.length || 0;
@@ -518,24 +469,6 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     this.updateProgressValue();
   }
 
-  private get totalCount(): number {
-    return this.dotStatusService.computeTotalCount(
-      this.totalQuestions(),
-      (this.quizService as any).questions?.length || 0,
-      this.quiz()?.questions?.length || 0
-    );
-  }
-
-  private get _dotParams() {
-    return {
-      quizId: this.quizId(),
-      currentQuestionIndex: this.currentQuestionIndex(),
-      optionsToDisplay: this.optionsToDisplaySig(),
-      currentQuestion: this.currentQuestion(),
-      questionsArray: this.questionsArray(),
-    };
-  }
-
   getSelectionsForQuestion(index: number): SelectedOption[] {
     return this.dotStatusService.getSelectionsForQuestion({ index, ...this._dotParams });
   }
@@ -584,5 +517,66 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     const status = this.getQuestionStatus(index);
     if (status === 'correct' || status === 'wrong') return true;
     return true;
+  }
+
+  // Read the URL question index — used as a fallback when
+  // this.currentQuestionIndex hasn't propagated yet during URL/dot
+  // navigation. The button-visibility getters depend on the index
+  // matching the URL, otherwise Prev/Restart/Show-Results all
+  // disappear on direct URL nav to a non-Q1 question.
+  private getEffectiveQuestionIndex(): number {
+    // Always read the signal first so consumers wrapped in computed() pick
+    // up `currentQuestionIndex` as a reactive dependency on every code path.
+    const sigIdx = this.currentQuestionIndex();
+    try {
+      // Path shape: /question/<quizId>/<num>. Split + indexOf avoids a regex.
+      const parts = window.location.pathname.split('/').filter(Boolean);
+      const qPos = parts.indexOf('question');
+      if (qPos >= 0 && qPos + 2 < parts.length) {
+        const parsed = Number(parts[qPos + 2]);
+        if (Number.isInteger(parsed) && parsed > 0) {
+          return parsed - 1;
+        }
+      }
+    } catch {
+      /* non-browser env */
+    }
+    return sigIdx;
+  }
+
+  private createScrollIndicator(): void {
+    const el = document.createElement('div');
+    el.style.cssText =
+      'position:fixed;bottom:20px;left:0;right:0;margin:0 auto;z-index:9999;width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.95);box-shadow:0 4px 12px rgba(0,0,0,0.25);display:flex;justify-content:center;align-items:center;cursor:pointer;animation:scrollBounce 2s infinite;';
+    el.innerHTML =
+      '<i class="material-icons" style="font-size:32px;color:#1e90ff;">keyboard_arrow_down</i>';
+    el.addEventListener('click', () => this.scrollToBottom());
+    document.body.appendChild(el);
+    this.scrollIndicatorEl = el;
+  }
+
+  private removeScrollIndicator(): void {
+    if (this.scrollIndicatorEl) {
+      this.scrollIndicatorEl.remove();
+      this.scrollIndicatorEl = null;
+    }
+  }
+
+  private get totalCount(): number {
+    return this.dotStatusService.computeTotalCount(
+      this.totalQuestions(),
+      (this.quizService as any).questions?.length || 0,
+      this.quiz()?.questions?.length || 0
+    );
+  }
+
+  private get _dotParams() {
+    return {
+      quizId: this.quizId(),
+      currentQuestionIndex: this.currentQuestionIndex(),
+      optionsToDisplay: this.optionsToDisplaySig(),
+      currentQuestion: this.currentQuestion(),
+      questionsArray: this.questionsArray(),
+    };
   }
 }

@@ -1,6 +1,6 @@
-﻿import {
+import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component,
-  computed, DestroyRef, effect, HostListener, input, model, OnDestroy, OnInit,
+  computed, DestroyRef, effect, HostListener, inject, input, model, OnDestroy, OnInit,
   output, signal, viewChild, ViewContainerRef
 } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
@@ -51,6 +51,17 @@ import { FeedbackKey, FeedbackConfig } from '../../../shared/models/FeedbackConf
 })
 export class QuizQuestionComponent extends BaseQuestion
   implements OnInit, OnDestroy, AfterViewInit {
+  public readonly explanationTextService = inject(ExplanationTextService);
+  public readonly nextButtonStateService = inject(NextButtonStateService);
+  public readonly qqcFacade = inject(QuizQuestionFacadeService);
+  public readonly quizQuestionManagerService = inject(QuizQuestionManagerService);
+  protected readonly quizShuffleService = inject(QuizShuffleService);
+  public readonly selectionMessageService = inject(SelectionMessageService);
+  public readonly timerService = inject(TimerService);
+  public readonly activatedRoute = inject(ActivatedRoute);
+  public readonly destroyRef = inject(DestroyRef);
+  public readonly router = inject(Router);
+
   // ── viewChilds ──────────────────────────────────────────────────
   readonly dynamicAnswerContainer = viewChild('dynamicAnswerContainer', { read: ViewContainerRef });
   readonly sharedOptionComponent = viewChild(SharedOptionComponent);
@@ -85,6 +96,8 @@ export class QuizQuestionComponent extends BaseQuestion
   readonly questionToDisplay$ = input<Observable<string>>(of(''));
   readonly displayState$ = input<Observable<{ mode: 'question' | 'explanation'; answered: boolean }>>(of({ mode: 'question', answered: false }));
   readonly explanation = input<string>('');
+  readonly questionIndex = input<number>(undefined as unknown as number);
+  readonly questionPayload = input<QuestionPayload | null>(null);
 
   // ── models ──────────────────────────────────────────────────────
   readonly data = model<{
@@ -108,9 +121,32 @@ export class QuizQuestionComponent extends BaseQuestion
   readonly quiz = signal<Quiz | null>(null);
   readonly questions = signal<QuizQuestion[]>([]);
   readonly questionsArray = signal<QuizQuestion[]>([]);
-  override questionForm: FormGroup = new FormGroup({});
   readonly totalQuestions = signal<number>(0);
   readonly fixedQuestionIndex = signal<number>(0);
+  readonly isLoading = signal<boolean>(true);
+  readonly initialized = signal<boolean>(false);
+  readonly feedbackText = signal<string>('');
+  readonly displayExplanation = signal<boolean>(false);
+  readonly explanationVisible = signal<boolean>(false);
+  readonly shouldDisplayExplanation = signal<boolean>(false);
+  readonly displayMode = signal<'question' | 'explanation'>('question');
+  readonly isAnswered = signal(false);
+  readonly forceQuestionDisplay = signal<boolean>(true);
+  readonly readyForExplanationDisplay = signal<boolean>(false);
+  readonly isExplanationReady = signal<boolean>(false);
+  readonly isExplanationLocked = signal<boolean>(true);
+  public readonly finalRenderReady = signal(false); // maybe remove
+  readonly questionPayloadSig = signal<QuestionPayload | null>(null);
+  readonly renderReady = signal(false);
+  readonly questionFresh = signal<boolean>(true);
+  readonly timedOut = signal<boolean>(false);
+
+  readonly displayState = computed(() => ({
+    mode: this.displayMode(),
+    answered: this.isAnswered()
+  }));
+
+  override questionForm: FormGroup = new FormGroup({});
   lastLoggedIndex = -1;
   lastLoggedQuestionIndex = -1;
   lastProcessedQuestionIndex = -1;
@@ -126,119 +162,41 @@ export class QuizQuestionComponent extends BaseQuestion
   shuffleOptions = true;
   override showFeedbackForOption: { [optionId: number]: boolean } = {};
   isMultipleAnswer!: boolean;
-  readonly isLoading = signal<boolean>(true);
-  readonly initialized = signal<boolean>(false);
-  readonly feedbackText = signal<string>('');
-  readonly displayExplanation = signal<boolean>(false);
   override sharedOptionConfig: SharedOptionConfig | null = null;
   shouldRenderFinalOptions = false;
   explanationLocked = false;  // flag to lock explanation
-  readonly explanationVisible = signal<boolean>(false);
   displaySubscriptions: Subscription[] = [];
   lastOptionsQuestionSignature: string | null = null;
-  readonly shouldDisplayExplanation = signal<boolean>(false);
-  
-  readonly displayMode = signal<'question' | 'explanation'>('question');
-  readonly isAnswered = signal(false);
-  
-  readonly displayState = computed(() => ({
-    mode: this.displayMode(),
-    answered: this.isAnswered()
-  }));
-
-  readonly forceQuestionDisplay = signal<boolean>(true);
-  readonly readyForExplanationDisplay = signal<boolean>(false);
-  readonly isExplanationReady = signal<boolean>(false);
-  readonly isExplanationLocked = signal<boolean>(true);
   _formattedByIndex = new Map<number, string>();
   handledOnExpiry = new Set<number>();
   lastSerializedOptions = '';
-
-  public readonly finalRenderReady = signal(false); // maybe remove
-
   _fetEarlyShown = new Set<number>();
-
-  readonly questionPayloadSig = signal<QuestionPayload | null>(null);
   readonly questionPayload$ = toObservable(this.questionPayloadSig);
-
-  readonly renderReady = signal(false);
-
   waitingForReady = false;
   deferredClick?: { option: SelectedOption | null, index: number, checked: boolean, wasReselected?: boolean };
-
   _pendingRAF: number | null = null;
   _msgTok = 0;
-
-  readonly questionFresh = signal<boolean>(true);
   public feedbackConfigs: Record<FeedbackKey, FeedbackConfig> = {};
   public lastFeedbackOptionId: FeedbackKey = -1 as const;
   lastResetFor = -1;
-  readonly timedOut = signal<boolean>(false);
-
   // Tracks whether we already stopped for this question
   _timerStoppedForQuestion = false;
   _skipNextAsyncUpdates = false;
-
   // Last computed "allCorrect" (used across microtasks/finally)
   _lastAllCorrect = false;
-
   private _abortController: AbortController | null = null;
-
   _visibilityRestoreInProgress = false;
   _suppressDisplayStateUntil = 0;
 
-  /** Alias so host:any callers (quiz-setup, qqc-orch-lifecycle) still resolve. */
-  get quizQuestionLoaderService(): QqcQuestionLoaderService {
-    return this.questionLoader;
-  }
-
-  // â”€â”€ Pass-through getters for the Qqc* services consumed by orchestrators
-  // via `host.<service>`. They delegate to qqcFacade so QQC's constructor
-  // stays compact while the established host:any access pattern keeps
-  // working unchanged.
-  get componentOrchestrator() { return this.qqcFacade.componentOrchestrator; }
-  get displayStateManager() { return this.qqcFacade.displayStateManager; }
-  get explanationDisplay() { return this.qqcFacade.explanationDisplay; }
-  get explanationFlow() { return this.qqcFacade.explanationFlow; }
-  get explanationManager() { return this.qqcFacade.explanationManager; }
-  get feedbackManager() { return this.qqcFacade.feedbackManager; }
-  get initializer() { return this.qqcFacade.initializer; }
-  get lifecycle() { return this.qqcFacade.lifecycle; }
-  get navigationHandler() { return this.qqcFacade.navigationHandler; }
-  get clickOrchestrator() { return this.qqcFacade.clickOrchestrator; }
-  get optionSelection() { return this.qqcFacade.optionSelection; }
-  get questionLoader() { return this.qqcFacade.questionLoader; }
-  get resetManager() { return this.qqcFacade.resetManager; }
-  get subscriptionWiring() { return this.qqcFacade.subscriptionWiring; }
-  get timerEffect() { return this.qqcFacade.timerEffect; }
-
-  constructor(
-    public override quizService: QuizService,
-    public override quizStateService: QuizStateService,
-    public quizQuestionManagerService: QuizQuestionManagerService,
-    public override dynamicComponentService: DynamicComponentService,
-    public explanationTextService: ExplanationTextService,
-    public override feedbackService: FeedbackService,
-    public nextButtonStateService: NextButtonStateService,
-    public override selectedOptionService: SelectedOptionService,
-    public selectionMessageService: SelectionMessageService,
-    public timerService: TimerService,
-    public qqcFacade: QuizQuestionFacadeService,
-    public activatedRoute: ActivatedRoute,
-    protected quizShuffleService: QuizShuffleService,
-    public override fb: FormBuilder,
-    public override cdRef: ChangeDetectorRef,
-    public router: Router,
-    public destroyRef: DestroyRef
-  ) {
+  constructor() {
     super(
-      fb,
-      dynamicComponentService,
-      feedbackService,
-      quizService,
-      quizStateService,
-      selectedOptionService,
-      cdRef
+      inject(FormBuilder),
+      inject(DynamicComponentService),
+      inject(FeedbackService),
+      inject(QuizService),
+      inject(QuizStateService),
+      inject(SelectedOptionService),
+      inject(ChangeDetectorRef)
     );
 
     effect(() => {
@@ -261,23 +219,13 @@ export class QuizQuestionComponent extends BaseQuestion
       }
     });
 
-    // (Removed signalâ†’handleQuestionAndOptionsChange bridge â€” was interfering
+    // (Removed signal→handleQuestionAndOptionsChange bridge — was interfering
     // with init flow. The inline <codelab-question-answer> in the template
     // now drives options directly via signal bindings.)
 
     setTimeout(() => {
       this.explanationTextService.purgeAndDefer(99);
     }, 500);
-  }
-
-  readonly questionIndex = input<number>(undefined as unknown as number);
-  readonly questionPayload = input<QuestionPayload | null>(null);
-
-  resetUIForNewQuestion(): void {
-    this.timedOut.set(false);
-    this._timerStoppedForQuestion = false;
-    this.sharedOptionComponent()?.resetUIForNewQuestion();
-    this.updateShouldRenderOptions([]);
   }
 
   override async ngOnInit(): Promise<void> {
@@ -293,9 +241,41 @@ export class QuizQuestionComponent extends BaseQuestion
     this.componentOrchestrator.runOnDestroy(this);
   }
 
+  /** Alias so host:any callers (quiz-setup, qqc-orch-lifecycle) still resolve. */
+  get quizQuestionLoaderService(): QqcQuestionLoaderService {
+    return this.questionLoader;
+  }
+
+  // ── Pass-through getters for the Qqc* services consumed by orchestrators
+  // via `host.<service>`. They delegate to qqcFacade so QQC's constructor
+  // stays compact while the established host:any access pattern keeps
+  // working unchanged.
+  get componentOrchestrator() { return this.qqcFacade.componentOrchestrator; }
+  get displayStateManager() { return this.qqcFacade.displayStateManager; }
+  get explanationDisplay() { return this.qqcFacade.explanationDisplay; }
+  get explanationFlow() { return this.qqcFacade.explanationFlow; }
+  get explanationManager() { return this.qqcFacade.explanationManager; }
+  get feedbackManager() { return this.qqcFacade.feedbackManager; }
+  get initializer() { return this.qqcFacade.initializer; }
+  get lifecycle() { return this.qqcFacade.lifecycle; }
+  get navigationHandler() { return this.qqcFacade.navigationHandler; }
+  get clickOrchestrator() { return this.qqcFacade.clickOrchestrator; }
+  get optionSelection() { return this.qqcFacade.optionSelection; }
+  get questionLoader() { return this.qqcFacade.questionLoader; }
+  get resetManager() { return this.qqcFacade.resetManager; }
+  get subscriptionWiring() { return this.qqcFacade.subscriptionWiring; }
+  get timerEffect() { return this.qqcFacade.timerEffect; }
+
   @HostListener('window:visibilitychange', [])
   async onVisibilityChange(): Promise<void> {
     return this.componentOrchestrator.runOnVisibilityChange(this);
+  }
+
+  resetUIForNewQuestion(): void {
+    this.timedOut.set(false);
+    this._timerStoppedForQuestion = false;
+    this.sharedOptionComponent()?.resetUIForNewQuestion();
+    this.updateShouldRenderOptions([]);
   }
 
   applyExplanationTextInZone(text: string): void {
@@ -322,7 +302,7 @@ export class QuizQuestionComponent extends BaseQuestion
   }): void {
     this.displayMode.set(state.mode);
     this.isAnswered.set(state.answered);
-  
+
     this.displayStateChange.emit(state);
   }
 
@@ -343,10 +323,6 @@ export class QuizQuestionComponent extends BaseQuestion
 
   public updateOptionsSafely(newOptions: Option[]): void {
     return this.componentOrchestrator.runUpdateOptionsSafely(this, newOptions);
-  }
-
-  private hydrateFromPayload(payload: QuestionPayload): void {
-    return this.componentOrchestrator.runHydrateFromPayload(this, payload);
   }
 
   async initializeQuizDataAndRouting(): Promise<void> {
@@ -542,5 +518,9 @@ export class QuizQuestionComponent extends BaseQuestion
 
   safeSetDisplayState(state: { mode: 'question' | 'explanation', answered: boolean }): void {
     this.componentOrchestrator.runSafeSetDisplayState(this, state);
+  }
+
+  private hydrateFromPayload(payload: QuestionPayload): void {
+    return this.componentOrchestrator.runHydrateFromPayload(this, payload);
   }
 }
