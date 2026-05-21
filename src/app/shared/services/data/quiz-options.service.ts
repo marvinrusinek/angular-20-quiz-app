@@ -8,8 +8,6 @@ import { QuizQuestion } from '../../models/QuizQuestion.model';
 
 @Injectable({ providedIn: 'root' })
 export class QuizOptionsService {
-  constructor() {}
-
   sanitizeOptions(options: Option[]): Option[] {
     if (!Array.isArray(options)) return [];
 
