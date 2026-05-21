@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 
 import { Option } from '../../../../shared/models/Option.model';
 import { OptionClickedPayload } from '../../../../shared/models/OptionClickedPayload.model';
@@ -12,12 +12,11 @@ import { AnswerOptionsService } from './answer-options.service';
 
 @Injectable({ providedIn: 'root' })
 export class AnswerSelectionService {
-  constructor(
-    private quizService: QuizService,
-    private quizStateService: QuizStateService,
-    private selectedOptionService: SelectedOptionService,
-    private answerOptionsService: AnswerOptionsService
-  ) {}
+  // ── injects ─────────────────────────────────────────────────────
+  private readonly answerOptionsService = inject(AnswerOptionsService);
+  private readonly quizService = inject(QuizService);
+  private readonly quizStateService = inject(QuizStateService);
+  private readonly selectedOptionService = inject(SelectedOptionService);
 
   buildEnrichedSelectedOption(
     payload: OptionClickedPayload,
