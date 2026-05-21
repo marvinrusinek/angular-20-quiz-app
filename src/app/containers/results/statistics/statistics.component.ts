@@ -1,6 +1,6 @@
 import {
   ChangeDetectionStrategy, ChangeDetectorRef, Component, computed, effect,
-  input, OnInit, signal
+  inject, input, OnInit, signal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
@@ -21,10 +21,21 @@ import { TimerService } from '../../../shared/services/features/timer/timer.serv
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class StatisticsComponent implements OnInit {
-  readonly quizzes = this.quizDataService.quizzesSig;
+  // ── injects ─────────────────────────────────────────────────────
+  private readonly quizDataService = inject(QuizDataService);
+  private readonly quizService = inject(QuizService);
+  private readonly timerService = inject(TimerService);
+  private readonly cdRef = inject(ChangeDetectorRef);
+
+  // ── inputs ──────────────────────────────────────────────────────
   // Signal input aliased to "quizId" so parent template binding stays the same.
   // Internal code may reassign the backing field, so we mirror via effect().
   readonly quizIdInput = input<string>('', { alias: 'quizId' });
+  readonly viewMode =
+    input<'score' | 'resources' | 'all'>('all');
+
+  // ── remaining variables ─────────────────────────────────────────
+  readonly quizzes = this.quizDataService.quizzesSig;
   readonly quizId = signal('');
 
   readonly milestoneName = computed(() => {
@@ -35,8 +46,6 @@ export class StatisticsComponent implements OnInit {
     const found = this.quizzes().find(q => q.quizId === qId);
     return found?.milestone ?? qId;
   });
-  readonly viewMode=
-    input<'score' | 'resources' | 'all'>('all');
 
   readonly quizMetadata = signal<Partial<QuizMetadata>>({});
   readonly resources = signal<Resource[]>([]);
@@ -52,12 +61,7 @@ export class StatisticsComponent implements OnInit {
   TRY_AGAIN =
     'https://raw.githubusercontent.com/marvinrusinek/angular-9-quiz-app/master/src/assets/images/try-again.jpeg';
 
-  constructor(
-    private quizService: QuizService,
-    private quizDataService: QuizDataService,
-    private timerService: TimerService,
-    private cdRef: ChangeDetectorRef
-  ) {
+  constructor() {
     let firstRun = true;
     effect(() => {
       const incoming = this.quizIdInput();
@@ -72,6 +76,20 @@ export class StatisticsComponent implements OnInit {
 
   ngOnInit(): void {
     this.initComponent();
+  }
+
+  calculateElapsedTime(): void {
+    const completionTime = this.quizMetadata().completionTime ?? 0;
+    this.completionTimeSig.set(completionTime);
+  }
+
+  calculatePercentageOfCorrectlyAnsweredQuestions(): number {
+    const total = this.quizService.totalQuestions();
+    if (total === 0) return 0; // Prevent NaN
+
+    return Math.round(
+      (100 * this.quizService.correctAnswersCountSig()) / total
+    );
   }
 
   private initComponent(): void {
@@ -110,20 +128,6 @@ export class StatisticsComponent implements OnInit {
     // Force change detection for OnPush when navigating back or tab switching
     this.cdRef.markForCheck();
     this.cdRef.detectChanges();
-  }
-
-  calculateElapsedTime(): void {
-    const completionTime = this.quizMetadata().completionTime ?? 0;
-    this.completionTimeSig.set(completionTime);
-  }
-
-  calculatePercentageOfCorrectlyAnsweredQuestions(): number {
-    const total = this.quizService.totalQuestions();
-    if (total === 0) return 0; // Prevent NaN
-
-    return Math.round(
-      (100 * this.quizService.correctAnswersCountSig()) / total
-    );
   }
 
   private sendQuizStatusToQuizService(): void {
