@@ -1,4 +1,4 @@
-﻿import { Injectable, signal } from '@angular/core';
+import { inject, Injectable, signal } from '@angular/core';
 
 import { getQuizData } from '../../quiz-data-cache';
 import { QuizScore } from '../../models/QuizScore.model';
@@ -6,6 +6,10 @@ import { QuizShuffleService } from '../flow/quiz-shuffle.service';
 
 @Injectable({ providedIn: 'root' })
 export class QuizScoringService {
+  // ── injects ─────────────────────────────────────────────────────
+  private readonly quizShuffleService = inject(QuizShuffleService);
+
+  // ── remaining variables ─────────────────────────────────────────
   // State tracking for scoring (Index -> IsCorrect)
   public questionCorrectness = new Map<number, boolean>();
 
@@ -22,6 +26,16 @@ export class QuizScoringService {
   // matches the pristine correct count. This avoids relying on SelectedOptionService
   // which can return polluted/extra selections.
   private _confirmedCorrectClicks = new Map<number, Set<string>>();
+
+  private readonly scoreQuizIdStorageKey = 'scoreQuizId';
+
+  constructor() {
+    this.loadQuestionCorrectness();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Core Scoring
+  // ═══════════════════════════════════════════════════════════════════════
 
   /** Record that a correct option was clicked for a multi-answer question. */
   recordCorrectClick(questionIndex: number, optionText: string): void {
@@ -42,18 +56,6 @@ export class QuizScoringService {
       this._confirmedCorrectClicks.clear();
     }
   }
-
-  private readonly scoreQuizIdStorageKey = 'scoreQuizId';
-
-  constructor(
-    private quizShuffleService: QuizShuffleService
-  ) {
-    this.loadQuestionCorrectness();
-  }
-
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // Core Scoring
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
   /**
    * Simple Scoring: Direct scoring method that bypasses complex answer matching.
@@ -139,7 +141,7 @@ export class QuizScoringService {
     // _confirmedCorrectClicks before calling scoreDirectly).
     // The gate is kept as a safety net for non-OIS callers.
     if (isNowCorrect && quizId && !isMultipleAnswer) {
-      // For single-answer, no gate needed â€” single correct click = score.
+      // For single-answer, no gate needed — single correct click = score.
     } else if (isNowCorrect && quizId && isMultipleAnswer) {
       const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
       const confirmed = this._confirmedCorrectClicks.get(qIndex) ?? new Set();
@@ -193,7 +195,7 @@ export class QuizScoringService {
       this.updateCorrectCountForResults(Math.max(this.correctCountSig() - 1, 0));
       this.questionCorrectness.set(scoringKey, false);
     } else if (!isNowCorrect && !this.questionCorrectness.has(scoringKey)) {
-      // Only set to false if not already set â€” don't overwrite a true
+      // Only set to false if not already set — don't overwrite a true
       // value that was set directly by the SOC's display-index path.
       this.questionCorrectness.set(scoringKey, false);
     }
@@ -201,15 +203,9 @@ export class QuizScoringService {
     this.saveQuestionCorrectness();
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════
   // Score Updates & Guards
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
-  private updateCorrectCountForResults(value: number): void {
-    const safeValue = Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
-    this.correctCountSig.set(safeValue);
-    this.sendCorrectCountToResults(this.correctCountSig());
-  }
+  // ═══════════════════════════════════════════════════════════════════════
 
   sendCorrectCountToResults(value: number, quizId?: string): void {
     const safeValue = Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
@@ -238,9 +234,9 @@ export class QuizScoringService {
     }
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════
   // Reset
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════
 
   resetScore(quizId?: string): void {
     localStorage.setItem('DEBUG_resetScore', new Error().stack || 'no stack');
@@ -251,7 +247,7 @@ export class QuizScoringService {
     // Use _forceSetScore to bypass the guard in sendCorrectCountToResults
     this._forceSetScore(0, quizId);  }
 
-  /** Bypass guard â€” only for explicit resets (restart, new quiz). */
+  /** Bypass guard — only for explicit resets (restart, new quiz). */
   _forceSetScore(value: number, quizId?: string): void {
     const safeValue = Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
     this.correctCountSig.set(safeValue);
@@ -260,9 +256,9 @@ export class QuizScoringService {
     if (quizId) localStorage.setItem(this.scoreQuizIdStorageKey, quizId);
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════
   // Persistence
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════
 
   loadQuestionCorrectness(): void {
     try {
@@ -301,7 +297,7 @@ export class QuizScoringService {
       // even if the user was on Q1 (savedIndex === 0).
       const storedRaw = localStorage.getItem('correctAnswersCount');
       const storedCount = Number(storedRaw);
-      const safeStored = Number.isFinite(storedCount) 
+      const safeStored = Number.isFinite(storedCount)
         ? Math.max(0, Math.trunc(storedCount)) : 0;
       const mapTrueCount = Array.from(this.questionCorrectness.values())
         .filter((v) => v === true).length;
@@ -327,9 +323,9 @@ export class QuizScoringService {
       localStorage.setItem('correctAnswersCount', String(restored));    } catch (err) {    }
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════
   // High Scores
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════
 
   saveHighScores(quizId: string, totalQuestions: number): void {
     this.quizScore = {
@@ -371,5 +367,11 @@ export class QuizScoringService {
     if (totalQuestions === 0) return 0;  // handle division by zero
 
     return Math.round((correctAnswers / totalQuestions) * 100);
+  }
+
+  private updateCorrectCountForResults(value: number): void {
+    const safeValue = Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
+    this.correctCountSig.set(safeValue);
+    this.sendCorrectCountToResults(this.correctCountSig());
   }
 }
