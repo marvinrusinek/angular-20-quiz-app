@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 
 import { Option } from '../../../../shared/models/Option.model';
 import { OptionBindings } from '../../../../shared/models/OptionBindings.model';
@@ -7,7 +7,8 @@ import { AnswerOptionsService } from './answer-options.service';
 
 @Injectable({ providedIn: 'root' })
 export class AnswerBindingsService {
-  constructor(private answerOptionsService: AnswerOptionsService) {}
+  // ── injects ─────────────────────────────────────────────────────
+  private readonly answerOptionsService = inject(AnswerOptionsService);
 
   rebuildOptionBindings(options: Option[]): OptionBindings[] {
     if (!options?.length) return [];
