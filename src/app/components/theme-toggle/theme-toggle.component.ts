@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
@@ -57,5 +57,6 @@ import { ThemeService } from '../../shared/services/ui/theme.service';
   `]
 })
 export class ThemeToggleComponent {
-  constructor(public themeService: ThemeService) {}
+  // ── injects ─────────────────────────────────────────────────────
+  public readonly themeService = inject(ThemeService);
 }
