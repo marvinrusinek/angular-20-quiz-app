@@ -1,4 +1,4 @@
-import { Injectable, signal, WritableSignal } from '@angular/core';
+import { inject, Injectable, signal, WritableSignal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
@@ -15,6 +15,12 @@ import { Utils } from '../../utils/utils';
 
 @Injectable({ providedIn: 'root' })
 export class QuizDataLoaderService {
+  // ── injects ─────────────────────────────────────────────────────
+  private readonly quizShuffleService = inject(QuizShuffleService);
+  private readonly activatedRoute = inject(ActivatedRoute);
+  private readonly http = inject(HttpClient);
+
+  // ── remaining variables ─────────────────────────────────────────
   quizInitialState: Quiz[] = structuredClone(getQuizData());
   quizData: Quiz[] | null = structuredClone(getQuizData());
   quizResources: QuizResource[] = [];
@@ -56,12 +62,6 @@ export class QuizDataLoaderService {
     try { return localStorage.getItem('shuffledQuestionsQuizId'); }
     catch { return null; }
   })();
-
-  constructor(
-    private quizShuffleService: QuizShuffleService,
-    private activatedRoute: ActivatedRoute,
-    private http: HttpClient
-  ) {}
 
   initializeData(
     quizId: string
