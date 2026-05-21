@@ -1,4 +1,4 @@
-﻿import { Injectable, signal } from '@angular/core';
+﻿import { inject, Injectable, signal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom, Observable, of, throwError } from 'rxjs';
@@ -15,6 +15,12 @@ import { QuizShuffleService } from '../flow/quiz-shuffle.service';
 
 @Injectable({ providedIn: 'root' })
 export class QuizDataService {
+  // ── injects ─────────────────────────────────────────────────────
+  private readonly quizService = inject(QuizService);
+  private readonly quizShuffleService = inject(QuizShuffleService);
+  private readonly http = inject(HttpClient);
+
+  // ── remaining variables ─────────────────────────────────────────
   private quizUrl = 'assets/data/quiz.json';
   question: QuizQuestion | null = null;
   questionType: string | null = null;
@@ -33,12 +39,6 @@ export class QuizDataService {
   readonly isContentAvailableSig = signal<boolean>(false);
   public isContentAvailable$: Observable<boolean> =
     toObservable(this.isContentAvailableSig);
-
-  constructor(
-    private quizService: QuizService,
-    private quizShuffleService: QuizShuffleService,
-    private http: HttpClient
-  ) { }
 
 
   // Clear the question cache for a quiz to force fresh shuffle on next load.
