@@ -1,6 +1,6 @@
 import {
   ChangeDetectionStrategy, ChangeDetectorRef, Component, computed, DestroyRef,
-  effect, HostListener, OnInit, signal
+  effect, HostListener, inject, OnInit, signal
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
@@ -39,7 +39,7 @@ import { ThemeService } from '../../shared/services/ui/theme.service';
     MatExpansionModule,
     MatIconModule,
     MatTooltipModule,
-    NgOptimizedImage, 
+    NgOptimizedImage,
     BackToTopComponent,
     AccordionComponent,
     ChallengeComponent,
@@ -52,6 +52,19 @@ import { ThemeService } from '../../shared/services/ui/theme.service';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ResultsComponent implements OnInit {
+  // ── injects ─────────────────────────────────────────────────────
+  private readonly dotStatusService = inject(QuizDotStatusService);
+  private readonly quizDataService = inject(QuizDataService);
+  private readonly quizService = inject(QuizService);
+  private readonly quizStateService = inject(QuizStateService);
+  private readonly selectedOptionService = inject(SelectedOptionService);
+  private readonly themeService = inject(ThemeService);
+  private readonly activatedRoute = inject(ActivatedRoute);
+  private readonly cdRef = inject(ChangeDetectorRef);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly router = inject(Router);
+
+  // ── remaining variables ─────────────────────────────────────────
   readonly quizData: Quiz[] = getQuizData();
   readonly quizId = signal('');
   readonly indexOfQuizId = signal(0);
@@ -78,18 +91,7 @@ export class ResultsComponent implements OnInit {
     { initialValue: null as FinalResult | null }
   );
 
-  constructor(
-    private quizService: QuizService,
-    private quizDataService: QuizDataService,
-    private dotStatusService: QuizDotStatusService,
-    private selectedOptionService: SelectedOptionService,
-    private quizStateService: QuizStateService,
-    private themeService: ThemeService,
-    private activatedRoute: ActivatedRoute,
-    private router: Router,
-    private cdRef: ChangeDetectorRef,
-    private destroyRef: DestroyRef
-  ) {
+  constructor() {
     effect(() => {
       if (this.hasSnapshot()) return;
       const r = this.finalResultStream();
@@ -166,68 +168,6 @@ export class ResultsComponent implements OnInit {
     this.closeMenu();
     window.scrollTo({ top: 0, behavior: 'smooth' });
     this.cdRef.markForCheck();
-  }
-
-  private restoreActiveSection(): 'score' | 'report' | 'summary' | 'highscores' | 'resources' {
-    try {
-      const stored = sessionStorage.getItem('resultsActiveSection');
-      if (stored === 'score' || stored === 'report' || stored === 'summary' || stored === 'highscores' || stored === 'resources') {
-        return stored;
-      }
-    } catch {}
-    return 'score';
-  }
-
-  private fetchQuizIdFromParams(): void {
-    this.activatedRoute.paramMap
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((params) => {
-        const routeQuizId = params.get('quizId');
-        if (routeQuizId) {
-          this.quizId.set(routeQuizId);
-          this.setCompletedQuiz();
-          this.findQuizIndex();
-          this.cdRef.markForCheck();
-        }
-      });
-  }
-
-  private setCompletedQuiz(): void {
-    const id = this.quizId();
-    if (id) {
-      this.quizService.setCompletedQuizId(id);
-      this.quizService.setQuizId(id);  // ensure service has correct ID for high scores
-      this.quizService.setQuizStatus(QuizStatus.COMPLETED);
-
-      // Update the quiz object's status so QuizSelectionComponent can show the icon
-      this.quizDataService.updateQuizStatus(id, QuizStatus.COMPLETED);
-    }
-  }
-
-  private findQuizIndex(): void {
-    const id = this.quizId();
-    if (id) {
-      this.indexOfQuizId.set(
-        this.quizData.findIndex((elem) => elem.quizId === id)
-      );
-    }
-  }
-
-  private applyFinalResultSnapshot(snapshot: FinalResult): void {
-    this.quizService.totalQuestions.set(snapshot.total);
-    this.quizService.sendCorrectCountToResults(snapshot.correct);
-  }
-
-  private updateHeaderLabel(totalQuestions: number): void {
-    const questionCount = Number.isFinite(totalQuestions) && totalQuestions > 0
-      ? totalQuestions
-      : this.detailedSummaryQuestions().length;
-
-    this.headerLabel.set(
-      this.quizService.isShuffleEnabled()
-        ? `${questionCount} questions, SHUFFLED`
-        : `${questionCount} questions`
-    );
   }
 
   selectQuiz(): void {
@@ -319,13 +259,75 @@ export class ResultsComponent implements OnInit {
     this.router.navigate(['/select/']);
   }
 
+  scrollDown(): void {
+    window.scrollBy({ top: 500, behavior: 'smooth' });
+  }
+
+  private restoreActiveSection(): 'score' | 'report' | 'summary' | 'highscores' | 'resources' {
+    try {
+      const stored = sessionStorage.getItem('resultsActiveSection');
+      if (stored === 'score' || stored === 'report' || stored === 'summary' || stored === 'highscores' || stored === 'resources') {
+        return stored;
+      }
+    } catch {}
+    return 'score';
+  }
+
+  private fetchQuizIdFromParams(): void {
+    this.activatedRoute.paramMap
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((params) => {
+        const routeQuizId = params.get('quizId');
+        if (routeQuizId) {
+          this.quizId.set(routeQuizId);
+          this.setCompletedQuiz();
+          this.findQuizIndex();
+          this.cdRef.markForCheck();
+        }
+      });
+  }
+
+  private setCompletedQuiz(): void {
+    const id = this.quizId();
+    if (id) {
+      this.quizService.setCompletedQuizId(id);
+      this.quizService.setQuizId(id);  // ensure service has correct ID for high scores
+      this.quizService.setQuizStatus(QuizStatus.COMPLETED);
+
+      // Update the quiz object's status so QuizSelectionComponent can show the icon
+      this.quizDataService.updateQuizStatus(id, QuizStatus.COMPLETED);
+    }
+  }
+
+  private findQuizIndex(): void {
+    const id = this.quizId();
+    if (id) {
+      this.indexOfQuizId.set(
+        this.quizData.findIndex((elem) => elem.quizId === id)
+      );
+    }
+  }
+
+  private applyFinalResultSnapshot(snapshot: FinalResult): void {
+    this.quizService.totalQuestions.set(snapshot.total);
+    this.quizService.sendCorrectCountToResults(snapshot.correct);
+  }
+
+  private updateHeaderLabel(totalQuestions: number): void {
+    const questionCount = Number.isFinite(totalQuestions) && totalQuestions > 0
+      ? totalQuestions
+      : this.detailedSummaryQuestions().length;
+
+    this.headerLabel.set(
+      this.quizService.isShuffleEnabled()
+        ? `${questionCount} questions, SHUFFLED`
+        : `${questionCount} questions`
+    );
+  }
+
   private persistResultsToSession(result: FinalResult): void {
     try {
       sessionStorage.setItem('finalResult', JSON.stringify(result));
     } catch {}
-  }
-
-  scrollDown(): void {
-    window.scrollBy({ top: 500, behavior: 'smooth' });
   }
 }
