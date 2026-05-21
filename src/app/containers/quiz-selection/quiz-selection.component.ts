@@ -1,4 +1,4 @@
-﻿import { ChangeDetectionStrategy, Component, computed, OnInit,
+import { ChangeDetectionStrategy, Component, computed, inject, OnInit,
   signal, ViewEncapsulation } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
@@ -42,9 +42,15 @@ import { BackToTopComponent } from '../../components/back-to-top/back-to-top.com
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class QuizSelectionComponent implements OnInit {
+  // ── injects ─────────────────────────────────────────────────────
+  private readonly quizDataService = inject(QuizDataService);
+  private readonly quizService = inject(QuizService);
+  private readonly router = inject(Router);
+
+  // ── remaining variables ─────────────────────────────────────────
   readonly quizzes = this.quizDataService.quizzesSig;
   private readonly completedQuizIds = signal<ReadonlySet<string>>(new Set());
-  
+
   readonly accessedCount = signal(0);
   readonly totalQuizCountSig = signal(0);
   readonly hasAccessedQuizzes = computed(() => this.accessedCount() > 0);
@@ -53,18 +59,18 @@ export class QuizSelectionComponent implements OnInit {
     this.totalQuizCountSig() > 0 &&
     this.accessedCount() >= this.totalQuizCountSig()
   );
-  
+
   readonly accessedQuizLabel = computed(() =>
     this.accessedCount() === 1 ? 'quiz' : 'quizzes'
   );
-  
+
   readonly accessedBannerMessage = computed(() => {
     const accessedCount = this.accessedCount();
-  
+
     if (this.allQuizzesAccessed()) {
       return 'ALL quizzes accessed! You are an Angular master!';
     }
-  
+
     return `You've accessed ${accessedCount} ${this.accessedQuizLabel()}. Keep going!`;
   });
 
@@ -73,105 +79,8 @@ export class QuizSelectionComponent implements OnInit {
   readonly animationStateSig = this.animationStateSignal.asReadonly();
   readonly selectionParams = signal<QuizSelectionParams | null>(null);
 
-  constructor(
-    private quizService: QuizService,
-    private quizDataService: QuizDataService,
-    private router: Router
-  ) {}
-
   ngOnInit(): void {
     this.initializeQuizSelection();
-  }
-
-  private initializeQuizSelection(): void {
-    this.restoreSessionAccessState();
-    this.selectionParams.set(this.quizService.returnQuizSelectionParams());
-    this.loadQuizCatalog();
-  }
-
-  // Restore quiz statuses from sessionStorage (one-time consumption)
-  private restoreSessionAccessState(): void {
-    try {
-      const completedIds = this.consumeCompletedQuizIds();
-      const startedIds = this.consumeStartedQuizIds();
-
-      const allAccessed = new Set([...completedIds, ...startedIds]);
-      this.accessedCount.set(allAccessed.size);
-    } catch (error: unknown) {
-      console.warn('[QuizSelection] Failed to restore quiz access state.', error);
-      this.accessedCount.set(0);
-    }
-  }
-
-  private consumeCompletedQuizIds(): string[] {
-    // Read but DON'T remove â€” the user's accessed-quiz history needs to
-    // persist across visits to the selection page, otherwise the
-    // "You've accessed N quizzes" banner resets to whatever the latest
-    // results page wrote (typically 1).
-    const completedIds: string[] = JSON.parse(
-      sessionStorage.getItem('completedQuizIds') || '[]'
-    );
-
-    for (const id of completedIds) {
-      this.completedQuizIds.update(s => new Set(s).add(id));
-      this.quizDataService.updateQuizStatus(id, QuizStatus.COMPLETED);
-    }
-
-    if (completedIds.length > 0) {
-      this.quizService.setCompletedQuizId(completedIds[completedIds.length - 1]);
-      this.quizService.quizCompleted = true;
-    }
-
-    return completedIds;
-  }
-
-  private consumeStartedQuizIds(): string[] {
-    // Read but DON'T remove â€” see consumeCompletedQuizIds.
-    const startedIds: string[] = JSON.parse(
-      sessionStorage.getItem('startedQuizIds') || '[]'
-    );
-
-    for (const id of startedIds) {
-      this.quizDataService.updateQuizStatus(id, QuizStatus.STARTED);
-    }
-
-    return startedIds;
-  }
-
-  // Persist a quiz access at selection time so the accessed-quizzes count
-  // reflects every quiz the user has clicked into, regardless of whether
-  // they completed it. The previous tracking in results.component.ts only
-  // fires when the user reaches the results page, so quizzes the user
-  // bailed on were uncounted.
-  private recordQuizAccess(quizId: string): void {
-    if (!quizId) return;
-    try {
-      const completed: string[] = JSON.parse(
-        sessionStorage.getItem('completedQuizIds') || '[]'
-      );
-      if (completed.includes(quizId)) return;  // already counted
-
-      const started: string[] = JSON.parse(
-        sessionStorage.getItem('startedQuizIds') || '[]'
-      );
-      if (!started.includes(quizId)) {
-        started.push(quizId);
-        sessionStorage.setItem('startedQuizIds', JSON.stringify(started));
-      }
-
-      // Update the live count immediately so the banner refreshes without
-      // needing a route round-trip back to the selection page.
-      const accessedSet = new Set([...completed, ...started]);
-      this.accessedCount.set(accessedSet.size);
-    } catch { /* ignore storage failures */ }
-  }
-
-  // Load quizzes once â€“ replaces constructor side-effect
-  private loadQuizCatalog(): void {
-    this.quizDataService.loadQuizzes().subscribe((quizzes) => {
-      this.totalQuizCountSig.set(quizzes?.length ?? 0);
-    });
-
   }
 
   async onSelect(quizId: string, _index: number): Promise<void> {
@@ -284,5 +193,96 @@ export class QuizSelectionComponent implements OnInit {
   public isCompleted(quiz: any): boolean {
     return (quiz?.status ?? '').toString().toLowerCase() === 'completed'
       || this.completedQuizIds().has(quiz?.quizId);
+  }
+
+  private initializeQuizSelection(): void {
+    this.restoreSessionAccessState();
+    this.selectionParams.set(this.quizService.returnQuizSelectionParams());
+    this.loadQuizCatalog();
+  }
+
+  // Restore quiz statuses from sessionStorage (one-time consumption)
+  private restoreSessionAccessState(): void {
+    try {
+      const completedIds = this.consumeCompletedQuizIds();
+      const startedIds = this.consumeStartedQuizIds();
+
+      const allAccessed = new Set([...completedIds, ...startedIds]);
+      this.accessedCount.set(allAccessed.size);
+    } catch (error: unknown) {
+      console.warn('[QuizSelection] Failed to restore quiz access state.', error);
+      this.accessedCount.set(0);
+    }
+  }
+
+  private consumeCompletedQuizIds(): string[] {
+    // Read but DON'T remove — the user's accessed-quiz history needs to
+    // persist across visits to the selection page, otherwise the
+    // "You've accessed N quizzes" banner resets to whatever the latest
+    // results page wrote (typically 1).
+    const completedIds: string[] = JSON.parse(
+      sessionStorage.getItem('completedQuizIds') || '[]'
+    );
+
+    for (const id of completedIds) {
+      this.completedQuizIds.update(s => new Set(s).add(id));
+      this.quizDataService.updateQuizStatus(id, QuizStatus.COMPLETED);
+    }
+
+    if (completedIds.length > 0) {
+      this.quizService.setCompletedQuizId(completedIds[completedIds.length - 1]);
+      this.quizService.quizCompleted = true;
+    }
+
+    return completedIds;
+  }
+
+  private consumeStartedQuizIds(): string[] {
+    // Read but DON'T remove — see consumeCompletedQuizIds.
+    const startedIds: string[] = JSON.parse(
+      sessionStorage.getItem('startedQuizIds') || '[]'
+    );
+
+    for (const id of startedIds) {
+      this.quizDataService.updateQuizStatus(id, QuizStatus.STARTED);
+    }
+
+    return startedIds;
+  }
+
+  // Persist a quiz access at selection time so the accessed-quizzes count
+  // reflects every quiz the user has clicked into, regardless of whether
+  // they completed it. The previous tracking in results.component.ts only
+  // fires when the user reaches the results page, so quizzes the user
+  // bailed on were uncounted.
+  private recordQuizAccess(quizId: string): void {
+    if (!quizId) return;
+    try {
+      const completed: string[] = JSON.parse(
+        sessionStorage.getItem('completedQuizIds') || '[]'
+      );
+      if (completed.includes(quizId)) return;  // already counted
+
+      const started: string[] = JSON.parse(
+        sessionStorage.getItem('startedQuizIds') || '[]'
+      );
+      if (!started.includes(quizId)) {
+        started.push(quizId);
+        sessionStorage.setItem('startedQuizIds', JSON.stringify(started));
+      }
+
+      // Update the live count immediately so the banner refreshes without
+      // needing a route round-trip back to the selection page.
+      const accessedSet = new Set([...completed, ...started]);
+      this.accessedCount.set(accessedSet.size);
+    } catch { /* ignore storage failures */ }
+  }
+
+  // Load quizzes once – replaces constructor side-effect
+  private loadQuizCatalog(): void {
+    this.quizDataService.loadQuizzes().subscribe((quizzes) => {
+      this.totalQuizCountSig.set(quizzes?.length ?? 0);
+    });
+
   }
 }
