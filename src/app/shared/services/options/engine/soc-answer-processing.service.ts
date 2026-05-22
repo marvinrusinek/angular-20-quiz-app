@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 
 import { Option } from '../../../models/Option.model';
 import { FeedbackProps } from '../../../models/FeedbackProps.model';
@@ -20,18 +20,19 @@ import { SharedOptionExplanationService } from '../../features/shared-option/sha
  */
 @Injectable({ providedIn: 'root' })
 export class SocAnswerProcessingService {
-  constructor(
-    private quizService: QuizService,
-    private quizStateService: QuizStateService,
-    private selectedOptionService: SelectedOptionService,
-    private feedbackService: FeedbackService,
-    private selectionMessageService: SelectionMessageService,
-    private timerService: TimerService,
-    private explanationTextService: ExplanationTextService,
-    private clickHandler: OptionClickHandlerService,
-    private nextButtonStateService: NextButtonStateService,
-    private sharedOptionExplanationService: SharedOptionExplanationService
-  ) {}
+  // ── injects ─────────────────────────────────────────────────────
+  private clickHandler = inject(OptionClickHandlerService);
+  private explanationTextService = inject(ExplanationTextService);
+  private feedbackService = inject(FeedbackService);
+  private nextButtonStateService = inject(NextButtonStateService);
+  private quizService = inject(QuizService);
+  private quizStateService = inject(QuizStateService);
+  private selectedOptionService = inject(SelectedOptionService);
+  private selectionMessageService = inject(SelectionMessageService);
+  private sharedOptionExplanationService = inject(SharedOptionExplanationService);
+  private timerService = inject(TimerService);
+
+  // ── public methods ──────────────────────────────────────────────
 
   /**
    * Processes a multi-answer option click: updates disabled set, bindings,
