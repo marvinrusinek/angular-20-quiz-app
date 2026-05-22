@@ -1,4 +1,4 @@
-﻿import { Injectable } from '@angular/core';
+import { Injectable } from '@angular/core';
 
 import { Option } from '../../models/Option.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
@@ -12,7 +12,10 @@ export interface PrepareShuffleOpts {
 
 @Injectable({ providedIn: 'root' })
 export class QuizShuffleService {
+  // ── properties ──────────────────────────────────────────────────
   private shuffleByQuizId = new Map<string, ShuffleState>();
+
+  // ── public methods ──────────────────────────────────────────────
 
   // Call once starting a quiz session (after fetching questions)
   public prepareShuffle(
@@ -61,28 +64,6 @@ export class QuizShuffleService {
     this.saveState(quizId);
   }
 
-  /**
-   * Resets all option orders to identity (no option shuffling).
-   * Called to fix pre-existing shuffle states that had option shuffling enabled.
-   */
-  private normalizeOptionOrders(quizId: string, _questions: QuizQuestion[]): void {
-    const state = this.shuffleByQuizId.get(quizId);
-    if (!state) return;
-
-    let changed = false;
-    for (const [origIdx, order] of state.optionOrder.entries()) {
-      const identity = Array.from({ length: order.length }, (_, i) => i);
-      const isIdentity = order.length === identity.length &&
-        order.every((v, i) => v === i);
-      if (!isIdentity) {
-        state.optionOrder.set(origIdx, identity);
-        changed = true;
-      }
-    }
-
-    if (changed) this.saveState(quizId);
-  }
-
   public hasShuffleState(quizId: string): boolean {
     return this.shuffleByQuizId.has(quizId) ||
       !!localStorage.getItem(`shuffleState:${quizId}`);
@@ -91,126 +72,6 @@ export class QuizShuffleService {
   public getShuffleState(quizId: string): ShuffleState | undefined {
     if (!this.shuffleByQuizId.has(quizId)) this.loadState(quizId);
     return this.shuffleByQuizId.get(quizId);
-  }
-
-  // Persistence Utilities
-  private saveState(quizId: string): void {
-    const state = this.shuffleByQuizId.get(quizId);
-    if (!state) return;
-
-    try {
-      // Convert Map to Array for JSON serialization
-      const serializedState = {
-        questionOrder: state.questionOrder,
-        optionOrder: Array.from(state.optionOrder.entries())
-      };
-      localStorage.setItem(`shuffleState:${quizId}`, JSON.stringify(serializedState));
-    } catch (err: any) {
-      // persist failed â€” non-critical
-    }
-  }
-
-  private loadState(quizId: string): boolean {
-    try {
-      const raw = localStorage.getItem(`shuffleState:${quizId}`);
-      if (!raw) return false;
-
-      const parsed = JSON.parse(raw);
-      if (!parsed || !parsed.questionOrder || !Array.isArray(parsed.optionOrder)) return false;
-
-      const state: ShuffleState = {
-        questionOrder: parsed.questionOrder,
-        optionOrder: new Map(parsed.optionOrder)
-      };
-
-      this.shuffleByQuizId.set(quizId, state);
-      return true;
-    } catch (err: any) {
-      // load failed â€” non-critical
-      return false;
-    }
-  }
-
-  private reorderOptions(options: Option[], order?: number[]): Option[] {
-    if (!Array.isArray(options) || options.length === 0) return [];
-
-    const normalizeForDisplay = (opts: Option[]): Option[] =>
-      opts.map((option, index) => {
-        const id = this.toNum(option.optionId) ?? index + 1;
-
-        // value must remain a number per your model
-        const numericValue =
-          typeof option.value === 'number'
-            ? option.value : (this.toNum(option.value) ?? id);
-
-        return {
-          ...option,
-          optionId: id,
-          displayOrder: index,  // if this isn't in Option, you can keep it as an extension or drop it
-          value: numericValue   // always number
-        } as Option;  // if displayOrder isn't in Option, use a local type if you need it
-      });
-
-    if (!Array.isArray(order) || order.length !== options.length) {
-      return normalizeForDisplay(options.map((option) => ({ ...option })));
-    }
-
-    const reordered = order
-      .map((sourceIndex) => {
-        const option = options[sourceIndex];
-        if (!option) return null;
-        return { ...option } as Option;
-      })
-      .filter((option): option is Option => option !== null);
-
-    if (reordered.length !== options.length) {
-      return normalizeForDisplay(options.map((option) => ({ ...option })));
-    }
-
-    return normalizeForDisplay(reordered);
-  }
-
-  private normalize(val: unknown): string {
-    return String(val ?? '')
-      .replace(/<[^>]*>/g, ' ')
-      .replace(/&nbsp;/gi, ' ')
-      .replace(/\u00A0/g, ' ')
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, ' ');
-  }
-
-  private normalizeAnswerReference(
-    answer: Option | null | undefined,
-    options: Option[]
-  ): Option | null {
-    if (!answer) return null;
-
-    const byId = this.toNum(answer.optionId);
-    if (byId != null) {
-      const matchById = options.find(
-        (option) => this.toNum(option.optionId) === byId
-      );
-      if (matchById) return matchById;
-    }
-
-    const byValue = this.toNum(answer.value);
-    if (byValue != null) {
-      const matchByValue = options.find(
-        (option) => this.toNum(option.value) === byValue
-      );
-      if (matchByValue) return matchByValue;
-    }
-
-    const normAnsText = this.normalize(answer.text);
-    if (normAnsText) {
-      const matchByText = options.find(
-        (option) => this.normalize(option.text) === normAnsText
-      );
-      if (matchByText) return matchByText;
-    }
-
-    return null;
   }
 
   public alignAnswersWithOptions(
@@ -251,7 +112,7 @@ export class QuizShuffleService {
   // Map display index -> original index (for scoring, persistence, timers)
   public toOriginalIndex(quizId: string, displayIdx: number): number | null {
     if (!this.shuffleByQuizId.has(quizId)) this.loadState(quizId);
-    
+
     const state = this.shuffleByQuizId.get(quizId);
     if (!state) return null;
 
@@ -282,8 +143,8 @@ export class QuizShuffleService {
 
     const alignedAnswers = this.alignAnswersWithOptions(src.answer, safeOptions);
 
-    return { 
-      ...src, 
+    return {
+      ...src,
       options: safeOptions.map((option) => ({ ...option })),
       answer: alignedAnswers
     };
@@ -393,12 +254,6 @@ export class QuizShuffleService {
     }
   }
 
-  private toNum(v: unknown): number | null {
-    if (typeof v === 'number' && Number.isFinite(v)) return v;
-    const n = Number(String(v));
-    return Number.isFinite(n) ? n : null;
-  }
-
   // Make optionId numeric & stable; idempotent. Prefer 1-based ids for compatibility
   // with existing quiz logic while always normalising the display order.
   // Make optionId numeric & stable; idempotent. Uses questionIndex to ensure global uniqueness.
@@ -416,6 +271,156 @@ export class QuizShuffleService {
         value: (o as any).value ?? (o as any).text ?? uniqueId
       } as Option;
     });
+  }
+
+  // ── private methods ─────────────────────────────────────────────
+
+  /**
+   * Resets all option orders to identity (no option shuffling).
+   * Called to fix pre-existing shuffle states that had option shuffling enabled.
+   */
+  private normalizeOptionOrders(quizId: string, _questions: QuizQuestion[]): void {
+    const state = this.shuffleByQuizId.get(quizId);
+    if (!state) return;
+
+    let changed = false;
+    for (const [origIdx, order] of state.optionOrder.entries()) {
+      const identity = Array.from({ length: order.length }, (_, i) => i);
+      const isIdentity = order.length === identity.length &&
+        order.every((v, i) => v === i);
+      if (!isIdentity) {
+        state.optionOrder.set(origIdx, identity);
+        changed = true;
+      }
+    }
+
+    if (changed) this.saveState(quizId);
+  }
+
+  // Persistence Utilities
+  private saveState(quizId: string): void {
+    const state = this.shuffleByQuizId.get(quizId);
+    if (!state) return;
+
+    try {
+      // Convert Map to Array for JSON serialization
+      const serializedState = {
+        questionOrder: state.questionOrder,
+        optionOrder: Array.from(state.optionOrder.entries())
+      };
+      localStorage.setItem(`shuffleState:${quizId}`, JSON.stringify(serializedState));
+    } catch (err: any) {
+      // persist failed â€” non-critical
+    }
+  }
+
+  private loadState(quizId: string): boolean {
+    try {
+      const raw = localStorage.getItem(`shuffleState:${quizId}`);
+      if (!raw) return false;
+
+      const parsed = JSON.parse(raw);
+      if (!parsed || !parsed.questionOrder || !Array.isArray(parsed.optionOrder)) return false;
+
+      const state: ShuffleState = {
+        questionOrder: parsed.questionOrder,
+        optionOrder: new Map(parsed.optionOrder)
+      };
+
+      this.shuffleByQuizId.set(quizId, state);
+      return true;
+    } catch (err: any) {
+      // load failed â€” non-critical
+      return false;
+    }
+  }
+
+  private reorderOptions(options: Option[], order?: number[]): Option[] {
+    if (!Array.isArray(options) || options.length === 0) return [];
+
+    const normalizeForDisplay = (opts: Option[]): Option[] =>
+      opts.map((option, index) => {
+        const id = this.toNum(option.optionId) ?? index + 1;
+
+        // value must remain a number per your model
+        const numericValue =
+          typeof option.value === 'number'
+            ? option.value : (this.toNum(option.value) ?? id);
+
+        return {
+          ...option,
+          optionId: id,
+          displayOrder: index,  // if this isn't in Option, you can keep it as an extension or drop it
+          value: numericValue   // always number
+        } as Option;  // if displayOrder isn't in Option, use a local type if you need it
+      });
+
+    if (!Array.isArray(order) || order.length !== options.length) {
+      return normalizeForDisplay(options.map((option) => ({ ...option })));
+    }
+
+    const reordered = order
+      .map((sourceIndex) => {
+        const option = options[sourceIndex];
+        if (!option) return null;
+        return { ...option } as Option;
+      })
+      .filter((option): option is Option => option !== null);
+
+    if (reordered.length !== options.length) {
+      return normalizeForDisplay(options.map((option) => ({ ...option })));
+    }
+
+    return normalizeForDisplay(reordered);
+  }
+
+  private normalize(val: unknown): string {
+    return String(val ?? '')
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/ /g, ' ')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ');
+  }
+
+  private normalizeAnswerReference(
+    answer: Option | null | undefined,
+    options: Option[]
+  ): Option | null {
+    if (!answer) return null;
+
+    const byId = this.toNum(answer.optionId);
+    if (byId != null) {
+      const matchById = options.find(
+        (option) => this.toNum(option.optionId) === byId
+      );
+      if (matchById) return matchById;
+    }
+
+    const byValue = this.toNum(answer.value);
+    if (byValue != null) {
+      const matchByValue = options.find(
+        (option) => this.toNum(option.value) === byValue
+      );
+      if (matchByValue) return matchByValue;
+    }
+
+    const normAnsText = this.normalize(answer.text);
+    if (normAnsText) {
+      const matchByText = options.find(
+        (option) => this.normalize(option.text) === normAnsText
+      );
+      if (matchByText) return matchByText;
+    }
+
+    return null;
+  }
+
+  private toNum(v: unknown): number | null {
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+    const n = Number(String(v));
+    return Number.isFinite(n) ? n : null;
   }
 
   private cloneAndNormalizeOptions(

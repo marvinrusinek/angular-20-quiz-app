@@ -1,4 +1,4 @@
-﻿import { Injectable } from '@angular/core';
+﻿import { Injectable, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { filter } from 'rxjs/operators';
@@ -35,27 +35,28 @@ type Host = QuizComponent;
  */
 @Injectable({ providedIn: 'root' })
 export class QuizSetupService {
-  constructor(
-    private quizService: QuizService,
-    private quizDataService: QuizDataService,
-    private quizStateService: QuizStateService,
-    private timerService: TimerService,
-    private explanationTextService: ExplanationTextService,
-    private nextButtonStateService: NextButtonStateService,
-    private selectedOptionService: SelectedOptionService,
-    private dotStatusService: QuizDotStatusService,
-    private quizContentLoaderService: QuizContentLoaderService,
-    private quizResetService: QuizResetService,
-    private quizNavigationService: QuizNavigationService,
-    private quizPersistence: QuizPersistenceService,
-    private quizOptionProcessingService: QuizOptionProcessingService,
-    private selectionMessageService: SelectionMessageService,
-    private sharedVisibilityService: SharedVisibilityService,
-    private quizVisibilityRestoreService: QuizVisibilityRestoreService,
-    private router: Router,
-    private routeService: QuizSetupRouteService,
-    private dataService: QuizSetupDataService
-  ) {}
+  // ── injects ─────────────────────────────────────────────────────
+  private dataService = inject(QuizSetupDataService);
+  private dotStatusService = inject(QuizDotStatusService);
+  private explanationTextService = inject(ExplanationTextService);
+  private nextButtonStateService = inject(NextButtonStateService);
+  private quizContentLoaderService = inject(QuizContentLoaderService);
+  private quizDataService = inject(QuizDataService);
+  private quizNavigationService = inject(QuizNavigationService);
+  private quizOptionProcessingService = inject(QuizOptionProcessingService);
+  private quizPersistence = inject(QuizPersistenceService);
+  private quizResetService = inject(QuizResetService);
+  private quizService = inject(QuizService);
+  private quizStateService = inject(QuizStateService);
+  private quizVisibilityRestoreService = inject(QuizVisibilityRestoreService);
+  private router = inject(Router);
+  private routeService = inject(QuizSetupRouteService);
+  private selectedOptionService = inject(SelectedOptionService);
+  private selectionMessageService = inject(SelectionMessageService);
+  private sharedVisibilityService = inject(SharedVisibilityService);
+  private timerService = inject(TimerService);
+
+  // ── public methods ──────────────────────────────────────────────
 
   // â”€â”€â”€ Route (delegated) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
