@@ -36,6 +36,7 @@ export interface OptionBindingFactoryConfig {
 
 @Injectable({ providedIn: 'root' })
 export class OptionBindingFactoryService {
+  // ── public methods ──────────────────────────────────────────────
   createBindings(cfg: OptionBindingFactoryConfig): OptionBindings[] {
     const opts = Array.isArray(cfg.optionsToDisplay) ? cfg.optionsToDisplay : [];
 
