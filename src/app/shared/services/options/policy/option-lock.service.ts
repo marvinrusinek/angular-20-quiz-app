@@ -1,12 +1,14 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 
 import { OptionBindings } from '../../../models/OptionBindings.model';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 
 @Injectable({ providedIn: 'root' })
 export class OptionLockService {
-  constructor(private selectedOptionService: SelectedOptionService) {}
+  // ── injects ─────────────────────────────────────────────────────
+  private selectedOptionService = inject(SelectedOptionService);
 
+  // ── public methods ──────────────────────────────────────────────
   isLocked(
     binding: OptionBindings,
     displayIndex: number,
