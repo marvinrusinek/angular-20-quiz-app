@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 
 import { FeedbackConfig } from '../../../models/FeedbackConfig.model';
 import { Option } from '../../../models/Option.model';
@@ -14,12 +14,11 @@ import { TimerService } from '../timer/timer.service';
  */
 @Injectable({ providedIn: 'root' })
 export class QqcResetManagerService {
-  constructor(
-    private explanationTextService: ExplanationTextService,
-    private quizStateService: QuizStateService,
-    private selectedOptionService: SelectedOptionService,
-    private timerService: TimerService
-  ) {}
+  // ── injects ─────────────────────────────────────────────────────
+  private readonly explanationTextService = inject(ExplanationTextService);
+  private readonly quizStateService = inject(QuizStateService);
+  private readonly selectedOptionService = inject(SelectedOptionService);
+  private readonly timerService = inject(TimerService);
 
   /**
    * Resets all per-question state for a given index.
