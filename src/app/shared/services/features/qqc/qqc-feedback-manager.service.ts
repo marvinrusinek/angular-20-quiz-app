@@ -1,4 +1,4 @@
-﻿import { Injectable } from '@angular/core';
+﻿import { inject, Injectable } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { FeedbackConfig } from '../../../models/FeedbackConfig.model';
@@ -21,15 +21,13 @@ import { SelectionMessageService } from '../selection-message/selection-message.
  */
 @Injectable({ providedIn: 'root' })
 export class QqcFeedbackManagerService {
-
-  constructor(
-    private explanationTextService: ExplanationTextService,
-    private feedbackService: FeedbackService,
-    private quizService: QuizService,
-    private quizQuestionManagerService: QuizQuestionManagerService,
-    private selectedOptionService: SelectedOptionService,
-    private selectionMessageService: SelectionMessageService
-  ) {}
+  // ── injects ─────────────────────────────────────────────────────
+  private readonly explanationTextService = inject(ExplanationTextService);
+  private readonly feedbackService = inject(FeedbackService);
+  private readonly quizQuestionManagerService = inject(QuizQuestionManagerService);
+  private readonly quizService = inject(QuizService);
+  private readonly selectedOptionService = inject(SelectedOptionService);
+  private readonly selectionMessageService = inject(SelectionMessageService);
 
   /**
    * Restores feedback state for all options based on correctness.
