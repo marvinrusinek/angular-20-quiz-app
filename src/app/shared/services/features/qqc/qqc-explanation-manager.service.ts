@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { FormattedExplanation } from '../../../models/FormattedExplanation.model';
@@ -15,13 +15,11 @@ import { SelectedOptionService } from '../../state/selectedoption.service';
  */
 @Injectable({ providedIn: 'root' })
 export class QqcExplanationManagerService {
-
-  constructor(
-    private explanationTextService: ExplanationTextService,
-    private quizService: QuizService,
-    private quizStateService: QuizStateService,
-    private selectedOptionService: SelectedOptionService
-  ) {}
+  // ── injects ─────────────────────────────────────────────────────
+  private readonly explanationTextService = inject(ExplanationTextService);
+  private readonly quizService = inject(QuizService);
+  private readonly quizStateService = inject(QuizStateService);
+  private readonly selectedOptionService = inject(SelectedOptionService);
 
   /**
    * Fetches explanation text for a question index.
