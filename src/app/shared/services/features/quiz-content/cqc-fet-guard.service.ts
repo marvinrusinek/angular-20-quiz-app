@@ -1,6 +1,8 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 
 import { Option } from '../../../models/Option.model';
+
+import { QuizDotStatusService } from '../../flow/quiz-dot-status.service';
 
 import type { CodelabQuizContentComponent } from '../../../../containers/quiz/quiz-content/codelab-quiz-content.component';
 
@@ -18,6 +20,9 @@ type Host = CodelabQuizContentComponent;
  */
 @Injectable({ providedIn: 'root' })
 export class CqcFetGuardService {
+  // ── injects ─────────────────────────────────────────────────────
+  private dotStatusService = inject(QuizDotStatusService);
+
 
   /**
    * Write HTML to qText. Updates the host signal (which the template is
@@ -727,6 +732,12 @@ export class CqcFetGuardService {
    */
   hasInteractionEvidence(host: Host, idx: number): boolean {
     try {
+      // Treat a timer-expired-without-answer question as interaction evidence —
+      // when the timer auto-resolves a question the FET must show, and must
+      // persist across tab visibility cycles. Without this, the visibility
+      // restamp computes the question text instead of the FET and overwrites
+      // the heading on tab return.
+      if (this.dotStatusService.timerExpiredUnanswered?.has(idx)) return true;
       return !!host.quizStateService.hasClickedInSession?.(idx);
     } catch {
       return false;
@@ -739,6 +750,10 @@ export class CqcFetGuardService {
    */
   isQuestionResolvedFromStorage(host: Host, idx: number): boolean {
     try {
+      // Timer-expired-without-answer questions auto-resolve to FET — treat them
+      // as resolved so the FET branch of computeIntendedQText fires on visibility
+      // restamps. Otherwise tabbing away/back overwrites FET with question text.
+      if (this.dotStatusService.timerExpiredUnanswered?.has(idx)) return true;
       if (this.isScoredCorrectAtDisplay(host, idx)) return true;
 
       let storedSelections: any[] = [];

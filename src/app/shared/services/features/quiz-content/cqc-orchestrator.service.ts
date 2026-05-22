@@ -92,10 +92,36 @@ export class CqcOrchestratorService {
         // For multi-answer questions, the cache may have been populated by
         // an upstream path before all correct answers were selected.
         const isResolvedForCache = this.fetGuard.isQuestionResolvedFromStorage(host, idx);
-        const cachedFet = isResolvedForCache
+
+        // Validate the cached FET against the LIVE display-order question.
+        // In shuffled mode, the cache may have been populated with an earlier
+        // (unshuffled) question's FET at this same numeric index, which would
+        // surface as the FET reverting to "Q1 unshuffled" on a visibility
+        // restamp. If the cached explanation text doesn't match the display-
+        // order question's raw explanation, treat the cache as stale and
+        // re-compute below.
+        let cachedFet = isResolvedForCache
           ? ((host.explanationTextService.formattedExplanations?.[idx]?.explanation ?? '').trim()
             || ((host.explanationTextService as any).fetByIndex?.get(idx) ?? '').trim())
           : '';
+        if (cachedFet) {
+          try {
+            const displayQs = host.quizService.getQuestionsInDisplayOrder?.()
+              ?? host.quizService.questions;
+            const liveQ = displayQs?.[idx];
+            const liveExpl = (liveQ?.explanation ?? '').toString().trim();
+            if (liveExpl) {
+              const cachedLower = cachedFet.toLowerCase();
+              const liveLower = liveExpl.toLowerCase();
+              // Cached FET should include the live explanation as substring.
+              // If not, it's a stale cache from a different question at this
+              // index (likely a shuffle mismatch).
+              if (cachedLower.indexOf(liveLower) === -1) {
+                cachedFet = '';
+              }
+            }
+          } catch { /* ignore */ }
+        }
         if (cachedFet) intended = cachedFet;
         
         // No cached FET â€” try on-the-fly if quiz data is available
