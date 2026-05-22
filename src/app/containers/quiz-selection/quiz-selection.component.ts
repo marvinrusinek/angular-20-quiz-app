@@ -16,8 +16,8 @@ import { Quiz } from '../../shared/models/Quiz.model';
 import { QuizSelectionParams } from '../../shared/models/QuizSelectionParams.model';
 import { QuizTileStyles } from '../../shared/models/QuizTileStyles.model';
 
-import { QuizService } from '../../shared/services/data/quiz.service';
 import { QuizDataService } from '../../shared/services/data/quizdata.service';
+import { QuizService } from '../../shared/services/data/quiz.service';
 
 import { BackToTopComponent } from '../../components/back-to-top/back-to-top.component';
 import { ScrollDownIndicatorComponent } from '../../components/scroll-down-indicator/scroll-down-indicator.component';

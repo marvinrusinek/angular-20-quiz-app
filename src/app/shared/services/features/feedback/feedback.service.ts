@@ -6,9 +6,9 @@ import { Option } from '../../../models/Option.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 import { SelectedOption } from '../../../models/SelectedOption.model';
 
+import { ExplanationTextService } from '../explanation/explanation-text.service';
 import { QuizService } from '../../data/quiz.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
-import { ExplanationTextService } from '../explanation/explanation-text.service';
 
 @Injectable({ providedIn: 'root' })
 export class FeedbackService {

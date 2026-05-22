@@ -17,15 +17,15 @@ import { FinalResult, ScoreAnalysisItem } from '../../shared/models/Final-Result
 import { Quiz } from '../../shared/models/Quiz.model';
 import { QuizQuestion } from '../../shared/models/QuizQuestion.model';
 
-import { QuizService } from '../../shared/services/data/quiz.service';
 import { QuizDataService } from '../../shared/services/data/quizdata.service';
 import { QuizDotStatusService } from '../../shared/services/flow/quiz-dot-status.service';
+import { QuizService } from '../../shared/services/data/quiz.service';
 import { QuizStateService } from '../../shared/services/state/quizstate.service';
 import { SelectedOptionService } from '../../shared/services/state/selectedoption.service';
 import { ThemeService } from '../../shared/services/ui/theme.service';
 
-import { BackToTopComponent } from '../../components/back-to-top/back-to-top.component';
 import { AccordionComponent } from './accordion/accordion.component';
+import { BackToTopComponent } from '../../components/back-to-top/back-to-top.component';
 import { ChallengeComponent } from './challenge/challenge.component';
 import { ReturnComponent } from './return/return.component';
 import { StatisticsComponent } from './statistics/statistics.component';

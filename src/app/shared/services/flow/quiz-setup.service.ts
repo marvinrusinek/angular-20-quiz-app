@@ -6,24 +6,24 @@ import { filter } from 'rxjs/operators';
 import { QuestionPayload } from '../../models/QuestionPayload.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 
-import { QuizService } from '../data/quiz.service';
-import { QuizDataService } from '../data/quizdata.service';
 import { ExplanationTextService } from '../features/explanation/explanation-text.service';
-import { SelectionMessageService } from '../features/selection-message/selection-message.service';
-import { TimerService } from '../features/timer/timer.service';
 import { NextButtonStateService } from '../state/next-button-state.service';
-import { QuizPersistenceService } from '../state/quiz-persistence.service';
-import { QuizStateService } from '../state/quizstate.service';
-import { SelectedOptionService } from '../state/selectedoption.service';
-import { SharedVisibilityService } from '../ui/shared-visibility.service';
 import { QuizContentLoaderService } from './quiz-content-loader.service';
+import { QuizDataService } from '../data/quizdata.service';
 import { QuizDotStatusService } from './quiz-dot-status.service';
 import { QuizNavigationService } from './quiz-navigation.service';
 import { QuizOptionProcessingService } from './quiz-option-processing.service';
+import { QuizPersistenceService } from '../state/quiz-persistence.service';
 import { QuizResetService } from './quiz-reset.service';
+import { QuizService } from '../data/quiz.service';
 import { QuizSetupDataService } from './quiz-setup-data.service';
 import { QuizSetupRouteService } from './quiz-setup-route.service';
+import { QuizStateService } from '../state/quizstate.service';
 import { QuizVisibilityRestoreService } from './quiz-visibility-restore.service';
+import { SelectedOptionService } from '../state/selectedoption.service';
+import { SelectionMessageService } from '../features/selection-message/selection-message.service';
+import { SharedVisibilityService } from '../ui/shared-visibility.service';
+import { TimerService } from '../features/timer/timer.service';
 
 import type { QuizComponent } from '../../../containers/quiz/quiz.component';
 

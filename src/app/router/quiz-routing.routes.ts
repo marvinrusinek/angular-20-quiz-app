@@ -4,9 +4,9 @@ import { QuizResolverService } from '../shared/services/flow/quiz-resolver.servi
 
 import { IntroductionComponent } from
     '../containers/introduction/introduction.component';
+import { QuizComponent } from '../containers/quiz/quiz.component';
 import { QuizSelectionComponent } from
     '../containers/quiz-selection/quiz-selection.component';
-import { QuizComponent } from '../containers/quiz/quiz.component';
 import { ResultsComponent } from '../containers/results/results.component';
 
 import { QuizGuard } from './guards/quiz-guard';

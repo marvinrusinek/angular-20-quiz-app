@@ -4,9 +4,9 @@ import { firstValueFrom } from 'rxjs';
 import { Option } from '../../models/Option.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 
-import { QuizService } from '../data/quiz.service';
 import { ExplanationTextService } from '../features/explanation/explanation-text.service';
 import { QuizQuestionManagerService } from './quizquestionmgr.service';
+import { QuizService } from '../data/quiz.service';
 
 export interface NewQuestionResult {
   currentQuestion: QuizQuestion;

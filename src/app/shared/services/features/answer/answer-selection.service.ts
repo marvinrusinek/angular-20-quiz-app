@@ -7,10 +7,10 @@ import { OptionClickedPayload } from '../../../../shared/models/OptionClickedPay
 import { QuizQuestion } from '../../../../shared/models/QuizQuestion.model';
 import { SelectedOption } from '../../../../shared/models/SelectedOption.model';
 
+import { AnswerOptionsService } from './answer-options.service';
 import { QuizService } from '../../../../shared/services/data/quiz.service';
 import { QuizStateService } from '../../../../shared/services/state/quizstate.service';
 import { SelectedOptionService } from '../../../../shared/services/state/selectedoption.service';
-import { AnswerOptionsService } from './answer-options.service';
 
 @Injectable({ providedIn: 'root' })
 export class AnswerSelectionService {

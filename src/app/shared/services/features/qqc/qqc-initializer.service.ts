@@ -8,12 +8,12 @@ import { Option } from '../../../models/Option.model';
 import { Quiz } from '../../../models/Quiz.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
-import { QuizService } from '../../data/quiz.service';
-import { QuizDataService } from '../../data/quizdata.service';
-import { QuizStateService } from '../../state/quizstate.service';
-import { SelectedOptionService } from '../../state/selectedoption.service';
 import { ExplanationTextService } from '../explanation/explanation-text.service';
 import { QqcQuestionLoaderService } from './qqc-question-loader.service';
+import { QuizDataService } from '../../data/quizdata.service';
+import { QuizService } from '../../data/quiz.service';
+import { QuizStateService } from '../../state/quizstate.service';
+import { SelectedOptionService } from '../../state/selectedoption.service';
 
 /**
  * Manages initialization logic for QuizQuestionComponent:

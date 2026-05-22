@@ -8,11 +8,11 @@ import { OptionBindings } from '../../../models/OptionBindings.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 import { SelectedOption } from '../../../models/SelectedOption.model';
 
-import { QuizService } from '../../data/quiz.service';
+import { FeedbackService } from '../feedback/feedback.service';
 import { OptionClickHandlerService } from '../../options/engine/option-click-handler.service';
 import { OptionService } from '../../options/view/option.service';
+import { QuizService } from '../../data/quiz.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
-import { FeedbackService } from '../feedback/feedback.service';
 
 import { isValidOption } from '../../../utils/option-utils';
 

@@ -9,10 +9,10 @@ import { QuizQuestion } from '../../../models/QuizQuestion.model';
 import { SelectedOption } from '../../../models/SelectedOption.model';
 
 import { QuizService } from '../../data/quiz.service';
-import { SelectionMessageService } from '../../features/selection-message/selection-message.service';
-import { TimerService } from '../../features/timer/timer.service';
 import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
+import { SelectionMessageService } from '../../features/selection-message/selection-message.service';
+import { TimerService } from '../../features/timer/timer.service';
 
 export interface OptionInteractionState {
   optionBindings: OptionBindings[];

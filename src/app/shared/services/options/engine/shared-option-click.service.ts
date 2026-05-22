@@ -4,16 +4,16 @@ import { FeedbackProps } from '../../../models/FeedbackProps.model';
 import { OptionBindings } from '../../../models/OptionBindings.model';
 import { SelectedOption } from '../../../models/SelectedOption.model';
 
-import { QuizService } from '../../data/quiz.service';
-import { TimerService } from '../../features/timer/timer.service';
 import { NextButtonStateService } from '../../state/next-button-state.service';
-import { QuizStateService } from '../../state/quizstate.service';
-import { SelectedOptionService } from '../../state/selectedoption.service';
 import { OptionClickHandlerService } from './option-click-handler.service';
 import { OptionInteractionService } from './option-interaction.service';
 import { OptionUiSyncService } from './option-ui-sync.service';
+import { QuizService } from '../../data/quiz.service';
+import { QuizStateService } from '../../state/quizstate.service';
+import { SelectedOptionService } from '../../state/selectedoption.service';
 import { SocAnswerProcessingService } from './soc-answer-processing.service';
 import { SocOptionUiService } from './soc-option-ui.service';
+import { TimerService } from '../../features/timer/timer.service';
 
 /**
  * Handles option click events for shared option components.

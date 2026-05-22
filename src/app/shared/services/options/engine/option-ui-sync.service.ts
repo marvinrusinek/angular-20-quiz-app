@@ -8,13 +8,13 @@ import { Option } from '../../../models/Option.model';
 import { OptionBindings } from '../../../models/OptionBindings.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
-import { QuizService } from '../../data/quiz.service';
 import { FeedbackService } from '../../features/feedback/feedback.service';
-import { SelectionMessageService } from '../../features/selection-message/selection-message.service';
 import { NextButtonStateService } from '../../state/next-button-state.service';
-import { SelectedOptionService } from '../../state/selectedoption.service';
 import { OptionLockPolicyService } from '../policy/option-lock-policy.service';
 import { OptionSelectionPolicyService } from '../policy/option-selection-policy.service';
+import { QuizService } from '../../data/quiz.service';
+import { SelectedOptionService } from '../../state/selectedoption.service';
+import { SelectionMessageService } from '../../features/selection-message/selection-message.service';
 
 export interface OptionUiSyncContext {
   form: any;

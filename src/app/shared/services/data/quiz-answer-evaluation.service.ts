@@ -4,8 +4,8 @@ import { Option } from '../../models/Option.model';
 import { Quiz } from '../../models/Quiz.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 
-import { SelectedOptionService } from '../state/selectedoption.service';
 import { QuizOptionsService } from './quiz-options.service';
+import { SelectedOptionService } from '../state/selectedoption.service';
 
 /**
  * Handles answer evaluation, correctness checking, and direct scoring

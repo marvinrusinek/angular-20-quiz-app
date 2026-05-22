@@ -9,13 +9,13 @@ import { QuestionPayload } from '../../models/QuestionPayload.model';
 import { Quiz } from '../../models/Quiz.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 
-import { QuizService } from '../data/quiz.service';
 import { ExplanationTextService } from '../features/explanation/explanation-text.service';
-import { QuizStateService } from '../state/quizstate.service';
-import { SelectedOptionService } from '../state/selectedoption.service';
 import { QclFetGateService } from './qcl-fet-gate.service';
 import { QclQuestionFetchService } from './qcl-question-fetch.service';
 import { QclSessionRestoreService } from './qcl-session-restore.service';
+import { QuizService } from '../data/quiz.service';
+import { QuizStateService } from '../state/quizstate.service';
+import { SelectedOptionService } from '../state/selectedoption.service';
 
 /**
  * Result from fetchAndSetQuestionData preparation.

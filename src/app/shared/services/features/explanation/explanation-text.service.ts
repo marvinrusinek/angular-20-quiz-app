@@ -5,10 +5,10 @@ import { FormattedExplanation } from '../../../models/FormattedExplanation.model
 import { Option } from '../../../models/Option.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
-import { QuizService } from '../../data/quiz.service';
-import { SelectedOptionService } from '../../state/selectedoption.service';
 import { ExplanationDisplayStateService, FETPayload } from './explanation-display-state.service';
 import { ExplanationFormatterService } from './explanation-formatter.service';
+import { QuizService } from '../../data/quiz.service';
+import { SelectedOptionService } from '../../state/selectedoption.service';
 
 export { FETPayload } from './explanation-display-state.service';
 

@@ -12,11 +12,11 @@ import { Option } from '../../../shared/models/Option.model';
 import { QuizQuestion } from '../../../shared/models/QuizQuestion.model';
 import { Result } from '../../../shared/models/Result.model';
 
-import { QuizService } from '../../../shared/services/data/quiz.service';
-import { QuizDataService } from '../../../shared/services/data/quizdata.service';
 import { ExplanationTextService } from '../../../shared/services/features/explanation/explanation-text.service';
-import { TimerService } from '../../../shared/services/features/timer/timer.service';
+import { QuizDataService } from '../../../shared/services/data/quizdata.service';
+import { QuizService } from '../../../shared/services/data/quiz.service';
 import { SelectedOptionService } from '../../../shared/services/state/selectedoption.service';
+import { TimerService } from '../../../shared/services/features/timer/timer.service';
 
 @Component({
   selector: 'codelab-results-accordion',

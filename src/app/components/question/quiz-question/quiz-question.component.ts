@@ -22,13 +22,13 @@ import { SelectedOption } from '../../../shared/models/SelectedOption.model';
 import { SharedOptionConfig } from '../../../shared/models/SharedOptionConfig.model';
 
 import { ExplanationTextService } from '../../../shared/services/features/explanation/explanation-text.service';
+import { NextButtonStateService } from '../../../shared/services/state/next-button-state.service';
 import { QqcQuestionLoaderService } from '../../../shared/services/features/qqc/qqc-question-loader.service';
 import { QuizQuestionFacadeService } from '../../../shared/services/features/qqc/quiz-question-facade.service';
+import { QuizQuestionManagerService } from '../../../shared/services/flow/quizquestionmgr.service';
+import { QuizShuffleService } from '../../../shared/services/flow/quiz-shuffle.service';
 import { SelectionMessageService } from '../../../shared/services/features/selection-message/selection-message.service';
 import { TimerService } from '../../../shared/services/features/timer/timer.service';
-import { QuizShuffleService } from '../../../shared/services/flow/quiz-shuffle.service';
-import { QuizQuestionManagerService } from '../../../shared/services/flow/quizquestionmgr.service';
-import { NextButtonStateService } from '../../../shared/services/state/next-button-state.service';
 
 import { SharedOptionComponent } from '../answer/shared-option-component/shared-option.component';
 

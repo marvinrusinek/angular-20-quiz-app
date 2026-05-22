@@ -9,16 +9,16 @@ import { QuestionType } from '../../models/question-type.enum';
 import { Option } from '../../models/Option.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 
-import { QuizService } from '../data/quiz.service';
-import { QuizDataService } from '../data/quizdata.service';
 import { ExplanationTextService } from '../features/explanation/explanation-text.service';
-import { QqcQuestionLoaderService } from '../features/qqc/qqc-question-loader.service';
-import { TimerService } from '../features/timer/timer.service';
-import { QuizQuestionManagerService } from '../flow/quizquestionmgr.service';
 import { NextButtonStateService } from '../state/next-button-state.service';
 import { OptionLockStateService } from '../state/option-lock-state.service';
+import { QqcQuestionLoaderService } from '../features/qqc/qqc-question-loader.service';
+import { QuizDataService } from '../data/quizdata.service';
+import { QuizQuestionManagerService } from '../flow/quizquestionmgr.service';
+import { QuizService } from '../data/quiz.service';
 import { QuizStateService } from '../state/quizstate.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
+import { TimerService } from '../features/timer/timer.service';
 
 @Injectable({ providedIn: 'root' })
 export class QuizNavigationService {

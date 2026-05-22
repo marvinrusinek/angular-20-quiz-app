@@ -6,18 +6,18 @@ import { distinctUntilChanged, filter, map, tap } from 'rxjs/operators';
 import { Option } from '../../models/Option.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 
-import { QuizService } from '../data/quiz.service';
-import { SelectionMessageService } from '../features/selection-message/selection-message.service';
-import { TimerService } from '../features/timer/timer.service';
 import { NextButtonStateService } from '../state/next-button-state.service';
-import { QuizPersistenceService } from '../state/quiz-persistence.service';
-import { QuizStateService } from '../state/quizstate.service';
-import { SelectedOptionService } from '../state/selectedoption.service';
 import { QuizContentLoaderService } from './quiz-content-loader.service';
 import { QuizDotStatusService } from './quiz-dot-status.service';
 import { QuizNavigationService } from './quiz-navigation.service';
+import { QuizPersistenceService } from '../state/quiz-persistence.service';
 import { QuizResetService } from './quiz-reset.service';
 import { QuizRouteService } from './quiz-route.service';
+import { QuizService } from '../data/quiz.service';
+import { QuizStateService } from '../state/quizstate.service';
+import { SelectedOptionService } from '../state/selectedoption.service';
+import { SelectionMessageService } from '../features/selection-message/selection-message.service';
+import { TimerService } from '../features/timer/timer.service';
 
 import type { QuizComponent } from '../../../containers/quiz/quiz.component';
 

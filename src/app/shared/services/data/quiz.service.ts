@@ -15,8 +15,6 @@ import { QuizSelectionParams } from '../../models/QuizSelectionParams.model';
 import { Resource } from '../../models/Resource.model';
 import { SelectedOption } from '../../models/SelectedOption.model';
 
-import { QuizShuffleService } from '../flow/quiz-shuffle.service';
-import { QuizStateService } from '../state/quizstate.service';
 import { QuizAnswerEvaluationService } from './quiz-answer-evaluation.service';
 import { QuizBannerService } from './quiz-banner.service';
 import { QuizDataLoaderService } from './quiz-data-loader.service';
@@ -25,6 +23,8 @@ import { QuizQuestionEmitterService } from './quiz-question-emitter.service';
 import { QuizQuestionResolverService } from './quiz-question-resolver.service';
 import { QuizScoringService } from './quiz-scoring.service';
 import { QuizSessionManagerService } from './quiz-session-manager.service';
+import { QuizShuffleService } from '../flow/quiz-shuffle.service';
+import { QuizStateService } from '../state/quizstate.service';
 
 import { getQuizData } from '../../quiz-data-cache';
 

@@ -5,10 +5,10 @@ import { FormattedExplanation } from '../../../models/FormattedExplanation.model
 import { QuestionState } from '../../../models/QuestionState.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
+import { ExplanationTextService } from '../explanation/explanation-text.service';
 import { QuizService } from '../../data/quiz.service';
 import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
-import { ExplanationTextService } from '../explanation/explanation-text.service';
 
 /**
  * Manages explanation text resolution, formatting, and caching for QQC.

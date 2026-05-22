@@ -3,8 +3,8 @@ import { Injectable, inject } from '@angular/core';
 import { Option } from '../../models/Option.model';
 import { SelectedOption } from '../../models/SelectedOption.model';
 
-import { QuizService } from '../data/quiz.service';
 import { OptionIdResolverService } from './option-id-resolver.service';
+import { QuizService } from '../data/quiz.service';
 import type { SelectedOptionService } from './selectedoption.service';
 
 type Host = SelectedOptionService;

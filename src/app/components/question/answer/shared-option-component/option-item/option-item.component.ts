@@ -12,10 +12,10 @@ import { FeedbackProps } from '../../../../../shared/models/FeedbackProps.model'
 import { OptionBindings } from '../../../../../shared/models/OptionBindings.model';
 import { SharedOptionConfig } from '../../../../../shared/models/SharedOptionConfig.model';
 
-import { QuizService } from '../../../../../shared/services/data/quiz.service';
-import { TimerService } from '../../../../../shared/services/features/timer/timer.service';
 import { OptionService } from '../../../../../shared/services/options/view/option.service';
+import { QuizService } from '../../../../../shared/services/data/quiz.service';
 import { SelectedOptionService } from '../../../../../shared/services/state/selectedoption.service';
+import { TimerService } from '../../../../../shared/services/features/timer/timer.service';
 
 import { correctAnswerAnim } from '../../../../../animations/animations';
 import { HighlightOptionDirective } from '../../../../../directives/highlight-option.directive';

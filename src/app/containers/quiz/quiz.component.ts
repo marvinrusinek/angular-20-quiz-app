@@ -27,27 +27,27 @@ import { QuizQuestion } from '../../shared/models/QuizQuestion.model';
 import { QuizQuestionEvent } from '../../shared/models/QuizQuestionEvent.type';
 import { SelectedOption } from '../../shared/models/SelectedOption.model';
 
-import { QuizService } from '../../shared/services/data/quiz.service';
-import { QuizDataService } from '../../shared/services/data/quizdata.service';
+import { NextButtonStateService } from '../../shared/services/state/next-button-state.service';
 import { QqcQuestionLoaderService } from '../../shared/services/features/qqc/qqc-question-loader.service';
-import { SelectionMessageService } from '../../shared/services/features/selection-message/selection-message.service';
+import { QuizDataService } from '../../shared/services/data/quizdata.service';
 import { QuizDotStatusService } from '../../shared/services/flow/quiz-dot-status.service';
 import { QuizInitializationService } from '../../shared/services/flow/quiz-initialization.service';
 import { QuizNavigationService } from '../../shared/services/flow/quiz-navigation.service';
+import { QuizPersistenceService } from '../../shared/services/state/quiz-persistence.service';
 import { QuizResetService } from '../../shared/services/flow/quiz-reset.service';
 import { QuizRouteService } from '../../shared/services/flow/quiz-route.service';
+import { QuizService } from '../../shared/services/data/quiz.service';
 import { QuizSetupService } from '../../shared/services/flow/quiz-setup.service';
-import { NextButtonStateService } from '../../shared/services/state/next-button-state.service';
-import { QuizPersistenceService } from '../../shared/services/state/quiz-persistence.service';
 import { QuizStateService } from '../../shared/services/state/quizstate.service';
 import { SelectedOptionService } from '../../shared/services/state/selectedoption.service';
+import { SelectionMessageService } from '../../shared/services/features/selection-message/selection-message.service';
 
-import { SharedOptionComponent } from '../../components/question/answer/shared-option-component/shared-option.component';
-import { QuizQuestionComponent } from '../../components/question/quiz-question/quiz-question.component';
-import { ThemeToggleComponent } from '../../components/theme-toggle/theme-toggle.component';
-import { ScoreboardComponent } from '../scoreboard/scoreboard.component';
 import { CodelabQuizContentComponent } from './quiz-content/codelab-quiz-content.component';
 import { CodelabQuizHeaderComponent } from './quiz-header/quiz-header.component';
+import { QuizQuestionComponent } from '../../components/question/quiz-question/quiz-question.component';
+import { ScoreboardComponent } from '../scoreboard/scoreboard.component';
+import { SharedOptionComponent } from '../../components/question/answer/shared-option-component/shared-option.component';
+import { ThemeToggleComponent } from '../../components/theme-toggle/theme-toggle.component';
 
 import { ChangeRouteAnimation } from '../../animations/animations';
 

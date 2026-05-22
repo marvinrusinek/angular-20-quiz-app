@@ -5,8 +5,8 @@ import { take } from 'rxjs/operators';
 import { Option } from '../../../models/Option.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
-import { QuizService } from '../../data/quiz.service';
 import { QuizDataService } from '../../data/quizdata.service';
+import { QuizService } from '../../data/quiz.service';
 
 /**
  * Handles question data fetching, validation, and quiz loading for QQC.

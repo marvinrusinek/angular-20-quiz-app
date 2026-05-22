@@ -7,12 +7,12 @@ import { FormattedExplanation } from '../../../models/FormattedExplanation.model
 import { QuestionState } from '../../../models/QuestionState.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
-import { QuizService } from '../../data/quiz.service';
-import { QuizQuestionManagerService } from '../../flow/quizquestionmgr.service';
-import { QuizStateService } from '../../state/quizstate.service';
 import { ExplanationTextService } from '../explanation/explanation-text.service';
 import { QqcExplanationDisplayService } from './qqc-explanation-display.service';
 import { QqcExplanationManagerService } from './qqc-explanation-manager.service';
+import { QuizQuestionManagerService } from '../../flow/quizquestionmgr.service';
+import { QuizService } from '../../data/quiz.service';
+import { QuizStateService } from '../../state/quizstate.service';
 
 /**
  * Orchestrates explanation flow lifecycle for QQC.

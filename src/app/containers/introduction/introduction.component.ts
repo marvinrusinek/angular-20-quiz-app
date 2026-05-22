@@ -18,12 +18,12 @@ import { catchError, switchMap, tap } from 'rxjs/operators';
 import { Quiz } from '../../shared/models/Quiz.model';
 import { QuizQuestion } from '../../shared/models/QuizQuestion.model';
 
-import { QuizService } from '../../shared/services/data/quiz.service';
 import { QuizDataService } from '../../shared/services/data/quizdata.service';
 import { QuizDotStatusService } from '../../shared/services/flow/quiz-dot-status.service';
 import { QuizNavigationService } from '../../shared/services/flow/quiz-navigation.service';
-import { QuizShuffleService } from '../../shared/services/flow/quiz-shuffle.service';
 import { QuizPersistenceService } from '../../shared/services/state/quiz-persistence.service';
+import { QuizService } from '../../shared/services/data/quiz.service';
+import { QuizShuffleService } from '../../shared/services/flow/quiz-shuffle.service';
 import { SelectedOptionService } from '../../shared/services/state/selectedoption.service';
 
 @Component({
