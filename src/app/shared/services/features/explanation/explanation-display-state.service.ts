@@ -1,4 +1,4 @@
-import { Injectable, Injector, signal } from '@angular/core';
+import { inject, Injectable, Injector, signal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import {
   BehaviorSubject, firstValueFrom, Observable, ReplaySubject, Subject
@@ -18,6 +18,11 @@ export type FETPayload = { idx: number; text: string; token: number };
 
 @Injectable({ providedIn: 'root' })
 export class ExplanationDisplayStateService {
+  // ── injects ─────────────────────────────────────────────────────
+  private readonly formatter = inject(ExplanationFormatterService);
+  private readonly gate = inject(ExplanationGateService);
+  private readonly injector = inject(Injector);
+
   private readonly explanationTextSig = signal<string>('');
   explanationTexts: Record<number, string> = {};
 
@@ -106,11 +111,7 @@ export class ExplanationDisplayStateService {
     return this.shouldDisplayExplanationSig() === true;
   }
 
-  constructor(
-    private injector: Injector,
-    private formatter: ExplanationFormatterService,
-    private gate: ExplanationGateService
-  ) {
+  constructor() {
     // Always clear stale FET payloads when switching to a new question index.
     this.activeIndex$.pipe(
       distinctUntilChanged()
