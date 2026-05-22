@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 
 import { Option } from '../../models/Option.model';
 import { QuestionType } from '../../models/question-type.enum';
@@ -18,22 +18,18 @@ import { QuizPersistenceService } from '../state/quiz-persistence.service';
 @Injectable({ providedIn: 'root' })
 export class QuizDotStatusService {
 
-  // ═══════════════════════════════════════════════════════════════
-  // OWNED STATE MAPS (moved from QuizComponent)
-  // ═══════════════════════════════════════════════════════════════
+  // ── injects ─────────────────────────────────────────────────────
+  private persistence = inject(QuizPersistenceService);
+  private quizService = inject(QuizService);
+  private quizShuffleService = inject(QuizShuffleService);
+  private quizStateService = inject(QuizStateService);
+  private selectedOptionService = inject(SelectedOptionService);
 
+  // ── properties ──────────────────────────────────────────────────
   dotStatusCache = new Map<number, 'correct' | 'wrong' | 'pending'>();
   pendingDotStatusOverrides = new Map<number, 'correct' | 'wrong'>();
   activeDotClickStatus = new Map<number, 'correct' | 'wrong'>();
   timerExpiredUnanswered = new Set<number>();
-
-  constructor(
-    private quizService: QuizService,
-    private quizShuffleService: QuizShuffleService,
-    private quizStateService: QuizStateService,
-    private selectedOptionService: SelectedOptionService,
-    private persistence: QuizPersistenceService
-  ) {}
 
   // ═══════════════════════════════════════════════════════════════
   // STATE MAP HELPERS
