@@ -1,4 +1,4 @@
-﻿import { Injectable } from '@angular/core';
+﻿import { Injectable, inject } from '@angular/core';
 
 import { OptionBindings } from '../../../models/OptionBindings.model';
 import { FeedbackProps } from '../../../models/FeedbackProps.model';
@@ -21,18 +21,19 @@ import { SocOptionUiService } from './soc-option-ui.service';
  */
 @Injectable({ providedIn: 'root' })
 export class SharedOptionClickService {
-  constructor(
-    private quizService: QuizService,
-    private quizStateService: QuizStateService,
-    private selectedOptionService: SelectedOptionService,
-    private timerService: TimerService,
-    private optionInteractionService: OptionInteractionService,
-    private optionUiSyncService: OptionUiSyncService,
-    private clickHandler: OptionClickHandlerService,
-    private nextButtonStateService: NextButtonStateService,
-    private answerProcessing: SocAnswerProcessingService,
-    private optionUi: SocOptionUiService
-  ) {}
+  // ── injects ─────────────────────────────────────────────────────
+  private answerProcessing = inject(SocAnswerProcessingService);
+  private clickHandler = inject(OptionClickHandlerService);
+  private nextButtonStateService = inject(NextButtonStateService);
+  private optionInteractionService = inject(OptionInteractionService);
+  private optionUi = inject(SocOptionUiService);
+  private optionUiSyncService = inject(OptionUiSyncService);
+  private quizService = inject(QuizService);
+  private quizStateService = inject(QuizStateService);
+  private selectedOptionService = inject(SelectedOptionService);
+  private timerService = inject(TimerService);
+
+  // ── public methods ──────────────────────────────────────────────
 
   onOptionUI(comp: any, ev: any): void {
     if (ev == null || ev.optionId == null) return;
