@@ -5,6 +5,7 @@ import { OptionBindings } from '../../../models/OptionBindings.model';
 
 @Injectable({ providedIn: 'root' })
 export class OptionService {
+  // ── public methods ──────────────────────────────────────────────
   /**
    * Use the same key shape everywhere (STRING so we don't lose non-numeric ids)
    * Stable per-row key: prefer numeric optionId; fallback to stableKey + index
