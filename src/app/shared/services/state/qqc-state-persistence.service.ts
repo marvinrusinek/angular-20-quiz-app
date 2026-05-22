@@ -28,6 +28,7 @@ export interface QqcRestoredState {
 
 @Injectable({ providedIn: 'root' })
 export class QqcStatePersistenceService {
+  // ── public methods ──────────────────────────────────────────────
 
   /**
    * Saves quiz question state to sessionStorage.
