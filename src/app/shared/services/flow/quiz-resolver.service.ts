@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { 
   ActivatedRouteSnapshot, Resolve, Router, RouterStateSnapshot, UrlTree
 } from '@angular/router';
@@ -11,12 +11,12 @@ import { QuizDataService } from '../data/quizdata.service';
 
 @Injectable({ providedIn: 'root' })
 export class QuizResolverService implements Resolve<Quiz | UrlTree | null> {
-  constructor(
-    private quizDataService: QuizDataService,
-    private quizService: QuizService,
-    private router: Router
-  ) { }
+  // ── injects ─────────────────────────────────────────────────────
+  private quizDataService = inject(QuizDataService);
+  private quizService = inject(QuizService);
+  private router = inject(Router);
 
+  // ── public methods ──────────────────────────────────────────────
   resolve(
     route: ActivatedRouteSnapshot,
     _state: RouterStateSnapshot,
