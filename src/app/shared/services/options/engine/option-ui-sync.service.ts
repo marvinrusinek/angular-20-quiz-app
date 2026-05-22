@@ -1,4 +1,4 @@
-﻿import { Injectable } from '@angular/core';
+﻿import { Injectable, inject } from '@angular/core';
 import { MatCheckboxChange } from '@angular/material/checkbox';
 import { MatRadioChange } from '@angular/material/radio';
 
@@ -48,15 +48,16 @@ export interface OptionUiSyncContext {
 
 @Injectable({ providedIn: 'root' })
 export class OptionUiSyncService {
-  constructor(
-    private selectedOptionService: SelectedOptionService,
-    private nextButtonStateService: NextButtonStateService,
-    private feedbackService: FeedbackService,
-    private optionSelectionPolicyService: OptionSelectionPolicyService,
-    private optionLockPolicyService: OptionLockPolicyService,
-    private quizService: QuizService,
-    private selectionMessageService: SelectionMessageService
-  ) { }
+  // ── injects ─────────────────────────────────────────────────────
+  private feedbackService = inject(FeedbackService);
+  private nextButtonStateService = inject(NextButtonStateService);
+  private optionLockPolicyService = inject(OptionLockPolicyService);
+  private optionSelectionPolicyService = inject(OptionSelectionPolicyService);
+  private quizService = inject(QuizService);
+  private selectedOptionService = inject(SelectedOptionService);
+  private selectionMessageService = inject(SelectionMessageService);
+
+  // ── public methods ──────────────────────────────────────────────
 
   updateOptionAndUI(
     optionBinding: OptionBindings,
