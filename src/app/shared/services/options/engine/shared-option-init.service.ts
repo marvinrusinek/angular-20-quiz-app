@@ -1,4 +1,4 @@
-﻿import { ChangeDetectorRef, Injectable, WritableSignal } from '@angular/core';
+﻿import { ChangeDetectorRef, Injectable, WritableSignal, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormGroup } from '@angular/forms';
 import {
@@ -132,13 +132,14 @@ export interface SharedOptionComponentLike {
 
 @Injectable({ providedIn: 'root' })
 export class SharedOptionInitService {
-  constructor(
-    private quizService: QuizService,
-    private selectedOptionService: SelectedOptionService,
-    private explanationTextService: ExplanationTextService,
-    private feedbackService: FeedbackService,
-    private timerService: TimerService
-  ) {}
+  // ── injects ─────────────────────────────────────────────────────
+  private explanationTextService = inject(ExplanationTextService);
+  private feedbackService = inject(FeedbackService);
+  private quizService = inject(QuizService);
+  private selectedOptionService = inject(SelectedOptionService);
+  private timerService = inject(TimerService);
+
+  // ── public methods ──────────────────────────────────────────────
 
   /**
    * Resets all mutable state on the component for a new question.
