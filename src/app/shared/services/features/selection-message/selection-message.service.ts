@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { Observable } from 'rxjs';
 import { distinctUntilChanged } from 'rxjs/operators';
@@ -46,10 +46,8 @@ export class SelectionMessageService {
 
   private _pendingMsgTokens = new Map<number, number>();
 
-  constructor(
-    private quizService: QuizService,
-    private selectedOptionService: SelectedOptionService
-  ) { }
+  private quizService = inject(QuizService);
+  private selectedOptionService = inject(SelectedOptionService);
 
   public getCurrentMessage(): string {
     return this.selectionMessageSig();
