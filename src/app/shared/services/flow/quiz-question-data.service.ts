@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { Option } from '../../models/Option.model';
@@ -14,11 +14,12 @@ import { ExplanationTextService } from '../features/explanation/explanation-text
  */
 @Injectable({ providedIn: 'root' })
 export class QuizQuestionDataService {
-  constructor(
-    private quizService: QuizService,
-    private quizDataService: QuizDataService,
-    private explanationTextService: ExplanationTextService
-  ) {}
+  // ── injects ─────────────────────────────────────────────────────
+  private explanationTextService = inject(ExplanationTextService);
+  private quizDataService = inject(QuizDataService);
+  private quizService = inject(QuizService);
+
+  // ── public methods ──────────────────────────────────────────────
 
   // ═══════════════════════════════════════════════════════════════
   // FETCH QUESTION DETAILS
