@@ -1,4 +1,4 @@
-﻿import { computed, Injectable, OnDestroy, signal } from '@angular/core';
+﻿import { computed, inject, Injectable, OnDestroy, signal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { Subject, Subscription, timer } from 'rxjs';
 import { finalize, takeUntil, tap } from 'rxjs/operators';
@@ -66,10 +66,10 @@ export class TimerService implements OnDestroy {
   /** Signal version â€” read this in OnPush templates so Angular auto-tracks it. */
   public readonly expiredForQuestionIndexSig = signal(-1);
 
-  constructor(
-    private quizService: QuizService,
-    private selectedOptionService: SelectedOptionService
-  ) {
+  private quizService = inject(QuizService);
+  private selectedOptionService = inject(SelectedOptionService);
+
+  constructor() {
     this.setupTimer();
     this.listenForCorrectSelections();
   }
