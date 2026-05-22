@@ -74,4 +74,10 @@ export class QuizVisibilityRestoreService {
 
     return true;
   }
+
+  /** Clear cached display state — called by Restart so a stale save doesn't
+   *  re-apply on the next tab-visibility cycle after the restart. */
+  resetSavedState(): void {
+    this._savedDisplayState = null;
+  }
 }

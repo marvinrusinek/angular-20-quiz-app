@@ -2,11 +2,13 @@ import { Injectable, inject } from '@angular/core';
 
 import { ExplanationTextService } from '../features/explanation/explanation-text.service';
 import { NextButtonStateService } from '../state/next-button-state.service';
+import { OptionLockStateService } from '../state/option-lock-state.service';
 import { QqcQuestionLoaderService } from '../features/qqc/qqc-question-loader.service';
 import { QuizDotStatusService } from './quiz-dot-status.service';
 import { QuizPersistenceService } from '../state/quiz-persistence.service';
 import { QuizService } from '../data/quiz.service';
 import { QuizStateService } from '../state/quizstate.service';
+import { QuizVisibilityRestoreService } from './quiz-visibility-restore.service';
 import { ResetBackgroundService } from '../ui/reset-background.service';
 import { ResetStateService } from '../state/reset-state.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
@@ -23,10 +25,12 @@ export class QuizResetService {
   private dotStatusService = inject(QuizDotStatusService);
   private explanationTextService = inject(ExplanationTextService);
   private nextButtonStateService = inject(NextButtonStateService);
+  private optionLockState = inject(OptionLockStateService);
   private quizPersistence = inject(QuizPersistenceService);
   private quizQuestionLoaderService = inject(QqcQuestionLoaderService);
   private quizService = inject(QuizService);
   private quizStateService = inject(QuizStateService);
+  private quizVisibilityRestoreService = inject(QuizVisibilityRestoreService);
   private resetBackgroundService = inject(ResetBackgroundService);
   private resetStateService = inject(ResetStateService);
   private selectedOptionService = inject(SelectedOptionService);
@@ -233,6 +237,16 @@ export class QuizResetService {
     this.quizService.resetAll();
     this.quizService.resetScore();
 
+    // Clear per-question option/question locks — otherwise a previously-
+    // locked incorrect option/question (e.g. Q2 answered incorrectly before
+    // restart) silently rejects clicks on the restarted quiz, breaking
+    // highlight/selection on revisit.
+    this.optionLockState.clearAll();
+
+    // Drop any visibility-restore snapshot so a stale "explanation mode"
+    // state from before the restart can't bleed back in on the next tab cycle.
+    this.quizVisibilityRestoreService.resetSavedState();
+
     this.dotStatusService.clearAllMaps();
     this.quizPersistence.clearClickConfirmedDotStatus(totalQuestions);
     this.selectedOptionService.lastClickedCorrectByQuestion.clear();
@@ -270,6 +284,13 @@ export class QuizResetService {
     this.selectedOptionService.selectedOptionsMap.clear();
     this.selectedOptionService.setAnswered(false);
     this.quizStateService.setAnswerSelected(false);
+
+    // Full per-quiz wipe: also clears rawSelectionsMap, _selectionHistory,
+    // optionFeedbackState.feedbackByQuestion, optionSnapshotByQuestion, and
+    // sessionStorage `sel_Q*` keys. Without this, an incorrectly-answered
+    // Q2 leaves a feedback overlay that suppresses highlight on revisit
+    // after Restart.
+    try { this.selectedOptionService.clearState(); } catch {}
 
     this.explanationTextService.resetExplanationState();
     this.explanationTextService.unlockExplanation();
