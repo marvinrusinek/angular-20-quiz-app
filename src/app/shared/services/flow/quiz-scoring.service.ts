@@ -9,6 +9,7 @@ import { SelectedOption } from '../../models/SelectedOption.model';
  */
 @Injectable({ providedIn: 'root' })
 export class QuizScoringService {
+  // ── public methods ──────────────────────────────────────────────
 
   // ═══════════════════════════════════════════════════════════════
   // BUILD IMMEDIATE SELECTIONS FOR SCORING

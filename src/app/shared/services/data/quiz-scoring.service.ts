@@ -9,17 +9,18 @@ export class QuizScoringService {
   // ── injects ─────────────────────────────────────────────────────
   private readonly quizShuffleService = inject(QuizShuffleService);
 
-  // ── remaining variables ─────────────────────────────────────────
+  // ── signals ─────────────────────────────────────────────────────
+  readonly correctCountSig = signal<number>(0);
+  readonly scoreSig = signal<number>(0);
+  public readonly correctAnswersCountSig = signal<number>(0);
+
+  // ── properties ──────────────────────────────────────────────────
   // State tracking for scoring (Index -> IsCorrect)
   public questionCorrectness = new Map<number, boolean>();
 
-  readonly correctCountSig = signal<number>(0);
-  readonly scoreSig = signal<number>(0);
   quizScore: QuizScore | null = null;
   highScores: QuizScore[] = [];
   highScoresLocal = JSON.parse(localStorage.getItem('highScoresLocal') ?? '[]');
-
-  public readonly correctAnswersCountSig = signal<number>(0);
 
   // Tracks confirmed correct clicks per question. Each call to recordCorrectClick
   // adds the option text; the pristine gate only allows scoring when the count
@@ -29,9 +30,12 @@ export class QuizScoringService {
 
   private readonly scoreQuizIdStorageKey = 'scoreQuizId';
 
+  // ── constructor / lifecycle ─────────────────────────────────────
   constructor() {
     this.loadQuestionCorrectness();
   }
+
+  // ── public methods ──────────────────────────────────────────────
 
   // ═══════════════════════════════════════════════════════════════════════
   // Core Scoring
@@ -369,6 +373,7 @@ export class QuizScoringService {
     return Math.round((correctAnswers / totalQuestions) * 100);
   }
 
+  // ── private methods ─────────────────────────────────────────────
   private updateCorrectCountForResults(value: number): void {
     const safeValue = Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
     this.correctCountSig.set(safeValue);
