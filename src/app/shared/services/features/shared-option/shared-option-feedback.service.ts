@@ -1,4 +1,4 @@
-﻿import { Injectable } from '@angular/core';
+﻿import { Injectable, inject } from '@angular/core';
 
 import { Option } from '../../../models/Option.model';
 import { OptionBindings } from '../../../models/OptionBindings.model';
@@ -73,13 +73,11 @@ export interface RegenerateFeedbackResult {
 
 @Injectable({ providedIn: 'root' })
 export class SharedOptionFeedbackService {
-  constructor(
-    private feedbackService: FeedbackService,
-    private quizService: QuizService,
-    private selectedOptionService: SelectedOptionService,
-    private clickHandler: OptionClickHandlerService,
-    private optionService: OptionService
-  ) {}
+  private feedbackService = inject(FeedbackService);
+  private quizService = inject(QuizService);
+  private selectedOptionService = inject(SelectedOptionService);
+  private clickHandler = inject(OptionClickHandlerService);
+  private optionService = inject(OptionService);
 
   /**
    * Generates a FeedbackProps config for a clicked option.
