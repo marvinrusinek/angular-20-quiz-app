@@ -5,9 +5,11 @@ import { distinctUntilChanged } from 'rxjs/operators';
 
 @Injectable({ providedIn: 'root' })
 export class NextButtonStateService {
+  // ── signals ─────────────────────────────────────────────────────
   readonly isButtonEnabled = signal<boolean>(false);
   public isButtonEnabled$ = toObservable(this.isButtonEnabled);
 
+  // ── computed ────────────────────────────────────────────────────
   // Reactive style derived from the enabled signal — auto-recomputes
   // whenever isButtonEnabled changes.
   readonly nextButtonStyleSig = computed<{ [key: string]: string }>(() => ({
@@ -16,6 +18,7 @@ export class NextButtonStateService {
     'pointer-events': 'auto'
   }));
 
+  // ── properties ──────────────────────────────────────────────────
   private nextButtonStateSubscription?: Subscription;
   private initialized = false;
 
@@ -23,8 +26,7 @@ export class NextButtonStateService {
   // Decremented by a timer so it auto-expires.
   private _forceHoldUntil = 0;
 
-  constructor() { }
-
+  // ── public methods ──────────────────────────────────────────────
   public initializeNextButtonStateStream(
     isAnswered$: Observable<boolean>,
     isLoading$: Observable<boolean>,
