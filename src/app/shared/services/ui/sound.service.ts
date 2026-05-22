@@ -5,12 +5,15 @@ import { SelectedOption } from '../../models/SelectedOption.model';
 
 @Injectable({ providedIn: 'root' })
 export class SoundService {
+  // ── properties ──────────────────────────────────────────────────
   private sounds: { [key: string]: Howl } = {};
 
+  // ── constructor / lifecycle ─────────────────────────────────────
   constructor() {
     this.initializeSounds();
   }
 
+  // ── public methods ──────────────────────────────────────────────
   initializeSounds(): void {
     const commonConfig = {
       html5: false,
