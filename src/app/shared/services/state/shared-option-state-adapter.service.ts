@@ -63,6 +63,8 @@ export interface SharedOptionHost {
 
 @Injectable({ providedIn: 'root' })
 export class SharedOptionStateAdapterService {
+  // ── public methods ──────────────────────────────────────────────
+
   // UI STATE BUNDLE HELPERS
 
   createInitialUiState(): SharedOptionUiState {
