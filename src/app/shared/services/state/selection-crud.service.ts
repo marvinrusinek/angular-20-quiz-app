@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 
 import { Option } from '../../models/Option.model';
 import { SelectedOption } from '../../models/SelectedOption.model';
@@ -14,10 +14,11 @@ type Host = SelectedOptionService;
  */
 @Injectable({ providedIn: 'root' })
 export class SelectionCrudService {
-  constructor(
-    private idResolver: OptionIdResolverService,
-    private quizService: QuizService
-  ) {}
+  // ── injects ─────────────────────────────────────────────────────
+  private idResolver = inject(OptionIdResolverService);
+  private quizService = inject(QuizService);
+
+  // ── public methods ──────────────────────────────────────────────
 
   // ── syncSelectionState ──────────────────────────────────────
 
