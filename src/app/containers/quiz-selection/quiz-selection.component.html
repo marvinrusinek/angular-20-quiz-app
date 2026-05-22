@@ -124,8 +124,12 @@
   </footer>
 </div>
 
-<app-scroll-down-indicator targetSelector=".container" />
-<app-back-to-top />
+@defer (on idle) {
+  <app-scroll-down-indicator targetSelector=".container" />
+}
+@defer (on idle) {
+  <app-back-to-top />
+}
 
 <!--
   <ion-page>
