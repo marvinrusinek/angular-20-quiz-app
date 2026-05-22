@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 
 import { QuizStatus } from '../../models/quiz-status.enum';
 import { QuizService } from '../data/quiz.service';
@@ -12,11 +12,12 @@ import { SelectedOptionService } from './selectedoption.service';
  */
 @Injectable({ providedIn: 'root' })
 export class QuizPersistenceService {
-  constructor(
-    private quizService: QuizService,
-    private quizDataService: QuizDataService,
-    private selectedOptionService: SelectedOptionService
-  ) {}
+  // ── injects ─────────────────────────────────────────────────────
+  private quizDataService = inject(QuizDataService);
+  private quizService = inject(QuizService);
+  private selectedOptionService = inject(SelectedOptionService);
+
+  // ── public methods ──────────────────────────────────────────────
 
   // ═══════════════════════════════════════════════════════════════
   // STORAGE KEY HELPERS
