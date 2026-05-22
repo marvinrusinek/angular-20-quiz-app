@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 
 import { QqcComponentOrchestratorService } from './qqc-component-orchestrator.service';
 import { QqcDisplayStateManagerService } from './qqc-display-state-manager.service';
@@ -24,21 +24,20 @@ import { QqcTimerEffectService } from './qqc-timer-effect.service';
  */
 @Injectable({ providedIn: 'root' })
 export class QuizQuestionFacadeService {
-  constructor(
-    public readonly componentOrchestrator: QqcComponentOrchestratorService,
-    public readonly displayStateManager: QqcDisplayStateManagerService,
-    public readonly explanationDisplay: QqcExplanationDisplayService,
-    public readonly explanationFlow: QqcExplanationFlowService,
-    public readonly explanationManager: QqcExplanationManagerService,
-    public readonly feedbackManager: QqcFeedbackManagerService,
-    public readonly initializer: QqcInitializerService,
-    public readonly lifecycle: QqcLifecycleService,
-    public readonly navigationHandler: QqcNavigationHandlerService,
-    public readonly clickOrchestrator: QqcOptionClickOrchestratorService,
-    public readonly optionSelection: QqcOptionSelectionService,
-    public readonly questionLoader: QqcQuestionLoaderService,
-    public readonly resetManager: QqcResetManagerService,
-    public readonly subscriptionWiring: QqcSubscriptionWiringService,
-    public readonly timerEffect: QqcTimerEffectService
-  ) {}
+  // ── injects ─────────────────────────────────────────────────────
+  public readonly clickOrchestrator = inject(QqcOptionClickOrchestratorService);
+  public readonly componentOrchestrator = inject(QqcComponentOrchestratorService);
+  public readonly displayStateManager = inject(QqcDisplayStateManagerService);
+  public readonly explanationDisplay = inject(QqcExplanationDisplayService);
+  public readonly explanationFlow = inject(QqcExplanationFlowService);
+  public readonly explanationManager = inject(QqcExplanationManagerService);
+  public readonly feedbackManager = inject(QqcFeedbackManagerService);
+  public readonly initializer = inject(QqcInitializerService);
+  public readonly lifecycle = inject(QqcLifecycleService);
+  public readonly navigationHandler = inject(QqcNavigationHandlerService);
+  public readonly optionSelection = inject(QqcOptionSelectionService);
+  public readonly questionLoader = inject(QqcQuestionLoaderService);
+  public readonly resetManager = inject(QqcResetManagerService);
+  public readonly subscriptionWiring = inject(QqcSubscriptionWiringService);
+  public readonly timerEffect = inject(QqcTimerEffectService);
 }
