@@ -1,4 +1,4 @@
-﻿import { Injectable } from '@angular/core';
+﻿import { Injectable, inject } from '@angular/core';
 
 import { Option } from '../../models/Option.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
@@ -61,15 +61,16 @@ export interface OptionEvaluationResult {
  */
 @Injectable({ providedIn: 'root' })
 export class QuizOptionProcessingService {
-  constructor(
-    private quizService: QuizService,
-    private selectedOptionService: SelectedOptionService,
-    private dotStatusService: QuizDotStatusService,
-    private quizPersistence: QuizPersistenceService,
-    private quizScoringService: QuizScoringService,
-    private quizStateService: QuizStateService,
-    private nextButtonStateService: NextButtonStateService
-  ) {}
+  // ── injects ─────────────────────────────────────────────────────
+  private dotStatusService = inject(QuizDotStatusService);
+  private nextButtonStateService = inject(NextButtonStateService);
+  private quizPersistence = inject(QuizPersistenceService);
+  private quizScoringService = inject(QuizScoringService);
+  private quizService = inject(QuizService);
+  private quizStateService = inject(QuizStateService);
+  private selectedOptionService = inject(SelectedOptionService);
+
+  // ── public methods ──────────────────────────────────────────────
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // FULL OPTION CLICK ORCHESTRATION
