@@ -1,4 +1,4 @@
-﻿import { Injectable } from '@angular/core';
+﻿import { Injectable, inject } from '@angular/core';
 
 import { Option } from '../../../models/Option.model';
 import { OptionBindings } from '../../../models/OptionBindings.model';
@@ -15,15 +15,16 @@ import { ExplanationTextService } from '../../features/explanation/explanation-t
 
 @Injectable({ providedIn: 'root' })
 export class SharedOptionBindingService {
-  constructor(
-    private quizService: QuizService,
-    private selectedOptionService: SelectedOptionService,
-    private feedbackService: FeedbackService,
-    private optionBindingFactory: OptionBindingFactoryService,
-    private explanationTextService: ExplanationTextService,
-    private clickHandler: OptionClickHandlerService,
-    private optionService: OptionService
-  ) {}
+  // ── injects ─────────────────────────────────────────────────────
+  private clickHandler = inject(OptionClickHandlerService);
+  private explanationTextService = inject(ExplanationTextService);
+  private feedbackService = inject(FeedbackService);
+  private optionBindingFactory = inject(OptionBindingFactoryService);
+  private optionService = inject(OptionService);
+  private quizService = inject(QuizService);
+  private selectedOptionService = inject(SelectedOptionService);
+
+  // ── public methods ──────────────────────────────────────────────
 
   synchronizeOptionBindings(comp: any): void {
     if (!Array.isArray(comp.optionsToDisplay) || comp.optionsToDisplay.length === 0) {
