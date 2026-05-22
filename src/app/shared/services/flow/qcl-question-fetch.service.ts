@@ -1,4 +1,4 @@
-﻿import { Injectable } from '@angular/core';
+﻿import { Injectable, inject } from '@angular/core';
 import { firstValueFrom, Observable, of } from 'rxjs';
 import { catchError, filter, map, take } from 'rxjs/operators';
 
@@ -24,16 +24,14 @@ import { FetchQuestionResult, RouteChangeQuestionResult, RouteQuestionResult }
  */
 @Injectable({ providedIn: 'root' })
 export class QclQuestionFetchService {
-  constructor(
-    private quizService: QuizService,
-    private quizDataService: QuizDataService,
-    private quizStateService: QuizStateService,
-    private explanationTextService: ExplanationTextService,
-    private quizQuestionDataService: QuizQuestionDataService,
-    private quizQuestionLoaderService: QqcQuestionLoaderService,
-    private selectedOptionService: SelectedOptionService,
-    private selectionMessageService: SelectionMessageService
-  ) {}
+  private explanationTextService = inject(ExplanationTextService);
+  private quizDataService = inject(QuizDataService);
+  private quizQuestionDataService = inject(QuizQuestionDataService);
+  private quizQuestionLoaderService = inject(QqcQuestionLoaderService);
+  private quizService = inject(QuizService);
+  private quizStateService = inject(QuizStateService);
+  private selectedOptionService = inject(SelectedOptionService);
+  private selectionMessageService = inject(SelectionMessageService);
 
   async loadQuestionFromRouteChange(params: {
     quizId: string;
