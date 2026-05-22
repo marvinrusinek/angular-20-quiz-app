@@ -6,6 +6,7 @@ import { QuizQuestion } from '../../models/QuizQuestion.model';
 
 @Injectable({ providedIn: 'root' })
 export class QuizQuestionManagerService {
+  // ── public methods ──────────────────────────────────────────────
   getNumberOfCorrectAnswersText(
     numberOfCorrectAnswers: number | undefined,
     totalOptions: number | undefined,
@@ -34,6 +35,11 @@ export class QuizQuestionManagerService {
     return of(this.isMultipleAnswerQuestionSync(question));
   }
 
+  isValidQuestionData(questionData: QuizQuestion): boolean {
+    return !!questionData && !!questionData.explanation;
+  }
+
+  // ── private methods ─────────────────────────────────────────────
   private isMultipleAnswerQuestionSync(question: QuizQuestion): boolean {
     try {
       if (question && Array.isArray(question.options)) {
@@ -46,9 +52,5 @@ export class QuizQuestionManagerService {
     } catch (error: any) {
       return false;
     }
-  }
-
-  isValidQuestionData(questionData: QuizQuestion): boolean {
-    return !!questionData && !!questionData.explanation;
   }
 }
