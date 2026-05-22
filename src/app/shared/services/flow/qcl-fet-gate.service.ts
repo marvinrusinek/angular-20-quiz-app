@@ -14,10 +14,12 @@ import { QuestionStateResult } from './quiz-content-loader.service';
 @Injectable({ providedIn: 'root' })
 export class QclFetGateService {
 
+  // ── injects ─────────────────────────────────────────────────────
   private explanationTextService = inject(ExplanationTextService);
   private quizService = inject(QuizService);
   private quizStateService = inject(QuizStateService);
 
+  // ── public methods ──────────────────────────────────────────────
   lockAndPurgeFet(adjustedIndex: number): void {
     const ets = this.explanationTextService;
     try {

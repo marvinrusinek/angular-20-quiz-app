@@ -24,6 +24,7 @@ import { FetchQuestionResult, RouteChangeQuestionResult, RouteQuestionResult }
  */
 @Injectable({ providedIn: 'root' })
 export class QclQuestionFetchService {
+  // ── injects ─────────────────────────────────────────────────────
   private explanationTextService = inject(ExplanationTextService);
   private quizDataService = inject(QuizDataService);
   private quizQuestionDataService = inject(QuizQuestionDataService);
@@ -33,6 +34,7 @@ export class QclQuestionFetchService {
   private selectedOptionService = inject(SelectedOptionService);
   private selectionMessageService = inject(SelectionMessageService);
 
+  // ── public methods ──────────────────────────────────────────────
   async loadQuestionFromRouteChange(params: {
     quizId: string;
     index: number;

@@ -18,6 +18,7 @@ import { SessionSnapshotResult } from './quiz-content-loader.service';
 @Injectable({ providedIn: 'root' })
 export class QclSessionRestoreService {
 
+  // ── injects ─────────────────────────────────────────────────────
   private explanationTextService = inject(ExplanationTextService);
   private quizQuestionDataService = inject(QuizQuestionDataService);
   private quizScoringService = inject(QuizScoringService);
@@ -25,6 +26,7 @@ export class QclSessionRestoreService {
   private quizStateService = inject(QuizStateService);
   private selectedOptionService = inject(SelectedOptionService);
 
+  // ── public methods ──────────────────────────────────────────────
   syncQuestionSnapshot(params: {
     hydratedQuestions: QuizQuestion[];
     currentQuestionIndex: number;
