@@ -5,6 +5,7 @@ import { OptionUiSyncContext } from '../engine/option-ui-sync.service';
 
 @Injectable({ providedIn: 'root' })
 export class OptionUiContextBuilderService {
+  // ── public methods ──────────────────────────────────────────────
   build(ctx: OptionUiSyncContext): OptionUiSyncContext {
     return ctx;
   }
