@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { Option } from '../../models/Option.model';
@@ -24,12 +24,12 @@ export interface NewQuestionResult {
 @Injectable({ providedIn: 'root' })
 export class QuizCorrectAnswersService {
 
-  constructor(
-    private quizQuestionManagerService: QuizQuestionManagerService,
-    private quizService: QuizService,
-    private explanationTextService: ExplanationTextService
-  ) {}
+  // ── injects ─────────────────────────────────────────────────────
+  private explanationTextService = inject(ExplanationTextService);
+  private quizQuestionManagerService = inject(QuizQuestionManagerService);
+  private quizService = inject(QuizService);
 
+  // ── public methods ──────────────────────────────────────────────
   async isMultipleAnswer(question: QuizQuestion): Promise<boolean> {
     return await firstValueFrom(
       this.quizQuestionManagerService.isMultipleAnswerQuestion(question)
