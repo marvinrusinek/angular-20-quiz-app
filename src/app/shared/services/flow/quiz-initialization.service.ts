@@ -1,4 +1,4 @@
-import { DestroyRef, Injectable } from '@angular/core';
+import { DestroyRef, Injectable, inject } from '@angular/core';
 
 import { NextButtonStateService } from '../state/next-button-state.service';
 import { QuizStateService } from '../state/quizstate.service';
@@ -6,12 +6,12 @@ import { SelectedOptionService } from '../state/selectedoption.service';
 
 @Injectable({ providedIn: 'root' })
 export class QuizInitializationService {
-  constructor(
-    private nextButtonStateService: NextButtonStateService,
-    private quizStateService: QuizStateService,
-    private selectedOptionService: SelectedOptionService
-  ) {}
+  // ── injects ─────────────────────────────────────────────────────
+  private nextButtonStateService = inject(NextButtonStateService);
+  private quizStateService = inject(QuizStateService);
+  private selectedOptionService = inject(SelectedOptionService);
 
+  // ── public methods ──────────────────────────────────────────────
   initializeAnswerSync(destroyRef: DestroyRef): void {
     this.nextButtonStateService.initializeNextButtonStateStream(
       this.selectedOptionService.isAnswered$,
