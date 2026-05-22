@@ -1,4 +1,4 @@
-﻿import { Injectable } from '@angular/core';
+﻿import { inject, Injectable } from '@angular/core';
 
 import { Option } from '../../../models/Option.model';
 import { SelectedOption } from '../../../models/SelectedOption.model';
@@ -18,21 +18,20 @@ import { SelectionMessageService } from '../selection-message/selection-message.
  */
 @Injectable({ providedIn: 'root' })
 export class QqcOptionClickOrchestratorService {
+  // ── injects ─────────────────────────────────────────────────────
+  private readonly nextButtonStateService = inject(NextButtonStateService);
+  private readonly quizService = inject(QuizService);
+  private readonly quizShuffleService = inject(QuizShuffleService);
+  private readonly quizStateService = inject(QuizStateService);
+  private readonly selectedOptionService = inject(SelectedOptionService);
+  private readonly selectionMessageService = inject(SelectionMessageService);
 
+  // ── remaining variables ─────────────────────────────────────────
   /**
    * Per-question multi-answer selection tracking.
-   * Maps question index â†’ set of selected option indices.
+   * Maps question index → set of selected option indices.
    */
   private _multiAnswerSelections = new Map<number, Set<number>>();
-
-  constructor(
-    private nextButtonStateService: NextButtonStateService,
-    private selectedOptionService: SelectedOptionService,
-    private selectionMessageService: SelectionMessageService,
-    private quizService: QuizService,
-    private quizShuffleService: QuizShuffleService,
-    private quizStateService: QuizStateService
-  ) {}
 
   /**
    * Computes a stable ID for an option, used for deduplication and matching.
