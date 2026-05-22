@@ -2,9 +2,12 @@ import { Injectable } from '@angular/core';
 
 @Injectable({ providedIn: 'root' })
 export class OptionLockStateService {
+  // ── properties ──────────────────────────────────────────────────
   private _lockedByQuestion = new Map<number, Set<string | number>>();
   private _questionLocks = new Set<number>();
   public _lockedOptionsMap: Map<number, Set<number>> = new Map();
+
+  // ── public methods ──────────────────────────────────────────────
 
   // ── Option-level locking ───────────────────────────────────
 
