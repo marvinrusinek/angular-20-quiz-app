@@ -1,4 +1,4 @@
-﻿import { Injectable, signal } from '@angular/core';
+﻿import { inject, Injectable, signal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { ActivatedRouteSnapshot, Router } from '@angular/router';
 import { firstValueFrom, forkJoin, lastValueFrom, of } from 'rxjs';
@@ -26,6 +26,18 @@ import { TimerService } from '../timer/timer.service';
  */
 @Injectable({ providedIn: 'root' })
 export class QqcQlStreamService {
+  // ── injects ─────────────────────────────────────────────────────
+  private readonly explanationTextService = inject(ExplanationTextService);
+  private readonly quizDataService = inject(QuizDataService);
+  private readonly quizService = inject(QuizService);
+  private readonly quizStateService = inject(QuizStateService);
+  private readonly resetBackgroundService = inject(ResetBackgroundService);
+  private readonly resetStateService = inject(ResetStateService);
+  private readonly selectedOptionService = inject(SelectedOptionService);
+  private readonly selectionMessageService = inject(SelectionMessageService);
+  private readonly timerService = inject(TimerService);
+  private readonly router = inject(Router);
+
   question: QuizQuestion | null = null;
   questionData: QuizQuestion | null = null;
   questionPayload: QuestionPayload | null = null;
@@ -101,18 +113,7 @@ export class QqcQlStreamService {
   readonly quietZoneUntilSig = signal<number>(0);
   public quietZoneUntil$ = toObservable(this.quietZoneUntilSig);
 
-  constructor(
-    private explanationTextService: ExplanationTextService,
-    private quizService: QuizService,
-    private quizDataService: QuizDataService,
-    private quizStateService: QuizStateService,
-    private resetBackgroundService: ResetBackgroundService,
-    private resetStateService: ResetStateService,
-    private selectedOptionService: SelectedOptionService,
-    private selectionMessageService: SelectionMessageService,
-    private timerService: TimerService,
-    private router: Router
-  ) {
+  constructor() {
     (this.explanationTextService as any)._loaderRef = this;
   }
 
