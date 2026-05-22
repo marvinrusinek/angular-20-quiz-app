@@ -579,8 +579,17 @@ export class QqcOptionClickOrchestratorService {
       isMultiForSelection
     });
 
-    // Apply correctness state to services
-    this.applyCorrectnessState({ enableNext, isMultiForSelection });
+    // Apply correctness state to services. When the question is already
+    // locked (e.g. timer-expired auto-resolution), force enableNext=true so
+    // a post-timeout click can't accidentally disable a Next button that's
+    // already been enabled by the timeout pathway.
+    let effectiveEnableNext = enableNext;
+    try {
+      if (this.selectedOptionService.isQuestionLocked?.(questionIndex)) {
+        effectiveEnableNext = true;
+      }
+    } catch { /* ignore */ }
+    this.applyCorrectnessState({ enableNext: effectiveEnableNext, isMultiForSelection });
 
     return {
       optionsNow,
