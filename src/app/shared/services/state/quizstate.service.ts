@@ -9,6 +9,8 @@ import { QuizQuestion } from '../../models/QuizQuestion.model';
 
 @Injectable({ providedIn: 'root' })
 export class QuizStateService {
+  // ── signals / computed / properties ─────────────────────────────
+
   // ── Signal-first state (current question / index / options) ────
   readonly currentQuestionSig = signal<QuizQuestion | null>(null);
   currentQuestion$: Observable<QuizQuestion | null> =
@@ -68,6 +70,7 @@ export class QuizStateService {
 
   // All signals are now signal-first (declared above)
 
+  // ── constructor / lifecycle ─────────────────────────────────────
   constructor() {
     this.questionStates = new Map<number, QuestionState>();
     this.restoreInteractionState();
@@ -76,6 +79,8 @@ export class QuizStateService {
     // only grows on actual user clicks or refresh-of-answered-question.
     this.seedClickedInSessionFromRefresh();
   }
+
+  // ── methods / additional state ──────────────────────────────────
 
   // Persist _hasUserInteracted and _answeredQuestionIndices across page
   // refreshes so that the FET display pipeline recognises previously
