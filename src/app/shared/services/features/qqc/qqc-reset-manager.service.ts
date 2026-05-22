@@ -5,6 +5,7 @@ import { Option } from '../../../models/Option.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
 import { ExplanationTextService } from '../explanation/explanation-text.service';
+import { NextButtonStateService } from '../../state/next-button-state.service';
 import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 import { TimerService } from '../timer/timer.service';
@@ -17,6 +18,7 @@ import { TimerService } from '../timer/timer.service';
 export class QqcResetManagerService {
   // ── injects ─────────────────────────────────────────────────────
   private readonly explanationTextService = inject(ExplanationTextService);
+  private readonly nextButtonStateService = inject(NextButtonStateService);
   private readonly quizStateService = inject(QuizStateService);
   private readonly selectedOptionService = inject(SelectedOptionService);
   private readonly timerService = inject(TimerService);
@@ -78,6 +80,20 @@ export class QqcResetManagerService {
       this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
       this.quizStateService.setAnswered(true);
       this.quizStateService.setAnswerSelected(true);
+      // Also flip SelectedOptionService.isAnsweredSig and force-enable the
+      // Next button so revisited (already-answered) questions don't leave
+      // Next stuck disabled. The reactive Next-button stream is driven by
+      // selectedOptionService.isAnswered$, so flip that here; the
+      // forceEnable buys 1500ms of held-enable to outlast any
+      // navigation-end resets that fire after this point.
+      try { this.selectedOptionService.setAnswered?.(true, true); } catch { }
+      try { this.nextButtonStateService.forceEnable?.(1500); } catch { }
+      // Re-apply after the next macrotask in case a downstream reset path
+      // disables the button between now and the end of navigation.
+      setTimeout(() => {
+        try { this.selectedOptionService.setAnswered?.(true, true); } catch { }
+        try { this.nextButtonStateService.forceEnable?.(1500); } catch { }
+      }, 0);
     } else {
       this.explanationTextService.unlockExplanation?.();
       this.explanationTextService.resetExplanationText();
@@ -180,25 +196,80 @@ export class QqcResetManagerService {
 
   /**
    * Restores selections and icons for a question from the service state.
+   *
+   * Behavior on revisit (Previous):
+   *   - If the question was answered with ALL correct options selected
+   *     (perfect — no missing, no extras), restore the selected state + icon
+   *     + highlight so the user sees their correct answer persisted.
+   *   - Otherwise (incorrect, partial, or timer-expired with no selection):
+   *     clear all option marks so nothing is highlighted/selected on revisit.
    */
   restoreSelectionsAndIcons(
     index: number,
     optionsToDisplay: Option[]
   ): Option[] {
     const selectedOptions =
-      this.selectedOptionService.getSelectedOptionsForQuestion(index);
+      this.selectedOptionService.getSelectedOptionsForQuestion(index) ?? [];
+
+    const wasPerfect = this.wasAnsweredPerfectly(optionsToDisplay, selectedOptions);
+
+    if (!wasPerfect) {
+      // No persisted marks for imperfect/none.
+      return optionsToDisplay?.map(opt => ({
+        ...opt,
+        selected: false,
+        showIcon: false,
+        highlight: false
+      })) ?? [];
+    }
 
     return optionsToDisplay?.map(opt => {
       const match = selectedOptions.find(
         (sel) => sel.optionId === opt.optionId
       );
+      const isSelectedAndCorrect =
+        !!match && (opt as any).correct === true;
       return {
         ...opt,
-        selected: !!match,
-        showIcon: !!match?.showIcon,
-        highlight: false
+        selected: isSelectedAndCorrect,
+        showIcon: isSelectedAndCorrect,
+        highlight: isSelectedAndCorrect
       };
     }) ?? [];
+  }
+
+  /**
+   * Returns true only when every correct option in `optionsToDisplay` is
+   * present in `selectedOptions` AND no incorrect option was selected.
+   */
+  private wasAnsweredPerfectly(
+    optionsToDisplay: Option[],
+    selectedOptions: { optionId?: number | string }[]
+  ): boolean {
+    if (!Array.isArray(optionsToDisplay) || optionsToDisplay.length === 0) return false;
+    if (!Array.isArray(selectedOptions) || selectedOptions.length === 0) return false;
+
+    const isCorrect = (o: any): boolean =>
+      o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true';
+
+    const correctIds = new Set<string>(
+      optionsToDisplay.filter(isCorrect).map(o => String(o.optionId))
+    );
+    if (correctIds.size === 0) return false;
+
+    const selectedIds = new Set<string>(
+      selectedOptions.map(s => String(s?.optionId))
+    );
+
+    // Every correct id must be selected
+    for (const id of correctIds) {
+      if (!selectedIds.has(id)) return false;
+    }
+    // And no incorrect id may be selected
+    for (const id of selectedIds) {
+      if (!correctIds.has(id)) return false;
+    }
+    return true;
   }
 
   /**

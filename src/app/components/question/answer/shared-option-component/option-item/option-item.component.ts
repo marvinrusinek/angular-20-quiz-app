@@ -203,6 +203,62 @@ export class OptionItemComponent implements OnInit {
 
   getOptionClasses(): { [key: string]: boolean } {
     const classes = { ...this.binding().cssClasses };
+
+    // Previous-revisit override (highest priority): when the user revisits a
+    // FULLY-resolved question via Previous, paint correct options green and
+    // incorrect options dark gray. Without this, intermediate restore paths
+    // wipe the classes set upstream.
+    //
+    // Gate carefully so this does NOT fire mid-interaction:
+    //   • For single-answer: clickConfirmedDotStatus === 'correct' alone is
+    //     enough — picking the one correct option means the question is done.
+    //   • For multi-answer: require _multiAnswerPerfect[idx] === true — that's
+    //     only set when EVERY correct option has been selected. Otherwise
+    //     intermediate clicks (1 of 2 correct) would falsely highlight all
+    //     correct options at once.
+    try {
+      const _qIdxRev = this.currentQuestionIndex();
+      const _dot = this.selectedOptionService.clickConfirmedDotStatus?.get?.(_qIdxRev);
+      const _opt: any = this.binding()?.option;
+      const _isCorrect = _opt?.correct === true || _opt?.correct === 1 || String(_opt?.correct) === 'true';
+      const isMulti = this.type() === 'multiple';
+      const perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
+      const multiPerfect = perfectMap?.get(_qIdxRev) === true;
+      const fullyResolvedCorrect = _dot === 'correct' && (!isMulti || multiPerfect);
+      const fullyResolvedWrong = _dot === 'wrong';
+      if (fullyResolvedCorrect) {
+        if (_isCorrect) {
+          return {
+            ...classes,
+            'selected': true,
+            'selected-option': true,
+            'correct-option': true,
+            'incorrect-option': false,
+            'highlighted': true,
+            'disabled-option': false
+          };
+        }
+        return {
+          ...classes,
+          'selected': false,
+          'selected-option': false,
+          'correct-option': false,
+          'incorrect-option': false,
+          'highlighted': false,
+          'disabled-option': true
+        };
+      } else if (fullyResolvedWrong) {
+        return {
+          ...classes,
+          'selected': false,
+          'selected-option': false,
+          'correct-option': false,
+          'incorrect-option': false,
+          'highlighted': false,
+          'disabled-option': false
+        };
+      }
+    } catch { /* ignore */ }
     // TEMP DIAGNOSTIC — final-stage class assignment. Logs whenever
     // `correct-option: true` is present in the returned class map,
     // showing exactly which branch put it there.
@@ -265,6 +321,27 @@ export class OptionItemComponent implements OnInit {
     const _DBG_TEXT = this.binding()?.option?.text;
     const _DBG_LOG = (path: string, extra?: any) => {
     };
+
+    // Previous-revisit override: on a FULLY-resolved correct question, every
+    // INCORRECT option must render disabled so the SCSS rule
+    // (.option-row.mat-mdc-radio-disabled:not(.correct-option):not(.incorrect-option))
+    // paints it dark gray. The correct (selected) option stays interactive=false-
+    // safe via its 'correct-option' class which already pointer-events:none.
+    try {
+      const _qIdxRev = this.currentQuestionIndex();
+      const _dot = this.selectedOptionService.clickConfirmedDotStatus?.get?.(_qIdxRev);
+      if (_dot === 'correct') {
+        const isMulti = this.type() === 'multiple';
+        const perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
+        const multiPerfect = perfectMap?.get(_qIdxRev) === true;
+        if (!isMulti || multiPerfect) {
+          const _opt: any = this.binding()?.option;
+          const _isCorrect = _opt?.correct === true || _opt?.correct === 1 || String(_opt?.correct) === 'true';
+          if (!_isCorrect) return true;
+        }
+      }
+    } catch { /* ignore */ }
+
     // Timer-expiry handler stamped all bindings as disabled
     if (this.isTimerStamped()) { _DBG_LOG('isTimerStamped'); return true; }
 

@@ -302,8 +302,14 @@ export class SharedOptionComponent
           // the click pipeline's signal writes re-trigger the effect and
           // the scrub wipes the just-clicked option.selected back to false.
           const _perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
+          // Also treat a click-confirmed CORRECT dot status as "resolved" so
+          // single-answer-correct questions retain their highlight on
+          // revisit (Previous). Without this the microtask scrub clears the
+          // option highlight we set in QqcResetManager.restoreSelectionsAndIcons.
+          const _confirmedCorrect = this.selectedOptionService.clickConfirmedDotStatus?.get(v) === 'correct';
           const _isResolved = this.selectedOptionService.isQuestionLocked?.(v) === true
-                              || _perfectMap?.get(v) === true;
+                              || _perfectMap?.get(v) === true
+                              || _confirmedCorrect;
           if (!_isResolved) {
             queueMicrotask(() => {
               this._multiSelectByQuestion?.delete(v);

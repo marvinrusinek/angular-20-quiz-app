@@ -236,6 +236,64 @@ export class SharedOptionBindingService {
 
     comp.rehydrateUiFromState('generateOptionBindings');
 
+    // Previous-revisit visual override. After all the standard binding paths
+    // have run, force the Previous-revisit semantics:
+    //   • Question was answered correctly (clickConfirmedDotStatus === 'correct'):
+    //       correct options stay highlighted; incorrect options are greyed out.
+    //   • Question was answered incorrectly: clear all marks.
+    // This runs unconditionally (no hasUserClicked guard) so it survives the
+    // standard rehydrate path's early-returns.
+    try {
+      const qIdx = comp.resolveCurrentQuestionIndex?.()
+        ?? comp.questionIndex?.()
+        ?? comp.currentQuestionIndex
+        ?? 0;
+      const isCorrectOpt = (o: any): boolean =>
+        o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true';
+      const dotStatus = this.selectedOptionService.clickConfirmedDotStatus?.get?.(qIdx);
+      const current = comp.optionBindings?.();
+      if (Array.isArray(current) && current.length > 0 && (dotStatus === 'correct' || dotStatus === 'wrong')) {
+        // Build a NEW array of NEW binding refs with NEW option refs so that
+        // OnPush option-items re-render with the corrected visuals. Mutating
+        // in place leaves Angular blind to the change.
+        const refreshed = current.map((b: any) => {
+          if (!b) return b;
+          const isCorrect = isCorrectOpt(b.option);
+          const correctRevisit = dotStatus === 'correct';
+          const showHighlight = correctRevisit && isCorrect;
+          const greyOut = correctRevisit && !isCorrect;
+
+          const newOption = {
+            ...(b.option ?? {}),
+            selected: showHighlight,
+            highlight: showHighlight,
+            showIcon: showHighlight,
+            active: !greyOut,
+            // Stamp so option-item.shouldHighlightOption picks the green branch
+            ...(showHighlight ? { _autoRevealedCorrect: true } : { _autoRevealedCorrect: false })
+          };
+
+          // Mirror correct-class into cssClasses so getOptionClasses sees it
+          // even if downstream code wipes option.highlight afterwards.
+          const newCss = { ...(b.cssClasses ?? {}) };
+          newCss['correct-option'] = !!showHighlight;
+          newCss['incorrect-option'] = false;
+
+          return {
+            ...b,
+            option: newOption,
+            isSelected: showHighlight,
+            disabled: greyOut,
+            highlightCorrect: showHighlight,
+            highlightIncorrect: false,
+            cssClasses: newCss
+          };
+        });
+        comp.optionBindings.set(refreshed);
+        try { comp.cdRef?.markForCheck?.(); } catch { /* ignore */ }
+      }
+    } catch { /* ignore */ }
+
     const hasFreshFeedback = Object.keys(comp.feedbackConfigs).length > 0;
     if (!hasFreshFeedback) comp.rebuildShowFeedbackMapFromBindings();
 
@@ -506,36 +564,81 @@ export class SharedOptionBindingService {
       }
       if (savedByIndex.size === 0) return;
 
+      // Was the question previously answered perfectly? Drives Previous-revisit
+      // visuals:
+      //   • perfect → correct opts keep highlight, others appear disabled (gray)
+      //   • imperfect/none → every option resets clean
+      const isCorrectOpt = (o: any): boolean =>
+        o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true';
+      const dotStatus = this.selectedOptionService.clickConfirmedDotStatus?.get?.(qIndex);
+      const wasPerfect = dotStatus === 'correct';
+
       // Restored optionsToDisplay loop
       if (comp.optionsToDisplay?.length) {
         for (const [idx, opt] of comp.optionsToDisplay.entries()) {
-          let match = savedByIndex.get(idx);
-          if (match && opt) {
-            const isSelected = !!match.selected;
-            const isPreviouslyClicked = !isSelected && !!match.showIcon;
-          
-            opt.selected = isSelected;
-            opt.highlight = isPreviouslyClicked || isSelected;
-          
-            // Restore icon for selected entries or previously clicked entries.
-            opt.showIcon = isPreviouslyClicked ? !!match.showIcon : isSelected;
+          const match = savedByIndex.get(idx);
+          if (!opt) continue;
+
+          if (!wasPerfect) {
+            // Imperfect/none → clear every visible mark on this option
+            opt.selected = false;
+            opt.highlight = false;
+            opt.showIcon = false;
+            continue;
+          }
+
+          // Perfect: show full highlight on correct picks, leave others blank
+          // (they'll be greyed via b.disabled below).
+          const isCorrect = isCorrectOpt(opt);
+          if (isCorrect) {
+            const isSelected = !!match?.selected;
+            const isPreviouslyClicked = !isSelected && !!match?.showIcon;
+            opt.selected = isSelected || isPreviouslyClicked;
+            opt.highlight = isSelected || isPreviouslyClicked;
+            opt.showIcon = isSelected || isPreviouslyClicked;
+          } else {
+            opt.selected = false;
+            opt.highlight = false;
+            opt.showIcon = false;
           }
         }
       }
 
       if (comp.optionBindings()?.length) {
         for (const [idx, b] of comp.optionBindings().entries()) {
-          let match = savedByIndex.get(idx);
-          if (match) {
-            const isSelected = !!match.selected;
-            const isPreviouslyClicked = !isSelected && !!match.showIcon;
-          
-            b.isSelected = isSelected;
-            b.option.selected = isSelected;
-            b.option.highlight = isPreviouslyClicked || isSelected;
-            b.option.showIcon = isPreviouslyClicked ? !!match.showIcon : isSelected;
+          const match = savedByIndex.get(idx);
+          if (b.option) {
+            if (!wasPerfect) {
+              b.isSelected = false;
+              b.option.selected = false;
+              b.option.highlight = false;
+              b.option.showIcon = false;
+              // Restore normal interactivity (not greyed)
+              (b.option as any).active = true;
+              b.disabled = comp.computeDisabledState(b.option, idx);
+            } else {
+              const isCorrect = isCorrectOpt(b.option);
+              if (isCorrect) {
+                const isSelected = !!match?.selected;
+                const isPreviouslyClicked = !isSelected && !!match?.showIcon;
+                b.isSelected = isSelected || isPreviouslyClicked;
+                b.option.selected = isSelected || isPreviouslyClicked;
+                b.option.highlight = isSelected || isPreviouslyClicked;
+                b.option.showIcon = isSelected || isPreviouslyClicked;
+                (b.option as any).active = true;
+              } else {
+                b.isSelected = false;
+                b.option.selected = false;
+                b.option.highlight = false;
+                b.option.showIcon = false;
+                // Mark inactive so the option-row renders as greyed/disabled
+                (b.option as any).active = false;
+              }
+              // Lock the question's options on revisit so the user can't
+              // re-answer — also drives the grey appearance via .disabled.
+              b.disabled = true;
+            }
           }
-          b.disabled = comp.computeDisabledState(b.option, idx);
           b.showFeedback = true;
         }
       }
