@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 
 import { Option } from '../../../models/Option.model';
 import { OptionBindings } from '../../../models/OptionBindings.model';
@@ -12,8 +12,8 @@ import { QuizService } from '../../data/quiz.service';
  */
 @Injectable({ providedIn: 'root' })
 export class QqcQlOptionBuildService {
-
-  constructor(private quizService: QuizService) {}
+  // ── injects ─────────────────────────────────────────────────────
+  private readonly quizService = inject(QuizService);
 
   /**
    * Builds fresh options from a question's raw options.
