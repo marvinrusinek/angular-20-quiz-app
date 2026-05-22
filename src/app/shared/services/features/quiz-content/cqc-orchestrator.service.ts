@@ -1,4 +1,4 @@
-﻿import { Injectable } from '@angular/core';
+﻿import { inject, Injectable } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ParamMap } from '@angular/router';
 import {
@@ -26,11 +26,10 @@ type Host = CodelabQuizContentComponent;
  */
 @Injectable({ providedIn: 'root' })
 export class CqcOrchestratorService {
-  constructor(
-    private fetGuard: CqcFetGuardService,
-    private displayText: CqcDisplayTextService,
-    private questionNav: CqcQuestionNavService
-  ) {}
+  // ── injects ─────────────────────────────────────────────────────
+  private readonly fetGuard = inject(CqcFetGuardService);
+  private readonly displayText = inject(CqcDisplayTextService);
+  private readonly questionNav = inject(CqcQuestionNavService);
 
   async runOnInit(host: Host): Promise<void> {
     host.resetInitialState();
