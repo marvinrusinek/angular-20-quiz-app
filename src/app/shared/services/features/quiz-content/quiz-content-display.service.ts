@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { inject, Injectable, signal } from '@angular/core';
 import { combineLatest, Observable } from 'rxjs';
 import {
   distinctUntilChanged, filter, map, shareReplay, startWith, switchMap
@@ -36,14 +36,13 @@ export class QuizContentDisplayService {
   shouldShowFet$!: Observable<boolean>;
   fetToDisplay$!: Observable<string>;
 
-  constructor(
-    private explanationTextService: ExplanationTextService,
-    private quizService: QuizService,
-    private quizNavigationService: QuizNavigationService,
-    private quizQuestionManagerService: QuizQuestionManagerService,
-    private quizStateService: QuizStateService,
-    private selectedOptionService: SelectedOptionService
-  ) {}
+  // ── injects ─────────────────────────────────────────────────────
+  private readonly explanationTextService = inject(ExplanationTextService);
+  private readonly quizService = inject(QuizService);
+  private readonly quizNavigationService = inject(QuizNavigationService);
+  private readonly quizQuestionManagerService = inject(QuizQuestionManagerService);
+  private readonly quizStateService = inject(QuizStateService);
+  private readonly selectedOptionService = inject(SelectedOptionService);
 
   // ═══════════════════════════════════════════════════════════════════════
   // Formatted Explanation Observables (factory methods)
