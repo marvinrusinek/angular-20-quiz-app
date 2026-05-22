@@ -1,4 +1,4 @@
-﻿import { Injectable } from '@angular/core';
+﻿import { Injectable, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { EMPTY, firstValueFrom, of } from 'rxjs';
@@ -27,18 +27,19 @@ type Host = QuizComponent;
  */
 @Injectable({ providedIn: 'root' })
 export class QuizSetupDataService {
-  constructor(
-    private router: Router,
-    private quizService: QuizService,
-    private quizDataService: QuizDataService,
-    private quizStateService: QuizStateService,
-    private selectedOptionService: SelectedOptionService,
-    private nextButtonStateService: NextButtonStateService,
-    private timerService: TimerService,
-    private explanationTextService: ExplanationTextService,
-    private quizQuestionDataService: QuizQuestionDataService,
-    private quizContentLoaderService: QuizContentLoaderService
-  ) {}
+  // ── injects ─────────────────────────────────────────────────────
+  private explanationTextService = inject(ExplanationTextService);
+  private nextButtonStateService = inject(NextButtonStateService);
+  private quizContentLoaderService = inject(QuizContentLoaderService);
+  private quizDataService = inject(QuizDataService);
+  private quizQuestionDataService = inject(QuizQuestionDataService);
+  private quizService = inject(QuizService);
+  private quizStateService = inject(QuizStateService);
+  private router = inject(Router);
+  private selectedOptionService = inject(SelectedOptionService);
+  private timerService = inject(TimerService);
+
+  // ── public methods ──────────────────────────────────────────────
 
   // â”€â”€ Data loading â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
