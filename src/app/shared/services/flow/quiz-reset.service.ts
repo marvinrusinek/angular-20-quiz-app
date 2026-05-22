@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 
 import { QuizService } from '../data/quiz.service';
 import { QuizStateService } from '../state/quizstate.service';
@@ -19,20 +19,21 @@ import { SelectionMessageService } from '../features/selection-message/selection
  */
 @Injectable({ providedIn: 'root' })
 export class QuizResetService {
-  constructor(
-    private quizService: QuizService,
-    private quizStateService: QuizStateService,
-    private quizQuestionLoaderService: QqcQuestionLoaderService,
-    private explanationTextService: ExplanationTextService,
-    private nextButtonStateService: NextButtonStateService,
-    private selectedOptionService: SelectedOptionService,
-    private resetStateService: ResetStateService,
-    private resetBackgroundService: ResetBackgroundService,
-    private quizPersistence: QuizPersistenceService,
-    private dotStatusService: QuizDotStatusService,
-    private timerService: TimerService,
-    private selectionMessageService: SelectionMessageService
-  ) {}
+  // ── injects ─────────────────────────────────────────────────────
+  private dotStatusService = inject(QuizDotStatusService);
+  private explanationTextService = inject(ExplanationTextService);
+  private nextButtonStateService = inject(NextButtonStateService);
+  private quizPersistence = inject(QuizPersistenceService);
+  private quizQuestionLoaderService = inject(QqcQuestionLoaderService);
+  private quizService = inject(QuizService);
+  private quizStateService = inject(QuizStateService);
+  private resetBackgroundService = inject(ResetBackgroundService);
+  private resetStateService = inject(ResetStateService);
+  private selectedOptionService = inject(SelectedOptionService);
+  private selectionMessageService = inject(SelectionMessageService);
+  private timerService = inject(TimerService);
+
+  // ── public methods ──────────────────────────────────────────────
 
   // ═══════════════════════════════════════════════════════════════
   // POST-RESTART STATE (after navigation completes)
