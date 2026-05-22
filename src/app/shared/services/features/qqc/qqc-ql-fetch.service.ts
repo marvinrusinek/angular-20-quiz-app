@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { take } from 'rxjs/operators';
 
@@ -13,14 +13,13 @@ import { QuizDataService } from '../../data/quizdata.service';
  */
 @Injectable({ providedIn: 'root' })
 export class QqcQlFetchService {
+  // ── injects ─────────────────────────────────────────────────────
+  private readonly quizDataService = inject(QuizDataService);
+  private readonly quizService = inject(QuizService);
 
+  // ── remaining variables ─────────────────────────────────────────
   private isLoadingInProgress = false;
   private isQuizLoaded = false;
-
-  constructor(
-    private quizService: QuizService,
-    private quizDataService: QuizDataService
-  ) {}
 
   /**
    * Loads quiz data (questions) and marks quiz as loaded.
