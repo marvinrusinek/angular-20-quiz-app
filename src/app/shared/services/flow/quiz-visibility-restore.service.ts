@@ -1,4 +1,4 @@
-import { Injectable, WritableSignal } from '@angular/core';
+import { Injectable, WritableSignal, inject } from '@angular/core';
 
 import { Option } from '../../models/Option.model';
 import { QuestionPayload } from '../../models/QuestionPayload.model';
@@ -25,12 +25,14 @@ export interface VisibilityRestoreParams {
  */
 @Injectable({ providedIn: 'root' })
 export class QuizVisibilityRestoreService {
+  // ── injects ─────────────────────────────────────────────────────
+  private explanationTextService = inject(ExplanationTextService);
+  private quizStateService = inject(QuizStateService);
+
+  // ── properties ──────────────────────────────────────────────────
   private _savedDisplayState: DisplayState | null = null;
 
-  constructor(
-    private quizStateService: QuizStateService,
-    private explanationTextService: ExplanationTextService
-  ) {}
+  // ── public methods ──────────────────────────────────────────────
 
   /**
    * Handle a visibility change. Returns true if a re-render is needed
