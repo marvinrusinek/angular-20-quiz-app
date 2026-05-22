@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { CqcFetGuardService } from './cqc-fet-guard.service';
@@ -16,7 +16,8 @@ type Host = CodelabQuizContentComponent;
  */
 @Injectable({ providedIn: 'root' })
 export class CqcDisplayTextService {
-  constructor(private fetGuard: CqcFetGuardService) {}
+  // ── injects ─────────────────────────────────────────────────────
+  private readonly fetGuard = inject(CqcFetGuardService);
 
   runSubscribeToDisplayText(host: Host): void {
     host.combinedText$ = host.displayText$;
