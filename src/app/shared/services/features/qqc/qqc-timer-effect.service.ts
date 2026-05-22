@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { Observable, firstValueFrom } from 'rxjs';
 import { filter, map, take, timeout } from 'rxjs/operators';
 
@@ -21,16 +21,15 @@ import { TimerService } from '../timer/timer.service';
  */
 @Injectable({ providedIn: 'root' })
 export class QqcTimerEffectService {
-  constructor(
-    private explanationTextService: ExplanationTextService,
-    private nextButtonStateService: NextButtonStateService,
-    private quizService: QuizService,
-    private quizStateService: QuizStateService,
-    private selectedOptionService: SelectedOptionService,
-    private selectionMessageService: SelectionMessageService,
-    private soundService: SoundService,
-    private timerService: TimerService
-  ) {}
+  // ── injects ─────────────────────────────────────────────────────
+  private readonly explanationTextService = inject(ExplanationTextService);
+  private readonly nextButtonStateService = inject(NextButtonStateService);
+  private readonly quizService = inject(QuizService);
+  private readonly quizStateService = inject(QuizStateService);
+  private readonly selectedOptionService = inject(SelectedOptionService);
+  private readonly selectionMessageService = inject(SelectionMessageService);
+  private readonly soundService = inject(SoundService);
+  private readonly timerService = inject(TimerService);
 
   /**
    * Collects canonical option snapshots and lock keys for a given question index.
