@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
@@ -22,15 +22,13 @@ import { QqcExplanationManagerService } from './qqc-explanation-manager.service'
  */
 @Injectable({ providedIn: 'root' })
 export class QqcExplanationFlowService {
-
-  constructor(
-    private explanationTextService: ExplanationTextService,
-    private quizService: QuizService,
-    private quizStateService: QuizStateService,
-    private quizQuestionManagerService: QuizQuestionManagerService,
-    private explanationManager: QqcExplanationManagerService,
-    private explanationDisplay: QqcExplanationDisplayService
-  ) {}
+  // ── injects ─────────────────────────────────────────────────────
+  private readonly explanationDisplay = inject(QqcExplanationDisplayService);
+  private readonly explanationManager = inject(QqcExplanationManagerService);
+  private readonly explanationTextService = inject(ExplanationTextService);
+  private readonly quizQuestionManagerService = inject(QuizQuestionManagerService);
+  private readonly quizService = inject(QuizService);
+  private readonly quizStateService = inject(QuizStateService);
 
   /**
    * Full async pipeline: fetches question data, resolves formatted
