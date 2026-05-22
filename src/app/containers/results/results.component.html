@@ -106,39 +106,58 @@
     <section class="results">
       @if (activeSection() === 'score') {
         <h3 class="section-heading" i18n>Score Analysis</h3>
-        
+
         <!-- Statistics (Score only) -->
-        <codelab-results-statistics [viewMode]="'score'" [quizId]="quizId()" />
-        
+        @defer (on viewport) {
+          <codelab-results-statistics [viewMode]="'score'" [quizId]="quizId()" />
+        } @placeholder {
+          <div class="defer-placeholder" aria-busy="true"></div>
+        }
       }
 
       @if (activeSection() === 'report') {
         <!-- Summary Stats Report -->
-        <codelab-results-summary [viewMode]="'summary'" [quizId]="quizId()" />
+        @defer (on viewport) {
+          <codelab-results-summary [viewMode]="'summary'" [quizId]="quizId()" />
+        } @placeholder {
+          <div class="defer-placeholder" aria-busy="true"></div>
+        }
       }
 
       @if (activeSection() === 'summary') {
         <h3 class="section-heading" i18n>Detailed Summary</h3>
-        
+
         <!-- Accordion (Questions Review) -->
         <section class="quiz-summary">
-          <codelab-results-accordion 
-            [questions]="detailedSummaryQuestions()"
-            [headerLabel]="headerLabel()"
-          />
+          @defer (on viewport) {
+            <codelab-results-accordion
+              [questions]="detailedSummaryQuestions()"
+              [headerLabel]="headerLabel()"
+            />
+          } @placeholder {
+            <div class="defer-placeholder" aria-busy="true"></div>
+          }
         </section>
       }
 
       @if (activeSection() === 'highscores') {
         <!-- High Scores Table -->
-        <codelab-results-summary [viewMode]="'highscores'" [quizId]="quizId()" />
+        @defer (on viewport) {
+          <codelab-results-summary [viewMode]="'highscores'" [quizId]="quizId()" />
+        } @placeholder {
+          <div class="defer-placeholder" aria-busy="true"></div>
+        }
       }
 
       @if (activeSection() === 'resources') {
         <h3 class="section-heading" i18n>Learning Resources</h3>
-        
+
         <!-- Resources List -->
-        <codelab-results-statistics [viewMode]="'resources'" [quizId]="quizId()" />
+        @defer (on viewport) {
+          <codelab-results-statistics [viewMode]="'resources'" [quizId]="quizId()" />
+        } @placeholder {
+          <div class="defer-placeholder" aria-busy="true"></div>
+        }
       }
 
       <!-- Next Step / Return (Global) -->
@@ -146,12 +165,16 @@
         <codelab-results-return />
       </div>
 
-      <!-- Social Share / Challenge (Global) -->
-      <codelab-results-challenge />
+      <!-- Social Share / Challenge (Global) — deferred until idle -->
+      @defer (on idle) {
+        <codelab-results-challenge />
+      }
     </section>
   </mat-card-content>
 
-  <app-back-to-top />
+  @defer (on idle) {
+    <app-back-to-top />
+  }
 </mat-card>
 
 <!-- Scroll Indicator (Fixed position relative to viewport) -->
