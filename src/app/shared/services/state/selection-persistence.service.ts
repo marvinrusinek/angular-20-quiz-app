@@ -17,6 +17,7 @@ export interface SelectionStateContext {
 
 @Injectable({ providedIn: 'root' })
 export class SelectionPersistenceService {
+  // ── public methods ──────────────────────────────────────────────
 
   // ── Load from sessionStorage ───────────────────────────────
 
