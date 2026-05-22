@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 
 import { OptionBindings } from '../../../models/OptionBindings.model';
 import { SelectedOption } from '../../../models/SelectedOption.model';
@@ -14,12 +14,13 @@ import { OptionService } from '../view/option.service';
  */
 @Injectable({ providedIn: 'root' })
 export class SocOptionUiService {
-  constructor(
-    private selectedOptionService: SelectedOptionService,
-    private optionLockService: OptionLockService,
-    private optionSelectionPolicyService: OptionSelectionPolicyService,
-    private optionService: OptionService
-  ) {}
+  // ── injects ─────────────────────────────────────────────────────
+  private optionLockService = inject(OptionLockService);
+  private optionSelectionPolicyService = inject(OptionSelectionPolicyService);
+  private optionService = inject(OptionService);
+  private selectedOptionService = inject(SelectedOptionService);
+
+  // ── public methods ──────────────────────────────────────────────
 
   handleSelection(comp: any, option: SelectedOption, index: number, optionId: number): void {
     const normalizedId = (optionId != null && !isNaN(Number(optionId))) ? Number(optionId) : null;
