@@ -1,4 +1,4 @@
-﻿import { Injectable } from '@angular/core';
+﻿import { Injectable, inject } from '@angular/core';
 
 import { Option } from '../../../models/Option.model';
 import { OptionBindings } from '../../../models/OptionBindings.model';
@@ -32,12 +32,10 @@ export interface ExplanationContext {
 export class SharedOptionExplanationService {
   pendingExplanationIndex = -1;
 
-  constructor(
-    private explanationTextService: ExplanationTextService,
-    private quizService: QuizService,
-    private quizStateService: QuizStateService,
-    private selectedOptionService: SelectedOptionService
-  ) {}
+  private explanationTextService = inject(ExplanationTextService);
+  private quizService = inject(QuizService);
+  private quizStateService = inject(QuizStateService);
+  private selectedOptionService = inject(SelectedOptionService);
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // Main Explanation Emission
