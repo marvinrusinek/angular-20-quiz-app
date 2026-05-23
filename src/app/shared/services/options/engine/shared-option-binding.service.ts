@@ -308,7 +308,7 @@ export class SharedOptionBindingService {
         comp.optionBindings.set(refreshed);
         try { comp.cdRef?.markForCheck?.(); } catch { /* ignore */ }
       }
-    } catch { /* ignore */ }
+    } catch (e) { console.error('generateOptionBindings revisit-override failed:', e); }
 
     const hasFreshFeedback = Object.keys(comp.feedbackConfigs).length > 0;
     if (!hasFreshFeedback) comp.rebuildShowFeedbackMapFromBindings();
@@ -733,7 +733,7 @@ export class SharedOptionBindingService {
                   idx: targetIdx
                 } as FeedbackProps
               };
-            } catch { }
+            } catch (e) { console.error('rehydrateUiFromState feedback-display failed:', e); }
           }
         }
       }
@@ -745,7 +745,8 @@ export class SharedOptionBindingService {
       if (comp.rebuildShowFeedbackMapFromBindings) comp.rebuildShowFeedbackMapFromBindings();
       if (comp.updateHighlighting) comp.updateHighlighting();
       comp.cdRef?.markForCheck?.();
-    } catch (err: any) {
+    } catch (e) {
+      console.error('rehydrateUiFromState failed:', e);
     }
   }
 

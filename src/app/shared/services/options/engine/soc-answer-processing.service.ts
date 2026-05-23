@@ -84,7 +84,7 @@ export class SocAnswerProcessingService {
           }
         }
       }
-    } catch { /* ignore */ }
+    } catch (e) { console.error('processMultiAnswerClick pristine-recompute failed:', e); }
 
     const clickState = this.clickHandler.computeMultiAnswerClickState(
       index, durableSet, effectiveCorrectIndices
@@ -135,7 +135,7 @@ export class SocAnswerProcessingService {
           suppressDisableForUnselected = true;
         }
       }
-    } catch { /* ignore */ }
+    } catch (e) { console.error('processMultiAnswerClick suppressDisable-guard failed:', e); }
 
     comp.optionBindings.set(comp.optionBindings().map((ob: any, bi: number) => {
       let disabledFinal = bindingUpdates[bi].disabled;
@@ -225,7 +225,7 @@ export class SocAnswerProcessingService {
           allCorrectInDurable = selectedCorrectCount >= pristineCorrectTextsAC.size;
         }
       }
-    } catch { /* keep upstream value */ }
+    } catch (e) { console.error('processMultiAnswerClick allCorrectInDurable check failed:', e); }
 
     if (allCorrectInDurable) {
       try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
@@ -261,7 +261,7 @@ export class SocAnswerProcessingService {
             ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx];
           fetText = (liveQ?.explanation ?? '').trim();
         }
-      } catch { /* ignore */ }
+      } catch (e) { console.error('processMultiAnswerClick FET-text resolution failed:', e); }
 
       if (fetText) {
         // Format as "Options X and Y are correct because ..." using
@@ -283,7 +283,7 @@ export class SocAnswerProcessingService {
               fetText
             );
           }
-        } catch { /* ignore */ }
+        } catch (e) { console.error('processMultiAnswerClick FET formatting failed:', e); }
 
         // Write directly via explanationTextService
         this.explanationTextService._activeIndex = qIdx;
@@ -409,7 +409,7 @@ export class SocAnswerProcessingService {
         });
         return;
       }
-    } catch { /* fall through to single-answer path */ }
+    } catch (e) { console.error('processSingleAnswerClick multi-answer guard failed:', e); }
 
     // CANONICAL resolution: match comp.currentQuestion text against
     // quizService.questions[] to get authoritative correct flags.
@@ -430,7 +430,7 @@ export class SocAnswerProcessingService {
           return (c === true || c === 'true' || c === 1 || c === '1') ? i : -1;
         })
         .filter((n: number) => n >= 0);
-    } catch {}
+    } catch (e) { console.error('processSingleAnswerClick canonical-resolution failed:', e); }
     if (correctIdxs.length === 0 && effectiveCorrectIndices?.length) {
       correctIdxs = effectiveCorrectIndices;
     }
@@ -481,7 +481,7 @@ export class SocAnswerProcessingService {
           }
         }
       }
-    } catch { /* ignore */ }
+    } catch (e) { console.error('processSingleAnswerClick pristine-correct check failed:', e); }
 
     if (pristineSingleCorrect) {
       try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
@@ -534,7 +534,7 @@ export class SocAnswerProcessingService {
           this.explanationTextService.lockExplanation();
           this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
         }
-      } catch (syncErr) {}
+      } catch (e) { console.error('processSingleAnswerClick FET-sync write failed:', e); }
 
       const singleFetCtx = {
         resolvedIndex: qIdx,
@@ -614,7 +614,7 @@ export class SocAnswerProcessingService {
           sessionStorage.setItem('sel_Q' + qIdx, JSON.stringify(toSave));
           this.selectedOptionService.addToSelectionHistory(qIdx, toSave as any[]);
         }
-      } catch { /* ignore */ }
+      } catch (e) { console.error('processSingleAnswerClick selection-persist failed:', e); }
 
       comp.cdRef?.markForCheck?.();
       comp.cdRef?.detectChanges?.();
@@ -795,7 +795,7 @@ export class SocAnswerProcessingService {
 
       comp.cdRef?.markForCheck?.();
       comp.cdRef?.detectChanges?.();
-    } catch { /* never throw from auto-reveal */ }
+    } catch (e) { console.error('auto-reveal failed:', e); }
   }
 
   /**
@@ -970,7 +970,7 @@ export class SocAnswerProcessingService {
               fetTextAR
             );
           }
-        } catch { /* ignore */ }
+        } catch (e) { console.error('triggerAllIncorrectsExhausted FET formatting failed:', e); }
       }
       if (fetTextAR) {
         this.explanationTextService._activeIndex = qIdx;
@@ -1000,7 +1000,7 @@ export class SocAnswerProcessingService {
 
       comp.cdRef?.markForCheck?.();
       comp.cdRef?.detectChanges?.();
-    } catch { /* never throw from auto-reveal */ }
+    } catch (e) { console.error('auto-reveal failed:', e); }
   }
 
 }

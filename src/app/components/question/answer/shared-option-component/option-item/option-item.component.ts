@@ -261,7 +261,7 @@ export class OptionItemComponent implements OnInit {
           'disabled-option': false
         };
       }
-    } catch { /* ignore */ }
+    } catch (e) { console.error('getOptionClasses revisit-override failed:', e); }
 
     // If the timer-expiry handler pre-stamped CSS classes on this binding
     // FOR THIS question, return them directly — do NOT let downstream
@@ -331,7 +331,7 @@ export class OptionItemComponent implements OnInit {
         );
         if (!isCanonCorrectHere) return true;
       }
-    } catch { /* ignore */ }
+    } catch (e) { console.error('isDisabled revisit-override failed:', e); }
 
     // Timer-expiry handler stamped all bindings as disabled
     if (this.isTimerStamped()) { return true; }
@@ -518,7 +518,7 @@ export class OptionItemComponent implements OnInit {
           return null;
         }
       }
-    } catch { /* ignore */ }
+    } catch (e) { console.error('getOptionBackgroundColor revisit-guard failed:', e); }
 
     // Timer-expiry handler stamped this binding — use stamped classes for color
     if (this.isTimerStamped()) {
@@ -752,7 +752,7 @@ export class OptionItemComponent implements OnInit {
         this.binding().disabled = true;
         if (this.binding().option) (this.binding().option as any).active = false;
       }
-    } catch { /* never throw from a CD-triggered method */ }
+    } catch (e) { console.error('applyMultiAnswerDisableState failed:', e); }
   }
 
 
