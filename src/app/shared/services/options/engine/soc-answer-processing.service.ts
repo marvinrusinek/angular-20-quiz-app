@@ -546,7 +546,8 @@ export class SocAnswerProcessingService {
       setTimeout(() => {
         try {
           this.sharedOptionExplanationService.emitExplanation(singleFetCtx as any, true);
-        } catch {
+        } catch (e) {
+          console.error('SocAnswerProcessingService.processSingleAnswerClick FET-backup emission failed:', e);
           comp.emitExplanation(qIdx, true);
         }
       }, 0);

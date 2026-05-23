@@ -212,7 +212,9 @@ export class ExplanationDisplayStateService {
             if (!allCorrectSelected) return;
           }
         }
-      } catch { }
+      } catch (e) {
+        console.error('ExplanationDisplayStateService.setExplanationText multi-answer guard failed:', e);
+      }
     }
 
     // Visibility lock: prevent overwrites during tab restore
@@ -275,7 +277,9 @@ export class ExplanationDisplayStateService {
         const { text$ } = this.getOrCreate(qIdx);
         text$.next(trimmedFinal);
         this._byIndex.get(qIdx)?.next(trimmedFinal);
-      } catch (e) { }
+      } catch (e) {
+        console.error('ExplanationDisplayStateService.setExplanationText indexed-subject notify failed:', e);
+      }
 
       // Broadcast the change to the collection
       this.formatter.explanationsUpdatedSig.set({ ...this.formatter.formattedExplanations });
@@ -317,7 +321,9 @@ export class ExplanationDisplayStateService {
           this.latestExplanation = lockedExplanation;
           this.latestExplanationIndex = questionIndex;
           this.setGate(questionIndex, true);
-        } catch { }
+        } catch (e) {
+          console.error('ExplanationDisplayStateService.getFormattedExplanationTextForQuestion locked-emit failed:', e);
+        }
 
         return new Observable(sub => { sub.next(lockedExplanation); sub.complete(); });
       }
@@ -343,7 +349,9 @@ export class ExplanationDisplayStateService {
 
         this.shouldDisplayExplanationSig.set(false);
         this.isExplanationTextDisplayedSig.set(false);
-      } catch (err) { }
+      } catch (err) {
+        console.error('ExplanationDisplayStateService.getFormattedExplanationTextForQuestion FET-state purge failed:', err);
+      }
 
       this._activeIndex = questionIndex;
       this.latestExplanationIndex = questionIndex;
@@ -406,7 +414,8 @@ export class ExplanationDisplayStateService {
   public getLatestFormattedExplanation(): string | null {
     try {
       return this.formatter.formattedExplanationSig();
-    } catch {
+    } catch (e) {
+      console.error('ExplanationDisplayStateService.getLatestFormattedExplanation signal read failed:', e);
       return null;
     }
   }
@@ -748,7 +757,9 @@ export class ExplanationDisplayStateService {
             }
           }
         }
-      } catch (e) { }
+      } catch (e) {
+        console.error('ExplanationDisplayStateService.emitFormatted multi-answer guard failed:', e);
+      }
     }
 
     const trimmed = (value ?? '').trim();
@@ -904,7 +915,9 @@ export class ExplanationDisplayStateService {
     try {
       this.setShouldDisplayExplanation(false, { force: true });
       this.setIsExplanationTextDisplayed(false);
-    } catch (err) { }
+    } catch (err) {
+      console.error('ExplanationDisplayStateService.closeAllGates display-state reset failed:', err);
+    }
   }
 
   public markLastNavTime(time: number): void {

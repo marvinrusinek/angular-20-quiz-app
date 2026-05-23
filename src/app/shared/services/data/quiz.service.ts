@@ -72,7 +72,10 @@ export class QuizService {
     };
   quizId = (() => {
     try { return localStorage.getItem('quizId') ?? ''; }
-    catch { return ''; }
+    catch (e) {
+      console.error('QuizService.quizId localStorage read failed:', e);
+      return '';
+    }
   })();
   _multiAnswerPerfect: Map<number, boolean> = new Map();
   private _questions: QuizQuestion[] = [];
@@ -98,7 +101,10 @@ export class QuizService {
 
   private questionsQuizId: string | null = (() => {
     try { return localStorage.getItem('shuffledQuestionsQuizId'); }
-    catch { return null; }
+    catch (e) {
+      console.error('QuizService.questionsQuizId localStorage read failed:', e);
+      return null;
+    }
   })();
 
   currentQuestionIndexSig = signal<number>(0);
@@ -167,7 +173,8 @@ export class QuizService {
       }
       const stored = localStorage.getItem(SK_SHUFFLED_QUESTIONS);
       return stored ? JSON.parse(stored) : [];
-    } catch {
+    } catch (e) {
+      console.error('QuizService.shuffledQuestions localStorage parse failed:', e);
       return [];
     }
   })();
@@ -182,7 +189,10 @@ export class QuizService {
 
   userAnswers: any[] = (() => {
     try { return JSON.parse(localStorage.getItem('userAnswers') ?? '[]'); }
-    catch { return []; }
+    catch (e) {
+      console.error('QuizService.userAnswers localStorage parse failed:', e);
+      return [];
+    }
   })();
   optionsSource: Subject<Option[]> = new Subject<Option[]>();
 
@@ -544,7 +554,8 @@ export class QuizService {
         if (!_userAnsweredCorrectly && !_scored) {
           this._multiAnswerPerfect.delete(safeIndex);
         }
-      } catch {
+      } catch (e) {
+        console.error('QuizService.setCurrentQuestionIndex _multiAnswerPerfect check failed:', e);
         // If the check fails for any reason, fall back to clearing
         // (safer than leaving a possibly-stale flag set).
         this._multiAnswerPerfect.delete(safeIndex);
@@ -861,7 +872,9 @@ export class QuizService {
     this.userAnswers[questionIndex] = answerIds;
     try {
       localStorage.setItem('userAnswers', JSON.stringify(this.userAnswers));
-    } catch (err) {}
+    } catch (err) {
+      console.error('QuizService.updateUserAnswer localStorage write failed:', err);
+    }
 
     let question = this.questions[questionIndex];
     if (this.isShuffleEnabled() && this.quizId) {
@@ -1059,6 +1072,7 @@ export class QuizService {
       const raw = sessionStorage.getItem('finalResult');
       return raw ? (JSON.parse(raw) as FinalResult) : null;
     } catch (err) {
+      console.error('QuizService.getFinalResultSnapshot sessionStorage parse failed:', err);
       return null;
     }
   }

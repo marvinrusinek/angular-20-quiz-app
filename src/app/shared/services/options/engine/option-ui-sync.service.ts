@@ -430,7 +430,9 @@ export class OptionUiSyncService {
             }
           }
         }
-      } catch { /* ignore */ }
+      } catch (e) {
+        console.error('OptionUiSyncService.forceSelectIntoServices pristine-correctness check failed:', e);
+      }
 
       if (clickedIsCorrect) {
         this.selectedOptionService.setAnswered(true, true);
@@ -854,7 +856,8 @@ export class OptionUiSyncService {
         }
       }
       return 0;
-    } catch {
+    } catch (e) {
+      console.error('OptionUiSyncService.resolveCanonicalCorrectCount pristine lookup failed:', e);
       return 0;
     }
   }

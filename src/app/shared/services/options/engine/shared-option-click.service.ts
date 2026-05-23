@@ -57,7 +57,9 @@ export class SharedOptionClickService {
           pristineCorrect = pristineTexts.has(optText);
         }
       }
-    } catch { }
+    } catch (e) {
+      console.error('SharedOptionClickService.onOptionUI pristine-correct lookup failed:', e);
+    }
     comp.soundService.playOnceForOption({
       ...binding.option,
       correct: pristineCorrect,
@@ -275,8 +277,8 @@ export class SharedOptionClickService {
           comp._correctIndicesByQuestion.set(qIdx, rebuilt);
         }
       }
-    } catch {
-      // Pristine rebuild failed
+    } catch (e) {
+      console.error('SharedOptionClickService.runOptionContentClick pristine-rebuild failed:', e);
     }
     const effectiveCorrectCount = effectiveCorrectIndices.length;
     const isMultiFromQ = comp.isMultiMode || comp.type === 'multiple' || effectiveCorrectCount > 1 || pristineCorrectCount > 1;

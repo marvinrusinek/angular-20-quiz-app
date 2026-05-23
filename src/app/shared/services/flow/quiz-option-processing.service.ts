@@ -547,7 +547,9 @@ export class QuizOptionProcessingService {
             const allPristineSelected = pristineCorrectTexts.every(t => selTexts.has(t));
             if (!allPristineSelected) pristineBlocked = true;
           }
-        } catch { }
+        } catch (e) {
+          console.error('QuizOptionProcessingService.handleAuthoritativeCheck pristine guard failed:', e);
+        }
       }
 
       if (!pristineBlocked) {
@@ -582,7 +584,9 @@ export class QuizOptionProcessingService {
         sessionStorage.setItem(SK_IS_ANSWERED, 'true');
         sessionStorage.setItem(SK_DISPLAY_MODE + idx, 'explanation');
       }
-    } catch (err: any) { }
+    } catch (err: any) {
+      console.error('QuizOptionProcessingService.persistOptionSelection session-persist failed:', err);
+    }
 
     // Ensure sessionStorage has a dot_confirmed_ entry
     try {

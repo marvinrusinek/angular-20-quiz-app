@@ -313,7 +313,9 @@ export class CqcFetGuardService {
             }
           }
         }
-      } catch { }
+      } catch (e) {
+        console.error('CqcFetGuardService.writeQText NUCLEAR GATE failed:', e);
+      }
 
       // HARD FINAL GATE.
       try {
@@ -831,8 +833,8 @@ export class CqcFetGuardService {
       const clickHandler = () => setTimeout(enforce, 0);
       document.addEventListener('click', clickHandler, true);
       host._fetWatchdogClick = clickHandler;
-    } catch {
-      // watchdog install failed
+    } catch (e) {
+      console.error('CqcFetGuardService.installFetWatchdog install failed:', e);
     }
   }
 

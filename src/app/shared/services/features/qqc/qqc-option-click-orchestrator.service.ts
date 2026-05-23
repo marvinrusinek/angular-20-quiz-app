@@ -281,7 +281,9 @@ export class QqcOptionClickOrchestratorService {
           });
         this.selectedOptionService.lockMany(questionIndex, allIdsNum as number[]);
       }
-    } catch {}
+    } catch (e) {
+      console.error('QqcOptionClickOrchestratorService.applyOptionLocks lock logic failed:', e);
+    }
   }
 
   /**
@@ -355,7 +357,9 @@ export class QqcOptionClickOrchestratorService {
       if (Number.isFinite(lockIdNum) && this.selectedOptionService.isOptionLocked(questionIndex, lockIdNum)) {
         return true;
       }
-    } catch {}
+    } catch (e) {
+      console.error('QqcOptionClickOrchestratorService.isOptionLocked lock check failed:', e);
+    }
     return false;
   }
 
@@ -523,7 +527,9 @@ export class QqcOptionClickOrchestratorService {
     try {
       const selectionToPersist = { ...evtOpt, index: evtIdx };
       this.selectedOptionService.setSelectedOption(selectionToPersist, questionIndex, undefined, isMultiForSelection);
-    } catch { }
+    } catch (e) {
+      console.error('QqcOptionClickOrchestratorService.performSynchronousClickFlow selection-persist failed:', e);
+    }
 
     // Track multi-answer scoring
     if (isMultiForSelection && question?.options) {

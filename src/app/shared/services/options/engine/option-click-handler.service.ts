@@ -469,13 +469,19 @@ export class OptionClickHandlerService {
     const forceDisabled = forceDisableAll;
 
     let questionLocked = false;
-    try { questionLocked = this.selectedOptionService.isQuestionLocked(qIndex); } catch { }
+    try {
+      questionLocked = this.selectedOptionService.isQuestionLocked(qIndex);
+    } catch (e) {
+      console.error('OptionClickHandlerService.computeDisabledState questionLocked check failed:', e);
+    }
 
     let optionLocked = false;
     try {
       optionLocked = this.selectedOptionService.isOptionLocked(qIndex, index) ||
         this.selectedOptionService.isOptionLocked(qIndex, lockId);
-    } catch { }
+    } catch (e) {
+      console.error('OptionClickHandlerService.computeDisabledState optionLocked check failed:', e);
+    }
 
     const lockedIncorrect = lockedIncorrectOptionIds.has(index) || lockedIncorrectOptionIds.has(lockId);
     const flashDisabled = flashDisabledSet.has(index) || flashDisabledSet.has(lockId);
