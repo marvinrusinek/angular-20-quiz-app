@@ -305,6 +305,20 @@ export class QuizSessionManagerService {
       localStorage.removeItem(`quizState_${quizId}`);
       localStorage.removeItem(`quizResumeIndex_${quizId}`);
     } catch { }
+
+    // Clear per-question sessionStorage keys from the previous run
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key?.startsWith('sel_Q') || key?.startsWith('displayMode_') || key?.startsWith('multi_perfect_') || key?.startsWith('dot_confirmed_')) {
+          keysToRemove.push(key);
+        }
+      }
+      for (const key of keysToRemove) {
+        sessionStorage.removeItem(key);
+      }
+    } catch { }
   }
 
   /**
@@ -328,7 +342,7 @@ export class QuizSessionManagerService {
       const keysToRemove: string[] = [];
       for (let i = 0; i < sessionStorage.length; i++) {
         const key = sessionStorage.key(i);
-        if (key?.startsWith('sel_Q') || key?.startsWith('displayMode_')) {
+        if (key?.startsWith('sel_Q') || key?.startsWith('displayMode_') || key?.startsWith('multi_perfect_') || key?.startsWith('dot_confirmed_')) {
           keysToRemove.push(key);
         }
       }
@@ -379,6 +393,21 @@ export class QuizSessionManagerService {
       localStorage.removeItem('shuffledQuestions');
       localStorage.removeItem('selectedOptionsMap');
       localStorage.removeItem('highScore');
+    } catch { /* ignore */ }
+
+    // Clear per-question sessionStorage keys so stale highlights
+    // from the previous run don't leak into the restarted quiz.
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key?.startsWith('sel_Q') || key?.startsWith('displayMode_') || key?.startsWith('multi_perfect_') || key?.startsWith('dot_confirmed_')) {
+          keysToRemove.push(key);
+        }
+      }
+      for (const key of keysToRemove) {
+        sessionStorage.removeItem(key);
+      }
     } catch { /* ignore */ }
 
     quizResetSource.next();
