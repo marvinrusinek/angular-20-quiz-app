@@ -10,6 +10,7 @@ import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { SelectedOption } from '../../models/SelectedOption.model';
 
 import { SK_DISPLAY_MODE, SK_IS_ANSWERED, SK_SEL_Q, SK_SELECTED_OPTIONS_MAP } from '../../constants/session-keys';
+import { shallowArrayEqual } from '../../utils/shallow-equal';
 
 import { AnswerEvaluationService } from './answer-evaluation.service';
 import { NextButtonStateService } from './next-button-state.service';
@@ -923,7 +924,7 @@ export class SelectedOptionService {
         const normalizedIdx = this.idResolver.normalizeIdx(idx);
         return this.getSelectedOptionsForQuestion(normalizedIdx) ?? [];
       }),
-      distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b))
+      distinctUntilChanged((a, b) => shallowArrayEqual(a, b))
     );
   }
 

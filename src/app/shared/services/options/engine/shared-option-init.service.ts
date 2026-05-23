@@ -14,6 +14,8 @@ import { QuizQuestion } from '../../../models/QuizQuestion.model';
 import { SelectedOption } from '../../../models/SelectedOption.model';
 import { SharedOptionConfig } from '../../../models/SharedOptionConfig.model';
 
+import { QUESTION_ROUTE_REGEX } from '../../../constants/route-patterns';
+
 import { ExplanationTextService } from '../../features/explanation/explanation-text.service';
 import { FeedbackService } from '../../features/feedback/feedback.service';
 import { QuizService } from '../../data/quiz.service';
@@ -435,7 +437,7 @@ export class SharedOptionInitService {
           // restores them, the user sees a flash.
           let urlQuestionIdx = -1;
           try {
-            const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
+            const m = window.location.pathname.match(QUESTION_ROUTE_REGEX);
             if (m) urlQuestionIdx = Number(m[1]) - 1;  // URL is 1-based
           } catch { /* ignore */ }
           const isStaleIdx = urlQuestionIdx >= 0 && idx !== urlQuestionIdx;

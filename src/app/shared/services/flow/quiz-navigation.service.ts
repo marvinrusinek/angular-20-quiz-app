@@ -24,6 +24,12 @@ import { SK_SELECTED_OPTIONS_MAP } from '../../constants/session-keys';
 import { isOptionCorrect } from '../../utils/is-option-correct';
 import { norm } from '../../utils/text-norm';
 
+/** Delay before clearing the backward-navigation signal after a Previous click. */
+const PREVIOUS_NAV_SIGNAL_RESET_DELAY_MS = 500;
+
+/** Duration of the MutationObserver lock that prevents stale FET writes from overwriting the target question text after a Next click. */
+const NAV_LOCK_OBSERVER_DURATION_MS = 1200;
+
 @Injectable({ providedIn: 'root' })
 export class QuizNavigationService {
   // ── injects ─────────────────────────────────────────────────────
@@ -110,7 +116,7 @@ export class QuizNavigationService {
     const result = await this.navigateWithOffset(-1);
 
     // Reset flag after a short delay to allow display pipeline to process
-    setTimeout(() => this.isNavigatingToPreviousSig.set(false), 500);
+    setTimeout(() => this.isNavigatingToPreviousSig.set(false), PREVIOUS_NAV_SIGNAL_RESET_DELAY_MS);
 
     return result;
   }
@@ -583,7 +589,7 @@ export class QuizNavigationService {
               try { observer.disconnect(); } catch { }
               w.__navLockObserver = null;
               w.__navLockTimer = null;
-            }, 1200);
+            }, NAV_LOCK_OBSERVER_DURATION_MS);
           }
         }
       }

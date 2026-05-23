@@ -28,6 +28,7 @@ import { TimerService } from '../features/timer/timer.service';
 import type { QuizComponent } from '../../../containers/quiz/quiz.component';
 import { SK_DISPLAY_MODE, SK_DOT_CONFIRMED, SK_SEL_Q, SK_SELECTED_OPTIONS_MAP } from '../../constants/session-keys';
 
+import { QUESTION_ROUTE_REGEX } from '../../constants/route-patterns';
 import { isOptionCorrect } from '../../utils/is-option-correct';
 import { norm } from '../../utils/text-norm';
 
@@ -651,7 +652,7 @@ subscribeToTimerExpiry(host: Host): void {
         // payload's questionText against the URL-derived question and
         // drop emissions that don't belong to the current page.
         try {
-          const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
+          const m = window.location.pathname.match(QUESTION_ROUTE_REGEX);
           if (m) {
             const urlIdx = Number(m[1]) - 1;
             const urlQuestion = this.quizService.questions?.[urlIdx];

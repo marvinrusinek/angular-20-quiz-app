@@ -17,6 +17,9 @@ import { SelectedOptionService } from '../../state/selectedoption.service';
 import { isOptionCorrect } from '../../../utils/is-option-correct';
 import { norm } from '../../../utils/text-norm';
 
+/** Delay after rAF before unlocking FET in purgeAndDefer, allowing one paint frame plus this settle window. */
+const FET_UNLOCK_SETTLE_DELAY_MS = 120;
+
 export type FETPayload = { idx: number; text: string; token: number };
 
 @Injectable({ providedIn: 'root' })
@@ -46,7 +49,6 @@ export class ExplanationDisplayStateService {
 
   private readonly resetCompleteSig = signal<boolean>(false);
 
-  currentQuestionExplanation: string | null = null;
   latestExplanation = '';
 
   private explanationLocked = false;
@@ -608,13 +610,8 @@ export class ExplanationDisplayStateService {
     }
   }
 
-  setCurrentQuestionExplanation(explanation: string): void {
-    this.currentQuestionExplanation = explanation;
-  }
-
   private clearExplanationCaches(): void {
     this.latestExplanation = '';
-    this.currentQuestionExplanation = null;
     this.lastExplanationSignature = null;
     this.lastDisplaySignature = null;
     this.lastDisplayedSignature = null;
@@ -969,7 +966,7 @@ export class ExplanationDisplayStateService {
       setTimeout(() => {
         if (this._currentGateToken !== localToken) return;
         this._fetLocked = false;
-      }, 120);
+      }, FET_UNLOCK_SETTLE_DELAY_MS);
     });
   }
 }

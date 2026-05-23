@@ -62,7 +62,6 @@ export class QqcExplanationManagerService {
     }
 
     const explanation = questionData.explanation || 'No explanation available';
-    this.explanationTextService.setCurrentQuestionExplanation(explanation);
 
     try {
       const formattedExplanation = await this.getFormattedExplanation(

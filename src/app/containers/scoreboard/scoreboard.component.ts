@@ -16,6 +16,7 @@ import {
 } from 'rxjs/operators';
 
 import { QuizService } from '../../shared/services/data/quiz.service';
+import { shallowObjectEqual } from '../../shared/utils/shallow-equal';
 
 import { ScoreComponent } from './score/score.component';
 import { TimerComponent } from './timer/timer.component';
@@ -132,7 +133,7 @@ export class ScoreboardComponent implements OnInit {
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         distinctUntilChanged(
-          (prev, curr) => JSON.stringify(prev) === JSON.stringify(curr),
+          (prev, curr) => shallowObjectEqual(prev, curr),
         ),
         switchMap((params: Params) => this.processRouteParams(params)),
         catchError(() => {

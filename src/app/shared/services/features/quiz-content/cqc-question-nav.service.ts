@@ -3,6 +3,7 @@ import { ParamMap } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { debounceTime, tap } from 'rxjs/operators';
 
+import { QUESTION_ROUTE_REGEX } from '../../../constants/route-patterns';
 import { SK_SEL_Q } from '../../../constants/session-keys';
 
 import { Option } from '../../../models/Option.model';
@@ -77,7 +78,7 @@ export class CqcQuestionNavService {
       if (host._refreshInitialIdx == null) {
         let urlIdx: number | null = null;
         try {
-          const match = (window?.location?.pathname ?? '').match(/\/question\/[^/]+\/(\d+)/);
+          const match = (window?.location?.pathname ?? '').match(QUESTION_ROUTE_REGEX);
           if (match && match[1]) {
             const oneBased = parseInt(match[1], 10);
             if (Number.isFinite(oneBased) && oneBased >= 1) urlIdx = oneBased - 1;

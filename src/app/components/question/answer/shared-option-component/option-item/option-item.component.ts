@@ -18,6 +18,7 @@ import { QuizService } from '../../../../../shared/services/data/quiz.service';
 import { SelectedOptionService } from '../../../../../shared/services/state/selectedoption.service';
 import { TimerService } from '../../../../../shared/services/features/timer/timer.service';
 
+import { QUESTION_ROUTE_REGEX } from '../../../../../shared/constants/route-patterns';
 import { isOptionCorrect } from '../../../../../shared/utils/is-option-correct';
 import { norm } from '../../../../../shared/utils/text-norm';
 
@@ -888,7 +889,7 @@ export class OptionItemComponent implements OnInit {
     // so saved selections for Q2+ are found on first render.
     if (qIndex === 0) {
       try {
-        const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
+        const m = window.location.pathname.match(QUESTION_ROUTE_REGEX);
         if (m) {
           const urlIdx = Number(m[1]) - 1;
           if (Number.isFinite(urlIdx) && urlIdx > 0) qIndex = urlIdx;
@@ -911,7 +912,7 @@ export class OptionItemComponent implements OnInit {
     // the input may still be 0 before the route resolves.
     if (qIndex === 0) {
       try {
-        const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
+        const m = window.location.pathname.match(QUESTION_ROUTE_REGEX);
         if (m) {
           const urlIdx = Number(m[1]) - 1;
           if (Number.isFinite(urlIdx) && urlIdx > 0) qIndex = urlIdx;

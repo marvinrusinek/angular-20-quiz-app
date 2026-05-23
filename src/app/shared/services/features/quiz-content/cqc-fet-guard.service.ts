@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 
+import { QUESTION_ROUTE_REGEX } from '../../../constants/route-patterns';
 import { SK_SEL_Q } from '../../../constants/session-keys';
 
 import { Option } from '../../../models/Option.model';
@@ -49,7 +50,7 @@ export class CqcFetGuardService {
       // DOM writer now imposes the URL as the source of truth for any
       // non-FET content.
       try {
-        const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
+        const m = window.location.pathname.match(QUESTION_ROUTE_REGEX);
         if (m) {
           const urlIdx = Number(m[1]) - 1;
           const allQs: any[] = (host.quizService as any)?.questions ?? [];
@@ -88,7 +89,7 @@ export class CqcFetGuardService {
       // URL-correct text my guard at the top had set.
       let _liveIdx = -1;
       try {
-        const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
+        const m = window.location.pathname.match(QUESTION_ROUTE_REGEX);
         if (m) {
           const urlIdx = Number(m[1]) - 1;
           if (urlIdx >= 0) _liveIdx = urlIdx;
@@ -921,7 +922,7 @@ export class CqcFetGuardService {
     // question, which is what revertQTextToQuestion was writing into the
     // heading.
     try {
-      const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
+      const m = window.location.pathname.match(QUESTION_ROUTE_REGEX);
       if (m) {
         const urlIdx = Number(m[1]) - 1;
         if (urlIdx >= 0) return urlIdx;

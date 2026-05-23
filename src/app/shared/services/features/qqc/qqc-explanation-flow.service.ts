@@ -231,10 +231,7 @@ export class QqcExplanationFlowService {
         params.currentQuestionIndex
       );
 
-      // Set the current explanation text
-      this.explanationTextService.setCurrentQuestionExplanation(explanationText);
-
-      const totalCorrectAnswers = 
+      const totalCorrectAnswers =
         this.quizService.quizOptions.getTotalCorrectAnswers(params.currentQuestion);
 
       // Update the quiz state with the latest question information
@@ -252,10 +249,7 @@ export class QqcExplanationFlowService {
     } catch (error) {
       // Error processing current question
 
-      // Set a fallback explanation text on error
-      this.explanationTextService.setCurrentQuestionExplanation(
-        'Unable to load explanation.'
-      );
+      // Error fallback — no action needed
 
       return {
         explanationText: 'Unable to load explanation.',

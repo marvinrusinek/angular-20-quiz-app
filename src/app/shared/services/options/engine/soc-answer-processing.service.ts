@@ -19,6 +19,9 @@ import { SharedOptionExplanationService } from '../../features/shared-option/sha
 import { TimerService } from '../../features/timer/timer.service';
 import { norm } from '../../../utils/text-norm';
 
+/** Delay before backup explanation emission after all correct answers are selected in multi-answer mode. */
+const MULTI_ANSWER_BACKUP_FET_DELAY_MS = 50;
+
 /**
  * Handles multi-answer and single-answer click processing logic.
  * Extracted from SharedOptionClickService.runOptionContentClick.
@@ -311,7 +314,7 @@ export class SocAnswerProcessingService {
         try {
           comp.emitExplanation(qIdx, true);
         } catch { /* ignore */ }
-      }, 50);
+      }, MULTI_ANSWER_BACKUP_FET_DELAY_MS);
     }
 
     const savedFeedback = comp._feedbackDisplay;
@@ -632,6 +635,12 @@ export class SocAnswerProcessingService {
         : (typeof comp.optionBindings() === 'function' ? comp.optionBindings() : []);
       if (!bindingsAR.length) return;
 
+      // Pre-compute normalized texts for all bindings (avoids repeated
+      // norm() calls in the multiple loops below).
+      const bindingNormsAR: string[] = bindingsAR.map(
+        (b: any) => norm(b?.option?.text)
+      );
+
       // Pristine correct text(s) from cache. Must have at least one
       // canonical correct option to reveal.
       const pristineCorrectTextsAR =
@@ -650,13 +659,13 @@ export class SocAnswerProcessingService {
         comp._multiSelectByQuestion?.get(qIdx);
       if (durableClicksAR0) {
         for (const ci of durableClicksAR0) {
-          const tx = norm(bindingsAR[ci]?.option?.text);
+          const tx = bindingNormsAR[ci];
           if (tx) selectedTextsAR.add(tx);
         }
       }
       // Belt-and-suspenders: also include the just-clicked option in case
       // the durable set hasn't been populated yet on this CD cycle.
-      const clickedTextAR = norm(comp.optionBindings()?.[index]?.option?.text);
+      const clickedTextAR = bindingNormsAR[index] ?? norm(comp.optionBindings()?.[index]?.option?.text);
       if (clickedTextAR) selectedTextsAR.add(clickedTextAR);
       // And merge any in-memory map entries (no-op for single-answer but
       // safe for any path that did populate it).
@@ -670,8 +679,8 @@ export class SocAnswerProcessingService {
       // Build the set of incorrect bindings by text — option whose text is
       // not in the pristine correct set.
       const incorrectTextsAR = new Set<string>();
-      for (const b of bindingsAR) {
-        const tx = norm(b?.option?.text);
+      for (let i = 0; i < bindingsAR.length; i++) {
+        const tx = bindingNormsAR[i];
         if (tx && !pristineCorrectTextsAR.has(tx)) incorrectTextsAR.add(tx);
       }
       if (incorrectTextsAR.size === 0) return;
@@ -692,8 +701,8 @@ export class SocAnswerProcessingService {
 
       // Highlight the canonical correct option + disable everything else.
       const correctIdxsAR: number[] = [];
-      for (const [bi, b] of bindingsAR.entries()) {
-        const tx = norm(b?.option?.text);
+      for (let bi = 0; bi < bindingsAR.length; bi++) {
+        const tx = bindingNormsAR[bi];
         if (tx && pristineCorrectTextsAR.has(tx)) correctIdxsAR.push(bi);
       }
 
@@ -813,6 +822,12 @@ export class SocAnswerProcessingService {
         : (typeof comp.optionBindings() === 'function' ? comp.optionBindings() : []);
       if (!bindingsAR.length) return;
 
+      // Pre-compute normalized texts for all bindings (avoids repeated
+      // norm() calls in the multiple loops below).
+      const bindingNormsAR: string[] = bindingsAR.map(
+        (b: any) => norm(b?.option?.text)
+      );
+
       // Pristine correct text(s) from cache. Must have at least one
       // canonical correct option to reveal.
       const pristineCorrectTextsAR =
@@ -829,13 +844,13 @@ export class SocAnswerProcessingService {
         comp._multiSelectByQuestion?.get(qIdx);
       if (durableClicksAR0) {
         for (const ci of durableClicksAR0) {
-          const tx = norm(bindingsAR[ci]?.option?.text);
+          const tx = bindingNormsAR[ci];
           if (tx) selectedTextsAR.add(tx);
         }
       }
       // Belt-and-suspenders: also include the just-clicked option in case
       // the durable set hasn't been populated yet on this CD cycle.
-      const clickedTextAR = norm(comp.optionBindings()?.[index]?.option?.text);
+      const clickedTextAR = bindingNormsAR[index] ?? norm(comp.optionBindings()?.[index]?.option?.text);
       if (clickedTextAR) selectedTextsAR.add(clickedTextAR);
       // And merge any in-memory map entries.
       const selectionsAR =
@@ -848,8 +863,8 @@ export class SocAnswerProcessingService {
       // Build the set of incorrect bindings by text — option whose text is
       // not in the pristine correct set.
       const incorrectTextsAR = new Set<string>();
-      for (const b of bindingsAR) {
-        const tx = norm(b?.option?.text);
+      for (let i = 0; i < bindingsAR.length; i++) {
+        const tx = bindingNormsAR[i];
         if (tx && !pristineCorrectTextsAR.has(tx)) incorrectTextsAR.add(tx);
       }
       if (incorrectTextsAR.size === 0) return;
@@ -878,8 +893,8 @@ export class SocAnswerProcessingService {
 
       // Highlight the canonical correct option(s) + disable everything else.
       const correctIdxsAR: number[] = [];
-      for (const [bi, b] of bindingsAR.entries()) {
-        const tx = norm(b?.option?.text);
+      for (let bi = 0; bi < bindingsAR.length; bi++) {
+        const tx = bindingNormsAR[bi];
         if (tx && pristineCorrectTextsAR.has(tx)) correctIdxsAR.push(bi);
       }
 

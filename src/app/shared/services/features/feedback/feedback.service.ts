@@ -6,6 +6,7 @@ import { Option } from '../../../models/Option.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 import { SelectedOption } from '../../../models/SelectedOption.model';
 
+import { QUESTION_ROUTE_REGEX } from '../../../constants/route-patterns';
 import { isOptionCorrect } from '../../../utils/is-option-correct';
 
 import { ExplanationTextService } from '../explanation/explanation-text.service';
@@ -60,7 +61,7 @@ export class FeedbackService {
     //   count logic below which produces "Select N more correct
     //   answer(s)" or "Not this one" as appropriate.
     try {
-      const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
+      const m = window.location.pathname.match(QUESTION_ROUTE_REGEX);
       if (m) {
         const urlIdx = Number(m[1]) - 1;
         const quizSvcEarly: any = this.injector.get(QuizService, null);
@@ -161,7 +162,7 @@ export class FeedbackService {
       // object while the user is actually on Q3). The route is structured
       // /question/{quizId}/{1-based-index}.
       try {
-        const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
+        const m = window.location.pathname.match(QUESTION_ROUTE_REGEX);
         if (m) {
           const urlIdx = Number(m[1]) - 1;
           if (urlIdx >= 0 && allQs[urlIdx]?.options?.length) {
@@ -279,7 +280,7 @@ export class FeedbackService {
     // and optionsRaw / resolvedQuestion are also stale.
     let canonicalOptionsForMatch: Option[] = [];
     try {
-      const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
+      const m = window.location.pathname.match(QUESTION_ROUTE_REGEX);
       if (m) {
         const urlIdx = Number(m[1]) - 1;
         const allQs: any[] = (quizSvc as any)?.questions ?? [];

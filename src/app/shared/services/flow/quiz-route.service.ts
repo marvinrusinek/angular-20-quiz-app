@@ -5,6 +5,8 @@ import { catchError, map } from 'rxjs/operators';
 
 import { Quiz } from '../../models/Quiz.model';
 
+import { TRAILING_INDEX_REGEX, TRAILING_INDEX_STRICT_REGEX } from '../../constants/route-patterns';
+
 import { QuizDataService } from '../data/quizdata.service';
 import { QuizService } from '../data/quiz.service';
 
@@ -81,7 +83,7 @@ export class QuizRouteService {
     const fromTree = walk(router.routerState.snapshot.root);
     if (fromTree !== null) return fromTree;
 
-    const m = router.url.match(/\/(\d+)(?:\/)?(?:\?|$)/);
+    const m = router.url.match(TRAILING_INDEX_REGEX);
     if (m) {
       const fromUrl = parseNum(m[1]);
       if (fromUrl !== null) return fromUrl;
@@ -129,7 +131,7 @@ export class QuizRouteService {
     if (fromTree !== null) return fromTree;
 
     const fromUrl = (() => {
-      const m = router.url.match(/\/(\d+)(?:\?|$)/);
+      const m = router.url.match(TRAILING_INDEX_STRICT_REGEX);
       if (!m) return null;
       return toIndex(m[1]);
     })();

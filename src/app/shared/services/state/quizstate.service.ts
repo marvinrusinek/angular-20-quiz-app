@@ -4,6 +4,7 @@ import { EMPTY, Observable } from 'rxjs';
 import { catchError, distinctUntilChanged, filter } from 'rxjs/operators';
 
 import { SK_DOT_CONFIRMED, SK_SEL_Q } from '../../constants/session-keys';
+import { QUESTION_ROUTE_REGEX } from '../../constants/route-patterns';
 
 import { Option } from '../../models/Option.model';
 import { QuestionState } from '../../models/QuestionState.model';
@@ -110,7 +111,7 @@ export class QuizStateService {
       // when the user later navigates to a sibling question.
       let currentUrlIdx: number | null = null;
       try {
-        const match = (window?.location?.pathname ?? '').match(/\/question\/[^/]+\/(\d+)/);
+        const match = (window?.location?.pathname ?? '').match(QUESTION_ROUTE_REGEX);
         if (match && match[1]) {
           const oneBased = parseInt(match[1], 10);
           if (Number.isFinite(oneBased) && oneBased >= 1) {
@@ -490,7 +491,7 @@ export class QuizStateService {
       if (!isPageRefresh) return;
       let currentUrlIdx: number | null = null;
       try {
-        const match = (window?.location?.pathname ?? '').match(/\/question\/[^/]+\/(\d+)/);
+        const match = (window?.location?.pathname ?? '').match(QUESTION_ROUTE_REGEX);
         if (match && match[1]) {
           const oneBased = parseInt(match[1], 10);
           if (Number.isFinite(oneBased) && oneBased >= 1) {

@@ -10,6 +10,7 @@ import { FeedbackService } from '../../../../shared/services/features/feedback/f
 import { QuizService } from '../../../../shared/services/data/quiz.service';
 import { SelectedOptionService } from '../../../../shared/services/state/selectedoption.service';
 
+import { QUESTION_ROUTE_REGEX } from '../../../../shared/constants/route-patterns';
 import { isOptionCorrect } from '../../../../shared/utils/is-option-correct';
 
 @Component({
@@ -81,7 +82,7 @@ export class FeedbackComponent {
     if (cachedFeedback) {
       let cacheMatchesUrl = true;
       try {
-        const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
+        const m = window.location.pathname.match(QUESTION_ROUTE_REGEX);
         if (m) {
           const urlIdx = Number(m[1]) - 1;
           const liveQ = this.quizService.questions?.[urlIdx];

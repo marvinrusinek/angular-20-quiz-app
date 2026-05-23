@@ -51,10 +51,6 @@ describe('ExplanationDisplayStateService', () => {
     expect(service.latestExplanation).toBe('');
   });
 
-  it('should have currentQuestionExplanation initialized to null', () => {
-    expect(service.currentQuestionExplanation).toBeNull();
-  });
-
   // ── Signal defaults ─────────────────────────────────────────────────
 
   it('should have activeIndexSig default to 0', () => {
@@ -147,13 +143,6 @@ describe('ExplanationDisplayStateService', () => {
     expect(service.latestExplanation).toBe('');
     expect(service.shouldDisplayExplanationSig()).toBe(false);
     expect(service.isExplanationTextDisplayedSig()).toBe(false);
-  });
-
-  // ── setCurrentQuestionExplanation ───────────────────────────────────
-
-  it('setCurrentQuestionExplanation should store the value', () => {
-    service.setCurrentQuestionExplanation('My explanation');
-    expect(service.currentQuestionExplanation).toBe('My explanation');
   });
 
   // ── _activeIndex getter/setter ──────────────────────────────────────

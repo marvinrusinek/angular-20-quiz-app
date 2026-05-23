@@ -49,6 +49,8 @@ import { ScoreboardComponent } from '../scoreboard/scoreboard.component';
 import { SharedOptionComponent } from '../../components/question/answer/shared-option-component/shared-option.component';
 import { ThemeToggleComponent } from '../../components/theme-toggle/theme-toggle.component';
 
+import { QUESTION_ROUTE_REGEX } from '../../shared/constants/route-patterns';
+
 import { ChangeRouteAnimation } from '../../animations/animations';
 
 type AnimationState = 'animationStarted' | 'none';
@@ -139,7 +141,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     // initialization chain) and must NOT render. We synthesize the
     // payload from the URL-resolved question instead.
     try {
-      const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
+      const m = window.location.pathname.match(QUESTION_ROUTE_REGEX);
       if (m) {
         const urlIdx = Number(m[1]) - 1;
         const urlQ = this.quizService.questions?.[urlIdx];

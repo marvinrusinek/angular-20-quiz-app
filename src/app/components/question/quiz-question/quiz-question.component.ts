@@ -34,6 +34,9 @@ import { SharedOptionComponent } from '../answer/shared-option-component/shared-
 
 import { BaseQuestion } from '../base/base-question';
 
+/** Delay before purging stale explanation state on component init. */
+const EXPLANATION_PURGE_DELAY_MS = 500;
+
 @Component({
   selector: 'codelab-quiz-question',
   standalone: true,
@@ -216,7 +219,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
     setTimeout(() => {
       this.explanationTextService.purgeAndDefer(99);
-    }, 500);
+    }, EXPLANATION_PURGE_DELAY_MS);
   }
 
   override async ngOnInit(): Promise<void> {

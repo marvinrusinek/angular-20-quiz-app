@@ -191,13 +191,6 @@ export class ExplanationTextService {
     return this.displayState.shouldDisplayExplanation$;
   }
 
-  get currentQuestionExplanation(): string | null {
-    return this.displayState.currentQuestionExplanation;
-  }
-  set currentQuestionExplanation(val: string | null) {
-    this.displayState.currentQuestionExplanation = val;
-  }
-
   get latestExplanation(): string {
     return this.displayState.latestExplanation;
   }
@@ -466,10 +459,6 @@ export class ExplanationTextService {
 
   triggerExplanationEvaluation(): void {
     this.displayState.triggerExplanationEvaluation();
-  }
-
-  setCurrentQuestionExplanation(explanation: string): void {
-    this.displayState.setCurrentQuestionExplanation(explanation);
   }
 
   resetExplanationText(): void {
