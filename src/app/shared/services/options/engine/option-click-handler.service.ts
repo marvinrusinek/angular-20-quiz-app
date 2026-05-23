@@ -9,6 +9,7 @@ import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
 import { QuizService } from '../../data/quiz.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
+import { isOptionCorrect } from '../../../utils/is-option-correct';
 import { norm } from '../../../utils/text-norm';
 
 /**
@@ -90,8 +91,7 @@ export class OptionClickHandlerService {
     isMultiModeFromComponent: boolean,
     typeFromComponent: string
   ): CorrectIndicesResult {
-    const isCorrectFlag = (o: any) =>
-      o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || String(o.correct) === '1');
+    const isCorrectFlag = isOptionCorrect;
 
     const questionOpts = question?.options ?? [];
 
@@ -314,8 +314,7 @@ export class OptionClickHandlerService {
     clickedBinding: OptionBindings,
     optionBindings: OptionBindings[]
   ): FeedbackProps {
-    const isCorrectFlag = (o: any) =>
-      o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || String(o.correct) === '1');
+    const isCorrectFlag = isOptionCorrect;
 
     // RESOLVE: optionBindings may be a signal (-clean) or plain array (-main)
     const _rawOb = optionBindings as any;
@@ -540,8 +539,6 @@ export class OptionClickHandlerService {
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
   private isCorrectFlag(o: any): boolean {
-    if (!o) return false;
-    const c = o.correct ?? o.isCorrect;
-    return c === true || String(c) === 'true' || c === 1 || String(c) === '1';
+    return isOptionCorrect(o);
   }
 }

@@ -8,6 +8,8 @@ import { QuestionType } from '../../../models/question-type.enum';
 import { Option } from '../../../models/Option.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
+import { isOptionCorrect } from '../../../utils/is-option-correct';
+
 import { QuizService } from '../../data/quiz.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 
@@ -141,11 +143,7 @@ export class SelectionMessageService {
     if (!opts || opts.length === 0) return index === 0 ? START_MSG : CONTINUE_MSG;
     const isLastQuestion = total > 0 && index === total - 1;
 
-    const isCorrectHelper = (o: any) => {
-      if (!o) return false;
-      const c = o.correct ?? o.isCorrect ?? (o as any).correct;
-      return c === true || String(c) === 'true' || c === 1 || c === '1';
-    };
+    const isCorrectHelper = isOptionCorrect;
 
     const totalCorrect = opts.filter(o => isCorrectHelper(o)).length;
     const selectedCorrect = opts.filter(o => o.selected && isCorrectHelper(o)).length;

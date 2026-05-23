@@ -13,6 +13,7 @@ import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 import { SelectionMessageService } from '../../features/selection-message/selection-message.service';
 import { TimerService } from '../../features/timer/timer.service';
+import { isOptionCorrect } from '../../../utils/is-option-correct';
 import { norm } from '../../../utils/text-norm';
 
 export interface OptionInteractionState {
@@ -97,11 +98,7 @@ export class OptionInteractionService {
         }
       }
     } catch { /* ignore */ }
-    const isCorrectHelper = (o: any): boolean => {
-      if (!o) return false;
-      const c = o.correct ?? o.isCorrect ?? (o as any).correct;
-      return c === true || String(c) === 'true' || c === 1 || c === '1';
-    };
+    const isCorrectHelper = isOptionCorrect;
 
     // PRISTINE CORRECTNESS RESOLVER: Resolve whether the clicked option is
     // truly correct from quizInitialState, not from potentially-mutated binding data.

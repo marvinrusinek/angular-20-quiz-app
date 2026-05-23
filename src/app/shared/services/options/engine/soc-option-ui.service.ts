@@ -1,5 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 
+import { isOptionCorrect } from '../../../utils/is-option-correct';
+
 import { OptionBindings } from '../../../models/OptionBindings.model';
 import { SelectedOption } from '../../../models/SelectedOption.model';
 
@@ -252,11 +254,6 @@ export class SocOptionUiService {
   }
 
   isCorrect(o: any): boolean {
-    if (o === true || o === 'true' || o === 1 || o === '1') return true;
-    if (o && typeof o === 'object') {
-      const c = o.correct ?? o.isCorrect ?? (o as any).correct;
-      return c === true || String(c) === 'true' || c === 1 || c === '1';
-    }
-    return false;
+    return isOptionCorrect(o);
   }
 }

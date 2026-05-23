@@ -6,6 +6,8 @@ import { Option } from '../../../models/Option.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 import { SelectedOption } from '../../../models/SelectedOption.model';
 
+import { isOptionCorrect } from '../../../utils/is-option-correct';
+
 import { ExplanationTextService } from '../explanation/explanation-text.service';
 import { QuizService } from '../../data/quiz.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
@@ -143,11 +145,7 @@ export class FeedbackService {
     // the source of truth for "which question the user is looking at".
     // We then read the canonical options (with correct flags) from
     // quizService.questions[] for that same text.
-    const isCorrectFlag = (val: any): boolean => {
-      if (!val) return false;
-      const c = (val as any).correct ?? (val as any).isCorrect;
-      return c === true || String(c) === 'true' || c === 1 || c === '1';
-    };
+    const isCorrectFlag = isOptionCorrect;
 
     let resolvedQuestion: QuizQuestion = question ?? {
       questionText: '', options: optionsToDisplay ?? [], explanation: '',
@@ -209,15 +207,7 @@ export class FeedbackService {
       );
     }
 
-    const isCorrectHelper = (val: any) => {
-      if (!val) return false;
-      if (val === true || val === 'true' || val === 1 || val === '1') return true;
-      if (typeof val === 'object') {
-        const c = val.correct ?? val.isCorrect ?? (val as any).correct;
-        return c === true || String(c) === 'true' || c === 1 || c === '1';
-      }
-      return false;
-    };
+    const isCorrectHelper = isOptionCorrect;
 
     if ((!correctIndices || correctIndices.length === 0) && quizSvc) {
       const qText = (question.questionText || '').trim().toLowerCase();

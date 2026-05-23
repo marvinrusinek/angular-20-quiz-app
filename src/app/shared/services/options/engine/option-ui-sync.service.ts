@@ -15,6 +15,7 @@ import { OptionSelectionPolicyService } from '../policy/option-selection-policy.
 import { QuizService } from '../../data/quiz.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 import { SelectionMessageService } from '../../features/selection-message/selection-message.service';
+import { isOptionCorrect } from '../../../utils/is-option-correct';
 import { norm } from '../../../utils/text-norm';
 
 export interface OptionUiSyncContext {
@@ -68,11 +69,7 @@ export class OptionUiSyncService {
     ctx: OptionUiSyncContext
   ): void {
     const currentIndex = ctx.getActiveQuestionIndex() ?? 0;
-    const isCorrectHelper = (o: any): boolean => {
-      if (!o) return false;
-      const c = o.correct ?? o.isCorrect ?? (o as any).correct;
-      return c === true || String(c) === 'true' || c === 1 || c === '1';
-    };
+    const isCorrectHelper = isOptionCorrect;
 
     this.resetFeedbackAnchorIfQuestionChanged(currentIndex, ctx);
 
@@ -486,15 +483,7 @@ export class OptionUiSyncService {
       ? ctx.optionsToDisplay
       : currentQuestion?.options ?? [];
 
-    const isCorrectHelper = (val: any) => {
-      if (!val) return false;
-      if (val === true || val === 'true' || val === 1 || val === '1') return true;
-      if (typeof val === 'object') {
-        const c = val.correct ?? val.isCorrect ?? (val as any).correct;
-        return c === true || String(c) === 'true' || c === 1 || c === '1';
-      }
-      return false;
-    };
+    const isCorrectHelper = isOptionCorrect;
 
     // Use existing binding state (set by handleOptionClick) as the source of truth.
     // Do NOT overwrite bindings from service â€” handleOptionClick already set the
@@ -630,15 +619,7 @@ export class OptionUiSyncService {
   }
 
   private checkAndScoreMultiAnswer(ctx: OptionUiSyncContext, questionIndex: number): void {
-    const isCorrectHelper = (val: any) => {
-      if (!val) return false;
-      if (val === true || val === 'true' || val === 1 || val === '1') return true;
-      if (typeof val === 'object') {
-        const c = val.correct ?? val.isCorrect ?? (val as any).correct;
-        return c === true || String(c) === 'true' || c === 1 || c === '1';
-      }
-      return false;
-    };
+    const isCorrectHelper = isOptionCorrect;
     const normalize = (s: unknown): string => String(s ?? '').trim().toLowerCase();
 
     // Get the authoritative question data
@@ -793,14 +774,7 @@ export class OptionUiSyncService {
   }
 
   private toggleSelectedOption(_clicked: Option, clickedIndex: number, checked: boolean, ctx: OptionUiSyncContext): void {
-    const isCorrectHelper = (val: any) => {
-      if (val === true || val === 'true' || val === 1 || val === '1') return true;
-      if (val && typeof val === 'object') {
-        const c = val.correct ?? val.isCorrect;
-        return c === true || String(c) === 'true' || c === 1 || c === '1';
-      }
-      return false;
-    };
+    const isCorrectHelper = isOptionCorrect;
     const correctCount = (ctx.optionsToDisplay ?? []).filter(o => isCorrectHelper(o)).length;
     const isMultiple = ctx.type === 'multiple' || correctCount > 1;
 

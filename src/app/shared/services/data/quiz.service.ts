@@ -27,6 +27,7 @@ import { QuizShuffleService } from '../flow/quiz-shuffle.service';
 import { QuizStateService } from '../state/quizstate.service';
 
 import { getQuizData } from '../../quiz-data-cache';
+import { isOptionCorrect } from '../../utils/is-option-correct';
 import { norm } from '../../utils/text-norm';
 
 @Injectable({ providedIn: 'root' })
@@ -785,8 +786,7 @@ export class QuizService {
       this._correctTextsByQText.set(key, empty);
       return empty;
     }
-    const isCorrect = (v: any) =>
-      v === true || String(v) === 'true' || v === 1 || v === '1';
+    const isCorrect = isOptionCorrect;
     const texts = new Set<string>();
     for (const opt of (pq as any).options ?? []) {
       if (isCorrect(opt?.correct)) {

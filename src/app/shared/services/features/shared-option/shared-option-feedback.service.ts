@@ -14,6 +14,7 @@ import { OptionService } from '../../options/view/option.service';
 import { QuizService } from '../../data/quiz.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 
+import { isOptionCorrect } from '../../../utils/is-option-correct';
 import { isValidOption } from '../../../utils/option-utils';
 
 /**
@@ -195,7 +196,7 @@ export class SharedOptionFeedbackService {
     // source of truth (selectedOptions Set, optionBindings, optionsToDisplay, current click).
     let finalFeedback = feedbackMessage;
     if (isMulti) {
-      const isCorrectFlag = (o: any) => o && (o.correct === true || String(o.correct) === 'true');
+      const isCorrectFlag = isOptionCorrect;
       const displayOpts = ctx.optionsToDisplay || [];
 
       // Count correct options

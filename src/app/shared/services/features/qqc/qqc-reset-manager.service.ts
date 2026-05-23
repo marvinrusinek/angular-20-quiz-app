@@ -4,6 +4,8 @@ import { FeedbackConfig } from '../../../models/FeedbackConfig.model';
 import { Option } from '../../../models/Option.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
+import { isOptionCorrect } from '../../../utils/is-option-correct';
+
 import { ExplanationTextService } from '../explanation/explanation-text.service';
 import { NextButtonStateService } from '../../state/next-button-state.service';
 import { QuizService } from '../../data/quiz.service';
@@ -272,8 +274,7 @@ export class QqcResetManagerService {
     if (!Array.isArray(optionsToDisplay) || optionsToDisplay.length === 0) return false;
     if (!Array.isArray(selectedOptions) || selectedOptions.length === 0) return false;
 
-    const isCorrect = (o: any): boolean =>
-      o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true';
+    const isCorrect = isOptionCorrect;
 
     const correctIds = new Set<string>(
       optionsToDisplay.filter(isCorrect).map(o => String(o.optionId))
