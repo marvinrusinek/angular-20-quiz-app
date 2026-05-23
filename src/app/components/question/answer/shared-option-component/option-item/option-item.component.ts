@@ -310,6 +310,16 @@ export class OptionItemComponent implements OnInit {
   }
 
   isDisabled(): boolean {
+    // AUTO-REVEAL: correct options stay enabled (green), incorrect are disabled.
+    const b = this.binding();
+    if ((b as any)?._autoRevealedCorrect === true ||
+        (b?.option as any)?._autoRevealedCorrect === true) {
+      return false;  // correct option — not disabled
+    }
+    if (b?.disabled && b?.cssClasses?.['incorrect-option']) {
+      return true;  // incorrect option in auto-reveal — disabled
+    }
+
     // Previous-revisit override: on a FULLY-resolved correct question, every
     // INCORRECT option must render disabled (dark gray).
     try {
@@ -502,6 +512,15 @@ export class OptionItemComponent implements OnInit {
   }
 
   getOptionBackgroundColor(): string | null {
+    // AUTO-REVEAL: persistent flag wins over all other guards.
+    // Must be checked FIRST — the revisit guard below would return null
+    // for unclicked correct options on unresolved multi-answer questions,
+    // suppressing the green highlight that auto-reveal set.
+    if ((this.binding() as any)?._autoRevealedCorrect === true ||
+        (this.binding()?.option as any)?._autoRevealedCorrect === true) {
+      return '#43e756';
+    }
+
     // Imperfect-revisit / partial-multi guard: suppress green for unpicked
     // correct options on partial multi-answer states.
     try {
@@ -534,13 +553,6 @@ export class OptionItemComponent implements OnInit {
       return wasSelected && !this.isOptionCorrect() ? '#ff0000' : null;
     }
 
-    // AUTO-REVEAL backup: persistent custom flag wins over any state that
-    // might cause shouldHighlightOption() to return false. Paints green
-    // directly via inline style.
-    if ((this.binding() as any)?._autoRevealedCorrect === true ||
-        (this.binding()?.option as any)?._autoRevealedCorrect === true) {
-      return '#43e756';
-    }
     if (this.isOptionCorrect()) {
       const _qIdxARBg = this.quizService.currentQuestionIndex ?? this.currentQuestionIndex();
       const perfectMapARBg =

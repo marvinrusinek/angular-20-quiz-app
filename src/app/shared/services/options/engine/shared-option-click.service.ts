@@ -223,7 +223,14 @@ export class SharedOptionClickService {
     for (const b of state.optionBindings) {
       if (b) b.showFeedbackForOption = { ...comp.showFeedbackForOption };
     }
-    comp.optionBindings.set(state.optionBindings);
+    // If auto-reveal already stamped the live bindings with
+    // _autoRevealedCorrect (all-incorrects-exhausted scenario), use
+    // the live bindings — state.optionBindings is a stale snapshot
+    // captured before auto-reveal ran and would wipe the green
+    // highlight, disabled state, and correct-option CSS class.
+    const liveBindings = comp.optionBindings();
+    const autoRevealed = liveBindings?.some((b: any) => b?._autoRevealedCorrect);
+    comp.optionBindings.set(autoRevealed ? liveBindings : state.optionBindings);
 
     let qIdx = comp.getActiveQuestionIndex();
     // Self-heal: getActiveQuestionIndex falls back to quizService's signal,

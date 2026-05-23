@@ -899,40 +899,11 @@ export class SocAnswerProcessingService {
       const historySetAR = new Set<number>(durableClicksAR ?? []);
       historySetAR.add(index);
 
-      // Defer the optionBindings rebuild to a microtask so the FET emission
-      // below happens FIRST while bindings are still stable. Mirrors the
-      // all-correct-selected path which rebuilds bindings via queueMicrotask
-      // (~line 337) AFTER its synchronous FET write.
-      queueMicrotask(() => {
-        comp.optionBindings.set(bindingsAR.map((ob: any, bi: number) => {
-          const isCorrectBinding = correctSetAR.has(bi);
-          const isClicked = bi === index;
-          const wasPreviouslyClicked = historySetAR.has(bi) && !isClicked && !isCorrectBinding;
-          return {
-            ...ob,
-            disabled: !isCorrectBinding && !isClicked,
-            isSelected: isClicked,
-            isCorrect: isCorrectBinding,
-            _autoRevealedCorrect: isCorrectBinding,
-            option: ob?.option ? {
-              ...ob.option,
-              selected: isClicked,
-              highlight: isClicked || wasPreviouslyClicked || isCorrectBinding,
-              showIcon: isClicked || wasPreviouslyClicked || isCorrectBinding,
-              active: isCorrectBinding,
-              _autoRevealedCorrect: isCorrectBinding
-            } : ob?.option,
-            cssClasses: {
-              ...(ob?.cssClasses || {}),
-              'correct-option': isCorrectBinding,
-              'incorrect-option': !isCorrectBinding && (isClicked || wasPreviouslyClicked)
-            }
-          };
-        }));
-        comp.cdRef?.detectChanges?.();
-      });
-
-      // Resolve and emit the FET text.
+      // Resolve and emit the FET text FIRST while bindings are still
+      // stable. The binding rebuild below must be synchronous (not
+      // deferred via queueMicrotask) because detectChanges() triggers
+      // effects that can overwrite the bindings before the microtask
+      // runs — wiping _autoRevealedCorrect and the green highlight.
       const fetQuestionAR = comp.currentQuestion()
         ?? comp.getQuestionAtDisplayIndex?.(qIdx)
         ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx];
@@ -988,6 +959,36 @@ export class SocAnswerProcessingService {
         this.explanationTextService.lockExplanation();
         this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
       }
+
+      // Synchronous binding rebuild — MUST happen after FET emission
+      // and MUST NOT be deferred to queueMicrotask. Effects triggered
+      // by detectChanges() would overwrite deferred bindings before the
+      // microtask runs, wiping _autoRevealedCorrect.
+      comp.optionBindings.set(bindingsAR.map((ob: any, bi: number) => {
+        const isCorrectBinding = correctSetAR.has(bi);
+        const isClicked = bi === index;
+        const wasPreviouslyClicked = historySetAR.has(bi) && !isClicked && !isCorrectBinding;
+        return {
+          ...ob,
+          disabled: !isCorrectBinding && !isClicked,
+          isSelected: isClicked,
+          isCorrect: isCorrectBinding,
+          _autoRevealedCorrect: isCorrectBinding,
+          option: ob?.option ? {
+            ...ob.option,
+            selected: isClicked,
+            highlight: isClicked || wasPreviouslyClicked || isCorrectBinding,
+            showIcon: isClicked || wasPreviouslyClicked || isCorrectBinding,
+            active: isCorrectBinding,
+            _autoRevealedCorrect: isCorrectBinding
+          } : ob?.option,
+          cssClasses: {
+            ...(ob?.cssClasses || {}),
+            'correct-option': isCorrectBinding,
+            'incorrect-option': !isCorrectBinding && (isClicked || wasPreviouslyClicked)
+          }
+        };
+      }));
 
       setTimeout(() => {
         try { comp.emitExplanation?.(qIdx, true); } catch { /* ignore */ }

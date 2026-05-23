@@ -373,7 +373,14 @@ export class SharedOptionComponent
     });
     effect(() => {
       const v = this.optionBindingsInput();
-      if (v !== undefined) this.optionBindings.set(v);
+      if (v !== undefined) {
+        // Don't let a stale parent push overwrite auto-reveal bindings.
+        // The parent's optionBindings() doesn't carry _autoRevealedCorrect,
+        // so a zone.js tick re-evaluating the parent template would wipe
+        // the green highlight set by triggerAllIncorrectsExhaustedAutoReveal.
+        if (this.optionBindings().some((b: any) => b?._autoRevealedCorrect)) return;
+        this.optionBindings.set(v);
+      }
     });
     // Auto-show options when bindings are populated. Without this, paths
     // that populate optionBindings without explicitly calling
@@ -444,6 +451,11 @@ export class SharedOptionComponent
         }
       }
       if (!allCorrectSelected) return;
+
+      // If auto-reveal already stamped _autoRevealedCorrect on the
+      // bindings, do not overwrite — auto-reveal's highlight + disable
+      // state is authoritative for exhausted-incorrect scenarios.
+      if (this.optionBindings().some((b: any) => b?._autoRevealedCorrect)) return;
 
       // Rebuild every binding with fresh refs so OnPush option-items pick
       // up the new disabled state via ngOnChanges.
