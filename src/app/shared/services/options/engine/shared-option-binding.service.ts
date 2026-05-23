@@ -524,6 +524,20 @@ export class SharedOptionBindingService {
       }
       if (!saved.length) return;
 
+      // Pre-build lookup maps to avoid O(n*m) findIndex calls inside the loop
+      const bindings = comp.optionBindings() ?? [];
+      const textToIndex = new Map<string, number>();
+      const idToIndex = new Map<string, number>();
+      for (let i = 0; i < bindings.length; i++) {
+        const b = bindings[i];
+        const bText = (b?.option?.text ?? '').trim().toLowerCase();
+        if (bText) textToIndex.set(bText, i);
+        const bId = b?.option?.optionId;
+        if (bId != null && bId !== -1 && String(bId) !== '-1') {
+          idToIndex.set(String(bId), i);
+        }
+      }
+
       const savedByIndex = new Map<number, any>();
       for (const s of saved) {
         const sQIdx = (s as any).questionIndex ?? (s as any).qIdx ?? (s as any).questionIdx;
@@ -536,25 +550,18 @@ export class SharedOptionBindingService {
 
         // TEXT-ONLY PRIMARY MATCH: immune to synthetic ID mismatches and
         // position shifts from shuffled options. If the saved entry has
-        // text, we MUST match by text â€” ID/index fallbacks can map the
+        // text, we MUST match by text — ID/index fallbacks can map the
         // saved entry to the wrong binding when options shuffle.
-        if (sText && comp.optionBindings()?.length) {
-          pos = comp.optionBindings().findIndex((b: any) => {
-            const bText = (b?.option?.text ?? '').trim().toLowerCase();
-            return bText && bText === sText;
-          });
+        if (sText) {
+          pos = textToIndex.get(sText) ?? -1;
         }
 
         // ID/index fallback ONLY when text is empty (legacy data)
         if (pos === -1 && !sText) {
           const sId = (s as any).optionId;
           const sIdIsReal = sId != null && sId !== -1 && String(sId) !== '-1';
-          if (sIdIsReal && comp.optionBindings()?.length) {
-            pos = comp.optionBindings().findIndex((b: any) => {
-              const bId = b?.option?.optionId;
-              const bIdIsReal = bId != null && bId !== -1 && String(bId) !== '-1';
-              return bIdIsReal && String(sId) === String(bId);
-            });
+          if (sIdIsReal) {
+            pos = idToIndex.get(String(sId)) ?? -1;
           }
           if (pos === -1) {
             const sIdx = (s as any).displayIndex ?? (s as any).index ?? (s as any).idx;
