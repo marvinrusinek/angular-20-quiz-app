@@ -9,6 +9,7 @@ import { ExplanationDisplayStateService, FETPayload } from './explanation-displa
 import { ExplanationFormatterService } from './explanation-formatter.service';
 import { QuizService } from '../../data/quiz.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
+import { norm } from '../../../utils/text-norm';
 
 export { FETPayload } from './explanation-display-state.service';
 
@@ -51,7 +52,6 @@ export class ExplanationTextService {
         if (scoringSvc?.questionCorrectness?.get(idx) === true) return true;
       } catch { /* ignore */ }
 
-      const norm = (t: any) => String(t ?? '').trim().toLowerCase();
       const qs: any = this.quizService;
       const isShuffled = qs?.isShuffleEnabled?.()
         && Array.isArray(qs?.shuffledQuestions)

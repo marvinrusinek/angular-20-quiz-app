@@ -13,6 +13,7 @@ import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 import { SelectionMessageService } from '../../features/selection-message/selection-message.service';
 import { TimerService } from '../../features/timer/timer.service';
+import { norm } from '../../../utils/text-norm';
 
 export interface OptionInteractionState {
   optionBindings: OptionBindings[];
@@ -86,13 +87,12 @@ export class OptionInteractionService {
     // currentQuestion text against quizService.questions, so confirmed
     // clicks get recorded under the right question slot.
     try {
-      const nrmH = (t: any) => String(t ?? '').trim().toLowerCase();
-      const liveQText = nrmH(state.currentQuestion?.questionText);
+      const liveQText = norm(state.currentQuestion?.questionText);
       const allQs: any[] = (this.quizService as any)?.questions ?? [];
       if (liveQText && allQs.length) {
-        const atQIdx = nrmH(allQs[qIdx]?.questionText);
+        const atQIdx = norm(allQs[qIdx]?.questionText);
         if (liveQText !== atQIdx) {
-          const fixed = allQs.findIndex((q: any) => nrmH(q?.questionText) === liveQText);
+          const fixed = allQs.findIndex((q: any) => norm(q?.questionText) === liveQText);
           if (fixed >= 0) qIdx = fixed;
         }
       }
@@ -109,8 +109,7 @@ export class OptionInteractionService {
     const isPristineCorrect = (o: any): boolean => {
       if (!o) return false;
       try {
-        const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
-        const optText = nrm(o?.text);
+        const optText = norm(o?.text);
         const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
         if (optText && bundle.length > 0) {
           // Resolve the current question text for matching.
@@ -130,15 +129,15 @@ export class OptionInteractionService {
               ?? (this.quizService as any)?.questions?.[qIdx]
               ?? this.quizService.getQuestionsInDisplayOrder?.()?.[qIdx];
           }
-          const qText = nrm(question?.questionText);
+          const qText = norm(question?.questionText);
           if (qText) {
             // Match by question text across all pristine quizzes
             let pcMatched = false;
             for (const quiz of bundle) {
               for (const pq of (quiz?.questions ?? [])) {
-                if (nrm(pq?.questionText) !== qText) continue;
+                if (norm(pq?.questionText) !== qText) continue;
                 pcMatched = true;
-                const matchedOpt = (pq?.options ?? []).find((po: any) => nrm(po?.text) === optText);
+                const matchedOpt = (pq?.options ?? []).find((po: any) => norm(po?.text) === optText);
                 if (matchedOpt !== undefined) {
                   const result = matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
                   return result;
@@ -185,23 +184,22 @@ export class OptionInteractionService {
     // to ensure correct clicks are always recorded even when isPristineCorrect
     // fails due to stale question text resolution.
     try {
-      const nrmR = (t: any) => String(t ?? '').trim().toLowerCase();
-      const optTextR = nrmR(binding.option?.text);
+      const optTextR = norm(binding.option?.text);
       if (optTextR) {
         const bundleR: any[] = (this.quizService as any)?.quizInitialState ?? [];
         // Try multiple sources for question text
         const qTextCandidates = [
-          nrmR(state.currentQuestion?.questionText),
-          nrmR(this.quizService.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText),
-          nrmR((this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText),
-          nrmR((this.quizService as any)?.questions?.[qIdx]?.questionText)
+          norm(state.currentQuestion?.questionText),
+          norm(this.quizService.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText),
+          norm((this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText),
+          norm((this.quizService as any)?.questions?.[qIdx]?.questionText)
         ].filter((t: string) => !!t);
         for (const qTextR of qTextCandidates) {
           let found = false;
           for (const quiz of bundleR) {
             for (const pq of (quiz?.questions ?? [])) {
-              if (nrmR(pq?.questionText) !== qTextR) continue;
-              const matchedOpt = (pq?.options ?? []).find((po: any) => nrmR(po?.text) === optTextR);
+              if (norm(pq?.questionText) !== qTextR) continue;
+              const matchedOpt = (pq?.options ?? []).find((po: any) => norm(po?.text) === optTextR);
               if (matchedOpt && (matchedOpt.correct === true || String(matchedOpt.correct) === 'true')) {
                 (this.quizService as any)?.scoringService?.recordCorrectClick?.(qIdx, binding.option.text);
                 found = true;
@@ -235,15 +233,14 @@ export class OptionInteractionService {
     // so multi-answer questions are never misidentified as single-answer.
     let pristineCorrectCount = correctCountInBindings;
     try {
-      const nrmQ = (t: any) => String(t ?? '').trim().toLowerCase();
-      const qTextLookup = nrmQ(state.currentQuestion?.questionText)
-        || nrmQ(this.quizService.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText)
-        || nrmQ((this.quizService as any)?.questions?.[qIdx]?.questionText);
+      const qTextLookup = norm(state.currentQuestion?.questionText)
+        || norm(this.quizService.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText)
+        || norm((this.quizService as any)?.questions?.[qIdx]?.questionText);
       if (qTextLookup) {
         const bundleQ: any[] = (this.quizService as any)?.quizInitialState ?? [];
         for (const quiz of bundleQ) {
           for (const pq of (quiz?.questions ?? [])) {
-            if (nrmQ(pq?.questionText) !== qTextLookup) continue;
+            if (norm(pq?.questionText) !== qTextLookup) continue;
             pristineCorrectCount = (pq?.options ?? [])
               .filter((o: any) => o?.correct === true || String(o?.correct) === 'true').length;
             break;
@@ -403,21 +400,20 @@ export class OptionInteractionService {
     // PRISTINE-FIRST: Resolve correct indices from quizInitialState to avoid
     // stale/mutated correct flags on questionOptions (e.g. after Restart Quiz).
     try {
-      const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
-      const qTextForLookup = nrm(question?.questionText ?? state.currentQuestion?.questionText);
+      const qTextForLookup = norm(question?.questionText ?? state.currentQuestion?.questionText);
       const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
       if (qTextForLookup && bundle.length > 0) {
         for (const quiz of bundle) {
           for (const pq of (quiz?.questions ?? [])) {
-            if (nrm(pq?.questionText) !== qTextForLookup) continue;
+            if (norm(pq?.questionText) !== qTextForLookup) continue;
             const pristineCorrectTexts = new Set<string>(
               (pq?.options ?? [])
                 .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-                .map((o: any) => nrm(o?.text))
+                .map((o: any) => norm(o?.text))
                 .filter((t: string) => !!t)
             );
             for (const [i, o] of questionOptions.entries()) {
-              if (pristineCorrectTexts.has(nrm((o as any)?.text))) {
+              if (pristineCorrectTexts.has(norm((o as any)?.text))) {
                 correctIndicesSet.add(i);
               }
             }
@@ -611,26 +607,25 @@ export class OptionInteractionService {
     // against quizInitialState to detect true multi-answer questions.
     let pristineIsMultiAnswer = false;
     try {
-      const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
       // In shuffled mode, prefer display-order question text over state.currentQuestion
       const isShuffledPM = (this.quizService as any)?.isShuffleEnabled?.()
         && (this.quizService as any)?.shuffledQuestions?.length > 0;
       let qTextForLookup: string;
       if (isShuffledPM) {
-        qTextForLookup = nrm(
+        qTextForLookup = norm(
           question?.questionText
           ?? this.quizService.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText
           ?? (this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText
           ?? state.currentQuestion?.questionText
         );
       } else {
-        qTextForLookup = nrm(question?.questionText ?? state.currentQuestion?.questionText);
+        qTextForLookup = norm(question?.questionText ?? state.currentQuestion?.questionText);
       }
       const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
       let pmMatched = false;
       for (const quiz of bundle) {
         for (const pq of (quiz?.questions ?? [])) {
-          if (nrm(pq?.questionText) !== qTextForLookup) continue;
+          if (norm(pq?.questionText) !== qTextForLookup) continue;
           pmMatched = true;
           const pristineCorrectCount = (pq?.options ?? [])
             .filter((o: any) => o?.correct === true || String(o?.correct) === 'true').length;

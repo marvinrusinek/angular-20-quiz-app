@@ -1,4 +1,5 @@
 import { getQuizData } from '../quiz-data-cache';
+import { norm } from './text-norm';
 
 // ══════════════════════════════════════════════════════════════════════
 // GLOBAL FET WATCHDOG. Installed before Angular bootstrap. Watches the
@@ -11,9 +12,8 @@ import { getQuizData } from '../quiz-data-cache';
 // ══════════════════════════════════════════════════════════════════════
 export function installGlobalFetWatchdog(): void {
   try {
-    const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
     const isFetLike = (text: string, explanation?: string): boolean => {
-      const n = nrm(text);
+      const n = norm(text);
       if (!n) return false;
       if (n.includes('are correct because')) return true;
       if (n.includes('is correct because')) return true;
@@ -38,7 +38,7 @@ export function installGlobalFetWatchdog(): void {
             || cls.includes('active')
             || row?.querySelector?.('.selected, .highlight, .active, mat-icon.correct-icon, .correct-icon') != null;
           if (!looksSelected) continue;
-          const txt = nrm(row?.textContent ?? '');
+          const txt = norm(row?.textContent ?? '');
           if (txt) out.add(txt);
         }
       }
@@ -46,21 +46,21 @@ export function installGlobalFetWatchdog(): void {
     };
     const findQuestionTextFromPristine = (): 
       { qText: string; correctTexts: string[]; explanation: string } | null => {
-      const bodyText = nrm(document.body?.textContent ?? '');
+      const bodyText = norm(document.body?.textContent ?? '');
       if (!bodyText) return null;
       for (const quiz of (getQuizData() as any[]) ?? []) {
         for (const pq of quiz?.questions ?? []) {
-          const qt = nrm(pq?.questionText ?? '');
+          const qt = norm(pq?.questionText ?? '');
           if (!qt) continue;
           if (!bodyText.includes(qt)) continue;
           const correctTexts = ((pq?.options ?? []) as any[])
             .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-            .map((o: any) => nrm(o?.text))
+            .map((o: any) => norm(o?.text))
             .filter((t: string) => !!t);
           return { 
             qText: pq?.questionText ?? '', 
             correctTexts, 
-            explanation: nrm(pq?.explanation ?? '')
+            explanation: norm(pq?.explanation ?? '')
           };
         }
       }

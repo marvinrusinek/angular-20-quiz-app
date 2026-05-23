@@ -12,6 +12,7 @@ import { QuizShuffleService } from '../../flow/quiz-shuffle.service';
 import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 import { SelectionMessageService } from '../selection-message/selection-message.service';
+import { norm } from '../../../utils/text-norm';
 
 /**
  * Manages option click orchestration: canonical option building, multi-answer
@@ -125,16 +126,15 @@ export class QqcOptionClickOrchestratorService {
     // stale/mutated correct flags on question.options.
     let correctIndices: number[] = [];
     try {
-      const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
       const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
       const quizId = (this.quizService as any)?.quizId;
-      const qText = nrm(question?.questionText);
+      const qText = norm(question?.questionText);
       let pristineOpts: any[] | null = null;
 
       if (qText && bundle.length > 0) {
         for (const quiz of bundle) {
           for (const pq of (quiz?.questions ?? [])) {
-            if (nrm(pq?.questionText) !== qText) continue;
+            if (norm(pq?.questionText) !== qText) continue;
             pristineOpts = pq?.options ?? [];
             break;
           }
@@ -149,11 +149,11 @@ export class QqcOptionClickOrchestratorService {
         const pristineCorrectTexts = new Set<string>(
           pristineOpts
             .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-            .map((o: any) => nrm(o?.text))
+            .map((o: any) => norm(o?.text))
             .filter((t: string) => !!t)
         );
         for (const [i, o] of (question.options as any[]).entries()) {
-          if (pristineCorrectTexts.has(nrm(o?.text))) correctIndices.push(i);
+          if (pristineCorrectTexts.has(norm(o?.text))) correctIndices.push(i);
         }
       }
     } catch { /* ignore */ }
@@ -316,7 +316,6 @@ export class QqcOptionClickOrchestratorService {
           ? rawQs.find((r: any) => (r?.questionText ?? '').trim().toLowerCase() === qText)
           : rawQs[questionIndex];
         if (rawQ && Array.isArray(rawQ.options)) {
-          const norm = (t: any) => String(t ?? '').trim().toLowerCase();
           const rawCorrectTexts = rawQ.options
             .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
             .map((o: any) => norm(o?.text))

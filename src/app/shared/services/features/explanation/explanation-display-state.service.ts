@@ -14,6 +14,7 @@ import { ExplanationGateService } from './explanation-gate.service';
 import { QuizService } from '../../data/quiz.service';
 import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
+import { norm } from '../../../utils/text-norm';
 
 export type FETPayload = { idx: number; text: string; token: number };
 
@@ -192,7 +193,6 @@ export class ExplanationDisplayStateService {
             (o: any) => o?.correct === true || String(o?.correct) === 'true'
           ).length;
           if (correctCount > 1) {
-            const norm = (t: any) => String(t ?? '').trim().toLowerCase();
             const correctTexts = rawOpts
               .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
               .map((o: any) => norm(o?.text))
@@ -530,7 +530,6 @@ export class ExplanationDisplayStateService {
             (o: any) => o?.correct === true || String(o?.correct) === 'true'
           ).length;
           if (correctCount > 1) {
-            const norm = (t: any) => String(t ?? '').trim().toLowerCase();
             const correctTexts = rawOpts
               .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
               .map((o: any) => norm(o?.text))
@@ -737,7 +736,6 @@ export class ExplanationDisplayStateService {
           if (!bypassGuard && effectiveCorrectCount > 1) {
             const sos = this.injector.get(SelectedOptionService, null);
             const selections = sos?.selectedOptionsMap?.get(index) ?? [];
-            const norm = (t: any) => String(t ?? '').trim().toLowerCase();
             const rawOpts: any[] = rawQ?.options ?? [];
             const rawCorrectTexts = new Set(
               rawOpts.filter((o: any) => o?.correct === true || String(o?.correct) === 'true')

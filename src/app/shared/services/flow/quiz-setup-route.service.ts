@@ -20,6 +20,7 @@ import { SelectionMessageService } from '../features/selection-message/selection
 import { TimerService } from '../features/timer/timer.service';
 
 import type { QuizComponent } from '../../../containers/quiz/quiz.component';
+import { norm } from '../../utils/text-norm';
 
 type Host = QuizComponent;
 
@@ -382,12 +383,11 @@ export class QuizSetupRouteService {
 
     // Cross-check against pristine data for accurate count
     try {
-      const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
-      const qText = nrm(rawQ);
+      const qText = norm(rawQ);
       const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
       for (const quiz of bundle) {
         for (const pq of (quiz?.questions ?? [])) {
-          if (nrm(pq?.questionText) !== qText) continue;
+          if (norm(pq?.questionText) !== qText) continue;
           const pc = (pq?.options ?? []).filter(
             (o: any) => o?.correct === true || String(o?.correct) === 'true'
           ).length;

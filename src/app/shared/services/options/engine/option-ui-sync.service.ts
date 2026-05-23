@@ -15,6 +15,7 @@ import { OptionSelectionPolicyService } from '../policy/option-selection-policy.
 import { QuizService } from '../../data/quiz.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 import { SelectionMessageService } from '../../features/selection-message/selection-message.service';
+import { norm } from '../../../utils/text-norm';
 
 export interface OptionUiSyncContext {
   form: any;
@@ -400,8 +401,7 @@ export class OptionUiSyncService {
     if (ctx.type === 'single' && !isShufForFET) {
       let clickedIsCorrect = false;
       try {
-        const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
-        const clickedText = nrm(optionBinding?.option?.text);
+        const clickedText = norm(optionBinding?.option?.text);
         const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
         if (clickedText && bundle.length > 0) {
           // Use TEXT-BASED question matching â€” index-based lookup fails in
@@ -414,14 +414,14 @@ export class OptionUiSyncService {
               ?? (this.quizService as any)?.shuffledQuestions?.[currentIndex])
             : (ctx.getQuestionAtDisplayIndex?.(currentIndex)
               ?? (this.quizService as any)?.questions?.[currentIndex]);
-          const qText = nrm(displayQ?.questionText);
+          const qText = norm(displayQ?.questionText);
           if (qText) {
             let matched = false;
             for (const quiz of bundle) {
               for (const pq of (quiz?.questions ?? [])) {
-                if (nrm(pq?.questionText) !== qText) continue;
+                if (norm(pq?.questionText) !== qText) continue;
                 matched = true;
-                const matchedOpt = (pq?.options ?? []).find((o: any) => nrm(o?.text) === clickedText);
+                const matchedOpt = (pq?.options ?? []).find((o: any) => norm(o?.text) === clickedText);
                 if (matchedOpt) {
                   clickedIsCorrect = matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
                 }
@@ -861,7 +861,6 @@ export class OptionUiSyncService {
   private resolveCanonicalCorrectCount(bindings: OptionBindings[]): number {
     try {
       if (!bindings?.length) return 0;
-      const norm = (t: any) => String(t ?? '').trim().toLowerCase();
       const bindingTexts = bindings.map(b => norm(b?.option?.text)).filter(Boolean);
       if (!bindingTexts.length) return 0;
       const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];

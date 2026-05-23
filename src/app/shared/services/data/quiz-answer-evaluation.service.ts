@@ -6,6 +6,7 @@ import { QuizQuestion } from '../../models/QuizQuestion.model';
 
 import { QuizOptionsService } from './quiz-options.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
+import { norm } from '../../utils/text-norm';
 
 /**
  * Handles answer evaluation, correctness checking, and direct scoring
@@ -143,21 +144,20 @@ export class QuizAnswerEvaluationService {
     if (!isCorrect) return true;
     if (shouldShuffle) return true;
 
-    const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
     const bundle: any[] = quizInitialState ?? [];
 
     let pristineCorrectTexts: string[] = [];
 
     const q = questions?.[questionIndex];
-    const qText = nrm(q?.questionText);
+    const qText = norm(q?.questionText);
     if (qText) {
       for (const quiz of bundle) {
         for (const pq of (quiz?.questions ?? [])) {
-          if (nrm(pq?.questionText) !== qText) continue;
+          if (norm(pq?.questionText) !== qText) continue;
 
           pristineCorrectTexts = (pq?.options ?? [])
             .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-            .map((o: any) => nrm(o?.text))
+            .map((o: any) => norm(o?.text))
             .filter((t: string) => !!t);
 
           break;
@@ -172,7 +172,7 @@ export class QuizAnswerEvaluationService {
       if (pristineQ) {
         pristineCorrectTexts = (pristineQ?.options ?? [])
           .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-          .map((o: any) => nrm(o?.text))
+          .map((o: any) => norm(o?.text))
           .filter((t: string) => !!t);
       }
     }
@@ -187,7 +187,7 @@ export class QuizAnswerEvaluationService {
       if (sos) {
         const selections = sos.getSelectedOptionsForQuestion(questionIndex) ?? [];
         for (const s of selections) {
-          const t = nrm((s as any)?.text);
+          const t = norm((s as any)?.text);
           if (t) selTexts.add(t);
         }
       }
@@ -195,7 +195,7 @@ export class QuizAnswerEvaluationService {
 
     if (selTexts.size === 0 && answers?.length > 0) {
       for (const a of answers) {
-        const t = nrm((a as any)?.text);
+        const t = norm((a as any)?.text);
         if (t) selTexts.add(t);
       }
     }
@@ -209,7 +209,7 @@ export class QuizAnswerEvaluationService {
           const opt = qOpts.find((o: any) => String(o?.optionId) === String(id))
             ?? (typeof id === 'number' && id >= 0 && id < qOpts.length ? qOpts[id] : null);
           if (opt) {
-            const t = nrm((opt as any)?.text);
+            const t = norm((opt as any)?.text);
             if (t) selTexts.add(t);
           }
         }

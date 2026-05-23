@@ -5,6 +5,7 @@ import { Option } from '../../../models/Option.model';
 import { QuizDotStatusService } from '../../flow/quiz-dot-status.service';
 
 import type { CodelabQuizContentComponent } from '../../../../containers/quiz/quiz-content/codelab-quiz-content.component';
+import { norm } from '../../../utils/text-norm';
 
 type Host = CodelabQuizContentComponent;
 
@@ -118,7 +119,6 @@ export class CqcFetGuardService {
       }
 
       const rawQs: any[] = (host.quizService as any)?.questions ?? [];
-      const norm = (t: any) => String(t ?? '').trim().toLowerCase();
       const safeNorm = norm(safe);
 
       // ════════════════════════════════════════════════════════════════
@@ -438,7 +438,6 @@ export class CqcFetGuardService {
       // ABSOLUTE LAST-LINE GUARD
       // ════════════════════════════════════════════════════════════════
       try {
-        const _norm = (t: any) => String(t ?? '').trim().toLowerCase();
         const qs_ll: any = host.quizService;
         const idx_ll: number = host.currentIndex ?? (
           Number.isFinite(qs_ll?.currentQuestionIndex)
@@ -451,8 +450,8 @@ export class CqcFetGuardService {
         const liveQ_ll: any = isShuf_ll
           ? qs_ll?.shuffledQuestions?.[idx_ll]
           : qs_ll?.questions?.[idx_ll];
-        const qTextNorm_ll = _norm(liveQ_ll?.questionText);
-        const safeTextOnly_ll = _norm(safe.replace(/<[^>]*>/g, ''));
+        const qTextNorm_ll = norm(liveQ_ll?.questionText);
+        const safeTextOnly_ll = norm(safe.replace(/<[^>]*>/g, ''));
         const isNotQuestionText = !!qTextNorm_ll
           && !safeTextOnly_ll.startsWith(qTextNorm_ll)
           && safeTextOnly_ll !== qTextNorm_ll;
@@ -461,10 +460,10 @@ export class CqcFetGuardService {
           const bundle_ll: any[] = qs_ll?.quizInitialState ?? [];
           for (const quiz of bundle_ll) {
             for (const pq of (quiz?.questions ?? [])) {
-              if (_norm(pq?.questionText) !== qTextNorm_ll) continue;
+              if (norm(pq?.questionText) !== qTextNorm_ll) continue;
               pristineCorrect_ll = (pq?.options ?? [])
                 .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-                .map((o: any) => _norm(o?.text))
+                .map((o: any) => norm(o?.text))
                 .filter((t: string) => !!t);
               break;
             }
@@ -477,7 +476,7 @@ export class CqcFetGuardService {
               if (rawMap_ll && typeof rawMap_ll.get === 'function') {
                 for (const o of (rawMap_ll.get(idx_ll) ?? [])) {
                   if ((o as any)?.selected === false) continue;
-                  const t = _norm((o as any)?.text);
+                  const t = norm((o as any)?.text);
                   if (t) selNow_ll.add(t);
                 }
               }
@@ -487,7 +486,7 @@ export class CqcFetGuardService {
               if (stored_ll) {
                 for (const o of JSON.parse(stored_ll)) {
                   if (o?.selected !== true) continue;
-                  const t = _norm(o?.text);
+                  const t = norm(o?.text);
                   if (t) selNow_ll.add(t);
                 }
               }
@@ -506,23 +505,22 @@ export class CqcFetGuardService {
       } catch { /* ignore */ }
 
       // ── FINAL PRISTINE GATE (cannot fail silently) ──────────────
-      const _nf = (t: any): string => String(t ?? '').trim().toLowerCase();
-      const _safeStripped = _nf(safe.replace(/<[^>]*>/g, ''));
+      const _safeStripped = norm(safe.replace(/<[^>]*>/g, ''));
       const _qs: any = host.quizService;
       const _idx: number = host.currentIndex ?? (_qs?.currentQuestionIndex ?? 0);
       const _isShuf = _qs?.isShuffleEnabled?.() && Array.isArray(_qs?.shuffledQuestions) && _qs.shuffledQuestions.length > 0;
       const _liveQ: any = _isShuf ? _qs?.shuffledQuestions?.[_idx] : _qs?.questions?.[_idx];
-      const _qTextNorm = _nf(_liveQ?.questionText);
+      const _qTextNorm = norm(_liveQ?.questionText);
       if (_qTextNorm && _safeStripped !== _qTextNorm && !_safeStripped.startsWith(_qTextNorm)) {
         let _pCorrect: string[] = [];
         const _bundle: any[] = _qs?.quizInitialState ?? [];
         for (let qi = 0; qi < _bundle.length; qi++) {
           const _questions = _bundle[qi]?.questions ?? [];
           for (let pi = 0; pi < _questions.length; pi++) {
-            if (_nf(_questions[pi]?.questionText) === _qTextNorm) {
+            if (norm(_questions[pi]?.questionText) === _qTextNorm) {
               _pCorrect = (_questions[pi]?.options ?? [])
                 .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-                .map((o: any) => _nf(o?.text))
+                .map((o: any) => norm(o?.text))
                 .filter((t: string) => !!t);
               break;
             }
@@ -536,7 +534,7 @@ export class CqcFetGuardService {
             if (_map && typeof _map.get === 'function') {
               for (const _o of (_map.get(_idx) ?? [])) {
                 if ((_o as any)?.selected === false) continue;
-                const _t = _nf((_o as any)?.text);
+                const _t = norm((_o as any)?.text);
                 if (_t) _selNow.add(_t);
               }
             }
@@ -546,7 +544,7 @@ export class CqcFetGuardService {
             if (_stored) {
               for (const _o of JSON.parse(_stored)) {
                 if (_o?.selected !== true) continue;
-                const _t = _nf(_o?.text);
+                const _t = norm(_o?.text);
                 if (_t) _selNow.add(_t);
               }
             }
@@ -657,11 +655,10 @@ export class CqcFetGuardService {
       let numCorrect = 0;
       let totalOpts = (q?.options ?? []).length;
       try {
-        const normBld = (t: any) => String(t ?? '').trim().toLowerCase();
-        const qTextBld = normBld(rawQ);
+        const qTextBld = norm(rawQ);
         for (const quiz of ((host.quizService as any)?.quizInitialState ?? []) as any[]) {
           for (const pq of quiz?.questions ?? []) {
-            if (normBld(pq?.questionText) !== qTextBld) continue;
+            if (norm(pq?.questionText) !== qTextBld) continue;
             const pOpts = pq?.options ?? [];
             numCorrect = pOpts.filter((o: any) => o?.correct === true || String(o?.correct) === 'true').length;
             totalOpts = pOpts.length;
@@ -774,7 +771,6 @@ export class CqcFetGuardService {
           ?? host.quizService.questions;
         const q = questions?.[idx];
         if (q) {
-          const norm = (t: any) => String(t ?? '').trim().toLowerCase();
           const qText = norm(q?.questionText);
           const bundle: any[] = (host.quizService as any)?.quizInitialState ?? [];
           let pristineCorrectTexts: string[] = [];
@@ -893,20 +889,20 @@ export class CqcFetGuardService {
   }
 
   private looksLikeFet(host: Host, html: string): boolean {
-    const n = this.nrm(html);
+    const n = norm(html);
     if (!n) return false;
     if (n.includes('are correct because') || n.includes('is correct because')) return true;
     try {
       const liveQ = this.getLiveQuestion(host);
-      const qExp = this.nrm(liveQ?.explanation ?? '');
+      const qExp = norm(liveQ?.explanation ?? '');
       if (qExp && n.includes(qExp)) return true;
 
-      const qText = this.nrm(liveQ?.questionText ?? '');
+      const qText = norm(liveQ?.questionText ?? '');
       const bundle: any[] = (host.quizService as any)?.quizInitialState ?? [];
       for (const quiz of bundle) {
         for (const pq of quiz?.questions ?? []) {
-          if (this.nrm(pq?.questionText) !== qText) continue;
-          const pExp = this.nrm(pq?.explanation ?? '');
+          if (norm(pq?.questionText) !== qText) continue;
+          const pExp = norm(pq?.explanation ?? '');
           if (pExp && n.includes(pExp)) return true;
         }
       }
@@ -914,9 +910,7 @@ export class CqcFetGuardService {
     return false;
   }
 
-  private nrm(t: any): string {
-    return String(t ?? '').trim().toLowerCase();
-  }
+
 
   private getActiveIdx(host: Host): number {
     // PREFER the URL — currentQuestionIndex lags during multi-step nav
@@ -946,14 +940,14 @@ export class CqcFetGuardService {
   }
 
   private getPristineCorrectTexts(host: Host, liveQ: any): string[] {
-    const qText = this.nrm(liveQ?.questionText ?? '');
+    const qText = norm(liveQ?.questionText ?? '');
     const bundle: any[] = (host.quizService as any)?.quizInitialState ?? [];
     for (const quiz of bundle) {
       for (const pq of quiz?.questions ?? []) {
-        if (this.nrm(pq?.questionText) !== qText) continue;
+        if (norm(pq?.questionText) !== qText) continue;
         const texts = (pq?.options ?? [])
           .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-          .map((o: any) => this.nrm(o?.text))
+          .map((o: any) => norm(o?.text))
           .filter((t: string) => !!t);
         if (texts.length > 0) return texts;
       }
@@ -968,7 +962,7 @@ export class CqcFetGuardService {
     for (const o of liveOpts) {
       const isSel = o?.selected === true || o?.highlight === true || o?.showIcon === true;
       if (!isSel) continue;
-      const t = this.nrm(o?.text);
+      const t = norm(o?.text);
       if (t) selectedNow.add(t);
     }
 
@@ -977,7 +971,7 @@ export class CqcFetGuardService {
       const mapSel: any[] = rawMap.get(idx) ?? [];
       for (const o of mapSel) {
         if (o?.selected === false) continue;
-        const t = this.nrm(o?.text);
+        const t = norm(o?.text);
         if (t) selectedNow.add(t);
       }
     }

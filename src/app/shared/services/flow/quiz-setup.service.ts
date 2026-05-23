@@ -26,6 +26,7 @@ import { SharedVisibilityService } from '../ui/shared-visibility.service';
 import { TimerService } from '../features/timer/timer.service';
 
 import type { QuizComponent } from '../../../containers/quiz/quiz.component';
+import { norm } from '../../utils/text-norm';
 
 type Host = QuizComponent;
 
@@ -307,16 +308,15 @@ export class QuizSetupService {
     let clickedIsCorrectForFET = false;
     if (!isMultiAnswer) {
       try {
-        const nrmF = (t: any) => String(t ?? '').trim().toLowerCase();
-        const clickedText = nrmF(option?.text);
-        const qTextF = nrmF(authQ?.questionText);
+        const clickedText = norm(option?.text);
+        const qTextF = norm(authQ?.questionText);
         if (clickedText && qTextF) {
           const bundleF: any[] = (this.quizService as any)?.quizInitialState ?? [];
           for (const quiz of bundleF) {
             let found = false;
             for (const pq of (quiz?.questions ?? [])) {
-              if (nrmF(pq?.questionText) !== qTextF) continue;
-              const mo = (pq?.options ?? []).find((o: any) => nrmF(o?.text) === clickedText);
+              if (norm(pq?.questionText) !== qTextF) continue;
+              const mo = (pq?.options ?? []).find((o: any) => norm(o?.text) === clickedText);
               if (mo) {
                 clickedIsCorrectForFET = mo?.correct === true || String(mo?.correct) === 'true';
               }
@@ -529,8 +529,7 @@ subscribeToTimerExpiry(host: Host): void {
         ?? (this.quizService as any)?.questions?.[qIdx])
       : (this.quizService as any)?.questions?.[qIdx];
 
-    const normEC = (t: any) => String(t ?? '').trim().toLowerCase();
-    const qTextEC = normEC(rawQ?.questionText);
+    const qTextEC = norm(rawQ?.questionText);
     let correctCountEC = 0;
     let correctTextsEC: string[] = [];
     try {
@@ -539,13 +538,13 @@ subscribeToTimerExpiry(host: Host): void {
         for (const quiz of bundleEC) {
           let found = false;
           for (const pq of (quiz?.questions ?? [])) {
-            if (normEC(pq?.questionText) !== qTextEC) continue;
+            if (norm(pq?.questionText) !== qTextEC) continue;
             found = true;
             const pOpts = (pq?.options ?? []).filter(
               (o: any) => o?.correct === true || String(o?.correct) === 'true'
             );
             correctCountEC = pOpts.length;
-            correctTextsEC = pOpts.map((o: any) => normEC(o?.text)).filter((t: string) => !!t);
+            correctTextsEC = pOpts.map((o: any) => norm(o?.text)).filter((t: string) => !!t);
             break;
           }
           if (found) break;
@@ -559,7 +558,7 @@ subscribeToTimerExpiry(host: Host): void {
       ).length;
       correctTextsEC = rawOpts
         .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-        .map((o: any) => normEC(o?.text))
+        .map((o: any) => norm(o?.text))
         .filter((t: string) => !!t);
     }
     const isMultiAnswer = correctCountEC > 1;
@@ -597,7 +596,7 @@ subscribeToTimerExpiry(host: Host): void {
       const selTexts = new Set(
         selections
           .filter((s: any) => s?.selected !== false)
-          .map((s: any) => normEC(s?.text))
+          .map((s: any) => norm(s?.text))
           .filter((t: string) => !!t)
       );
       const allCorrectSelected = correctTextsEC.length > 0

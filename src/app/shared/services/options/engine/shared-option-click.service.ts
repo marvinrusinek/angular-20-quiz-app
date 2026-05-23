@@ -14,6 +14,7 @@ import { SelectedOptionService } from '../../state/selectedoption.service';
 import { SocAnswerProcessingService } from './soc-answer-processing.service';
 import { SocOptionUiService } from './soc-option-ui.service';
 import { TimerService } from '../../features/timer/timer.service';
+import { norm } from '../../../utils/text-norm';
 
 /**
  * Handles option click events for shared option components.
@@ -47,19 +48,18 @@ export class SharedOptionClickService {
     comp.cdRef.markForCheck();
     let pristineCorrect = binding.option?.correct === true;
     try {
-      const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
-      const optText = nrm(binding.option?.text);
+      const optText = norm(binding.option?.text);
       const qIdx = comp.getActiveQuestionIndex?.() ?? comp.currentQuestionIndex ?? 0;
       const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
       const quizId = this.quizService?.quizId;
       if (optText && bundle.length > 0 && quizId) {
-        const qText = nrm(comp.currentQuestion()?.questionText);
+        const qText = norm(comp.currentQuestion()?.questionText);
         let matched = false;
         if (qText) {
           for (const quiz of bundle) {
             for (const pq of (quiz?.questions ?? [])) {
-              if (nrm(pq?.questionText) !== qText) continue;
-              const matchedOpt = (pq?.options ?? []).find((o: any) => nrm(o?.text) === optText);
+              if (norm(pq?.questionText) !== qText) continue;
+              const matchedOpt = (pq?.options ?? []).find((o: any) => norm(o?.text) === optText);
               if (matchedOpt !== undefined) {
                 pristineCorrect = matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
                 matched = true;
@@ -73,7 +73,7 @@ export class SharedOptionClickService {
           const pristineQuiz = bundle.find((qz: any) => qz?.quizId === quizId);
           const pristineQ = pristineQuiz?.questions?.[qIdx];
           if (pristineQ) {
-            const matchedOpt = (pristineQ.options ?? []).find((o: any) => nrm(o?.text) === optText);
+            const matchedOpt = (pristineQ.options ?? []).find((o: any) => norm(o?.text) === optText);
             if (matchedOpt !== undefined) {
               pristineCorrect = matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
             }
@@ -233,13 +233,12 @@ export class SharedOptionClickService {
     // Without this fix, scoring writes to the wrong question's slot and
     // increments are skipped because that slot is already 'correct'.
     try {
-      const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
-      const liveQText = nrm(comp.currentQuestion()?.questionText);
+      const liveQText = norm(comp.currentQuestion()?.questionText);
       const allQs: any[] = (this.quizService as any)?.questions ?? [];
       if (liveQText && allQs.length) {
-        const atQIdx = nrm(allQs[qIdx]?.questionText);
+        const atQIdx = norm(allQs[qIdx]?.questionText);
         if (liveQText !== atQIdx) {
-          const fixed = allQs.findIndex((q: any) => nrm(q?.questionText) === liveQText);
+          const fixed = allQs.findIndex((q: any) => norm(q?.questionText) === liveQText);
           if (fixed >= 0) qIdx = fixed;
         }
       }
@@ -271,19 +270,18 @@ export class SharedOptionClickService {
 
     let pristineCorrectCount = correctCountFromQ;
     try {
-      const nrmP = (t: any) => String(t ?? '').trim().toLowerCase();
       let qTextCandidates: string[];
       if (isShuffled) {
         qTextCandidates = [
-          nrmP((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText),
-          nrmP((this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText),
-          nrmP(comp.getQuestionAtDisplayIndex?.(qIdx)?.questionText)
+          norm((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText),
+          norm((this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText),
+          norm(comp.getQuestionAtDisplayIndex?.(qIdx)?.questionText)
         ].filter((t: string) => !!t);
       } else {
         qTextCandidates = [
-          nrmP(comp.currentQuestion()?.questionText),
-          nrmP((this.quizService as any)?.questions?.[qIdx]?.questionText),
-          nrmP(comp.getQuestionAtDisplayIndex?.(qIdx)?.questionText)
+          norm(comp.currentQuestion()?.questionText),
+          norm((this.quizService as any)?.questions?.[qIdx]?.questionText),
+          norm(comp.getQuestionAtDisplayIndex?.(qIdx)?.questionText)
         ].filter((t: string) => !!t);
       }
       const bundleP: any[] = (this.quizService as any)?.quizInitialState ?? [];
@@ -293,21 +291,21 @@ export class SharedOptionClickService {
         for (const quiz of bundleP) {
           const quizQuestions = quiz?.questions ?? [];
           for (const pq of quizQuestions) {
-            const pqText = nrmP(pq?.questionText);
+            const pqText = norm(pq?.questionText);
             if (pqText !== qText) continue;
             matched = true;
             const pristineOpts = pq?.options ?? [];
             const pristineCorrectTexts = new Set<string>(
               pristineOpts
                 .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-                .map((o: any) => nrmP(o?.text))
+                .map((o: any) => norm(o?.text))
             );
             pristineCorrectCount = pristineCorrectTexts.size;
             const rebuilt: number[] = [];
             const bindings: any[] = Array.isArray(comp.optionBindings()) ? comp.optionBindings() : [];
             const bindingTexts: string[] = [];
             for (let i = 0; i < bindings.length; i++) {
-              const bt = nrmP(bindings[i]?.option?.text);
+              const bt = norm(bindings[i]?.option?.text);
               bindingTexts.push(bt);
               if (pristineCorrectTexts.has(bt)) rebuilt.push(i);
             }

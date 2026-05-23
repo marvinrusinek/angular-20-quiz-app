@@ -15,6 +15,7 @@ import { SelectedOptionService } from '../../state/selectedoption.service';
 import { SelectionMessageService } from '../../features/selection-message/selection-message.service';
 import { SharedOptionExplanationService } from '../../features/shared-option/shared-option-explanation.service';
 import { TimerService } from '../../features/timer/timer.service';
+import { norm } from '../../../utils/text-norm';
 
 /**
  * Handles multi-answer and single-answer click processing logic.
@@ -60,7 +61,6 @@ export class SocAnswerProcessingService {
     // correctIndices.length matches what the user actually expects
     // for multi-answer questions.
     try {
-      const nrmR = (t: any) => String(t ?? '').trim().toLowerCase();
       const liveQ: any = comp.currentQuestion()
         ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]
         ?? (this.quizService as any)?.questions?.[qIdx];
@@ -71,7 +71,7 @@ export class SocAnswerProcessingService {
         if (pristineCorrectTexts.size > 0) {
           const rebuilt: number[] = [];
           for (let i = 0; i < bindings.length; i++) {
-            if (pristineCorrectTexts.has(nrmR(bindings[i]?.option?.text))) {
+            if (pristineCorrectTexts.has(norm(bindings[i]?.option?.text))) {
               rebuilt.push(i);
             }
           }
@@ -117,7 +117,6 @@ export class SocAnswerProcessingService {
     // from !!binding.disabled.
     let suppressDisableForUnselected = false;
     try {
-      const nrmS = (t: any) => String(t ?? '').trim().toLowerCase();
       const liveQS: any = comp.currentQuestion()
         ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]
         ?? (this.quizService as any)?.questions?.[qIdx];
@@ -127,7 +126,7 @@ export class SocAnswerProcessingService {
         const bindingsS: any[] = comp.optionBindings() ?? [];
         let selectedCorrectS = 0;
         for (const sIdx of durableSet) {
-          if (pristineCorrectTextsS.has(nrmS(bindingsS[sIdx]?.option?.text))) {
+          if (pristineCorrectTextsS.has(norm(bindingsS[sIdx]?.option?.text))) {
             selectedCorrectS++;
           }
         }
@@ -208,7 +207,6 @@ export class SocAnswerProcessingService {
     let allCorrectInDurable = effectiveCorrectIndices.length > 0 &&
       effectiveCorrectIndices.every((ci: number) => durableSet.has(ci));
     try {
-      const nrmAC = (t: any) => String(t ?? '').trim().toLowerCase();
       const liveQAC: any = comp.currentQuestion()
         ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]
         ?? (this.quizService as any)?.questions?.[qIdx];
@@ -219,7 +217,7 @@ export class SocAnswerProcessingService {
         if (pristineCorrectTextsAC.size > 0) {
           let selectedCorrectCount = 0;
           for (const selIdx of durableSet) {
-            const txt = nrmAC(bindingsAC[selIdx]?.option?.text);
+            const txt = norm(bindingsAC[selIdx]?.option?.text);
             if (pristineCorrectTextsAC.has(txt)) selectedCorrectCount++;
           }
           allCorrectInDurable = selectedCorrectCount >= pristineCorrectTextsAC.size;
@@ -380,7 +378,6 @@ export class SocAnswerProcessingService {
     // Routes back through processMultiAnswerClick which only locks
     // incorrects after all correct answers are selected.
     try {
-      const nrmGuard = (t: any) => String(t ?? '').trim().toLowerCase();
       const liveQText = comp.currentQuestion()?.questionText
         ?? (this.quizService as any)?.questions?.[qIdx]?.questionText
         ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText;
@@ -391,7 +388,7 @@ export class SocAnswerProcessingService {
         const correctIndicesByText: number[] = [];
         const bindings: any[] = comp.optionBindings() ?? [];
         for (let i = 0; i < bindings.length; i++) {
-          if (pristineCorrectTexts.has(nrmGuard(bindings[i]?.option?.text))) {
+          if (pristineCorrectTexts.has(norm(bindings[i]?.option?.text))) {
             correctIndicesByText.push(i);
           }
         }
@@ -449,9 +446,8 @@ export class SocAnswerProcessingService {
     //      resort because of the staleness risk).
     let pristineSingleCorrect = false;
     try {
-      const nrmSA = (t: any) => String(t ?? '').trim().toLowerCase();
       const clickedBinding = comp.optionBindings()?.[index];
-      const clickedText = nrmSA(clickedBinding?.option?.text);
+      const clickedText = norm(clickedBinding?.option?.text);
       const clickedFlag = clickedBinding?.option?.correct;
       if (
         clickedFlag === true || String(clickedFlag) === 'true' ||
@@ -629,7 +625,6 @@ export class SocAnswerProcessingService {
     // can be 1 (single) or N (multi). Score is NOT incremented — the
     // user didn't fully pick the correct answer(s).
     try {
-      const nrmAR = (t: any) => String(t ?? '').trim().toLowerCase();
       const liveQAR: any = comp.currentQuestion()
         ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]
         ?? (this.quizService as any)?.questions?.[qIdx];
@@ -656,20 +651,20 @@ export class SocAnswerProcessingService {
         comp._multiSelectByQuestion?.get(qIdx);
       if (durableClicksAR0) {
         for (const ci of durableClicksAR0) {
-          const tx = nrmAR(bindingsAR[ci]?.option?.text);
+          const tx = norm(bindingsAR[ci]?.option?.text);
           if (tx) selectedTextsAR.add(tx);
         }
       }
       // Belt-and-suspenders: also include the just-clicked option in case
       // the durable set hasn't been populated yet on this CD cycle.
-      const clickedTextAR = nrmAR(comp.optionBindings()?.[index]?.option?.text);
+      const clickedTextAR = norm(comp.optionBindings()?.[index]?.option?.text);
       if (clickedTextAR) selectedTextsAR.add(clickedTextAR);
       // And merge any in-memory map entries (no-op for single-answer but
       // safe for any path that did populate it).
       const selectionsAR =
         this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
       for (const s of selectionsAR) {
-        const tx = nrmAR(s?.text);
+        const tx = norm(s?.text);
         if (tx) selectedTextsAR.add(tx);
       }
 
@@ -677,7 +672,7 @@ export class SocAnswerProcessingService {
       // not in the pristine correct set.
       const incorrectTextsAR = new Set<string>();
       for (const b of bindingsAR) {
-        const tx = nrmAR(b?.option?.text);
+        const tx = norm(b?.option?.text);
         if (tx && !pristineCorrectTextsAR.has(tx)) incorrectTextsAR.add(tx);
       }
       if (incorrectTextsAR.size === 0) return;
@@ -699,7 +694,7 @@ export class SocAnswerProcessingService {
       // Highlight the canonical correct option + disable everything else.
       const correctIdxsAR: number[] = [];
       for (const [bi, b] of bindingsAR.entries()) {
-        const tx = nrmAR(b?.option?.text);
+        const tx = norm(b?.option?.text);
         if (tx && pristineCorrectTextsAR.has(tx)) correctIdxsAR.push(bi);
       }
 
@@ -811,7 +806,6 @@ export class SocAnswerProcessingService {
    */
   private triggerAllIncorrectsExhaustedAutoReveal(comp: any, index: number, qIdx: number): void {
     try {
-      const nrmAR = (t: any) => String(t ?? '').trim().toLowerCase();
       const liveQAR: any = comp.currentQuestion()
         ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]
         ?? (this.quizService as any)?.questions?.[qIdx];
@@ -836,19 +830,19 @@ export class SocAnswerProcessingService {
         comp._multiSelectByQuestion?.get(qIdx);
       if (durableClicksAR0) {
         for (const ci of durableClicksAR0) {
-          const tx = nrmAR(bindingsAR[ci]?.option?.text);
+          const tx = norm(bindingsAR[ci]?.option?.text);
           if (tx) selectedTextsAR.add(tx);
         }
       }
       // Belt-and-suspenders: also include the just-clicked option in case
       // the durable set hasn't been populated yet on this CD cycle.
-      const clickedTextAR = nrmAR(comp.optionBindings()?.[index]?.option?.text);
+      const clickedTextAR = norm(comp.optionBindings()?.[index]?.option?.text);
       if (clickedTextAR) selectedTextsAR.add(clickedTextAR);
       // And merge any in-memory map entries.
       const selectionsAR =
         this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
       for (const s of selectionsAR) {
-        const tx = nrmAR(s?.text);
+        const tx = norm(s?.text);
         if (tx) selectedTextsAR.add(tx);
       }
 
@@ -856,7 +850,7 @@ export class SocAnswerProcessingService {
       // not in the pristine correct set.
       const incorrectTextsAR = new Set<string>();
       for (const b of bindingsAR) {
-        const tx = nrmAR(b?.option?.text);
+        const tx = norm(b?.option?.text);
         if (tx && !pristineCorrectTextsAR.has(tx)) incorrectTextsAR.add(tx);
       }
       if (incorrectTextsAR.size === 0) return;
@@ -886,7 +880,7 @@ export class SocAnswerProcessingService {
       // Highlight the canonical correct option(s) + disable everything else.
       const correctIdxsAR: number[] = [];
       for (const [bi, b] of bindingsAR.entries()) {
-        const tx = nrmAR(b?.option?.text);
+        const tx = norm(b?.option?.text);
         if (tx && pristineCorrectTextsAR.has(tx)) correctIdxsAR.push(bi);
       }
 

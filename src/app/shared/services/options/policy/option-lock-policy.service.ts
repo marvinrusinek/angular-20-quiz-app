@@ -5,6 +5,7 @@ import { QuestionType } from '../../../models/question-type.enum';
 import { OptionBindings } from '../../../models/OptionBindings.model';
 
 import { QuizService } from '../../data/quiz.service';
+import { norm } from '../../../utils/text-norm';
 
 export interface LockIncorrectResult {
   shouldLockIncorrectOptions: boolean;
@@ -163,8 +164,7 @@ export class OptionLockPolicyService {
     try {
       const quizSvc: any = this.injector.get(QuizService, null);
       if (!bindings.length) return new Set<number>();
-      const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
-      const bindingTexts = bindings.map(b => nrm(b?.option?.text)).filter(Boolean);
+      const bindingTexts = bindings.map(b => norm(b?.option?.text)).filter(Boolean);
       if (!bindingTexts.length) return new Set<number>();
       // Build set of pristine correct option texts by matching the bindings'
       // option-text fingerprint against the immutable quizInitialState bundle.
@@ -175,7 +175,7 @@ export class OptionLockPolicyService {
           const pqOpts = pq?.options ?? [];
           if (pqOpts.length !== bindings.length) continue;
           // Match if every binding text appears among pristine option texts.
-          const pqTexts = pqOpts.map((o: any) => nrm(o?.text));
+          const pqTexts = pqOpts.map((o: any) => norm(o?.text));
           const allMatch = bindingTexts.every(bt => pqTexts.includes(bt));
           if (!allMatch) continue;
           pristineCorrectTexts = new Set(
@@ -184,7 +184,7 @@ export class OptionLockPolicyService {
                 o?.correct === true || String(o?.correct) === 'true' ||
                 o?.correct === 1 || o?.correct === '1'
               )
-              .map((o: any) => nrm(o?.text))
+              .map((o: any) => norm(o?.text))
           );
           break outer;
         }
@@ -196,7 +196,7 @@ export class OptionLockPolicyService {
           const opts = q?.options ?? [];
           if (opts.length !== bindings.length) return false;
           return opts.every(
-            (o: any, i: number) => nrm(o?.text) === bindingTexts[i]
+            (o: any, i: number) => norm(o?.text) === bindingTexts[i]
           );
         });
         if (!matchedQ) return new Set<number>();

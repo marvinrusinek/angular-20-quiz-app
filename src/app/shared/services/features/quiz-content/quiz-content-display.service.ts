@@ -13,6 +13,7 @@ import { QuizQuestionManagerService } from '../../flow/quizquestionmgr.service';
 import { QuizService } from '../../data/quiz.service';
 import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
+import { norm } from '../../../utils/text-norm';
 
 @Injectable({ providedIn: 'root' })
 export class QuizContentDisplayService {
@@ -159,12 +160,11 @@ export class QuizContentDisplayService {
     // After Restart Quiz, live options can have ALL correct flags set to
     // true (stale mutation), inflating numCorrect. Pristine is immutable.
     try {
-      const _n = (t: any) => String(t ?? '').trim().toLowerCase();
-      const _qText = _n(rawQuestion?.questionText ?? qObj?.questionText);
+      const _qText = norm(rawQuestion?.questionText ?? qObj?.questionText);
       const _bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
       for (const _quiz of _bundle) {
         for (const _pq of (_quiz?.questions ?? [])) {
-          if (_n(_pq?.questionText) === _qText) {
+          if (norm(_pq?.questionText) === _qText) {
             const pc = (_pq?.options ?? []).filter(
               (o: any) => o?.correct === true || String(o?.correct) === 'true'
             ).length;
@@ -207,16 +207,15 @@ export class QuizContentDisplayService {
         // option. If not, the "correct" hit was pollution.
         if (isResolved) {
           try {
-            const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
-            const qTextLookup = nrm(qObj?.questionText);
+            const qTextLookup = norm(qObj?.questionText);
             const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
             let pristineCorrectTexts = new Set<string>();
             for (const quiz of bundle) {
               for (const pq of (quiz?.questions ?? [])) {
-                if (nrm(pq?.questionText) !== qTextLookup) continue;
+                if (norm(pq?.questionText) !== qTextLookup) continue;
                 for (const o of (pq?.options ?? [])) {
                   if (o?.correct === true || String(o?.correct) === 'true') {
-                    const t = nrm(o?.text);
+                    const t = norm(o?.text);
                     if (t) pristineCorrectTexts.add(t);
                   }
                 }
@@ -232,7 +231,7 @@ export class QuizContentDisplayService {
               const lastSel = activeSelections.length > 0
                 ? activeSelections[activeSelections.length - 1]
                 : null;
-              const lastSelText = nrm(lastSel?.text);
+              const lastSelText = norm(lastSel?.text);
               if (lastSelText && !pristineCorrectTexts.has(lastSelText)) {
                 isResolved = false;
               }
@@ -288,19 +287,18 @@ export class QuizContentDisplayService {
         // Validate: for multi-answer questions, confirm all correct are truly selected
         let oisBypassAllowed = true;
         try {
-          const nrm2 = (t: any) => String(t ?? '').trim().toLowerCase();
           const bundle2: any[] = (this.quizService as any)?.quizInitialState ?? [];
           const qs2: any = this.quizService;
           const isShuf2 = qs2?.isShuffleEnabled?.() && Array.isArray(qs2?.shuffledQuestions) && qs2.shuffledQuestions.length > 0;
           const liveQ2: any = isShuf2 ? qs2?.shuffledQuestions?.[safeIdx] : qs2?.questions?.[safeIdx];
-          const qText2 = nrm2(liveQ2?.questionText ?? qObj?.questionText ?? '');
+          const qText2 = norm(liveQ2?.questionText ?? qObj?.questionText ?? '');
           let pCorrect: string[] = [];
           for (const quiz of bundle2) {
             for (const pq of (quiz?.questions ?? [])) {
-              if (nrm2(pq?.questionText) !== qText2) continue;
+              if (norm(pq?.questionText) !== qText2) continue;
               pCorrect = (pq?.options ?? [])
                 .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-                .map((o: any) => nrm2(o?.text)).filter((t: string) => !!t);
+                .map((o: any) => norm(o?.text)).filter((t: string) => !!t);
               break;
             }
             if (pCorrect.length > 0) break;
@@ -309,13 +307,13 @@ export class QuizContentDisplayService {
             const selNow2 = new Set<string>();
             for (const s of safeSelections) {
               if (s?.selected !== true) continue;
-              const t = nrm2(s?.text);
+              const t = norm(s?.text);
               if (t) selNow2.add(t);
             }
             const liveOpts2: any[] = Array.isArray(liveQ2?.options) ? liveQ2.options : [];
             for (const o of liveOpts2) {
               if (o?.selected === true || o?.highlight === true || o?.showIcon === true) {
-                const t = nrm2(o?.text);
+                const t = norm(o?.text);
                 if (t) selNow2.add(t);
               }
             }
@@ -397,7 +395,6 @@ export class QuizContentDisplayService {
     // _multiAnswerPerfect, explanation-mode override, etc.).
     if (shouldShowExplanation && !isTimedOut) {
       try {
-        const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
         const qs: any = this.quizService;
         const isShuffled = qs?.isShuffleEnabled?.()
           && Array.isArray(qs?.shuffledQuestions)
@@ -405,15 +402,15 @@ export class QuizContentDisplayService {
         const liveQForGate: any = isShuffled
           ? qs?.shuffledQuestions?.[safeIdx]
           : qs?.questions?.[safeIdx];
-        const qText = nrm(liveQForGate?.questionText ?? qObj?.questionText ?? '');
+        const qText = norm(liveQForGate?.questionText ?? qObj?.questionText ?? '');
         let pristineCorrect: string[] = [];
         const bundle: any[] = qs?.quizInitialState ?? [];
         for (const quiz of bundle) {
           for (const pq of quiz?.questions ?? []) {
-            if (nrm(pq?.questionText) !== qText) continue;
+            if (norm(pq?.questionText) !== qText) continue;
             pristineCorrect = (pq?.options ?? [])
               .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-              .map((o: any) => nrm(o?.text))
+              .map((o: any) => norm(o?.text))
               .filter((t: string) => !!t);
             break;
           }
@@ -424,7 +421,7 @@ export class QuizContentDisplayService {
           // Active selections only
           for (const s of safeSelections) {
             if (s?.selected !== true) continue;
-            const t = nrm(s?.text);
+            const t = norm(s?.text);
             if (t) selectedNow.add(t);
           }
           // Live question options
@@ -435,7 +432,7 @@ export class QuizContentDisplayService {
               || o?.highlight === true
               || o?.showIcon === true;
             if (!isSel) continue;
-            const t = nrm(o?.text);
+            const t = norm(o?.text);
             if (t) selectedNow.add(t);
           }
           const allSel = pristineCorrect.every(t => selectedNow.has(t));

@@ -363,8 +363,7 @@ export class OptionItemComponent implements OnInit {
     if (_type === 'multiple') {
       if (this.isTimerExpiredForThisQuestion()) { return true; }
 
-      const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
-      const liveQT = nrm(
+      const liveQT = norm(
         (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[_qIdx]?.questionText
         ?? (this.quizService as any)?.questions?.[_qIdx]?.questionText
       );
@@ -377,12 +376,12 @@ export class OptionItemComponent implements OnInit {
         const selectionsMap = this.selectedOptionService.selectedOptionsMapSig();
         const selections = selectionsMap.get(_qIdx) ?? [];
         const selectedTexts = new Set(
-          selections.map((s: any) => nrm(s?.text)).filter((t: string) => !!t)
+          selections.map((s: any) => norm(s?.text)).filter((t: string) => !!t)
         );
         const allPristineCorrectSelected =
           [...pristineCorrectTexts].every(t => selectedTexts.has(t));
         if (allPristineCorrectSelected) {
-          const myText = nrm(this.binding()?.option?.text);
+          const myText = norm(this.binding()?.option?.text);
           const r = !selectedTexts.has(myText);
           return r;
         }
@@ -413,7 +412,6 @@ export class OptionItemComponent implements OnInit {
 
     // Resolve pristine correct texts for this question via questionText match
     // against quizInitialState (immutable structuredClone of QUIZ_DATA).
-    const nrmSA = (t: any) => String(t ?? '').trim().toLowerCase();
     const isShufSA = this.quizService?.isShuffleEnabled?.()
       && Array.isArray((this.quizService as any)?.shuffledQuestions)
       && (this.quizService as any)?.shuffledQuestions?.length > 0;
@@ -434,7 +432,7 @@ export class OptionItemComponent implements OnInit {
           s?.correct === 1 || s?.correct === '1') {
         return true;
       }
-      return correctTextsSA.has(nrmSA(s?.text));
+      return correctTextsSA.has(norm(s?.text));
     });
     return hasCorrectSelection;
   }
@@ -563,7 +561,6 @@ export class OptionItemComponent implements OnInit {
       // user must remain free to keep trying with a clear visual state.
       const _qIdxSA = this.quizService.currentQuestionIndex ?? this.currentQuestionIndex();
       if (this.type() === 'single' && !this.binding()?.isSelected) {
-        const nrmSA = (t: any) => String(t ?? '').trim().toLowerCase();
         const liveQTSA =
           (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[_qIdxSA]?.questionText
           ?? (this.quizService as any)?.questions?.[_qIdxSA]?.questionText;
@@ -573,7 +570,7 @@ export class OptionItemComponent implements OnInit {
           const selectionsMapSA = this.selectedOptionService.selectedOptionsMapSig();
           const selectionsSA = selectionsMapSA.get(_qIdxSA) ?? [];
           const noCorrectSelectedSA = !selectionsSA.some((s: any) => {
-            const txt = nrmSA(s?.text);
+            const txt = norm(s?.text);
             return !!txt && pristineCorrectTextsSA.has(txt);
           });
           if (noCorrectSelectedSA) return null;
@@ -595,7 +592,6 @@ export class OptionItemComponent implements OnInit {
       // or b.disabled flags being set in sync.
       if (this.type() === 'multiple' && !this.binding()?.isSelected) {
         const _qIdx = this.quizService.currentQuestionIndex ?? this.currentQuestionIndex();
-        const nrmBg = (t: any) => String(t ?? '').trim().toLowerCase();
         const liveQTBg =
           (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[_qIdx]?.questionText
           ?? (this.quizService as any)?.questions?.[_qIdx]?.questionText;
@@ -606,11 +602,11 @@ export class OptionItemComponent implements OnInit {
           const selectionsMapBg = this.selectedOptionService.selectedOptionsMapSig();
           const selectionsBg = selectionsMapBg.get(_qIdx) ?? [];
           const selectedTextsBg = new Set(
-            selectionsBg.map((s: any) => nrmBg(s?.text)).filter((t: string) => !!t)
+            selectionsBg.map((s: any) => norm(s?.text)).filter((t: string) => !!t)
           );
           const allPristineCorrectSelectedBg =
             [...pristineCorrectTextsBg].every(t => selectedTextsBg.has(t));
-          const myTextBg = nrmBg(this.binding()?.option?.text);
+          const myTextBg = norm(this.binding()?.option?.text);
           if (allPristineCorrectSelectedBg && !selectedTextsBg.has(myTextBg)) {
             return '#a0a0a0';
           }
@@ -729,7 +725,6 @@ export class OptionItemComponent implements OnInit {
       if (!this.binding()?.option) return;
       const _qIdx = this.quizService.currentQuestionIndex ?? this.currentQuestionIndex();
 
-      const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
       const liveQT =
         (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[_qIdx]?.questionText
         ?? (this.quizService as any)?.questions?.[_qIdx]?.questionText;
@@ -740,14 +735,14 @@ export class OptionItemComponent implements OnInit {
       const selectionsMap = this.selectedOptionService.selectedOptionsMapSig();
       const selections = selectionsMap.get(_qIdx) ?? [];
       const selectedTexts = new Set(
-        selections.map((s: any) => nrm(s?.text)).filter((t: string) => !!t)
+        selections.map((s: any) => norm(s?.text)).filter((t: string) => !!t)
       );
       const allPristineCorrectSelected =
         [...pristineCorrectTexts].every(t => selectedTexts.has(t));
 
       if (!allPristineCorrectSelected) return;
 
-      const myText = nrm(this.binding().option.text);
+      const myText = norm(this.binding().option.text);
       if (!selectedTexts.has(myText)) {
         this.binding().disabled = true;
         if (this.binding().option) (this.binding().option as any).active = false;

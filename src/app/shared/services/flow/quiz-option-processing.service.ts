@@ -11,6 +11,7 @@ import { QuizScoringService } from './quiz-scoring.service';
 import { QuizService } from '../data/quiz.service';
 import { QuizStateService } from '../state/quizstate.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
+import { norm } from '../../utils/text-norm';
 
 /**
  * Result of evaluating immediate correctness for an option click.
@@ -192,13 +193,12 @@ export class QuizOptionProcessingService {
     // question objects. Cross-check against the pristine quiz bundle to
     // detect true multi-answer questions that were misclassified.
     try {
-      const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
-      const qText = nrm(questionForSelection?.questionText ?? currentQuestion?.questionText);
+      const qText = norm(questionForSelection?.questionText ?? currentQuestion?.questionText);
       if (qText) {
         const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
         for (const quiz of bundle) {
           for (const pq of (quiz?.questions ?? [])) {
-            if (nrm(pq?.questionText) !== qText) continue;
+            if (norm(pq?.questionText) !== qText) continue;
             const pristineCorrectCount = (pq?.options ?? [])
               .filter((o: any) => o?.correct === true || String(o?.correct) === 'true').length;
             if (pristineCorrectCount > correctCountForQuestion) {
@@ -371,7 +371,6 @@ export class QuizOptionProcessingService {
       // persists displayMode=explanation â€” causing premature FET display.
       let rawAllCorrectSelected = everyCorrectSelected;
       try {
-        const norm = (t: any) => String(t ?? '').trim().toLowerCase();
         const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
         const quizIdVal = this.quizService?.quizId;
         const qText = norm(questionForSelection?.questionText);
@@ -511,19 +510,18 @@ export class QuizOptionProcessingService {
       let pristineBlocked = false;
       if (!isSingleAnswerQuestion) {
         try {
-          const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
           const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
           const q = this.quizService.questions?.[idx];
-          const qText = nrm(q?.questionText);
+          const qText = norm(q?.questionText);
           let pristineCorrectTexts: string[] = [];
 
           if (qText) {
             for (const quiz of bundle) {
               for (const pq of (quiz?.questions ?? [])) {
-                if (nrm(pq?.questionText) !== qText) continue;
+                if (norm(pq?.questionText) !== qText) continue;
                 pristineCorrectTexts = (pq?.options ?? [])
                   .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-                  .map((o: any) => nrm(o?.text))
+                  .map((o: any) => norm(o?.text))
                   .filter((t: string) => !!t);
                 break;
               }
@@ -537,14 +535,14 @@ export class QuizOptionProcessingService {
             if (pristineQ) {
               pristineCorrectTexts = (pristineQ?.options ?? [])
                 .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-                .map((o: any) => nrm(o?.text))
+                .map((o: any) => norm(o?.text))
                 .filter((t: string) => !!t);
             }
           }
 
           if (pristineCorrectTexts.length > 1) {
             const selections = this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
-            const selTexts = new Set(selections.map((s: any) => nrm(s?.text)).filter((t: string) => !!t));
+            const selTexts = new Set(selections.map((s: any) => norm(s?.text)).filter((t: string) => !!t));
             const allPristineSelected = pristineCorrectTexts.every(t => selTexts.has(t));
             if (!allPristineSelected) pristineBlocked = true;
           }

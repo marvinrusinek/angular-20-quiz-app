@@ -42,6 +42,7 @@ import type { OptionUIEvent } from './option-item/option-item.component';
 
 import { correctAnswerAnim } from '../../../../animations/animations';
 import { SharedOptionConfigDirective } from '../../../../directives/shared-option-config.directive';
+import { norm } from '../../../../shared/utils/text-norm';
 
 @Component({
   selector: 'app-shared-option',
@@ -401,9 +402,8 @@ export class SharedOptionComponent
       const selectionsMap = this.selectedOptionService.selectedOptionsMapSig();
       if (!this.optionBindings() || this.optionBindings().length === 0) return;
 
-      const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
       const bindingTexts = this.optionBindings()
-        .map((b: any) => nrm(b?.option?.text))
+        .map((b: any) => norm(b?.option?.text))
         .filter((t: string) => !!t);
       if (bindingTexts.length === 0) return;
 
@@ -415,7 +415,7 @@ export class SharedOptionComponent
         for (const pq of (quiz?.questions ?? [])) {
           const pqOpts = pq?.options ?? [];
           if (pqOpts.length !== this.optionBindings().length) continue;
-          const pqTexts = pqOpts.map((o: any) => nrm(o?.text));
+          const pqTexts = pqOpts.map((o: any) => norm(o?.text));
           if (!pqTexts.every((t: string) => bindingTextSet.has(t))) continue;
           pristineCorrectTexts = new Set(
             pqOpts
@@ -423,7 +423,7 @@ export class SharedOptionComponent
                 o?.correct === true || String(o?.correct) === 'true' ||
                 o?.correct === 1 || o?.correct === '1'
               )
-              .map((o: any) => nrm(o?.text))
+              .map((o: any) => norm(o?.text))
               .filter((t: string) => !!t)
           );
           break outer;
@@ -436,7 +436,7 @@ export class SharedOptionComponent
       let allCorrectSelected = false;
       for (const sels of selectionsMap.values()) {
         const selectedTexts = new Set(
-          (sels ?? []).map((s: any) => nrm(s?.text)).filter((t: string) => !!t)
+          (sels ?? []).map((s: any) => norm(s?.text)).filter((t: string) => !!t)
         );
         if ([...pristineCorrectTexts].every(t => selectedTexts.has(t))) {
           allCorrectSelected = true;
@@ -450,7 +450,7 @@ export class SharedOptionComponent
       const correctTexts = pristineCorrectTexts;
       let mutated = false;
       const next = this.optionBindings().map((b: any) => {
-        const myText = nrm(b?.option?.text);
+        const myText = norm(b?.option?.text);
         const isCorrect = correctTexts.has(myText);
         const targetDisabled = !isCorrect;
         if (b.disabled !== targetDisabled) mutated = true;

@@ -4,6 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CqcFetGuardService } from './cqc-fet-guard.service';
 
 import type { CodelabQuizContentComponent } from '../../../../containers/quiz/quiz-content/codelab-quiz-content.component';
+import { norm } from '../../../utils/text-norm';
 
 type Host = CodelabQuizContentComponent;
 
@@ -88,12 +89,11 @@ export class CqcDisplayTextService {
             (o: any) => o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true'
           ).length;
           try {
-            const _n = (t: any) => String(t ?? '').trim().toLowerCase();
-            const _qText = _n(qForMultiCheck?.questionText);
+            const _qText = norm(qForMultiCheck?.questionText);
             const _bundle: any[] = (host.quizService as any)?.quizInitialState ?? [];
             for (const _quiz of _bundle) {
               for (const _pq of (_quiz?.questions ?? [])) {
-                if (_n(_pq?.questionText) !== _qText) continue;
+                if (norm(_pq?.questionText) !== _qText) continue;
                 const pristineCount = (_pq?.options ?? []).filter(
                   (o: any) => o?.correct === true || String(o?.correct) === 'true'
                 ).length;
@@ -214,10 +214,9 @@ export class CqcDisplayTextService {
 
             // MULTI-ANSWER / SINGLE-ANSWER FET BLOCK (skip when timed out)
             if (!isTimedOutForIdx) {
-              const normForFet = (t: any) => String(t ?? '').trim().toLowerCase();
-              const finalNorm = normForFet(finalText);
-              const qTextNormForFet = normForFet(qForMultiCheck?.questionText);
-              const rawExplanation = normForFet(
+              const finalNorm = norm(finalText);
+              const qTextNormForFet = norm(qForMultiCheck?.questionText);
+              const rawExplanation = norm(
                 (host.quizService as any)?.questions?.[currentIdx]?.explanation
                   ?? qForMultiCheck?.explanation
               );
@@ -233,12 +232,11 @@ export class CqcDisplayTextService {
                 (o: any) => o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true'
               ).length;
               try {
-                const _n2 = (t: any) => String(t ?? '').trim().toLowerCase();
-                const _qText2 = _n2(rawQForBlock?.questionText ?? qForMultiCheck?.questionText);
+                const _qText2 = norm(rawQForBlock?.questionText ?? qForMultiCheck?.questionText);
                 const _bundle2: any[] = (host.quizService as any)?.quizInitialState ?? [];
                 for (const _quiz2 of _bundle2) {
                   for (const _pq2 of (_quiz2?.questions ?? [])) {
-                    if (_n2(_pq2?.questionText) !== _qText2) continue;
+                    if (norm(_pq2?.questionText) !== _qText2) continue;
                     const pc2 = (_pq2?.options ?? []).filter(
                       (o: any) => o?.correct === true || String(o?.correct) === 'true'
                     ).length;

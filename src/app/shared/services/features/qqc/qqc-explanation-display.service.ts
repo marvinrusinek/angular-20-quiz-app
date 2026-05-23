@@ -14,6 +14,7 @@ import { QuizQuestionManagerService } from '../../flow/quizquestionmgr.service';
 import { QuizService } from '../../data/quiz.service';
 import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
+import { norm } from '../../../utils/text-norm';
 
 /**
  * Manages explanation display, formatted explanation text (FET) resolution,
@@ -156,7 +157,6 @@ export class QqcExplanationDisplayService {
       const isMultiAnswer = correctCount > 1;
 
       if (isMultiAnswer) {
-        const norm = (t: any) => String(t ?? '').trim().toLowerCase();
         const correctTexts = rawOpts
           .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
           .map((o: any) => norm(o?.text))

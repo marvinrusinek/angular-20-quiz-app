@@ -9,6 +9,7 @@ import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
 import { QuizService } from '../../data/quiz.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
+import { norm } from '../../../utils/text-norm';
 
 /**
  * Result of resolving correct indices for a question.
@@ -268,17 +269,16 @@ export class OptionClickHandlerService {
         const isShuffled = this.quizService?.isShuffleEnabled?.() &&
           this.quizService?.shuffledQuestions?.length > 0;
         const liveIdx = this.quizService?.getCurrentQuestionIndex?.() ?? 0;
-        const nrmG = (t: any) => String(t ?? '').trim().toLowerCase();
         const liveQ: any = isShuffled
           ? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[liveIdx]
             ?? (this.quizService as any)?.shuffledQuestions?.[liveIdx]
           : (this.quizService as any)?.questions?.[liveIdx];
-        const liveQText = nrmG(liveQ?.questionText);
+        const liveQText = norm(liveQ?.questionText);
         if (liveQText) {
           const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
           for (const quiz of bundle) {
             for (const pq of (quiz?.questions ?? [])) {
-              if (nrmG(pq?.questionText) !== liveQText) continue;
+              if (norm(pq?.questionText) !== liveQText) continue;
               const pristineCorrectCount = (pq?.options ?? []).filter(
                 (o: any) =>
                   o?.correct === true || String(o?.correct) === 'true' ||
@@ -443,7 +443,6 @@ export class OptionClickHandlerService {
     // clearly shows one correct option.
     if (!forceDisableAll) {
       try {
-        const nrmSA = (t: any) => String(t ?? '').trim().toLowerCase();
         const saSelections =
           this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
         const isShuffledSA = this.quizService?.isShuffleEnabled?.() &&
@@ -463,7 +462,7 @@ export class OptionClickHandlerService {
               s?.correct === 1 || s?.correct === '1') {
             return true;
           }
-          return correctTextsSA.has(nrmSA(s?.text));
+          return correctTextsSA.has(norm(s?.text));
         });
         if (!anyCorrectSelected && correctTextsSA.size <= 1) return false;
       } catch { /* ignore â€” fall through to legacy lock checks */ }

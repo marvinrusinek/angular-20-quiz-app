@@ -8,6 +8,7 @@ import { SelectedOption } from '../../../models/SelectedOption.model';
 import { FeedbackContext } from './shared-option-feedback.service';
 
 import type { SharedOptionComponent } from '../../../../components/question/answer/shared-option-component/shared-option.component';
+import { norm } from '../../../utils/text-norm';
 
 type Host = SharedOptionComponent;
 
@@ -110,13 +111,12 @@ export class SharedOptionOrchestratorService {
     // uniquely identifies a question across the entire QUIZ_DATA.
     let result = false;
     try {
-      const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
       const qs: any = host.quizService;
 
       // Collect candidate option texts from anywhere we can find them.
       const collectTexts = (arr: any[] | undefined | null): string[] => {
         if (!Array.isArray(arr)) return [];
-        return arr.map((o: any) => nrm(o?.text)).filter((t: string) => !!t);
+        return arr.map((o: any) => norm(o?.text)).filter((t: string) => !!t);
       };
       let candidateTexts: string[] = collectTexts(host.optionBindings()?.map((b: any) => b?.option));
       if (!candidateTexts.length) candidateTexts = collectTexts(host.optionsToDisplay);
@@ -129,7 +129,7 @@ export class SharedOptionOrchestratorService {
           for (const pq of (quiz?.questions ?? [])) {
             const pqOpts = pq?.options ?? [];
             if (pqOpts.length !== candidateTexts.length) continue;
-            const pqTexts = pqOpts.map((o: any) => nrm(o?.text));
+            const pqTexts = pqOpts.map((o: any) => norm(o?.text));
             // Every pristine option text must appear in candidate set.
             if (!pqTexts.every((t: string) => candidateSet.has(t))) continue;
             const correctCount = pqOpts.filter(
@@ -151,12 +151,12 @@ export class SharedOptionOrchestratorService {
         const displayQ = isShuffled
           ? (qs?.getQuestionsInDisplayOrder?.()?.[idx] ?? qs?.shuffledQuestions?.[idx])
           : currentQ;
-        const qText = nrm(displayQ?.questionText ?? currentQ?.questionText);
+        const qText = norm(displayQ?.questionText ?? currentQ?.questionText);
         if (qText) {
           const bundle: any[] = qs?.quizInitialState ?? [];
           outerQ: for (const quiz of bundle) {
             for (const pq of (quiz?.questions ?? [])) {
-              if (nrm(pq?.questionText) !== qText) continue;
+              if (norm(pq?.questionText) !== qText) continue;
               const correctCount = (pq?.options ?? []).filter(
                 (o: any) =>
                   o?.correct === true || String(o?.correct) === 'true' ||

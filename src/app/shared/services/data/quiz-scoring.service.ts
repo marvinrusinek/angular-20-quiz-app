@@ -5,6 +5,7 @@ import { QuizScore } from '../../models/QuizScore.model';
 import { QuizShuffleService } from '../flow/quiz-shuffle.service';
 
 import { getQuizData } from '../../quiz-data-cache';
+import { norm } from '../../utils/text-norm';
 
 @Injectable({ providedIn: 'root' })
 export class QuizScoringService {
@@ -149,7 +150,6 @@ export class QuizScoringService {
     if (isNowCorrect && quizId && !isMultipleAnswer) {
       // For single-answer, no gate needed — single correct click = score.
     } else if (isNowCorrect && quizId && isMultipleAnswer) {
-      const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
       const confirmed = this._confirmedCorrectClicks.get(qIndex) ?? new Set();
 
       // Find pristine question by BOTH index-based and text-based matching.
@@ -165,7 +165,7 @@ export class QuizScoringService {
       if (pristineQ) {
         pristineCorrectTexts = (pristineQ.options ?? [])
           .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-          .map((o: any) => nrm(o?.text))
+          .map((o: any) => norm(o?.text))
           .filter((t: string) => !!t);
       }
 
@@ -179,7 +179,7 @@ export class QuizScoringService {
           for (const pq of pristineQuiz.questions) {
             const pqCorrect = (pq?.options ?? [])
               .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-              .map((o: any) => nrm(o?.text))
+              .map((o: any) => norm(o?.text))
               .filter((t: string) => !!t);
             if (pqCorrect.length > 1 && pqCorrect.every((t: string) => confirmed.has(t))) {
               pristineCorrectTexts = pqCorrect;

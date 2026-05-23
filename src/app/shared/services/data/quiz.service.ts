@@ -27,6 +27,7 @@ import { QuizShuffleService } from '../flow/quiz-shuffle.service';
 import { QuizStateService } from '../state/quizstate.service';
 
 import { getQuizData } from '../../quiz-data-cache';
+import { norm } from '../../utils/text-norm';
 
 @Injectable({ providedIn: 'root' })
 export class QuizService {
@@ -789,13 +790,12 @@ export class QuizService {
       this._correctTextsByQText.set(key, empty);
       return empty;
     }
-    const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
     const isCorrect = (v: any) =>
       v === true || String(v) === 'true' || v === 1 || v === '1';
     const texts = new Set<string>();
     for (const opt of (pq as any).options ?? []) {
       if (isCorrect(opt?.correct)) {
-        const txt = nrm(opt?.text);
+        const txt = norm(opt?.text);
         if (txt) texts.add(txt);
       }
     }
@@ -808,10 +808,9 @@ export class QuizService {
 
   private buildPristineByTextCache(): Map<string, QuizQuestion> {
     const cache = new Map<string, QuizQuestion>();
-    const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
     for (const quiz of this.quizInitialState ?? []) {
       for (const pq of quiz?.questions ?? []) {
-        const key = nrm(pq?.questionText);
+        const key = norm(pq?.questionText);
         if (!key || cache.has(key)) continue;
         cache.set(key, pq as QuizQuestion);
       }

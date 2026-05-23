@@ -19,6 +19,7 @@ import { QuizService } from '../data/quiz.service';
 import { QuizStateService } from '../state/quizstate.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
 import { TimerService } from '../features/timer/timer.service';
+import { norm } from '../../utils/text-norm';
 
 @Injectable({ providedIn: 'root' })
 export class QuizNavigationService {
@@ -511,7 +512,6 @@ export class QuizNavigationService {
         // banner flicker on Q(N) -> Q(N+1) transitions.
         let targetQText = rawQText;
         try {
-          const norm = (t: any) => String(t ?? '').trim().toLowerCase();
           const qNormText = norm(rawQText);
           let numCorrect = 0;
           let totalOpts = (targetQ?.options ?? []).length;

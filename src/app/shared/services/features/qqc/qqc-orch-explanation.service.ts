@@ -4,6 +4,7 @@ import { Option } from '../../../models/Option.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
 import type { QuizQuestionComponent } from '../../../../components/question/quiz-question/quiz-question.component';
+import { norm } from '../../../utils/text-norm';
 
 type Host = QuizQuestionComponent;
 
@@ -22,13 +23,12 @@ export class QqcOrchExplanationService {
     const resolveIdx = (): number => {
       const fallback = host.currentQuestionIndex?.() ?? 0;
       try {
-        const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
-        const liveQText = nrm(host.currentQuestion?.()?.questionText);
+        const liveQText = norm(host.currentQuestion?.()?.questionText);
         const allQs: any[] = (host.quizService as any)?.questions ?? [];
         if (liveQText && allQs.length) {
-          const atFallback = nrm(allQs[fallback]?.questionText);
+          const atFallback = norm(allQs[fallback]?.questionText);
           if (liveQText !== atFallback) {
-            const fixed = allQs.findIndex((q: any) => nrm(q?.questionText) === liveQText);
+            const fixed = allQs.findIndex((q: any) => norm(q?.questionText) === liveQText);
             if (fixed >= 0) return fixed;
           }
         }

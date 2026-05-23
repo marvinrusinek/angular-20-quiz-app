@@ -8,6 +8,7 @@ import { Option } from '../../../models/Option.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
 import type { QuizQuestionComponent } from '../../../../components/question/quiz-question/quiz-question.component';
+import { norm } from '../../../utils/text-norm';
 
 type Host = QuizQuestionComponent;
 
@@ -98,13 +99,12 @@ export class QqcOrchClickService {
         // only after ALL correct are selected.
         let pristineMultiDetected = false;
         try {
-          const nrmM = (t: any) => String(t ?? '').trim().toLowerCase();
-          const liveQText = nrmM(rawQuestion?.questionText);
+          const liveQText = norm(rawQuestion?.questionText);
           if (liveQText) {
             const bundleM: any[] = (host.quizService as any)?.quizInitialState ?? [];
             for (const quizM of bundleM) {
               for (const pqM of (quizM?.questions ?? [])) {
-                if (nrmM(pqM?.questionText) !== liveQText) continue;
+                if (norm(pqM?.questionText) !== liveQText) continue;
                 const pristineCorrect = (pqM?.options ?? []).filter(
                   (o: any) =>
                     o?.correct === true || String(o?.correct) === 'true' ||
@@ -184,7 +184,6 @@ export class QqcOrchClickService {
           const displayQ: any = host.quizService.getQuestionsInDisplayOrder?.()?.[idx]
             ?? (host.quizService as any)?.questions?.[idx]
             ?? q;
-          const norm = (t: any) => String(t ?? '').trim().toLowerCase();
           let rawCorrectTexts = new Set<string>();
           try {
             const qTextNorm = norm(displayQ?.questionText);
