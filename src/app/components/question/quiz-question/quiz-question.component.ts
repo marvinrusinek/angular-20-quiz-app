@@ -228,6 +228,7 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   override ngOnDestroy(): void {
+    this._abortController?.abort();
     super.ngOnDestroy();
     this.componentOrchestrator.runOnDestroy(this);
   }

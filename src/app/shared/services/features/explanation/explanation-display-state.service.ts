@@ -935,9 +935,7 @@ export class ExplanationDisplayStateService {
 
     // Hard reset every flag
     this.latestExplanation = '';
-    if (this._activeIndex !== newIndex) {
-      this.setShouldDisplayExplanation(false);
-    }
+    this.setShouldDisplayExplanation(false);
     this.setIsExplanationTextDisplayed(false);
     this.gate.deleteText(newIndex);
 

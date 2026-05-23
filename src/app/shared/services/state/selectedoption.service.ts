@@ -674,9 +674,6 @@ export class SelectedOptionService {
     if (force || current !== isAnswered) {
       this.isAnsweredSig.set(isAnswered);
       sessionStorage.setItem('isAnswered', JSON.stringify(isAnswered));
-    } else {
-      // Force re-emit even if value didn't change
-      this.isAnsweredSig.set(isAnswered);
     }
   }
 
