@@ -5,6 +5,7 @@ import { SK_DOT_CONFIRMED, SK_MULTI_PERFECT, SK_SEL_Q } from '../../../constants
 import { QuizService } from '../../data/quiz.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 
+import { isOptionCorrect } from '../../../utils/is-option-correct';
 import { norm } from '../../../utils/text-norm';
 
 export interface QuestionResolutionResult {
@@ -76,7 +77,7 @@ export class QuestionResolutionService {
         for (const pq of (quiz?.questions ?? [])) {
           if (liveQText && norm(pq?.questionText) === liveQText) {
             correctOpts = (pq?.options ?? []).filter(
-              (o: any) => o?.correct === true || String(o?.correct) === 'true'
+              (o: any) => isOptionCorrect(o)
             );
             if (correctOpts.length > 0) break outer;
           }
@@ -85,7 +86,7 @@ export class QuestionResolutionService {
     } catch { /* ignore */ }
     if (correctOpts.length === 0) {
       correctOpts = optsForQ.filter(
-        (o: any) => o?.correct === true || String(o?.correct) === 'true'
+        (o: any) => isOptionCorrect(o)
       );
     }
 

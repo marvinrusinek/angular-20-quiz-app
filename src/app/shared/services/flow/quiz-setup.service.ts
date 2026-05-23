@@ -28,6 +28,7 @@ import { TimerService } from '../features/timer/timer.service';
 import type { QuizComponent } from '../../../containers/quiz/quiz.component';
 import { SK_DISPLAY_MODE, SK_DOT_CONFIRMED, SK_SEL_Q, SK_SELECTED_OPTIONS_MAP } from '../../constants/session-keys';
 
+import { isOptionCorrect } from '../../utils/is-option-correct';
 import { norm } from '../../utils/text-norm';
 
 type Host = QuizComponent;
@@ -303,7 +304,7 @@ export class QuizSetupService {
         ?? host.currentQuestion())
       : (this.quizService.questions?.[idx] ?? host.currentQuestion());
     const correctCount = (authQ?.options ?? []).filter(
-      (o: any) => o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true'
+      (o: any) => isOptionCorrect(o)
     ).length;
     const isMultiAnswer = correctCount > 1 || this.quizService.multipleAnswer;
 
@@ -320,7 +321,7 @@ export class QuizSetupService {
               if (norm(pq?.questionText) !== qTextF) continue;
               const mo = (pq?.options ?? []).find((o: any) => norm(o?.text) === clickedText);
               if (mo) {
-                clickedIsCorrectForFET = mo?.correct === true || String(mo?.correct) === 'true';
+                clickedIsCorrectForFET = isOptionCorrect(mo);
               }
               found = true;
               break;
@@ -543,7 +544,7 @@ subscribeToTimerExpiry(host: Host): void {
             if (norm(pq?.questionText) !== qTextEC) continue;
             found = true;
             const pOpts = (pq?.options ?? []).filter(
-              (o: any) => o?.correct === true || String(o?.correct) === 'true'
+              (o: any) => isOptionCorrect(o)
             );
             correctCountEC = pOpts.length;
             correctTextsEC = pOpts.map((o: any) => norm(o?.text)).filter((t: string) => !!t);
@@ -556,10 +557,10 @@ subscribeToTimerExpiry(host: Host): void {
     if (correctCountEC === 0) {
       const rawOpts: any[] = rawQ?.options ?? [];
       correctCountEC = rawOpts.filter(
-        (o: any) => o?.correct === true || String(o?.correct) === 'true'
+        (o: any) => isOptionCorrect(o)
       ).length;
       correctTextsEC = rawOpts
-        .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+        .filter((o: any) => isOptionCorrect(o))
         .map((o: any) => norm(o?.text))
         .filter((t: string) => !!t);
     }

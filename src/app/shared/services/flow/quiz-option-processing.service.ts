@@ -13,6 +13,7 @@ import { QuizStateService } from '../state/quizstate.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
 import { SK_DISPLAY_MODE, SK_DOT_CONFIRMED, SK_IS_ANSWERED } from '../../constants/session-keys';
 
+import { isOptionCorrect } from '../../utils/is-option-correct';
 import { norm } from '../../utils/text-norm';
 
 /**
@@ -202,7 +203,7 @@ export class QuizOptionProcessingService {
           for (const pq of (quiz?.questions ?? [])) {
             if (norm(pq?.questionText) !== qText) continue;
             const pristineCorrectCount = (pq?.options ?? [])
-              .filter((o: any) => o?.correct === true || String(o?.correct) === 'true').length;
+              .filter((o: any) => isOptionCorrect(o)).length;
             if (pristineCorrectCount > correctCountForQuestion) {
               correctCountForQuestion = pristineCorrectCount;
             }
@@ -235,7 +236,7 @@ export class QuizOptionProcessingService {
     const hasExplicitCorrectFlag = option?.correct !== undefined && option?.correct !== null;
 
     if (hasExplicitCorrectFlag) {
-      const payloadCorrect = option?.correct === true || String(option?.correct) === 'true';
+      const payloadCorrect = isOptionCorrect(option);
       if (isSingleAnswerQuestion) {
         liveCorrectness = payloadCorrect;
         usedExplicitPayloadCorrectness = true;
@@ -280,14 +281,14 @@ export class QuizOptionProcessingService {
     const normalize = (value: unknown): string => String(value ?? '').trim().toLowerCase();
     const clickedOptionId = String(option?.optionId ?? '').trim();
     const clickedText = normalize(option?.text);
-    const payloadSaysCorrect = option?.correct === true || String(option?.correct) === 'true';
+    const payloadSaysCorrect = isOptionCorrect(option);
 
     const sourceOptions: Option[] = optionsForImmediateScoring;
 
     const matchedCorrectOption = sourceOptions.some((opt: Option) => {
       const optId = String(opt?.optionId ?? '').trim();
       const optText = normalize(opt?.text);
-      const isCorrect = opt?.correct === true || String(opt?.correct) === 'true';
+      const isCorrect = isOptionCorrect(opt);
 
       const idMatch = clickedOptionId !== '' && optId !== '' && clickedOptionId === optId;
       const textMatch = clickedText !== '' && optText !== '' && clickedText === optText;
@@ -297,7 +298,7 @@ export class QuizOptionProcessingService {
     const payloadIndex = Number((option as any)?.displayIndex ?? (option as any)?.index ?? -1);
     const indexMatchedCorrect =
       Number.isInteger(payloadIndex) && payloadIndex >= 0 && payloadIndex < sourceOptions.length
-        ? (sourceOptions[payloadIndex]?.correct === true || String(sourceOptions[payloadIndex]?.correct) === 'true')
+        ? isOptionCorrect(sourceOptions[payloadIndex])
         : false;
 
     const clickedIsCorrect = payloadSaysCorrect || matchedCorrectOption || indexMatchedCorrect || liveCorrectness === true;
@@ -384,7 +385,7 @@ export class QuizOptionProcessingService {
             for (const pq of (quiz?.questions ?? [])) {
               if (norm(pq?.questionText) !== qText) continue;
               pristineCorrectTexts = (pq?.options ?? [])
-                .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+                .filter((o: any) => isOptionCorrect(o))
                 .map((o: any) => norm(o?.text))
                 .filter((t: string) => !!t);
               break;
@@ -399,7 +400,7 @@ export class QuizOptionProcessingService {
           const pristineQ = pristineQuiz?.questions?.[idx];
           if (pristineQ) {
             pristineCorrectTexts = (pristineQ?.options ?? [])
-              .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+              .filter((o: any) => isOptionCorrect(o))
               .map((o: any) => norm(o?.text))
               .filter((t: string) => !!t);
           }
@@ -434,16 +435,14 @@ export class QuizOptionProcessingService {
 
     // Compute immediate multi dot status
     const clickedIndex = Number((option as any)?.displayIndex ?? (option as any)?.index ?? -1);
-    const clickedPayloadSaysCorrect =
-      option?.correct === true || String(option?.correct) === 'true';
+    const clickedPayloadSaysCorrect = isOptionCorrect(option);
     const clickedOptionIsCorrect =
       clickedPayloadSaysCorrect ||
       this.dotStatusService.matchesAnyCorrectOption(option as SelectedOption, questionForSelection, optionsForImmediateScoring) || (
         Number.isInteger(clickedIndex) &&
         clickedIndex >= 0 &&
         clickedIndex < optionsForImmediateScoring.length &&
-        (optionsForImmediateScoring[clickedIndex]?.correct === true ||
-          String(optionsForImmediateScoring[clickedIndex]?.correct) === 'true')
+        isOptionCorrect(optionsForImmediateScoring[clickedIndex])
       );
 
     const explicitSelectedState =
@@ -522,7 +521,7 @@ export class QuizOptionProcessingService {
               for (const pq of (quiz?.questions ?? [])) {
                 if (norm(pq?.questionText) !== qText) continue;
                 pristineCorrectTexts = (pq?.options ?? [])
-                  .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+                  .filter((o: any) => isOptionCorrect(o))
                   .map((o: any) => norm(o?.text))
                   .filter((t: string) => !!t);
                 break;
@@ -536,7 +535,7 @@ export class QuizOptionProcessingService {
             const pristineQ = pristineQuiz?.questions?.[idx];
             if (pristineQ) {
               pristineCorrectTexts = (pristineQ?.options ?? [])
-                .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+                .filter((o: any) => isOptionCorrect(o))
                 .map((o: any) => norm(o?.text))
                 .filter((t: string) => !!t);
             }
@@ -594,7 +593,7 @@ export class QuizOptionProcessingService {
         if (finalDotStatus === 'correct' || finalDotStatus === 'wrong') {
           sessionStorage.setItem(SK_DOT_CONFIRMED + idx, finalDotStatus);
         } else {
-          const clickedCorrect = params.option?.correct === true || String(params.option?.correct) === 'true';
+          const clickedCorrect = isOptionCorrect(params.option);
           sessionStorage.setItem(SK_DOT_CONFIRMED + idx, clickedCorrect ? 'correct' : 'wrong');
         }
       }

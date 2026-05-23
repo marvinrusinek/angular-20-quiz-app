@@ -6,6 +6,7 @@ import { QuizQuestion } from '../../models/QuizQuestion.model';
 
 import { QuizOptionsService } from './quiz-options.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
+import { isOptionCorrect } from '../../utils/is-option-correct';
 import { norm } from '../../utils/text-norm';
 
 /**
@@ -156,7 +157,7 @@ export class QuizAnswerEvaluationService {
           if (norm(pq?.questionText) !== qText) continue;
 
           pristineCorrectTexts = (pq?.options ?? [])
-            .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+            .filter((o: any) => isOptionCorrect(o))
             .map((o: any) => norm(o?.text))
             .filter((t: string) => !!t);
 
@@ -171,7 +172,7 @@ export class QuizAnswerEvaluationService {
       const pristineQ = pristineQuiz?.questions?.[questionIndex];
       if (pristineQ) {
         pristineCorrectTexts = (pristineQ?.options ?? [])
-          .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+          .filter((o: any) => isOptionCorrect(o))
           .map((o: any) => norm(o?.text))
           .filter((t: string) => !!t);
       }

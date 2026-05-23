@@ -23,6 +23,8 @@ import { SharedOptionComponent } from '../shared-option-component/shared-option.
 
 import { BaseQuestion } from '../../base/base-question';
 
+import { isOptionCorrect } from '../../../../shared/utils/is-option-correct';
+
 @Component({
   selector: 'codelab-question-answer',
   standalone: true,
@@ -134,9 +136,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
 
         // ROBUST MULTI-ANSWER CHECK
         const opts = currentQuestion.options || [];
-        const correctCount = opts.filter(o =>
-          o.correct === true || (o as any).correct === 'true' || (o as any).correct === 1
-        ).length;
+        const correctCount = opts.filter(o => isOptionCorrect(o)).length;
 
         this.type.set(correctCount > 1 ? 'multiple' : 'single');
 
@@ -310,10 +310,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     // Without this, navigating from a multi-answer question (e.g. Q4) to a
     // single-answer question (e.g. Q5) would leave type='multiple', causing
     // SOC to render checkboxes and use multi-answer interaction logic.
-    const correctCount =
-      nextOptions.filter(o =>
-        o.correct === true || (o as any).correct === 'true' || (o as any).correct === 1
-    ).length;
+    const correctCount = nextOptions.filter(o => isOptionCorrect(o)).length;
     this.type.set(correctCount > 1 ? 'multiple' : 'single');
 
     this.optionsToDisplay.set(nextOptions);

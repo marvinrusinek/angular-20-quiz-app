@@ -14,6 +14,7 @@ import { SelectedOptionService } from '../../state/selectedoption.service';
 import { SocAnswerProcessingService } from './soc-answer-processing.service';
 import { SocOptionUiService } from './soc-option-ui.service';
 import { TimerService } from '../../features/timer/timer.service';
+import { isOptionCorrect } from '../../../utils/is-option-correct';
 import { norm } from '../../../utils/text-norm';
 
 /**
@@ -46,7 +47,7 @@ export class SharedOptionClickService {
     if (!binding) return;
 
     comp.cdRef.markForCheck();
-    let pristineCorrect = binding.option?.correct === true;
+    let pristineCorrect = isOptionCorrect(binding.option);
     try {
       const optText = norm(binding.option?.text);
       if (optText) {
@@ -101,7 +102,7 @@ export class SharedOptionClickService {
         target?.closest('.mat-mdc-checkbox');
 
       if (isInsideMaterialControl) {
-        const isCorrectOpt = binding?.option?.correct === true || String(binding?.option?.correct) === 'true';
+        const isCorrectOpt = isOptionCorrect(binding?.option);
         const isSingleMode = comp.type === 'single' && !comp.isMultiMode;
         if (!(isSingleMode && isCorrectOpt && binding.disabled)) return;
       }

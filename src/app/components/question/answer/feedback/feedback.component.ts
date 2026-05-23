@@ -10,6 +10,8 @@ import { FeedbackService } from '../../../../shared/services/features/feedback/f
 import { QuizService } from '../../../../shared/services/data/quiz.service';
 import { SelectedOptionService } from '../../../../shared/services/state/selectedoption.service';
 
+import { isOptionCorrect } from '../../../../shared/utils/is-option-correct';
+
 @Component({
   selector: 'codelab-quiz-feedback',
   standalone: true,
@@ -121,12 +123,7 @@ export class FeedbackComponent {
                 const match = liveQ.options.find(
                   (o: any) => (o?.text ?? '').trim().toLowerCase() === candidateText
                 );
-                const isCorrectFlag = match && (
-                  match.correct === true ||
-                  match.correct === 1 ||
-                  String(match.correct) === 'true'
-                );
-                if (isCorrectFlag) {
+                if (isOptionCorrect(match)) {
                   cacheMatchesUrl = false;
                   break;
                 }

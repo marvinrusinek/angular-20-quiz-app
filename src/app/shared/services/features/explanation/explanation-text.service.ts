@@ -11,6 +11,7 @@ import { ExplanationDisplayStateService, FETPayload } from './explanation-displa
 import { ExplanationFormatterService } from './explanation-formatter.service';
 import { QuizService } from '../../data/quiz.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
+import { isOptionCorrect } from '../../../utils/is-option-correct';
 import { norm } from '../../../utils/text-norm';
 
 export { FETPayload } from './explanation-display-state.service';
@@ -70,7 +71,7 @@ export class ExplanationTextService {
         for (const pq of quiz?.questions ?? []) {
           if (norm(pq?.questionText) !== qText) continue;
           pristineCorrectTexts = (pq?.options ?? [])
-            .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+            .filter((o: any) => isOptionCorrect(o))
             .map((o: any) => norm(o?.text))
             .filter((t: string) => !!t);
           break;

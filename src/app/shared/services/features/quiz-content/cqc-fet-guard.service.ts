@@ -7,6 +7,7 @@ import { Option } from '../../../models/Option.model';
 import { QuizDotStatusService } from '../../flow/quiz-dot-status.service';
 
 import type { CodelabQuizContentComponent } from '../../../../containers/quiz/quiz-content/codelab-quiz-content.component';
+import { isOptionCorrect } from '../../../utils/is-option-correct';
 import { norm } from '../../../utils/text-norm';
 
 type Host = CodelabQuizContentComponent;
@@ -60,7 +61,7 @@ export class CqcFetGuardService {
           if (!safeIsFet) {
             if (urlQ?.questionText) {
               const correctCount = (urlQ?.options ?? []).filter(
-                (o: any) => o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true'
+                (o: any) => isOptionCorrect(o)
               ).length;
               if (correctCount > 1 && (urlQ.options?.length ?? 0) > 0) {
                 const suffix = correctCount === 1 ? 'answer is' : 'answers are';
@@ -202,7 +203,7 @@ export class CqcFetGuardService {
               for (const pq of quiz?.questions ?? []) {
                 if (norm(pq?.questionText) !== displayedQText) continue;
                 for (const o of pq?.options ?? []) {
-                  if (o?.correct !== true && String(o?.correct) !== 'true') continue;
+                  if (!isOptionCorrect(o)) continue;
                   const t = norm(o?.text);
                   if (t) pristineCorrectTexts.add(t);
                 }
@@ -317,7 +318,7 @@ export class CqcFetGuardService {
       try {
         const qs = host.quizService;
         const hasCorrectFlag = (opts: any[] = []) =>
-          opts.some((o: any) => o?.correct === true || String(o?.correct) === 'true');
+          opts.some((o: any) => isOptionCorrect(o));
         const pristineByText = new Map<string, any>();
         const addSource = (arr: any[] | undefined) => {
           if (!Array.isArray(arr)) return;
@@ -344,7 +345,7 @@ export class CqcFetGuardService {
           for (const [, pristineQ] of pristineByText) {
             const rawOpts: any[] = pristineQ?.options ?? [];
             const correctOpts = rawOpts.filter(
-              (o: any) => o?.correct === true || String(o?.correct) === 'true'
+              (o: any) => isOptionCorrect(o)
             );
             if (correctOpts.length < 2) continue;
             const explNorm = norm(pristineQ?.explanation);
@@ -464,7 +465,7 @@ export class CqcFetGuardService {
             for (const pq of (quiz?.questions ?? [])) {
               if (norm(pq?.questionText) !== qTextNorm_ll) continue;
               pristineCorrect_ll = (pq?.options ?? [])
-                .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+                .filter((o: any) => isOptionCorrect(o))
                 .map((o: any) => norm(o?.text))
                 .filter((t: string) => !!t);
               break;
@@ -521,7 +522,7 @@ export class CqcFetGuardService {
           for (let pi = 0; pi < _questions.length; pi++) {
             if (norm(_questions[pi]?.questionText) === _qTextNorm) {
               _pCorrect = (_questions[pi]?.options ?? [])
-                .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+                .filter((o: any) => isOptionCorrect(o))
                 .map((o: any) => norm(o?.text))
                 .filter((t: string) => !!t);
               break;
@@ -662,7 +663,7 @@ export class CqcFetGuardService {
           for (const pq of quiz?.questions ?? []) {
             if (norm(pq?.questionText) !== qTextBld) continue;
             const pOpts = pq?.options ?? [];
-            numCorrect = pOpts.filter((o: any) => o?.correct === true || String(o?.correct) === 'true').length;
+            numCorrect = pOpts.filter((o: any) => isOptionCorrect(o)).length;
             totalOpts = pOpts.length;
             break;
           }
@@ -671,7 +672,7 @@ export class CqcFetGuardService {
       } catch { /* ignore */ }
       if (numCorrect === 0) {
         const sourceOpts = q?.options ?? [];
-        numCorrect = sourceOpts.filter((o: Option) => o?.correct === true).length;
+        numCorrect = sourceOpts.filter((o: Option) => isOptionCorrect(o)).length;
         totalOpts = sourceOpts.length;
       }
       let display = rawQ;
@@ -780,7 +781,7 @@ export class CqcFetGuardService {
             for (const pq of (quiz?.questions ?? [])) {
               if (norm(pq?.questionText) !== qText) continue;
               pristineCorrectTexts = (pq?.options ?? [])
-                .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+                .filter((o: any) => isOptionCorrect(o))
                 .map((o: any) => norm(o?.text))
                 .filter((t: string) => !!t);
               break;
@@ -948,7 +949,7 @@ export class CqcFetGuardService {
       for (const pq of quiz?.questions ?? []) {
         if (norm(pq?.questionText) !== qText) continue;
         const texts = (pq?.options ?? [])
-          .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+          .filter((o: any) => isOptionCorrect(o))
           .map((o: any) => norm(o?.text))
           .filter((t: string) => !!t);
         if (texts.length > 0) return texts;

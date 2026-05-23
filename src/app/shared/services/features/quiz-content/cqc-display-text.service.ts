@@ -4,6 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CqcFetGuardService } from './cqc-fet-guard.service';
 
 import type { CodelabQuizContentComponent } from '../../../../containers/quiz/quiz-content/codelab-quiz-content.component';
+import { isOptionCorrect } from '../../../utils/is-option-correct';
 import { norm } from '../../../utils/text-norm';
 
 type Host = CodelabQuizContentComponent;
@@ -86,7 +87,7 @@ export class CqcDisplayTextService {
           const qForMultiCheck = host.quizService.getQuestionsInDisplayOrder()?.[currentIdx]
             ?? host.quizService.questions?.[currentIdx];
           let multiCorrectCount = (qForMultiCheck?.options ?? []).filter(
-            (o: any) => o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true'
+            (o: any) => isOptionCorrect(o)
           ).length;
           try {
             const _qText = norm(qForMultiCheck?.questionText);
@@ -95,7 +96,7 @@ export class CqcDisplayTextService {
               for (const _pq of (_quiz?.questions ?? [])) {
                 if (norm(_pq?.questionText) !== _qText) continue;
                 const pristineCount = (_pq?.options ?? []).filter(
-                  (o: any) => o?.correct === true || String(o?.correct) === 'true'
+                  (o: any) => isOptionCorrect(o)
                 ).length;
                 if (pristineCount > multiCorrectCount) {
                   multiCorrectCount = pristineCount;
@@ -229,7 +230,7 @@ export class CqcDisplayTextService {
                 (host.quizService as any)?.questions?.[currentIdx] ?? qForMultiCheck;
               const rawOptsForBlock: any[] = rawQForBlock?.options ?? [];
               let rawCorrectCountBlock = rawOptsForBlock.filter(
-                (o: any) => o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true'
+                (o: any) => isOptionCorrect(o)
               ).length;
               try {
                 const _qText2 = norm(rawQForBlock?.questionText ?? qForMultiCheck?.questionText);
@@ -238,7 +239,7 @@ export class CqcDisplayTextService {
                   for (const _pq2 of (_quiz2?.questions ?? [])) {
                     if (norm(_pq2?.questionText) !== _qText2) continue;
                     const pc2 = (_pq2?.options ?? []).filter(
-                      (o: any) => o?.correct === true || String(o?.correct) === 'true'
+                      (o: any) => isOptionCorrect(o)
                     ).length;
                     if (pc2 > rawCorrectCountBlock) rawCorrectCountBlock = pc2;
                     break;

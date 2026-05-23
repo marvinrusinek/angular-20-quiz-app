@@ -11,6 +11,7 @@ import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
 import { QuizService } from '../../data/quiz.service';
 import { QuizShuffleService } from '../../flow/quiz-shuffle.service';
+import { isOptionCorrect } from '../../../utils/is-option-correct';
 
 @Injectable({ providedIn: 'root' })
 export class ExplanationFormatterService {
@@ -214,11 +215,7 @@ export class ExplanationFormatterService {
 
       const byFlags = opts
         .map((option, idx) => {
-          const flagged =
-            option?.correct === true ||
-            (option as any)?.correct === 'true' ||
-            (option as any)?.isCorrect === true;
-          return flagged ? idx + 1 : null;
+          return isOptionCorrect(option) ? idx + 1 : null;
         })
         .filter((n): n is number => n !== null);
 
@@ -408,7 +405,7 @@ export class ExplanationFormatterService {
 
     // Count correct options from the actual data — this is the most reliable signal.
     const correctFlagCount = opts.filter(o =>
-      o?.correct === true || String((o as any)?.correct) === 'true'
+      isOptionCorrect(o)
     ).length;
 
     const isSingleChoice = correctFlagCount <= 1 &&
@@ -420,7 +417,7 @@ export class ExplanationFormatterService {
     // Attempt 0: Trust the internal correct flags FIRST — they are the most
     // reliable signal and should take priority over text-matching heuristics.
     const internalCorrectIndices = opts
-      .map((opt, i) => (opt.correct === true || (opt as any).correct === 'true' ? i + 1 : null))
+      .map((opt, i) => (isOptionCorrect(opt) ? i + 1 : null))
       .filter((n): n is number => n !== null);
 
     if (internalCorrectIndices.length > 0) {
@@ -460,7 +457,7 @@ export class ExplanationFormatterService {
     // The user sees these on screen. If one is marked `correct: true` (Green),
     // the text MUST match that index, or the UI is lying.
     const visualCorrectIndices = opts
-      .map((opt, i) => (opt.correct === true || (opt as any).correct === 'true' ? i + 1 : null))
+      .map((opt, i) => (isOptionCorrect(opt) ? i + 1 : null))
       .filter((n): n is number => n !== null);
 
     if (visualCorrectIndices.length > 0) {
@@ -579,7 +576,7 @@ export class ExplanationFormatterService {
             // Priority 2: Filter by visual 'correct' flags
             const verified = result.filter(idx => {
               const opt = opts[idx - 1];
-              return opt?.correct === true || String(opt?.correct) === 'true';
+              return isOptionCorrect(opt);
             });
 
             if (verified.length === 1) {              result = verified;
@@ -596,7 +593,7 @@ export class ExplanationFormatterService {
 
     // ATTEMPT 4: Simple Visual Scanning of provided opts (Green Flag)
     const quickVisual = opts
-      .map((o, idx) => (o.correct === true || String(o.correct) === 'true' ? idx + 1 : null))
+      .map((o, idx) => (isOptionCorrect(o) ? idx + 1 : null))
       .filter((n): n is number => n !== null);
 
     if (quickVisual.length > 0) {
@@ -639,7 +636,7 @@ export class ExplanationFormatterService {
 
     // Also detect multi-answer from actual data: if multiple correct flags exist, it IS multi-answer.
     const dataCorrectCount = (question?.options ?? []).filter(
-      (o: any) => o?.correct === true || String(o?.correct) === 'true'
+      (o: any) => isOptionCorrect(o)
     ).length;
     const isDataMulti = dataCorrectCount > 1;
 
@@ -774,7 +771,7 @@ export class ExplanationFormatterService {
               }
               if (visualIndices.length === 0) {
                 visualIndices = qData.options
-                  .map((o: any, i: number) => (o?.correct === true || o?.correct === 'true') ? i + 1 : null)
+                  .map((o: any, i: number) => isOptionCorrect(o) ? i + 1 : null)
                   .filter((n: number | null): n is number => n !== null);
               }
               if (visualIndices.length > 0) {

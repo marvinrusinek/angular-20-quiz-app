@@ -422,7 +422,7 @@ export class OptionUiSyncService {
                 matched = true;
                 const matchedOpt = (pq?.options ?? []).find((o: any) => norm(o?.text) === clickedText);
                 if (matchedOpt) {
-                  clickedIsCorrect = matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
+                  clickedIsCorrect = isOptionCorrect(matchedOpt);
                 }
                 break;
               }
@@ -655,7 +655,7 @@ export class OptionUiSyncService {
               if (normalize(pq?.questionText) !== qText) continue;
               matched = true;
               const pristineCorrect = (pq?.options ?? [])
-                .filter((o: any) => o?.correct === true || String(o?.correct) === 'true');
+                .filter((o: any) => isOptionCorrect(o));
               if (pristineCorrect.length > 0) {
                 correctOptions = pristineCorrect;
                 correctTextSet = new Set(
@@ -849,9 +849,7 @@ export class OptionUiSyncService {
           );
           if (!allMatch) continue;
           return opts.filter(
-            (o: any) =>
-              o?.correct === true || String(o?.correct) === 'true' ||
-              o?.correct === 1 || o?.correct === '1'
+            (o: any) => isOptionCorrect(o)
           ).length;
         }
       }

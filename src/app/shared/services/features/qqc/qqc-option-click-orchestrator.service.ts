@@ -14,6 +14,7 @@ import { QuizShuffleService } from '../../flow/quiz-shuffle.service';
 import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 import { SelectionMessageService } from '../selection-message/selection-message.service';
+import { isOptionCorrect } from '../../../utils/is-option-correct';
 import { norm } from '../../../utils/text-norm';
 
 /**
@@ -97,7 +98,7 @@ export class QqcOptionClickOrchestratorService {
     if (!question) return false;
 
     const typeMatch = question.type === QuestionType.MultipleAnswer;
-    const correctCount = (question.options?.filter((o: any) => o.correct === true || String(o.correct) === 'true').length ?? 0);
+    const correctCount = (question.options?.filter((o: any) => isOptionCorrect(o)).length ?? 0);
     return (typeMatch || correctCount > 1);
   }
 
@@ -150,7 +151,7 @@ export class QqcOptionClickOrchestratorService {
       if (pristineOpts) {
         const pristineCorrectTexts = new Set<string>(
           pristineOpts
-            .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+            .filter((o: any) => isOptionCorrect(o))
             .map((o: any) => norm(o?.text))
             .filter((t: string) => !!t)
         );
@@ -163,7 +164,7 @@ export class QqcOptionClickOrchestratorService {
     // Fallback: use question.options directly
     if (correctIndices.length === 0) {
       correctIndices = question.options
-        .map((o: any, i: number) => (o.correct === true || String(o.correct) === 'true') ? i : -1)
+        .map((o: any, i: number) => isOptionCorrect(o) ? i : -1)
         .filter((i: number) => i !== -1);
     }
 
@@ -182,7 +183,7 @@ export class QqcOptionClickOrchestratorService {
     question: QuizQuestion | undefined
   ): boolean {
     const clickedOptData = question?.options?.[evtIdx];
-    const clickedIsCorrect = clickedOptData?.correct === true || String(clickedOptData?.correct) === 'true';
+    const clickedIsCorrect = isOptionCorrect(clickedOptData);
 
     const dotStatus = clickedIsCorrect ? 'correct' : 'wrong';
     this.selectedOptionService.lastClickedCorrectByQuestion.set(questionIndex, clickedIsCorrect);
@@ -260,7 +261,7 @@ export class QqcOptionClickOrchestratorService {
     try {
       const clickedIdNum = Number(evtOpt?.optionId ?? NaN);
       const isMultiAnswer = question.type === QuestionType.MultipleAnswer ||
-        (question.options?.filter((o: any) => o.correct === true || String(o.correct) === 'true').length ?? 0) > 1;
+        (question.options?.filter((o: any) => isOptionCorrect(o)).length ?? 0) > 1;
 
       if (Number.isFinite(clickedIdNum)) {
         if (!isMultiAnswer || !evtOpt?.correct) {
@@ -319,7 +320,7 @@ export class QqcOptionClickOrchestratorService {
           : rawQs[questionIndex];
         if (rawQ && Array.isArray(rawQ.options)) {
           const rawCorrectTexts = rawQ.options
-            .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+            .filter((o: any) => isOptionCorrect(o))
             .map((o: any) => norm(o?.text))
             .filter((t: string) => !!t);
           if (rawCorrectTexts.length > 0) {

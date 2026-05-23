@@ -14,6 +14,7 @@ import { QuizQuestionManagerService } from '../../flow/quizquestionmgr.service';
 import { QuizService } from '../../data/quiz.service';
 import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
+import { isOptionCorrect } from '../../../utils/is-option-correct';
 import { norm } from '../../../utils/text-norm';
 
 /**
@@ -113,7 +114,7 @@ export class QqcExplanationDisplayService {
           : (baseRaw.includes('correct because') ? baseRaw : `Option ${correctIndices[0]} is correct because ${baseRaw}`);
       } else {
         const findCorrect = visualOpts
-          .map((opt, idx) => (opt.correct === true || (opt as any).correct === 'true' ? idx + 1 : null))
+          .map((opt, idx) => (isOptionCorrect(opt) ? idx + 1 : null))
           .filter((n): n is number => n !== null);
 
         if (findCorrect.length > 0) {
@@ -152,13 +153,13 @@ export class QqcExplanationDisplayService {
       const rawQ: any = this.quizService?.questions?.[i0] ?? q;
       const rawOpts: any[] = rawQ?.options ?? [];
       const correctCount = rawOpts.filter(
-        (o: any) => o?.correct === true || String(o?.correct) === 'true'
+        (o: any) => isOptionCorrect(o)
       ).length;
       const isMultiAnswer = correctCount > 1;
 
       if (isMultiAnswer) {
         const correctTexts = rawOpts
-          .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+          .filter((o: any) => isOptionCorrect(o))
           .map((o: any) => norm(o?.text))
           .filter((t: string) => !!t);
         const selections = this.selectedOptionService.getSelectedOptionsForQuestion(i0) ?? [];

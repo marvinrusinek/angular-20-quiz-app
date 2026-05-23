@@ -14,6 +14,7 @@ import { ExplanationGateService } from './explanation-gate.service';
 import { QuizService } from '../../data/quiz.service';
 import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
+import { isOptionCorrect } from '../../../utils/is-option-correct';
 import { norm } from '../../../utils/text-norm';
 
 export type FETPayload = { idx: number; text: string; token: number };
@@ -190,11 +191,11 @@ export class ExplanationDisplayStateService {
           const rawQ: any = (quizSvc as any)?.questions?.[activeIdx];
           const rawOpts: any[] = rawQ?.options ?? [];
           const correctCount = rawOpts.filter(
-            (o: any) => o?.correct === true || String(o?.correct) === 'true'
+            (o: any) => isOptionCorrect(o)
           ).length;
           if (correctCount > 1) {
             const correctTexts = rawOpts
-              .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+              .filter((o: any) => isOptionCorrect(o))
               .map((o: any) => norm(o?.text))
               .filter((t: string) => !!t);
             const selections = selectedSvc.getSelectedOptionsForQuestion(activeIdx) ?? [];
@@ -527,11 +528,11 @@ export class ExplanationDisplayStateService {
             : (quizSvc as any)?.questions?.[activeIdx];
           const rawOpts: any[] = rawQ?.options ?? [];
           const correctCount = rawOpts.filter(
-            (o: any) => o?.correct === true || String(o?.correct) === 'true'
+            (o: any) => isOptionCorrect(o)
           ).length;
           if (correctCount > 1) {
             const correctTexts = rawOpts
-              .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+              .filter((o: any) => isOptionCorrect(o))
               .map((o: any) => norm(o?.text))
               .filter((t: string) => !!t);
             const selections = selectedSvc.getSelectedOptionsForQuestion(activeIdx) ?? [];
@@ -718,7 +719,7 @@ export class ExplanationDisplayStateService {
 
           if (question && Array.isArray(question.options)) {
             correctCount = question.options.filter(
-              (o: any) => o.correct === true || String(o.correct) === 'true'
+              (o: any) => isOptionCorrect(o)
             ).length;
           }
 
@@ -726,7 +727,7 @@ export class ExplanationDisplayStateService {
           const rawQs: any[] = (quizSvc as any).questions ?? [];
           const rawQ: any = rawQs[index] ?? question;
           const rawCorrectCount = (rawQ?.options ?? []).filter(
-            (o: any) => o?.correct === true || String(o?.correct) === 'true'
+            (o: any) => isOptionCorrect(o)
           ).length;
           const effectiveCorrectCount = Math.max(correctCount, rawCorrectCount);
 
@@ -738,7 +739,7 @@ export class ExplanationDisplayStateService {
             const selections = sos?.selectedOptionsMap?.get(index) ?? [];
             const rawOpts: any[] = rawQ?.options ?? [];
             const rawCorrectTexts = new Set(
-              rawOpts.filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+              rawOpts.filter((o: any) => isOptionCorrect(o))
                 .map((o: any) => norm(o?.text)).filter((t: string) => !!t)
             );
             const selTexts = new Set(

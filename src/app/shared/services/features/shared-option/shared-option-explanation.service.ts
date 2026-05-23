@@ -10,6 +10,7 @@ import { ExplanationTextService } from '../explanation/explanation-text.service'
 import { QuizService } from '../../data/quiz.service';
 import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
+import { isOptionCorrect } from '../../../utils/is-option-correct';
 
 /**
  * Context passed from the component for explanation resolution.
@@ -168,7 +169,7 @@ export class SharedOptionExplanationService {
         for (const pq of quiz?.questions ?? []) {
           if (this.normalize(pq?.questionText) !== qText) continue;
           const correctOpts = (pq?.options ?? []).filter(
-            (o: any) => o?.correct === true || String(o?.correct) === 'true'
+            (o: any) => isOptionCorrect(o)
           );
           if (correctOpts.length === 0) continue;
           correctCount = correctOpts.length;
@@ -184,7 +185,7 @@ export class SharedOptionExplanationService {
     // Fallback: use live data only if pristine lookup failed
     if (correctCount === 0) {
       correctCount = (authQuestion?.options ?? question!.options).filter(
-        (o: any) => o.correct === true || String(o.correct) === 'true'
+        (o: any) => isOptionCorrect(o)
       ).length;
     }
     const isMultiAnswer = correctCount > 1 || this.quizService.multipleAnswer;
@@ -219,7 +220,7 @@ export class SharedOptionExplanationService {
       if (pristineCorrectTexts.size > 0 && selText) {
         return pristineCorrectTexts.has(selText);
       }
-      if (sel?.correct === true || String(sel?.correct) === 'true') return true;
+      if (isOptionCorrect(sel)) return true;
 
       const selId = sel?.optionId;
 
@@ -227,12 +228,12 @@ export class SharedOptionExplanationService {
         o?.optionId !== undefined && o?.optionId !== null &&
         String(o.optionId) === String(selId)
       );
-      if (byId) return byId.correct === true || String(byId.correct) === 'true';
+      if (byId) return isOptionCorrect(byId);
 
       const byText = question!.options.find((o: any) =>
         this.normalize(o?.text) !== '' && this.normalize(o?.text) === selText
       );
-      if (byText) return byText.correct === true || String(byText.correct) === 'true';
+      if (byText) return isOptionCorrect(byText);
 
       return false;
     };

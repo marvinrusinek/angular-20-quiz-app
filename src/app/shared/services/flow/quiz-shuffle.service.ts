@@ -4,6 +4,7 @@ import { Option } from '../../models/Option.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { ShuffleState } from '../../models/ShuffleState.model';
 
+import { isOptionCorrect } from '../../utils/is-option-correct';
 import { Utils } from '../../utils/utils';
 
 export interface PrepareShuffleOpts {
@@ -197,7 +198,7 @@ export class QuizShuffleService {
           ...source,
           options: orderedOptions.map((option) => ({
             ...option,
-            correct: option.correct === true ||
+            correct: isOptionCorrect(option) ||
               (option.optionId !== undefined && correctIds.has(Number(option.optionId))) ||
               (option.text !== undefined && correctTexts.has((option.text ?? '').trim().toLowerCase()))
           })),
@@ -223,7 +224,7 @@ export class QuizShuffleService {
           ...question,
           options: normalizedOptions.map((option) => ({
             ...option,
-            correct: option.correct === true ||
+            correct: isOptionCorrect(option) ||
               (option.optionId !== undefined && correctIds.has(Number(option.optionId))) ||
               (option.text !== undefined && correctTexts.has((option.text ?? '').trim().toLowerCase()))
           })),

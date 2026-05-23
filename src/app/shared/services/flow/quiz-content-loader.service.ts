@@ -19,6 +19,8 @@ import { QuizService } from '../data/quiz.service';
 import { QuizStateService } from '../state/quizstate.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
 
+import { isOptionCorrect } from '../../utils/is-option-correct';
+
 /**
  * Result from fetchAndSetQuestionData preparation.
  */
@@ -314,10 +316,10 @@ export class QuizContentLoaderService {
 
     const isMulti =
       fresh.type === QuestionType.MultipleAnswer ||
-      fresh.options.filter((o: Option) => o.correct === true).length > 1;
+      fresh.options.filter((o: Option) => isOptionCorrect(o)).length > 1;
     (fresh as any).isMulti = isMulti;
 
-    const numCorrect = fresh.options.filter((o: Option) => o.correct).length;
+    const numCorrect = fresh.options.filter((o: Option) => isOptionCorrect(o)).length;
     const totalOpts = fresh.options.length;
     const banner = isMulti ? getNumberOfCorrectAnswersText(numCorrect, totalOpts) : '';
 

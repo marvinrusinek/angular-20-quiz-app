@@ -1,4 +1,5 @@
 import { getQuizData } from '../quiz-data-cache';
+import { isOptionCorrect } from './is-option-correct';
 import { norm } from './text-norm';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -54,7 +55,7 @@ export function installGlobalFetWatchdog(): void {
           if (!qt) continue;
           if (!bodyText.includes(qt)) continue;
           const correctTexts = ((pq?.options ?? []) as any[])
-            .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+            .filter((o: any) => isOptionCorrect(o))
             .map((o: any) => norm(o?.text))
             .filter((t: string) => !!t);
           return { 

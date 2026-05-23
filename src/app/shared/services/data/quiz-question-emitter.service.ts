@@ -8,6 +8,8 @@ import { QuizOptionsService } from './quiz-options.service';
 import { QuizQuestionResolverService } from './quiz-question-resolver.service';
 import { QuizShuffleService } from '../flow/quiz-shuffle.service';
 
+import { isOptionCorrect } from '../../utils/is-option-correct';
+
 /**
  * Responsible for preparing and emitting question + options data to
  * QuizService's reactive subjects. Extracted from QuizService to reduce
@@ -135,7 +137,7 @@ export class QuizQuestionEmitterService {
             ...option,
             optionId: this.toNumericId(option.optionId, index + 1),
             displayOrder: index,
-            correct: option.correct === true,
+            correct: isOptionCorrect(option),
             selected: option.selected === true,
             highlight: option.highlight ?? false,
             showIcon: option.showIcon ?? false

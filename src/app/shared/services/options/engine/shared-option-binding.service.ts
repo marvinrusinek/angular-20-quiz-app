@@ -17,6 +17,7 @@ import { QuestionResolutionService } from './question-resolution.service';
 import { QuizService } from '../../data/quiz.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 
+import { isOptionCorrect } from '../../../utils/is-option-correct';
 import { norm } from '../../../utils/text-norm';
 
 @Injectable({ providedIn: 'root' })
@@ -161,7 +162,7 @@ export class SharedOptionBindingService {
         // often lack the `correct` flag, making correctCount=0.
         const authQ = this.quizService.questions?.[currentIdx] ?? comp.currentQuestion();
         const correctCount = (authQ?.options ?? []).filter(
-          (o: any) => o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true'
+          (o: any) => isOptionCorrect(o)
         ).length;
         const isMulti = correctCount > 1 || comp.isMultiMode;
         if (!isMulti) {
@@ -210,8 +211,7 @@ export class SharedOptionBindingService {
       const oId = !isNaN(oIdNum) ? oIdNum : (currentIndex + 1) * 100 + (i + 1);
       const oText = (opt.text ?? '').trim().toLowerCase();
 
-      const isCorrect = opt.correct === true ||
-        (opt as any).correct === "true" ||
+      const isCorrect = isOptionCorrect(opt) ||
         (!isNaN(oIdNum) && correctIds.has(oIdNum)) ||
         !!(oText && correctTexts.has(oText));
 
@@ -253,8 +253,7 @@ export class SharedOptionBindingService {
         ?? comp.questionIndex?.()
         ?? comp.currentQuestionIndex
         ?? 0;
-      const isCorrectOpt = (o: any): boolean =>
-        o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true';
+      const isCorrectOpt = (o: any): boolean => isOptionCorrect(o);
       const current = comp.optionBindings?.();
 
       const _res = this.questionResolution.resolve(qIdx, { includeSelections: false });
@@ -584,8 +583,7 @@ export class SharedOptionBindingService {
       // visuals:
       //   • perfect → correct opts keep highlight, others appear disabled (gray)
       //   • imperfect/none → every option resets clean
-      const isCorrectOpt = (o: any): boolean =>
-        o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true';
+      const isCorrectOpt = (o: any): boolean => isOptionCorrect(o);
 
       const _res = this.questionResolution.resolve(qIndex, { includeSelections: false });
       const wasPerfect = _res.fullyResolvedCorrect;
@@ -756,7 +754,7 @@ export class SharedOptionBindingService {
     // hasn't fully loaded into the component yet.
     const authQ = this.quizService.questions?.[qIndex];
     const authCorrectCount = (authQ?.options ?? []).filter(
-      (o: any) => o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true'
+      (o: any) => isOptionCorrect(o)
     ).length;
     const isMulti = comp.isMultiMode || authCorrectCount > 1 || this.quizService.multipleAnswer;
 
@@ -764,7 +762,7 @@ export class SharedOptionBindingService {
 
     const optionKey = this.optionService.keyOf(b.option, i);
     const showCorrectOnTimeout = comp.timerExpiredForQuestion()
-      && (comp.timeoutCorrectOptionKeys?.has(optionKey) || !!b.option.correct);
+      && (comp.timeoutCorrectOptionKeys?.has(optionKey) || isOptionCorrect(b.option));
 
     let shouldHighlight: boolean;
     if (isMulti && comp.hasUserClicked()) {
@@ -870,7 +868,7 @@ export class SharedOptionBindingService {
 
   getOptionBindings(comp: any, option: Option, idx: number, isSelected: boolean = false): OptionBindings {
     const correctOptionsCount =
-      comp.optionsToDisplay?.filter((opt: any) => opt.correct).length ?? 0;
+      comp.optionsToDisplay?.filter((opt: any) => isOptionCorrect(opt)).length ?? 0;
     const inferredType = correctOptionsCount > 1 ? 'multiple' : 'single';
     const selected = isSelected;
 

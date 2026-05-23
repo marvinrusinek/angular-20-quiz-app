@@ -5,6 +5,7 @@ import { QuestionType } from '../../../models/question-type.enum';
 import { OptionBindings } from '../../../models/OptionBindings.model';
 
 import { QuizService } from '../../data/quiz.service';
+import { isOptionCorrect } from '../../../utils/is-option-correct';
 import { norm } from '../../../utils/text-norm';
 
 export interface LockIncorrectResult {
@@ -68,8 +69,7 @@ export class OptionLockPolicyService {
     const isCorrectBinding = (b: OptionBindings, i: number) => {
       if (canonicalCorrectIdxs.size > 0) return canonicalCorrectIdxs.has(i);
       if (b.isCorrect === true) return true;
-      const v: any = b.option?.correct;
-      return v === true || String(v) === 'true' || v === 1 || v === '1';
+      return isOptionCorrect(b.option);
     };
 
     // Backfill correct flags onto bindings so downstream code sees them.
@@ -180,10 +180,7 @@ export class OptionLockPolicyService {
           if (!allMatch) continue;
           pristineCorrectTexts = new Set(
             pqOpts
-              .filter((o: any) =>
-                o?.correct === true || String(o?.correct) === 'true' ||
-                o?.correct === 1 || o?.correct === '1'
-              )
+              .filter((o: any) => isOptionCorrect(o))
               .map((o: any) => norm(o?.text))
           );
           break outer;
@@ -202,8 +199,7 @@ export class OptionLockPolicyService {
         if (!matchedQ) return new Set<number>();
         const set = new Set<number>();
         for (const [i, o] of (matchedQ.options ?? []).entries()) {
-          const c = o?.correct ?? o?.isCorrect;
-          if (c === true || String(c) === 'true' || c === 1 || c === '1') set.add(i);
+          if (isOptionCorrect(o)) set.add(i);
         }
         return set;
       }

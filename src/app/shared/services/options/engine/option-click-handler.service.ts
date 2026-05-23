@@ -107,7 +107,7 @@ export class OptionClickHandlerService {
     for (const rq of rawQs) {
       if ((rq.questionText ?? '').trim().toLowerCase() === qText) {
         const rawCorrectTexts = new Set<string>(
-          (rq.options ?? []).filter((o: any) => o.correct === true).map((o: any) => (o.text ?? '').trim().toLowerCase())
+          (rq.options ?? []).filter((o: any) => isOptionCorrect(o)).map((o: any) => (o.text ?? '').trim().toLowerCase())
         );
         fromRaw = questionOpts
           .map((o: any, idx: number) => rawCorrectTexts.has((o.text ?? '').trim().toLowerCase()) ? idx : -1)
@@ -126,7 +126,7 @@ export class OptionClickHandlerService {
             if ((pq?.questionText ?? '').trim().toLowerCase() !== qText) continue;
             const pristineCorrectTexts = new Set<string>(
               (pq?.options ?? [])
-                .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+                .filter((o: any) => isOptionCorrect(o))
                 .map((o: any) => (o?.text ?? '').trim().toLowerCase())
             );
             fromPristine = questionOpts
@@ -280,9 +280,7 @@ export class OptionClickHandlerService {
             for (const pq of (quiz?.questions ?? [])) {
               if (norm(pq?.questionText) !== liveQText) continue;
               const pristineCorrectCount = (pq?.options ?? []).filter(
-                (o: any) =>
-                  o?.correct === true || String(o?.correct) === 'true' ||
-                  o?.correct === 1 || o?.correct === '1'
+                (o: any) => isOptionCorrect(o)
               ).length;
               if (pristineCorrectCount > correctIndices.length) {
                 // Pristine has more correct than passed-in correctIndices.
@@ -392,7 +390,7 @@ export class OptionClickHandlerService {
           : this.quizService?.questions;
         const chkQ = qSrc?.[qIndex] ?? null;
         const chkCorrectCount = (chkQ?.options ?? []).filter(
-          (o: any) => o?.correct === true || String(o?.correct) === 'true'
+          (o: any) => isOptionCorrect(o)
         ).length;
         if (chkCorrectCount > 1) effectiveMulti = true;
       } catch { /* ignore */ }
@@ -407,7 +405,7 @@ export class OptionClickHandlerService {
     }
 
     // Correct options should NOT be disabled while the user is still selecting.
-    const isCorrectOpt = option?.correct === true || String((option as any)?.correct) === 'true';
+    const isCorrectOpt = isOptionCorrect(option);
     if (isCorrectOpt && !forceDisableAll) {
       const isShuffled = this.quizService?.isShuffleEnabled?.() &&
         this.quizService?.shuffledQuestions?.length > 0;
@@ -416,7 +414,7 @@ export class OptionClickHandlerService {
         : this.quizService?.questions;
       const currentQ = questionSource?.[qIndex] ?? null;
       const questionCorrectCount = (currentQ?.options ?? []).filter(
-        (o: any) => o?.correct === true || String(o?.correct) === 'true'
+        (o: any) => isOptionCorrect(o)
       ).length;
       const isMultiFromData = questionCorrectCount > 1;
 
@@ -457,8 +455,7 @@ export class OptionClickHandlerService {
         // the cache misses â€” stale questionText on Q3+ would otherwise
         // wrongly leave siblings clickable after a real correct pick.
         const anyCorrectSelected = saSelections.some((s: any) => {
-          if (s?.correct === true || String(s?.correct) === 'true' ||
-              s?.correct === 1 || s?.correct === '1') {
+          if (isOptionCorrect(s)) {
             return true;
           }
           return correctTextsSA.has(norm(s?.text));
@@ -496,7 +493,7 @@ export class OptionClickHandlerService {
    */
   determineQuestionType(input: QuizQuestion): 'single' | 'multiple' {
     if (input && Array.isArray(input.options)) {
-      const correctOptionsCount = input.options.filter(o => this.isCorrectFlag(o)).length;
+      const correctOptionsCount = input.options.filter(o => isOptionCorrect(o)).length;
       if (correctOptionsCount > 1 || input.type === QuestionType.MultipleAnswer || (input as any).multipleAnswer === true) {
         return 'multiple';
       }
@@ -522,7 +519,7 @@ export class OptionClickHandlerService {
 
     let correctCount = 0;
     if (question?.options && !result) {
-      correctCount = question.options.filter((o: Option) => this.isCorrectFlag(o)).length;
+      correctCount = question.options.filter((o: Option) => isOptionCorrect(o)).length;
       if (correctCount > 1) result = true;
     }
 
@@ -534,11 +531,4 @@ export class OptionClickHandlerService {
     return result;
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // Shared Utilities
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
-  private isCorrectFlag(o: any): boolean {
-    return isOptionCorrect(o);
-  }
 }

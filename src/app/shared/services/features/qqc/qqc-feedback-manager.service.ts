@@ -16,6 +16,7 @@ import { QuizQuestionManagerService } from '../../flow/quizquestionmgr.service';
 import { QuizService } from '../../data/quiz.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 import { SelectionMessageService } from '../selection-message/selection-message.service';
+import { isOptionCorrect } from '../../../utils/is-option-correct';
 
 /**
  * Manages feedback display, option highlighting, and disable logic for QQC.
@@ -561,7 +562,7 @@ export class QqcFeedbackManagerService {
 
     // Use fields that actually exist on your model
     const wasCorrect =
-      option.correct === true ||
+      isOptionCorrect(option) ||
       (typeof option.feedback === 'string' && /correct/i.test(option.feedback));
 
     return { becameSelected, becameDeselected, wasCorrect, optId };

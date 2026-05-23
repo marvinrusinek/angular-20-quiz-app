@@ -14,6 +14,8 @@ import { QuizShuffleService } from './quiz-shuffle.service';
 import { QuizStateService } from '../state/quizstate.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
 
+import { isOptionCorrect } from '../../utils/is-option-correct';
+
 /**
  * Manages dot status computation, selection evaluation, and question
  * status determination for the quiz pagination dots.
@@ -158,7 +160,7 @@ export class QuizDotStatusService {
 
     return options
       .map((opt: Option, index: number) => ({ option: opt, index }))
-      .filter(({ option }) => option?.correct === true || String(option?.correct) === 'true');
+      .filter(({ option }) => isOptionCorrect(option));
   }
 
   getResolvedCorrectOptions(

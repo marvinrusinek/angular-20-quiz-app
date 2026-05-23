@@ -8,6 +8,7 @@ import { SelectedOption } from '../../../models/SelectedOption.model';
 import { FeedbackContext } from './shared-option-feedback.service';
 
 import type { SharedOptionComponent } from '../../../../components/question/answer/shared-option-component/shared-option.component';
+import { isOptionCorrect } from '../../../utils/is-option-correct';
 import { norm } from '../../../utils/text-norm';
 
 type Host = SharedOptionComponent;
@@ -133,9 +134,7 @@ export class SharedOptionOrchestratorService {
             // Every pristine option text must appear in candidate set.
             if (!pqTexts.every((t: string) => candidateSet.has(t))) continue;
             const correctCount = pqOpts.filter(
-              (o: any) =>
-                o?.correct === true || String(o?.correct) === 'true' ||
-                o?.correct === 1 || o?.correct === '1'
+              (o: any) => isOptionCorrect(o)
             ).length;
             if (correctCount > 1) result = true;
             break outer;
@@ -158,9 +157,7 @@ export class SharedOptionOrchestratorService {
             for (const pq of (quiz?.questions ?? [])) {
               if (norm(pq?.questionText) !== qText) continue;
               const correctCount = (pq?.options ?? []).filter(
-                (o: any) =>
-                  o?.correct === true || String(o?.correct) === 'true' ||
-                  o?.correct === 1 || o?.correct === '1'
+                (o: any) => isOptionCorrect(o)
               ).length;
               if (correctCount > 1) result = true;
               break outerQ;

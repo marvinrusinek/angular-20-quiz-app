@@ -15,6 +15,8 @@ import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { QuizService } from './quiz.service';
 import { QuizShuffleService } from '../flow/quiz-shuffle.service';
 
+import { isOptionCorrect } from '../../utils/is-option-correct';
+
 @Injectable({ providedIn: 'root' })
 export class QuizDataService {
   // ── injects ─────────────────────────────────────────────────────
@@ -304,7 +306,7 @@ export class QuizDataService {
           (question as any).isMulti =
             question.type === QuestionType.MultipleAnswer ||
             (Array.isArray(question.options) &&
-              question.options.filter((o: Option) => o.correct === true)
+              question.options.filter((o: Option) => isOptionCorrect(o))
                 .length > 1);
         }
 
@@ -435,7 +437,7 @@ export class QuizDataService {
       return {
         ...option,
         value: numericValue,
-        correct: option.correct === true,
+        correct: isOptionCorrect(option),
         selected: option.selected === true,
         highlight: option.highlight ?? false,
         showIcon: option.showIcon ?? false
@@ -568,7 +570,7 @@ export class QuizDataService {
 
         const options = (question.options ?? []).map((option) => ({
           ...option,
-          correct: option.correct === true,
+          correct: isOptionCorrect(option),
           selected: option.selected === true,
           highlight: option.highlight ?? false,
           showIcon: option.showIcon ?? false

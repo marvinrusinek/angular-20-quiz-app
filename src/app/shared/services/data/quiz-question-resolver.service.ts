@@ -11,6 +11,8 @@ import { QuizQuestion } from '../../models/QuizQuestion.model';
 
 import { QuizShuffleService } from '../flow/quiz-shuffle.service';
 
+import { isOptionCorrect } from '../../utils/is-option-correct';
+
 @Injectable({ providedIn: 'root' })
 export class QuizQuestionResolverService {
 
@@ -249,7 +251,7 @@ export class QuizQuestionResolverService {
     // Fallback Phase 2
     if (finalAnswers.length === 0) {
       for (const o of normalizedOptions) {
-        if (o.correct === true || (o as any).correct === "true") {
+        if (isOptionCorrect(o)) {
           finalAnswers.push({
             optionId: o.optionId,
             text: o.text,

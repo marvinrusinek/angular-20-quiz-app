@@ -18,6 +18,7 @@ import { QuizService } from '../../../../../shared/services/data/quiz.service';
 import { SelectedOptionService } from '../../../../../shared/services/state/selectedoption.service';
 import { TimerService } from '../../../../../shared/services/features/timer/timer.service';
 
+import { isOptionCorrect } from '../../../../../shared/utils/is-option-correct';
 import { norm } from '../../../../../shared/utils/text-norm';
 
 import { correctAnswerAnim } from '../../../../../animations/animations';
@@ -205,7 +206,7 @@ export class OptionItemComponent implements OnInit {
       return this.isStampedCorrect() ? 'check' : 'close';
     }
     if (this.shouldShowFeedback() || this.shouldShowCorrectOnTimeout()) {
-      return this.isOptionCorrect() ? 'check' : 'close';
+      return this.isCurrentOptionCorrect() ? 'check' : 'close';
     }
     return this.binding().optionIcon || '';
   }
@@ -294,11 +295,11 @@ export class OptionItemComponent implements OnInit {
         || this.isSelectedForCurrentQuestion();
       const showCorrect = this.shouldShowCorrectOnTimeout();
       classes['correct-option'] = showCorrect;
-      classes['incorrect-option'] = wasSelected && !this.isOptionCorrect();
+      classes['incorrect-option'] = wasSelected && !this.isCurrentOptionCorrect();
       return classes;
     }
 
-    const isCorrect = this.isOptionCorrect();
+    const isCorrect = this.isCurrentOptionCorrect();
     const shouldHighlight = this.shouldHighlightOption();
 
     if (shouldHighlight) {
@@ -454,8 +455,7 @@ export class OptionItemComponent implements OnInit {
     // qIdx). Selection records are spread from the binding option which
     // carries `correct: true` for the canonical correct option from JSON.
     const hasCorrectSelection = selections.some((s: any) => {
-      if (s?.correct === true || String(s?.correct) === 'true' ||
-          s?.correct === 1 || s?.correct === '1') {
+      if (isOptionCorrect(s)) {
         return true;
       }
       return correctTextsSA.has(norm(s?.text));
@@ -524,7 +524,7 @@ export class OptionItemComponent implements OnInit {
 
     // When the timer expires, reveal ALL correct answers regardless of whether
     // they were flagged for icons or highlighted before.
-    return this.isOptionCorrect();
+    return this.isCurrentOptionCorrect();
   }
 
   getOptionBackgroundColor(): string | null {
@@ -566,10 +566,10 @@ export class OptionItemComponent implements OnInit {
         || !!this.binding()?.option?.highlight
         || this._wasSelected
         || this.isSelectedForCurrentQuestion();
-      return wasSelected && !this.isOptionCorrect() ? INCORRECT_COLOR : null;
+      return wasSelected && !this.isCurrentOptionCorrect() ? INCORRECT_COLOR : null;
     }
 
-    if (this.isOptionCorrect()) {
+    if (this.isCurrentOptionCorrect()) {
       const _qIdxARBg = this.quizService.currentQuestionIndex ?? this.currentQuestionIndex();
       const perfectMapARBg =
         this.quizService._multiAnswerPerfect;
@@ -610,7 +610,7 @@ export class OptionItemComponent implements OnInit {
       // binding flags first, then fall back to _selectionHistory
       // (accumulative — unlike selectedOptionsMapSig which only keeps
       // the latest pick for single-answer questions).
-      if (this.type() === 'single' && !this.binding()?.isSelected && !this.isOptionCorrect()) {
+      if (this.type() === 'single' && !this.binding()?.isSelected && !this.isCurrentOptionCorrect()) {
         const b = this.binding();
         const wasClickedByFlags = b?.option?.showIcon || b?.option?.highlight || b?.highlightIncorrect;
         if (wasClickedByFlags) {
@@ -662,7 +662,7 @@ export class OptionItemComponent implements OnInit {
         // Legacy flag fallback
         const perfectMap =
           this.quizService._multiAnswerPerfect;
-        if (perfectMap?.get(_qIdx) === true && !this.isOptionCorrect()) {
+        if (perfectMap?.get(_qIdx) === true && !this.isCurrentOptionCorrect()) {
           return DISABLED_COLOR;
         }
       }
@@ -670,7 +670,7 @@ export class OptionItemComponent implements OnInit {
     }
 
     // Green if correct, red if incorrect
-    const result = this.isOptionCorrect() ? CORRECT_COLOR : INCORRECT_COLOR;
+    const result = this.isCurrentOptionCorrect() ? CORRECT_COLOR : INCORRECT_COLOR;
     return result;
   }
 
@@ -727,7 +727,7 @@ export class OptionItemComponent implements OnInit {
     // Secondary auto-reveal signals: _multiAnswerPerfect map (cross-mechanism
     // flag) AND cssClasses['correct-option'] (set by auto-reveal, kept by
     // {...b} spread but wiped by updateBindingSnapshots).
-    if (this.isOptionCorrect()) {
+    if (this.isCurrentOptionCorrect()) {
       const _qIdxAR = this.quizService.currentQuestionIndex ?? this.currentQuestionIndex();
       const perfectMapAR =
         this.quizService._multiAnswerPerfect;
@@ -832,15 +832,10 @@ export class OptionItemComponent implements OnInit {
     return this.type() === 'multiple' ? 'checkbox' : 'radio';
   }
 
-  private isOptionCorrect(): boolean {
-    const opt = this.binding()?.option as any;
-    if (
-      opt?.correct === true ||
-      String(opt?.correct) === 'true' ||
-      opt?.correct === 1 ||
-      opt?.correct === '1' ||
-      this.binding()?.isCorrect === true
-    ) return true;
+  private isCurrentOptionCorrect(): boolean {
+    const binding = this.binding();
+    const opt = binding?.option as any;
+    if (isOptionCorrect(opt) || binding?.isCorrect === true) return true;
 
     // Fallback: check authoritative question data from quiz service.
     // Binding options may lack the `correct` flag after regeneration.
@@ -851,7 +846,7 @@ export class OptionItemComponent implements OnInit {
       const match = question.options.find(
         (o: any) => o?.text && (o.text as string).trim().toLowerCase() === optText
       );
-      if (match?.correct === true || String(match?.correct) === 'true') {
+      if (isOptionCorrect(match)) {
         return true;
       }
     }

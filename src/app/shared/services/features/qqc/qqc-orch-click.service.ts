@@ -8,6 +8,7 @@ import { Option } from '../../../models/Option.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
 import type { QuizQuestionComponent } from '../../../../components/question/quiz-question/quiz-question.component';
+import { isOptionCorrect } from '../../../utils/is-option-correct';
 import { norm } from '../../../utils/text-norm';
 
 type Host = QuizQuestionComponent;
@@ -87,7 +88,7 @@ export class QqcOrchClickService {
           ?? q;
         const rawOpts: any[] = rawQuestion?.options ?? [];
         const rawCorrectCount = rawOpts.filter((o: any) =>
-          o?.correct === true || String(o?.correct) === 'true'
+          isOptionCorrect(o)
         ).length;
 
         // Pristine fallback: if rawCorrectCount looks like single-answer
@@ -106,9 +107,7 @@ export class QqcOrchClickService {
               for (const pqM of (quizM?.questions ?? [])) {
                 if (norm(pqM?.questionText) !== liveQText) continue;
                 const pristineCorrect = (pqM?.options ?? []).filter(
-                  (o: any) =>
-                    o?.correct === true || String(o?.correct) === 'true' ||
-                    o?.correct === 1 || o?.correct === '1'
+                  (o: any) => isOptionCorrect(o)
                 ).length;
                 if (pristineCorrect > 1) pristineMultiDetected = true;
                 break;
@@ -122,7 +121,7 @@ export class QqcOrchClickService {
         const correctIdSet = new Set<number>(
           rawOpts
             .map((o: any, i: number) => {
-              const c = o?.correct === true || String(o?.correct) === 'true';
+              const c = isOptionCorrect(o);
               if (!c) return -1;
               const id = Number(o?.optionId);
               return Number.isFinite(id) && id !== -1 ? id : i;
@@ -132,8 +131,7 @@ export class QqcOrchClickService {
         const clickedId = Number(evtOpt?.optionId);
         const clickedKey = Number.isFinite(clickedId) && clickedId !== -1 ? clickedId : evtIdx;
         const clickedIsCorrect = correctIdSet.has(clickedKey)
-          || evtOpt?.correct === true
-          || String(evtOpt?.correct) === 'true';
+          || isOptionCorrect(evtOpt);
 
         if (correctIdSet.size === 0 && clickedIsCorrect) {
           correctIdSet.add(clickedKey);
@@ -192,7 +190,7 @@ export class QqcOrchClickService {
                 if (norm(pq?.questionText) !== qTextNorm) continue;
                 rawCorrectTexts = new Set(
                   (pq?.options ?? [])
-                    .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+                    .filter((o: any) => isOptionCorrect(o))
                     .map((o: any) => norm(o?.text))
                     .filter((t: string) => !!t)
                 );
@@ -204,7 +202,7 @@ export class QqcOrchClickService {
           if (rawCorrectTexts.size === 0) {
             const rawOpts: any[] = displayQ?.options ?? [];
             rawCorrectTexts = new Set(
-              rawOpts.filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+              rawOpts.filter((o: any) => isOptionCorrect(o))
                 .map((o: any) => norm(o?.text))
                 .filter((t: string) => !!t)
             );

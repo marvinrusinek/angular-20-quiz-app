@@ -13,6 +13,7 @@ import { QuizQuestionManagerService } from '../../flow/quizquestionmgr.service';
 import { QuizService } from '../../data/quiz.service';
 import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
+import { isOptionCorrect } from '../../../utils/is-option-correct';
 import { norm } from '../../../utils/text-norm';
 
 @Injectable({ providedIn: 'root' })
@@ -155,7 +156,7 @@ export class QuizContentDisplayService {
     // count. Live quizService.questions[] can be mutated by option-lock-policy.
     const rawQuestion = (this.quizService as any)?.questions?.[safeIdx] as QuizQuestion | undefined;
     const sourceOpts = rawQuestion?.options ?? qObj?.options ?? [];
-    let numCorrect = sourceOpts.filter((o: Option) => o?.correct === true).length;
+    let numCorrect = sourceOpts.filter((o: Option) => isOptionCorrect(o)).length;
     // Cross-check against pristine data — always prefer pristine count.
     // After Restart Quiz, live options can have ALL correct flags set to
     // true (stale mutation), inflating numCorrect. Pristine is immutable.
@@ -166,7 +167,7 @@ export class QuizContentDisplayService {
         for (const _pq of (_quiz?.questions ?? [])) {
           if (norm(_pq?.questionText) === _qText) {
             const pc = (_pq?.options ?? []).filter(
-              (o: any) => o?.correct === true || String(o?.correct) === 'true'
+              (o: any) => isOptionCorrect(o)
             ).length;
             if (pc > 0) numCorrect = pc;
             break;
@@ -214,7 +215,7 @@ export class QuizContentDisplayService {
               for (const pq of (quiz?.questions ?? [])) {
                 if (norm(pq?.questionText) !== qTextLookup) continue;
                 for (const o of (pq?.options ?? [])) {
-                  if (o?.correct === true || String(o?.correct) === 'true') {
+                  if (isOptionCorrect(o)) {
                     const t = norm(o?.text);
                     if (t) pristineCorrectTexts.add(t);
                   }
@@ -292,7 +293,7 @@ export class QuizContentDisplayService {
             for (const pq of (quiz?.questions ?? [])) {
               if (norm(pq?.questionText) !== qText2) continue;
               pCorrect = (pq?.options ?? [])
-                .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+                .filter((o: any) => isOptionCorrect(o))
                 .map((o: any) => norm(o?.text)).filter((t: string) => !!t);
               break;
             }
@@ -404,7 +405,7 @@ export class QuizContentDisplayService {
           for (const pq of quiz?.questions ?? []) {
             if (norm(pq?.questionText) !== qText) continue;
             pristineCorrect = (pq?.options ?? [])
-              .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+              .filter((o: any) => isOptionCorrect(o))
               .map((o: any) => norm(o?.text))
               .filter((t: string) => !!t);
             break;

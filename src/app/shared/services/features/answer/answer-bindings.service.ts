@@ -5,6 +5,7 @@ import { OptionBindings } from '../../../../shared/models/OptionBindings.model';
 import { SelectedOption } from '../../../../shared/models/SelectedOption.model';
 
 import { AnswerOptionsService } from './answer-options.service';
+import { isOptionCorrect } from '../../../../shared/utils/is-option-correct';
 
 @Injectable({ providedIn: 'root' })
 export class AnswerBindingsService {
@@ -124,9 +125,7 @@ export class AnswerBindingsService {
     binding: OptionBindings,
     disableOthers: boolean,
   ): OptionBindings {
-    const isThisOptionCorrect =
-      binding.option?.correct === true ||
-      String(binding.option?.correct) === 'true';
+    const isThisOptionCorrect = isOptionCorrect(binding.option);
 
     const newOption = {
       ...binding.option,

@@ -15,6 +15,7 @@ import { SK_SHUFFLED_QUESTIONS } from '../../constants/session-keys';
 import { QuizShuffleService } from '../flow/quiz-shuffle.service';
 
 import { getQuizData, getQuizResources } from '../../quiz-data-cache';
+import { isOptionCorrect } from '../../utils/is-option-correct';
 import { Utils } from '../../utils/utils';
 
 @Injectable({ providedIn: 'root' })
@@ -202,7 +203,7 @@ export class QuizDataLoaderService {
       const hasBadData = this.shuffledQuestions.some(q =>
         Array.isArray(q.options) &&
         q.options.length > 1 &&
-        !q.options.some(o => o.correct === true)
+        !q.options.some(o => isOptionCorrect(o))
       );
 
       if (hasBadData) {

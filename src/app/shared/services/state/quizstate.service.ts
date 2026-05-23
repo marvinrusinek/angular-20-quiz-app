@@ -9,6 +9,8 @@ import { Option } from '../../models/Option.model';
 import { QuestionState } from '../../models/QuestionState.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 
+import { isOptionCorrect } from '../../utils/is-option-correct';
+
 @Injectable({ providedIn: 'root' })
 export class QuizStateService {
   // ── signals / computed / properties ─────────────────────────────
@@ -301,7 +303,7 @@ export class QuizStateService {
           currentState.selectedOptions.push(option);
 
           const numCorrect = currentState.numberOfCorrectAnswers ?? 0;
-          if (option.correct === true && numCorrect < totalCorrectAnswers) {
+          if (isOptionCorrect(option) && numCorrect < totalCorrectAnswers) {
             currentState.numberOfCorrectAnswers = numCorrect + 1;
           }
         }

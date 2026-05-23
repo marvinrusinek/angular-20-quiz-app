@@ -5,6 +5,7 @@ import { QuizScore } from '../../models/QuizScore.model';
 import { QuizShuffleService } from '../flow/quiz-shuffle.service';
 
 import { getQuizData } from '../../quiz-data-cache';
+import { isOptionCorrect } from '../../utils/is-option-correct';
 import { norm } from '../../utils/text-norm';
 
 @Injectable({ providedIn: 'root' })
@@ -164,7 +165,7 @@ export class QuizScoringService {
       const pristineQ = pristineQuiz?.questions?.[scoringKey];
       if (pristineQ) {
         pristineCorrectTexts = (pristineQ.options ?? [])
-          .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+          .filter((o: any) => isOptionCorrect(o))
           .map((o: any) => norm(o?.text))
           .filter((t: string) => !!t);
       }
@@ -178,7 +179,7 @@ export class QuizScoringService {
         if (!allMatch && pristineQuiz?.questions) {
           for (const pq of pristineQuiz.questions) {
             const pqCorrect = (pq?.options ?? [])
-              .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+              .filter((o: any) => isOptionCorrect(o))
               .map((o: any) => norm(o?.text))
               .filter((t: string) => !!t);
             if (pqCorrect.length > 1 && pqCorrect.every((t: string) => confirmed.has(t))) {

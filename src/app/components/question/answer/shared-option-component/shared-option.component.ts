@@ -36,6 +36,8 @@ import { SharedOptionStateAdapterService, SharedOptionUiState } from '../../../.
 import { SoundService } from '../../../../shared/services/ui/sound.service';
 import { TimerService } from '../../../../shared/services/features/timer/timer.service';
 
+import { isOptionCorrect } from '../../../../shared/utils/is-option-correct';
+
 import { FeedbackComponent } from '../feedback/feedback.component';
 import { OptionItemComponent } from './option-item/option-item.component';
 import type { OptionUIEvent } from './option-item/option-item.component';
@@ -490,7 +492,7 @@ export class SharedOptionComponent
         : question?.options ?? [];
       const correctTexts = new Set<string>();
       for (const opt of displayOpts) {
-        if (opt?.correct === true || String(opt?.correct) === 'true') {
+        if (isOptionCorrect(opt)) {
           correctTexts.add(((opt.text as string) || '').trim().toLowerCase());
         }
       }

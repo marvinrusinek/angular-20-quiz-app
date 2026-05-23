@@ -20,6 +20,7 @@ import { SelectionMessageService } from '../features/selection-message/selection
 import { TimerService } from '../features/timer/timer.service';
 
 import type { QuizComponent } from '../../../containers/quiz/quiz.component';
+import { isOptionCorrect } from '../../utils/is-option-correct';
 import { norm } from '../../utils/text-norm';
 
 type Host = QuizComponent;
@@ -379,7 +380,7 @@ export class QuizSetupRouteService {
     if (!rawQ) return '';
 
     const opts = question.options ?? [];
-    let numCorrect = opts.filter((o: Option) => o?.correct === true).length;
+    let numCorrect = opts.filter((o: Option) => isOptionCorrect(o)).length;
 
     // Cross-check against pristine data for accurate count
     try {
@@ -389,7 +390,7 @@ export class QuizSetupRouteService {
         for (const pq of (quiz?.questions ?? [])) {
           if (norm(pq?.questionText) !== qText) continue;
           const pc = (pq?.options ?? []).filter(
-            (o: any) => o?.correct === true || String(o?.correct) === 'true'
+            (o: any) => isOptionCorrect(o)
           ).length;
           if (pc > numCorrect) numCorrect = pc;
           break;

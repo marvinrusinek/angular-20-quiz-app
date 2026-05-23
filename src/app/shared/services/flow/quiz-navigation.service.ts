@@ -21,6 +21,7 @@ import { SelectedOptionService } from '../state/selectedoption.service';
 import { TimerService } from '../features/timer/timer.service';
 import { SK_SELECTED_OPTIONS_MAP } from '../../constants/session-keys';
 
+import { isOptionCorrect } from '../../utils/is-option-correct';
 import { norm } from '../../utils/text-norm';
 
 @Injectable({ providedIn: 'root' })
@@ -521,7 +522,7 @@ export class QuizNavigationService {
             for (const pq of quiz?.questions ?? []) {
               if (norm(pq?.questionText) !== qNormText) continue;
               const pOpts = pq?.options ?? [];
-              numCorrect = pOpts.filter((o: any) => o?.correct === true || String(o?.correct) === 'true').length;
+              numCorrect = pOpts.filter((o: any) => isOptionCorrect(o)).length;
               totalOpts = pOpts.length;
               break;
             }
@@ -529,7 +530,7 @@ export class QuizNavigationService {
           }
           if (numCorrect === 0) {
             const sourceOpts = targetQ?.options ?? [];
-            numCorrect = sourceOpts.filter((o: any) => o?.correct === true).length;
+            numCorrect = sourceOpts.filter((o: any) => isOptionCorrect(o)).length;
             totalOpts = sourceOpts.length;
           }
           if (numCorrect > 1 && totalOpts > 0) {

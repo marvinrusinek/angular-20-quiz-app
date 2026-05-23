@@ -264,7 +264,7 @@ export class SelectionMessageService {
   public emitFromClick(params: any): void {
     const opts = params.canonicalOptions as Option[];
     const correctCount = (opts ?? []).filter(
-      (o: any) => o?.correct === true || String(o?.correct) === 'true'
+      (o: any) => isOptionCorrect(o)
     ).length;
     const declaredType = params.questionType;
     const qType: QuestionType = (correctCount > 1 || declaredType === QuestionType.MultipleAnswer)

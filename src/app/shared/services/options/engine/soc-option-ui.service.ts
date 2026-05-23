@@ -29,10 +29,7 @@ export class SocOptionUiService {
     const normalizedId = (optionId != null && !isNaN(Number(optionId))) ? Number(optionId) : null;
     const effectiveId = (normalizedId !== null && normalizedId > -1) ? normalizedId : index;
 
-    const correctCount = (comp.currentQuestion()?.options?.filter((o: any) => {
-      const c = (o as any).correct;
-      return c === true || String(c) === 'true' || c === 1 || c === '1';
-    }).length ?? 0);
+    const correctCount = (comp.currentQuestion()?.options?.filter((o: any) => isOptionCorrect(o)).length ?? 0);
     const isMultiMode = comp.type === 'multiple' ||
       comp.config()?.type === 'multiple' ||
       correctCount > 1;
@@ -181,7 +178,7 @@ export class SocOptionUiService {
         continue;
       }
 
-      const isCorrect = this.isCorrect(option);
+      const isCorrect = isOptionCorrect(option);
       if (isMulti) {
         if (isCorrect) {
           let lastCorrectIdx = -1;
@@ -195,7 +192,7 @@ export class SocOptionUiService {
 
               if (hIdx !== -1) {
                 const oH = comp.optionsToDisplay[hIdx];
-                if (oH?.selected && this.isCorrect(oH)) {
+                if (oH?.selected && isOptionCorrect(oH)) {
                   lastCorrectIdx = hIdx;
                   break;
                 }
@@ -253,7 +250,4 @@ export class SocOptionUiService {
     });
   }
 
-  isCorrect(o: any): boolean {
-    return isOptionCorrect(o);
-  }
 }

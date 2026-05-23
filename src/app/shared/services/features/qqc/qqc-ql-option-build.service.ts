@@ -6,6 +6,7 @@ import { QuizQuestion } from '../../../models/QuizQuestion.model';
 import { SharedOptionConfig } from '../../../models/SharedOptionConfig.model';
 
 import { QuizService } from '../../data/quiz.service';
+import { isOptionCorrect } from '../../../utils/is-option-correct';
 
 /**
  * Handles option building, enrichment, bindings, and dynamic component configuration for QQC.
@@ -64,7 +65,7 @@ export class QqcQlOptionBuildService {
     const optionKeys = (question.options ?? []).map((opt, idx) => {
       const optionId = opt.optionId ?? idx;
       const text = (opt.text ?? '').trim();
-      const correctness = opt.correct === true ? '1' : '0';
+      const correctness = isOptionCorrect(opt) ? '1' : '0';
       return `${optionId}|${text}|${correctness}`;
     });
 

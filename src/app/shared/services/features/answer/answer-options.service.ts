@@ -5,6 +5,8 @@ import { QuestionType } from '../../../../shared/models/question-type.enum';
 import { Option } from '../../../../shared/models/Option.model';
 import { QuizQuestion } from '../../../../shared/models/QuizQuestion.model';
 
+import { isOptionCorrect } from '../../../../shared/utils/is-option-correct';
+
 @Injectable({ providedIn: 'root' })
 export class AnswerOptionsService {
   getEffectiveOptionId(option: any, index: number): number {
@@ -13,15 +15,7 @@ export class AnswerOptionsService {
   }
 
   isCorrectOptionValue(option: any): boolean {
-    return (
-      option &&
-      (
-        option.correct === true ||
-        String(option.correct) === 'true' ||
-        option.correct === 1 ||
-        option.correct === '1'
-      )
-    );
+    return isOptionCorrect(option);
   }
 
   normalizeOptions(options: Option[]): Option[] {
@@ -45,7 +39,7 @@ export class AnswerOptionsService {
   ): boolean {
     const correctCount =
       optionsSource?.filter((option: any) =>
-        option.correct === true || String(option.correct) === 'true'
+        isOptionCorrect(option)
       ).length ?? 0;
 
     return (
@@ -58,9 +52,7 @@ export class AnswerOptionsService {
   getQuestionTypeFromOptions(options: Option[]): 'single' | 'multiple' {
     const correctCount =
       options.filter((option: any) =>
-        option.correct === true ||
-        option.correct === 'true' ||
-        option.correct === 1
+        isOptionCorrect(option)
       ).length;
 
     return correctCount > 1 ? 'multiple' : 'single';

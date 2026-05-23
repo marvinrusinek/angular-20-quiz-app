@@ -9,6 +9,7 @@ import { SelectedOption } from '../../../models/SelectedOption.model';
 
 import { QuizService } from '../../data/quiz.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
+import { isOptionCorrect } from '../../../utils/is-option-correct';
 
 interface StopTimerAttemptOptions {
   questionIndex?: number,
@@ -370,9 +371,7 @@ export class TimerService implements OnDestroy {
       // Single-answer logic
       else {
         const firstSelected = selectedOptionsFinal[0] as any;
-        const isCorrect =
-          !!firstSelected &&
-          (firstSelected.correct === true || firstSelected.correct === 'true');
+        const isCorrect = isOptionCorrect(firstSelected);
         shouldStop = isCorrect;
       }
 

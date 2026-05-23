@@ -7,6 +7,8 @@ import { QuestionType } from '../../models/question-type.enum';
 import { Option } from '../../models/Option.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 
+import { isOptionCorrect } from '../../utils/is-option-correct';
+
 @Injectable({ providedIn: 'root' })
 export class QuizOptionsService {
   sanitizeOptions(options: Option[]): Option[] {
@@ -27,7 +29,7 @@ export class QuizOptionsService {
         ...opt,
         optionId: safeId,
         text: safeText,
-        correct: (opt?.correct as any) === true || (opt?.correct as any) === 'true',
+        correct: isOptionCorrect(opt),
         value: typeof opt?.value === 'number' ? opt.value : safeId,
         answer: opt?.answer ?? undefined,
         selected: opt?.selected === true,
@@ -215,7 +217,7 @@ export class QuizOptionsService {
         ...option,
         optionId: id,
         displayOrder: index,
-        correct: option.correct === true,
+        correct: isOptionCorrect(option),
         selected: match?.selected === true || option.selected === true,
         highlight: match?.highlight ?? option.highlight ?? false,
         showIcon: match?.showIcon ?? option.showIcon ?? false
@@ -310,8 +312,7 @@ export class QuizOptionsService {
           (option.optionId !== undefined && answer.optionId !== undefined && String(option.optionId) === String(answer.optionId)) ||
           (option.text && answer.text && option.text.trim().toLowerCase() === answer.text.trim().toLowerCase())
       );
-      const correct = found?.correct;
-      return correct === true || String(correct) === 'true';
+      return isOptionCorrect(found);
     });
   }
 }

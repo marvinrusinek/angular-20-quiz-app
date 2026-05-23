@@ -13,6 +13,7 @@ import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 import { SelectionMessageService } from '../selection-message/selection-message.service';
 import { TimerService } from '../timer/timer.service';
+import { isOptionCorrect } from '../../../utils/is-option-correct';
 
 /**
  * Manages option selection logic, state transitions, and correctness evaluation for QQC.
@@ -329,7 +330,7 @@ export class QqcOptionSelectionService {
     const rawQ: any = (this.quizService as any)?.questions?.[currentQuestionIndex] ?? currentQuestion;
     const rawOpts: any[] = rawQ?.options ?? [];
     const maCorrectCount = rawOpts.filter(
-      (o: any) => o?.correct === true || String(o?.correct) === 'true'
+      (o: any) => isOptionCorrect(o)
     ).length;
     const isMultiQ = maCorrectCount > 1;
 
