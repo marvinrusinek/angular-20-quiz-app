@@ -45,6 +45,7 @@ export class SelectionMessageService {
 
   public _lastMessageByIndex = new Map<number, string>();
   public _baselineReleased = new Set<number>();
+  public _wrongClickCounts = new Map<number, number>();
 
   private _pendingMsgTokens = new Map<number, number>();
 
@@ -65,6 +66,7 @@ export class SelectionMessageService {
     this._baselineReleased.clear();
     this._pendingMsgTokens.clear();
     this._idMapByIndex.clear();
+    this._wrongClickCounts?.clear();
     this.optionsSnapshotSig.set([]);
     this.selectionMessageSig.set(START_MSG);
   }
@@ -157,6 +159,18 @@ export class SelectionMessageService {
       }
       if (selectedWrong > 0) {
         this._singleAnswerIncorrectLock.add(index);
+        // Track cumulative wrong clicks per question for last-question logic.
+        if (!this._wrongClickCounts) this._wrongClickCounts = new Map();
+        const prevCount = this._wrongClickCounts.get(index) ?? 0;
+        this._wrongClickCounts.set(index, prevCount + 1);
+        // On the last question, show "Show Results" only when ALL incorrect
+        // options have been exhausted (correct auto-revealed).
+        if (isLastQuestion) {
+          const totalIncorrect = opts.filter(o => !isCorrectHelper(o)).length;
+          if (this._wrongClickCounts.get(index)! >= totalIncorrect) {
+            return SHOW_RESULTS_MSG;
+          }
+        }
         return 'Please select the correct answer to continue.';
       }
       return index === 0 ? START_MSG : CONTINUE_MSG;

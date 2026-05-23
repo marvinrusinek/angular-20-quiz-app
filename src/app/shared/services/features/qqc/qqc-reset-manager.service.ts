@@ -9,6 +9,7 @@ import { NextButtonStateService } from '../../state/next-button-state.service';
 import { QuizService } from '../../data/quiz.service';
 import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
+import { SelectionMessageService } from '../selection-message/selection-message.service';
 import { TimerService } from '../timer/timer.service';
 
 /**
@@ -23,6 +24,7 @@ export class QqcResetManagerService {
   private readonly quizService = inject(QuizService);
   private readonly quizStateService = inject(QuizStateService);
   private readonly selectedOptionService = inject(SelectedOptionService);
+  private readonly selectionMessageService = inject(SelectionMessageService);
   private readonly timerService = inject(TimerService);
 
   /**
@@ -116,6 +118,12 @@ export class QqcResetManagerService {
       this.quizStateService.setDisplayState({ mode: 'question', answered: false });
       this.quizStateService.setAnswered(false);
       this.quizStateService.setAnswerSelected(false);
+      // Reset the selection message so the stale "Next button" / "Show Results"
+      // message from a prior answered question doesn't persist on an unanswered one.
+      const msg = i0 === 0
+        ? 'Please start the quiz by selecting an option.'
+        : 'Please click an option to continue.';
+      this.selectionMessageService.pushMessage(msg, i0);
     }
 
     // Prewarm explanation cache
