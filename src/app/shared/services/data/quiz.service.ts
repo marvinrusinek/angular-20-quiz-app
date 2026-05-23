@@ -466,7 +466,7 @@ export class QuizService {
     if (!question) return;
 
     const previousQuestion = this.currentQuestionSig();
-    if (previousQuestion === question) return;
+    if (previousQuestion && question && JSON.stringify(previousQuestion) === JSON.stringify(question)) return;
     if (!Array.isArray(question.options) || question.options.length === 0) return;
 
     const updatedOptions = question.options.map((option, index) => ({
