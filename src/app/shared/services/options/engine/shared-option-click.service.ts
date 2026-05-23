@@ -49,35 +49,11 @@ export class SharedOptionClickService {
     let pristineCorrect = binding.option?.correct === true;
     try {
       const optText = norm(binding.option?.text);
-      const qIdx = comp.getActiveQuestionIndex?.() ?? comp.currentQuestionIndex ?? 0;
-      const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
-      const quizId = this.quizService?.quizId;
-      if (optText && bundle.length > 0 && quizId) {
-        const qText = norm(comp.currentQuestion()?.questionText);
-        let matched = false;
-        if (qText) {
-          for (const quiz of bundle) {
-            for (const pq of (quiz?.questions ?? [])) {
-              if (norm(pq?.questionText) !== qText) continue;
-              const matchedOpt = (pq?.options ?? []).find((o: any) => norm(o?.text) === optText);
-              if (matchedOpt !== undefined) {
-                pristineCorrect = matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
-                matched = true;
-              }
-              break;
-            }
-            if (matched) break;
-          }
-        }
-        if (!matched) {
-          const pristineQuiz = bundle.find((qz: any) => qz?.quizId === quizId);
-          const pristineQ = pristineQuiz?.questions?.[qIdx];
-          if (pristineQ) {
-            const matchedOpt = (pristineQ.options ?? []).find((o: any) => norm(o?.text) === optText);
-            if (matchedOpt !== undefined) {
-              pristineCorrect = matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
-            }
-          }
+      if (optText) {
+        const qText = comp.currentQuestion()?.questionText;
+        const pristineTexts = this.quizService.getPristineCorrectTextsForQuestion(qText);
+        if (pristineTexts.size > 0) {
+          pristineCorrect = pristineTexts.has(optText);
         }
       }
     } catch { }
@@ -277,54 +253,26 @@ export class SharedOptionClickService {
 
     let pristineCorrectCount = correctCountFromQ;
     try {
-      let qTextCandidates: string[];
-      if (isShuffled) {
-        qTextCandidates = [
-          norm((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText),
-          norm((this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText),
-          norm(comp.getQuestionAtDisplayIndex?.(qIdx)?.questionText)
-        ].filter((t: string) => !!t);
-      } else {
-        qTextCandidates = [
-          norm(comp.currentQuestion()?.questionText),
-          norm((this.quizService as any)?.questions?.[qIdx]?.questionText),
-          norm(comp.getQuestionAtDisplayIndex?.(qIdx)?.questionText)
-        ].filter((t: string) => !!t);
-      }
-      const bundleP: any[] = (this.quizService as any)?.quizInitialState ?? [];
-
-      let matched = false;
-      for (const qText of qTextCandidates) {
-        for (const quiz of bundleP) {
-          const quizQuestions = quiz?.questions ?? [];
-          for (const pq of quizQuestions) {
-            const pqText = norm(pq?.questionText);
-            if (pqText !== qText) continue;
-            matched = true;
-            const pristineOpts = pq?.options ?? [];
-            const pristineCorrectTexts = new Set<string>(
-              pristineOpts
-                .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-                .map((o: any) => norm(o?.text))
-            );
-            pristineCorrectCount = pristineCorrectTexts.size;
-            const rebuilt: number[] = [];
-            const bindings: any[] = Array.isArray(comp.optionBindings()) ? comp.optionBindings() : [];
-            const bindingTexts: string[] = [];
-            for (let i = 0; i < bindings.length; i++) {
-              const bt = norm(bindings[i]?.option?.text);
-              bindingTexts.push(bt);
-              if (pristineCorrectTexts.has(bt)) rebuilt.push(i);
-            }
-            if (rebuilt.length > 0) {
-              effectiveCorrectIndices = rebuilt;
-              comp._correctIndicesByQuestion.set(qIdx, rebuilt);
-            }
-            break;
-          }
-          if (matched) break;
+      const qTextForLookup = isShuffled
+        ? ((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText
+          ?? (this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText
+          ?? comp.getQuestionAtDisplayIndex?.(qIdx)?.questionText)
+        : (comp.currentQuestion()?.questionText
+          ?? (this.quizService as any)?.questions?.[qIdx]?.questionText
+          ?? comp.getQuestionAtDisplayIndex?.(qIdx)?.questionText);
+      const pristineCorrectTexts =
+        this.quizService.getPristineCorrectTextsForQuestion(qTextForLookup);
+      if (pristineCorrectTexts.size > 0) {
+        pristineCorrectCount = pristineCorrectTexts.size;
+        const rebuilt: number[] = [];
+        const bindings: any[] = Array.isArray(comp.optionBindings()) ? comp.optionBindings() : [];
+        for (let i = 0; i < bindings.length; i++) {
+          if (pristineCorrectTexts.has(norm(bindings[i]?.option?.text))) rebuilt.push(i);
         }
-        if (matched) break;
+        if (rebuilt.length > 0) {
+          effectiveCorrectIndices = rebuilt;
+          comp._correctIndicesByQuestion.set(qIdx, rebuilt);
+        }
       }
     } catch {
       // Pristine rebuild failed

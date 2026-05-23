@@ -409,34 +409,12 @@ export class SharedOptionComponent
       const selectionsMap = this.selectedOptionService.selectedOptionsMapSig();
       if (!this.optionBindings() || this.optionBindings().length === 0) return;
 
-      const bindingTexts = this.optionBindings()
-        .map((b: any) => norm(b?.option?.text))
-        .filter((t: string) => !!t);
-      if (bindingTexts.length === 0) return;
-
-      // Find pristine question whose options exactly match this binding set.
-      const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
-      let pristineCorrectTexts: Set<string> | null = null;
-      const bindingTextSet = new Set(bindingTexts);
-      outer: for (const quiz of bundle) {
-        for (const pq of (quiz?.questions ?? [])) {
-          const pqOpts = pq?.options ?? [];
-          if (pqOpts.length !== this.optionBindings().length) continue;
-          const pqTexts = pqOpts.map((o: any) => norm(o?.text));
-          if (!pqTexts.every((t: string) => bindingTextSet.has(t))) continue;
-          pristineCorrectTexts = new Set(
-            pqOpts
-              .filter((o: any) =>
-                o?.correct === true || String(o?.correct) === 'true' ||
-                o?.correct === 1 || o?.correct === '1'
-              )
-              .map((o: any) => norm(o?.text))
-              .filter((t: string) => !!t)
-          );
-          break outer;
-        }
-      }
-      if (!pristineCorrectTexts || pristineCorrectTexts.size < 2) return;
+      // Resolve pristine correct texts for the current question.
+      const qIdx = this.currentQuestionIndex ?? this.quizService.currentQuestionIndex ?? 0;
+      const qText = (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText
+        ?? (this.quizService as any)?.questions?.[qIdx]?.questionText;
+      const pristineCorrectTexts = this.quizService.getPristineCorrectTextsForQuestion(qText);
+      if (pristineCorrectTexts.size < 2) return;
 
       // Find selections (across any question slot) whose texts cover every
       // pristine correct text. Avoids dependence on currentQuestionIndex.

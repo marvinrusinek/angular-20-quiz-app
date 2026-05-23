@@ -109,47 +109,28 @@ export class OptionInteractionService {
       if (!o) return false;
       try {
         const optText = norm(o?.text);
-        const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
-        if (optText && bundle.length > 0) {
-          // Resolve the current question text for matching.
-          // CRITICAL: In shuffled mode, state.currentQuestion points to the
-          // WRONG question (original order). ALWAYS prefer display-order
-          // sources first in shuffled mode.
-          const isShuffledPC = (this.quizService as any)?.isShuffleEnabled?.()
-            && (this.quizService as any)?.shuffledQuestions?.length > 0;
-          let question: any;
-          if (isShuffledPC) {
-            question = this.quizService.getQuestionsInDisplayOrder?.()?.[qIdx]
-              ?? (this.quizService as any)?.shuffledQuestions?.[qIdx]
-              ?? state.currentQuestion
-              ?? (this.quizService as any)?.questions?.[qIdx];
-          } else {
-            question = state.currentQuestion
-              ?? (this.quizService as any)?.questions?.[qIdx]
-              ?? this.quizService.getQuestionsInDisplayOrder?.()?.[qIdx];
-          }
-          const qText = norm(question?.questionText);
-          if (qText) {
-            // Match by question text across all pristine quizzes
-            let pcMatched = false;
-            for (const quiz of bundle) {
-              for (const pq of (quiz?.questions ?? [])) {
-                if (norm(pq?.questionText) !== qText) continue;
-                pcMatched = true;
-                const matchedOpt = (pq?.options ?? []).find((po: any) => norm(po?.text) === optText);
-                if (matchedOpt !== undefined) {
-                  const result = matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
-                  return result;
-                }
-                break;
-              }
-              if (pcMatched) break;
-            }
-          }
+        if (!optText) return false;
+        // Resolve the current question text for matching.
+        // CRITICAL: In shuffled mode, state.currentQuestion points to the
+        // WRONG question (original order). ALWAYS prefer display-order
+        // sources first in shuffled mode.
+        const isShuffledPC = (this.quizService as any)?.isShuffleEnabled?.()
+          && (this.quizService as any)?.shuffledQuestions?.length > 0;
+        let question: any;
+        if (isShuffledPC) {
+          question = this.quizService.getQuestionsInDisplayOrder?.()?.[qIdx]
+            ?? (this.quizService as any)?.shuffledQuestions?.[qIdx]
+            ?? state.currentQuestion
+            ?? (this.quizService as any)?.questions?.[qIdx];
+        } else {
+          question = state.currentQuestion
+            ?? (this.quizService as any)?.questions?.[qIdx]
+            ?? this.quizService.getQuestionsInDisplayOrder?.()?.[qIdx];
         }
+        const pristineCorrectTexts =
+          this.quizService.getPristineCorrectTextsForQuestion(question?.questionText);
+        return pristineCorrectTexts.has(optText);
       } catch { /* ignore */ }
-      // Do NOT fall back to binding flags — they can be stale/wrong.
-      // If pristine lookup fails, return false to avoid false positives.
       return false;
     };
 
@@ -179,36 +160,9 @@ export class OptionInteractionService {
     const dotStatusEarly = clickedIsCorrectEarly ? 'correct' : 'wrong';
 
     // Record correct clicks for the scoring service's multi-answer gate.
-    // Use a DIRECT quizInitialState lookup (independent of isPristineCorrect)
-    // to ensure correct clicks are always recorded even when isPristineCorrect
-    // fails due to stale question text resolution.
     try {
-      const optTextR = norm(binding.option?.text);
-      if (optTextR) {
-        const bundleR: any[] = (this.quizService as any)?.quizInitialState ?? [];
-        // Try multiple sources for question text
-        const qTextCandidates = [
-          norm(state.currentQuestion?.questionText),
-          norm(this.quizService.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText),
-          norm((this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText),
-          norm((this.quizService as any)?.questions?.[qIdx]?.questionText)
-        ].filter((t: string) => !!t);
-        for (const qTextR of qTextCandidates) {
-          let found = false;
-          for (const quiz of bundleR) {
-            for (const pq of (quiz?.questions ?? [])) {
-              if (norm(pq?.questionText) !== qTextR) continue;
-              const matchedOpt = (pq?.options ?? []).find((po: any) => norm(po?.text) === optTextR);
-              if (matchedOpt && (matchedOpt.correct === true || String(matchedOpt.correct) === 'true')) {
-                (this.quizService as any)?.scoringService?.recordCorrectClick?.(qIdx, binding.option.text);
-                found = true;
-              }
-              break;
-            }
-            if (found) break;
-          }
-          if (found) break;
-        }
+      if (isPristineCorrect(binding.option)) {
+        (this.quizService as any)?.scoringService?.recordCorrectClick?.(qIdx, binding.option.text);
       }
     } catch { /* ignore */ }
     this.selectedOptionService.clickConfirmedDotStatus.set(qIdx, dotStatusEarly);
@@ -232,20 +186,12 @@ export class OptionInteractionService {
     // so multi-answer questions are never misidentified as single-answer.
     let pristineCorrectCount = correctCountInBindings;
     try {
-      const qTextLookup = norm(state.currentQuestion?.questionText)
-        || norm(this.quizService.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText)
-        || norm((this.quizService as any)?.questions?.[qIdx]?.questionText);
-      if (qTextLookup) {
-        const bundleQ: any[] = (this.quizService as any)?.quizInitialState ?? [];
-        for (const quiz of bundleQ) {
-          for (const pq of (quiz?.questions ?? [])) {
-            if (norm(pq?.questionText) !== qTextLookup) continue;
-            pristineCorrectCount = (pq?.options ?? [])
-              .filter((o: any) => o?.correct === true || String(o?.correct) === 'true').length;
-            break;
-          }
-          if (pristineCorrectCount !== correctCountInBindings) break;
-        }
+      const qTextLookup = state.currentQuestion?.questionText
+        || this.quizService.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText
+        || (this.quizService as any)?.questions?.[qIdx]?.questionText;
+      const pristineTexts = this.quizService.getPristineCorrectTextsForQuestion(qTextLookup);
+      if (pristineTexts.size > 0) {
+        pristineCorrectCount = pristineTexts.size;
       }
     } catch { /* ignore */ }
 
@@ -399,26 +345,14 @@ export class OptionInteractionService {
     // PRISTINE-FIRST: Resolve correct indices from quizInitialState to avoid
     // stale/mutated correct flags on questionOptions (e.g. after Restart Quiz).
     try {
-      const qTextForLookup = norm(question?.questionText ?? state.currentQuestion?.questionText);
-      const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
-      if (qTextForLookup && bundle.length > 0) {
-        for (const quiz of bundle) {
-          for (const pq of (quiz?.questions ?? [])) {
-            if (norm(pq?.questionText) !== qTextForLookup) continue;
-            const pristineCorrectTexts = new Set<string>(
-              (pq?.options ?? [])
-                .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-                .map((o: any) => norm(o?.text))
-                .filter((t: string) => !!t)
-            );
-            for (const [i, o] of questionOptions.entries()) {
-              if (pristineCorrectTexts.has(norm((o as any)?.text))) {
-                correctIndicesSet.add(i);
-              }
-            }
-            break;
+      const qTextForLookup = question?.questionText ?? state.currentQuestion?.questionText;
+      const pristineCorrectTexts =
+        this.quizService.getPristineCorrectTextsForQuestion(qTextForLookup);
+      if (pristineCorrectTexts.size > 0) {
+        for (const [i, o] of questionOptions.entries()) {
+          if (pristineCorrectTexts.has(norm((o as any)?.text))) {
+            correctIndicesSet.add(i);
           }
-          if (correctIndicesSet.size > 0) break;
         }
       }
     } catch { /* ignore */ }
@@ -427,25 +361,6 @@ export class OptionInteractionService {
     if (correctIndicesSet.size === 0) {
       for (const [i, o] of questionOptions.entries()) {
         if (isCorrectHelper(o)) correctIndicesSet.add(i);
-      }
-    }
-
-    // Fallback: cross-reference raw _questions
-    if (correctIndicesSet.size === 0 && question?.questionText) {
-      const rawQs: any[] = (this.quizService as any)._questions ?? [];
-      const qText = (question.questionText ?? '').trim().toLowerCase();
-      for (const rq of rawQs) {
-        if ((rq.questionText ?? '').trim().toLowerCase() === qText) {
-          const rawCorrectTexts = new Set<string>(
-            (rq.options ?? []).filter((o: any) => isCorrectHelper(o)).map((o: any) => (o.text ?? '').trim().toLowerCase())
-          );
-          for (const [i, o] of questionOptions.entries()) {
-            if (rawCorrectTexts.has(((o as any).text ?? '').trim().toLowerCase())) {
-              correctIndicesSet.add(i);
-            }
-          }
-          break;
-        }
       }
     }
 
@@ -604,33 +519,16 @@ export class OptionInteractionService {
     // against quizInitialState to detect true multi-answer questions.
     let pristineIsMultiAnswer = false;
     try {
-      // In shuffled mode, prefer display-order question text over state.currentQuestion
       const isShuffledPM = (this.quizService as any)?.isShuffleEnabled?.()
         && (this.quizService as any)?.shuffledQuestions?.length > 0;
-      let qTextForLookup: string;
-      if (isShuffledPM) {
-        qTextForLookup = norm(
-          question?.questionText
+      const qTextForLookup = isShuffledPM
+        ? (question?.questionText
           ?? this.quizService.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText
           ?? (this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText
-          ?? state.currentQuestion?.questionText
-        );
-      } else {
-        qTextForLookup = norm(question?.questionText ?? state.currentQuestion?.questionText);
-      }
-      const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
-      let pmMatched = false;
-      for (const quiz of bundle) {
-        for (const pq of (quiz?.questions ?? [])) {
-          if (norm(pq?.questionText) !== qTextForLookup) continue;
-          pmMatched = true;
-          const pristineCorrectCount = (pq?.options ?? [])
-            .filter((o: any) => o?.correct === true || String(o?.correct) === 'true').length;
-          if (pristineCorrectCount > 1) pristineIsMultiAnswer = true;
-          break;
-        }
-        if (pmMatched) break;
-      }
+          ?? state.currentQuestion?.questionText)
+        : (question?.questionText ?? state.currentQuestion?.questionText);
+      const pristineTexts = this.quizService.getPristineCorrectTextsForQuestion(qTextForLookup);
+      if (pristineTexts.size > 1) pristineIsMultiAnswer = true;
     } catch { /* ignore */ }
 
     // ─── SCORING ───
