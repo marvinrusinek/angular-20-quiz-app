@@ -22,7 +22,6 @@ export class OptionUiContextBuilderService {
       selectedOptionId: src.selectedOptionId?.(),
       finalRenderReady$: src.finalRenderReady$?.(),
       questionVersion: src.questionVersion?.(),
-      sharedOptionConfig: src.sharedOptionConfig?.(),
       // Explicitly bind methods that are on the prototype (spread doesn't copy them)
       keyOf: (o: Option, i: number) => src.keyOf(o, i),
       getActiveQuestionIndex: () => src.getActiveQuestionIndex(),

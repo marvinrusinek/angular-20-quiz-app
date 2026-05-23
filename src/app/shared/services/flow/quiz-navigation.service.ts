@@ -94,7 +94,9 @@ export class QuizNavigationService {
       }
     }
 
-    try { this.resetExplanationAndState(); } catch (err: any) { }
+    try { this.resetExplanationAndState(); } catch (err: any) {
+      console.error('QuizNavigationService.advanceToNextQuestion explanation reset failed:', err);
+    }
 
     return await this.navigateWithOffset(1);  // defer navigation until state is clean
   }
@@ -196,6 +198,7 @@ export class QuizNavigationService {
 
       return true;
     } catch (err: any) {
+      console.error('QuizNavigationService.navigateToQuestion navigation failed:', err);
       return false;
     } finally {
       this.isNavigating = false;
@@ -247,7 +250,9 @@ export class QuizNavigationService {
       if (ets._gate) {
         for (const gate of ets._gate.values()) gate?.next?.(false);
       }
-    } catch (err: any) { }
+    } catch (err: any) {
+      console.error('QuizNavigationService.fetchAndEmitQuestion FET cache reset failed:', err);
+    }
 
     // Prepare text
     const isMulti =
@@ -360,6 +365,7 @@ export class QuizNavigationService {
       const navSuccess = await this.router.navigateByUrl(routeUrl);
       return navSuccess;
     } catch (err: any) {
+      console.error('QuizNavigationService.resetUIAndNavigate navigation failed:', err);
       return false;
     }
   }
@@ -409,7 +415,7 @@ export class QuizNavigationService {
         )
       );
     } catch (error: any) {
-      // session hydration failed
+      console.error('QuizNavigationService.ensureSessionQuestions session hydration failed:', error);
     }
   }
 
@@ -423,6 +429,7 @@ export class QuizNavigationService {
         )
       );
     } catch (error: any) {
+      console.error('QuizNavigationService.tryResolveQuestion question resolution failed:', error);
       return null;
     }
   }
@@ -593,7 +600,9 @@ export class QuizNavigationService {
           }
         }
       }
-    } catch { }
+    } catch (e) {
+      console.error('QuizNavigationService.resetRenderStateBeforeNavigation DOM sync failed:', e);
+    }
   }
 
   /**

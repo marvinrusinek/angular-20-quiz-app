@@ -119,7 +119,6 @@ export class SharedOptionComponent
   readonly renderReadyInput = input<boolean>(false);
   readonly finalRenderReady$ = input<Observable<boolean> | null>(null);
   readonly questionVersion = input<number>(0);  // increments every time questionIndex changes
-  readonly sharedOptionConfig = input<SharedOptionConfig>(undefined as unknown as SharedOptionConfig);
 
   // ── remaining variables ─────────────────────────────────────────
   // Mutable backing fields (mirrored from inputs and freely written by services)

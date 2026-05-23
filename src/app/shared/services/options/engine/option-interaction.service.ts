@@ -389,7 +389,9 @@ export class OptionInteractionService {
       // For multi-answer partial correct: don't persist to sessionStorage.
       // The in-memory map handles live rendering; refresh should NOT see
       // a 'correct' status for an incomplete multi-answer question.
-    } catch {}
+    } catch (e) {
+      console.error('OptionInteractionService.handleOptionClick dot-status persist failed:', e);
+    }
 
     // COMMIT STATE
     simulatedSelection = [...futureSelection];
@@ -504,7 +506,9 @@ export class OptionInteractionService {
       ? (!isMultipleMode && isPristineCorrect(binding.option))
       : (allCorrectFound || (!isMultipleMode && isPristineCorrect(binding.option)));
     if (shouldStopTimer) {
-      try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
+      try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch (e) {
+        console.error('OptionInteractionService.handleOptionClick timer stop failed:', e);
+      }
     }
 
     // FET & Explanation & Scoring
@@ -618,8 +622,8 @@ export class OptionInteractionService {
         })) as Option[]
       });
       this.selectionMessageService.pushMessage(message, qIdx);
-    } catch {
-      // Message sync failed
+    } catch (e) {
+      console.error('OptionInteractionService.handleOptionClick message sync failed:', e);
     }
   }
 }

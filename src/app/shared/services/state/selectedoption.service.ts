@@ -543,7 +543,7 @@ export class SelectedOptionService {
       );
       this.isAnsweredSig.set(isAnswered);
     } catch (error: any) {
-      // Unhandled error in updateAnsweredState
+      console.error('SelectedOptionService.updateAnsweredState state evaluation failed:', error);
     }
   }
 
@@ -715,7 +715,9 @@ export class SelectedOptionService {
         }
       }
       for (const key of keysToRemove) sessionStorage.removeItem(key);
-    } catch (err) {}
+    } catch (err) {
+      console.error('SelectedOptionService.clearState session key cleanup failed:', err);
+    }
   }
 
   public resetAllOptions(): void {
@@ -760,14 +762,18 @@ export class SelectedOptionService {
           (o as any).disabled = false;
         }
       }
-    } catch (error) {}
+    } catch (error) {
+      console.error('SelectedOptionService.resetOptionState option state reset failed:', error);
+    }
   }
 
   public resetAllStates(): void {
     try {
       this.selectedOptionsMap.clear();
       this.lockState.clearLockedOptionsMap();
-    } catch (error: any) { }
+    } catch (error: any) {
+      console.error('SelectedOptionService.resetAllStates map clear failed:', error);
+    }
   }
 
   getFallbackQuestionIndex(): number {
@@ -946,6 +952,8 @@ export class SelectedOptionService {
       localStorage.removeItem('currentQuestionIndex');
       localStorage.removeItem(`quizState_${quizId}`);
       localStorage.removeItem(`selectedOptions_${quizId}`);
-    } catch { }
+    } catch (e) {
+      console.error('SelectedOptionService.clearAllSelectionsForQuiz localStorage cleanup failed:', e);
+    }
   }
 }

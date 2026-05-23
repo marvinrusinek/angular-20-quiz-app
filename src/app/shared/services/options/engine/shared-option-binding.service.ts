@@ -718,7 +718,9 @@ export class SharedOptionBindingService {
                   (comp.optionsToDisplay ?? []).filter((o: any) => o && typeof o === 'object'),
                   cqForTarget
                 );
-              } catch { }
+              } catch (e) {
+                console.error('SharedOptionBindingService.rehydrateUiFromState correctMessage resolution failed:', e);
+              }
               comp._feedbackDisplay = {
                 idx: targetIdx,
                 config: {
@@ -999,7 +1001,9 @@ export class SharedOptionBindingService {
     try {
       const qIndex = comp.currentQuestionIndex;
       this.selectedOptionService.unlockQuestion(qIndex);
-    } catch { }
+    } catch (e) {
+      console.error('SharedOptionBindingService.clearForceDisableAllOptions unlockQuestion failed:', e);
+    }
 
     comp.clickService?.updateBindingSnapshots(comp);
   }
