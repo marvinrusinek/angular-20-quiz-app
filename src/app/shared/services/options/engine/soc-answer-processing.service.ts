@@ -312,7 +312,6 @@ export class SocAnswerProcessingService {
           comp.emitExplanation(qIdx, true);
         } catch { /* ignore */ }
       }, 50);
-    } else if (!allCorrectInDurable) {
     }
 
     const savedFeedback = comp._feedbackDisplay;

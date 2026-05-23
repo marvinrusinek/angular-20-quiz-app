@@ -254,12 +254,7 @@ export class QuizContentDisplayService {
     // answers selected) OR the timer expired for a SINGLE-answer question.
     // For multi-answer questions, FET requires ALL correct selected even
     // on timeout — the user must select all correct to see the explanation.
-    let shouldShowExplanation: boolean;
-    if (isMultipleAnswer) {
-      shouldShowExplanation = isResolved || isTimedOut;
-    } else {
-      shouldShowExplanation = isResolved || isTimedOut;
-    }
+    let shouldShowExplanation = isResolved || isTimedOut;
 
     // CRITICAL GUARD: Only show FET if user has actively interacted with
     // this question in the current session. On a page refresh the in-memory

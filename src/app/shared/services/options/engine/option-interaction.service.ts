@@ -455,8 +455,6 @@ export class OptionInteractionService {
       for (const [i, b] of state.optionBindings.entries()) {
         if (b.isCorrect || isCorrectHelper(b.option)) correctIndicesSet.add(i);
       }
-      if (correctIndicesSet.size > 0) {
-      }
     }
 
     const allCorrectFound = correctIndicesSet.size > 0 && [...correctIndicesSet].every(i => futureKeys.has(i));

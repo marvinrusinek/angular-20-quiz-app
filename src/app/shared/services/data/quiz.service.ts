@@ -681,12 +681,7 @@ export class QuizService {
     return this.scoringService.calculatePercentageOfCorrectlyAnsweredQuestions(this.totalQuestions());
   }
 
-  private shouldShuffle(): boolean {
-    return this.shuffleEnabledSig();
-  }
-
   isShuffleEnabled(): boolean {
-    // Keep using local signal since it's initialized in this service
     return this.shuffleEnabledSig();
   }
 
@@ -861,7 +856,7 @@ export class QuizService {
     } catch (err) {}
 
     let question = this.questions[questionIndex];
-    if (this.shouldShuffle() && this.quizId) {
+    if (this.isShuffleEnabled() && this.quizId) {
       const resolved = this.resolveCanonicalQuestion(questionIndex, null);
       if (resolved) question = resolved;
     }
@@ -870,10 +865,10 @@ export class QuizService {
       answerIds,
       question,
       questionIndex,
-      this.shouldShuffle()
+      this.isShuffleEnabled()
     );
 
-    if (!this.shouldShuffle()) {
+    if (!this.isShuffleEnabled()) {
       this.checkIfAnsweredCorrectly(questionIndex, false);
     }
   }
@@ -882,7 +877,7 @@ export class QuizService {
     const qIndex = index >= 0 ? index : this.currentQuestionIndex;
 
     let currentQuestionValue: QuizQuestion | null = null;
-    if (this.shouldShuffle()) {
+    if (this.isShuffleEnabled()) {
       const resolved = this.resolveCanonicalQuestion(qIndex, null);
       if (resolved) currentQuestionValue = resolved;
     } else {
@@ -919,7 +914,7 @@ export class QuizService {
       questionIndex,
       isCorrect,
       isMultipleAnswer,
-      this.shouldShuffle(),
+      this.isShuffleEnabled(),
       this.quizId,
       this.quizInitialState,
       this.questions,
@@ -930,7 +925,7 @@ export class QuizService {
     if (!shouldProceed) return;
 
     this.scoringService.scoreDirectly(
-      questionIndex, isCorrect, isMultipleAnswer, this.shouldShuffle(), this.quizId
+      questionIndex, isCorrect, isMultipleAnswer, this.isShuffleEnabled(), this.quizId
     );
   }
 
@@ -942,7 +937,7 @@ export class QuizService {
   ): void {
     const qIndex = questionIndex >= 0 ? questionIndex : this.currentQuestionIndex;
     this.scoringService.incrementScore(
-      answers, correctAnswerFound, isMultipleAnswer, qIndex, this.shouldShuffle(), this.quizId
+      answers, correctAnswerFound, isMultipleAnswer, qIndex, this.isShuffleEnabled(), this.quizId
     );
   }
 
@@ -986,7 +981,7 @@ export class QuizService {
       this.activeQuiz?.quizId ?? null,
       this.selectedQuiz?.quizId ?? null,
       () => this.isShuffleEnabled(),
-      () => this.shouldShuffle(),
+      () => this.isShuffleEnabled(),
       this.shuffledQuestions,
       this.canonicalQuestionsByQuiz,
       this.canonicalQuestionIndexByText,
