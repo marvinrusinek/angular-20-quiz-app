@@ -70,6 +70,22 @@ export class QuizSessionManagerService {
   private readonly questionResolver = inject(QuizQuestionResolverService);
   private readonly scoringService = inject(QuizScoringService);
 
+  /** Remove per-question sessionStorage keys (sel_Q*, displayMode_*, multi_perfect_*, dot_confirmed_*). */
+  private clearPerQuestionSessionKeys(): void {
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key?.startsWith('sel_Q') || key?.startsWith('displayMode_') || key?.startsWith('multi_perfect_') || key?.startsWith('dot_confirmed_')) {
+          keysToRemove.push(key);
+        }
+      }
+      for (const key of keysToRemove) {
+        sessionStorage.removeItem(key);
+      }
+    } catch { /* ignore */ }
+  }
+
   /**
    * Handles a question change event: splices new options into the caller's
    * array, performs a save-reset-restore cycle to prevent score loss, then
@@ -306,19 +322,7 @@ export class QuizSessionManagerService {
       localStorage.removeItem(`quizResumeIndex_${quizId}`);
     } catch { }
 
-    // Clear per-question sessionStorage keys from the previous run
-    try {
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < sessionStorage.length; i++) {
-        const key = sessionStorage.key(i);
-        if (key?.startsWith('sel_Q') || key?.startsWith('displayMode_') || key?.startsWith('multi_perfect_') || key?.startsWith('dot_confirmed_')) {
-          keysToRemove.push(key);
-        }
-      }
-      for (const key of keysToRemove) {
-        sessionStorage.removeItem(key);
-      }
-    } catch { }
+    this.clearPerQuestionSessionKeys();
   }
 
   /**
@@ -336,20 +340,7 @@ export class QuizSessionManagerService {
       localStorage.removeItem('selectedOptions');
     } catch { }
 
-    // Clear per-question selection/display keys so stale highlights
-    // from a previous session don't leak into the new quiz run.
-    try {
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < sessionStorage.length; i++) {
-        const key = sessionStorage.key(i);
-        if (key?.startsWith('sel_Q') || key?.startsWith('displayMode_') || key?.startsWith('multi_perfect_') || key?.startsWith('dot_confirmed_')) {
-          keysToRemove.push(key);
-        }
-      }
-      for (const key of keysToRemove) {
-        sessionStorage.removeItem(key);
-      }
-    } catch { }
+    this.clearPerQuestionSessionKeys();
 
     // Clear shuffled questions to prevent stale data when switching quizzes
     state.shuffledQuestions = [];
@@ -395,20 +386,7 @@ export class QuizSessionManagerService {
       localStorage.removeItem('highScore');
     } catch { /* ignore */ }
 
-    // Clear per-question sessionStorage keys so stale highlights
-    // from the previous run don't leak into the restarted quiz.
-    try {
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < sessionStorage.length; i++) {
-        const key = sessionStorage.key(i);
-        if (key?.startsWith('sel_Q') || key?.startsWith('displayMode_') || key?.startsWith('multi_perfect_') || key?.startsWith('dot_confirmed_')) {
-          keysToRemove.push(key);
-        }
-      }
-      for (const key of keysToRemove) {
-        sessionStorage.removeItem(key);
-      }
-    } catch { /* ignore */ }
+    this.clearPerQuestionSessionKeys();
 
     quizResetSource.next();
   }
