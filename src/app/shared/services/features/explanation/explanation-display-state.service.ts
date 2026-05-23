@@ -748,8 +748,7 @@ export class ExplanationDisplayStateService {
             );
             const allCorrectSel = rawCorrectTexts.size > 0 && [...rawCorrectTexts].every(t => selTexts.has(t));
 
-            const perfectMap = (quizSvc as any)._multiAnswerPerfect as Map<number, boolean> | undefined;
-            const oisPerfect = perfectMap?.get(index) === true;
+            const oisPerfect = quizSvc._multiAnswerPerfect.get(index) === true;
 
             if (!oisPerfect && !allCorrectSel) {
               this._fetLocked = false;

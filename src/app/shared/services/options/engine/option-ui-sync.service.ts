@@ -767,10 +767,7 @@ export class OptionUiSyncService {
         // for unselected incorrect options. Without this flag, the
         // policy correctly stamps b.disabled=true but the UI still
         // returns false from isDisabled() in multi-answer mode.
-        if (!(this.quizService as any)._multiAnswerPerfect) {
-          (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
-        }
-        (this.quizService as any)._multiAnswerPerfect.set(questionIndex, true);
+        this.quizService._multiAnswerPerfect.set(questionIndex, true);
         try { sessionStorage.setItem('multi_perfect_' + questionIndex, 'true'); } catch {}
         // Force FET readiness even if already scored correct (to be safe)
         this.selectedOptionService.setAnswered(true, true);

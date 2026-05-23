@@ -391,7 +391,7 @@ export class OptionItemComponent implements OnInit {
       // Fallback to the legacy flag path if pristine resolution failed
       // (no quizInitialState match, etc.).
       const perfectMap =
-        (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
+        this.quizService._multiAnswerPerfect;
       if (perfectMap?.get(_qIdx) === true && this.binding()?.disabled === true) {
         return true;
       }
@@ -546,7 +546,7 @@ export class OptionItemComponent implements OnInit {
     if (this.isOptionCorrect()) {
       const _qIdxARBg = this.quizService.currentQuestionIndex ?? this.currentQuestionIndex();
       const perfectMapARBg =
-        (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
+        this.quizService._multiAnswerPerfect;
       if (perfectMapARBg?.get(_qIdxARBg) === true ||
           this.binding()?.cssClasses?.['correct-option'] === true) {
         return '#43e756';
@@ -617,7 +617,7 @@ export class OptionItemComponent implements OnInit {
         }
         // Legacy flag fallback
         const perfectMap =
-          (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
+          this.quizService._multiAnswerPerfect;
         if (perfectMap?.get(_qIdx) === true && !this.isOptionCorrect()) {
           return '#a0a0a0';
         }
@@ -686,7 +686,7 @@ export class OptionItemComponent implements OnInit {
     if (this.isOptionCorrect()) {
       const _qIdxAR = this.quizService.currentQuestionIndex ?? this.currentQuestionIndex();
       const perfectMapAR =
-        (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
+        this.quizService._multiAnswerPerfect;
       if (perfectMapAR?.get(_qIdxAR) === true) return true;
       if (this.binding()?.cssClasses?.['correct-option'] === true) return true;
     }

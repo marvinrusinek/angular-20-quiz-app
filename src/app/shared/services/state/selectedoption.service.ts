@@ -358,10 +358,8 @@ export class SelectedOptionService {
     // the flag must survive so revisit rehydrate renders the green/gray
     // highlight. Partial/wrong answers never set this flag, so the delete
     // is a no-op for those cases anyway.
-    const perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
-    const _qcMap = (this.quizService as any)?.questionCorrectness as Map<number, boolean> | undefined;
-    if (_qcMap?.get?.(idx) !== true) {
-      perfectMap?.delete(idx);
+    if (this.quizService.questionCorrectness?.get?.(idx) !== true) {
+      this.quizService._multiAnswerPerfect.delete(idx);
     }
   }
 

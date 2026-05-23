@@ -147,7 +147,6 @@ export class QuizNavigationService {
       // revisit, regardless of what was clicked first visit. _multiAnswerPerfect
       // was previously used as a "preserve correct state" gate but it was
       // being set by buggy paths even on wrong-only clicks.
-      const perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
       const isResolved = (idx: number) => this.optionLockState.isQuestionLocked(idx);
       const sourceIdx = this.quizService.getCurrentQuestionIndex();
       if (sourceIdx >= 0 && sourceIdx !== index && !isResolved(sourceIdx)) {
@@ -161,11 +160,10 @@ export class QuizNavigationService {
       // perfectly-answered question we WANT the flag preserved so revisit
       // re-renders the green/gray highlight; only buggy stale flags need
       // wiping, and those won't have questionCorrectness set.
-      const _scoreMap = (this.quizService as any)?.questionCorrectness as Map<number, boolean> | undefined;
-      const _scoredDest = _scoreMap?.get?.(index) === true;
-      if (!_scoredDest) perfectMap?.delete(index);
-      if (sourceIdx >= 0 && sourceIdx !== index && _scoreMap?.get?.(sourceIdx) !== true) {
-        perfectMap?.delete(sourceIdx);
+      const _scoredDest = this.quizService.questionCorrectness?.get?.(index) === true;
+      if (!_scoredDest) this.quizService._multiAnswerPerfect.delete(index);
+      if (sourceIdx >= 0 && sourceIdx !== index && this.quizService.questionCorrectness?.get?.(sourceIdx) !== true) {
+        this.quizService._multiAnswerPerfect.delete(sourceIdx);
       }
 
       // Update Service State (Index) - Update AFTER router nav success

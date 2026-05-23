@@ -70,6 +70,7 @@ export class QuizService {
     try { return localStorage.getItem('quizId') ?? ''; }
     catch { return ''; }
   })();
+  _multiAnswerPerfect: Map<number, boolean> = new Map();
   private _questions: QuizQuestion[] = [];
 
   // Scoring state delegated to QuizScoringService â€” getters for backwards compat
@@ -505,8 +506,7 @@ export class QuizService {
     // green/disabled visual on revisit. We check by comparing
     // selectedOptionsMap[idx] selections against the question's
     // canonical correct texts.
-    const _perfectMap = (this as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
-    const _before = _perfectMap?.get(safeIndex);
+    const _before = this._multiAnswerPerfect.get(safeIndex);
     if (_before === true) {
       try {
         const _selections = this.selectedOptionsMap.get(safeIndex) ?? [];
@@ -530,14 +530,14 @@ export class QuizService {
         // question is recorded correct AND the multi-perfect flag is set,
         // keep the flag — don't wipe it just because selectedOptionsMap
         // was cleared elsewhere.
-        const _scored = (this as any)?.questionCorrectness?.get?.(safeIndex) === true;
+        const _scored = this.questionCorrectness?.get?.(safeIndex) === true;
         if (!_userAnsweredCorrectly && !_scored) {
-          _perfectMap?.delete(safeIndex);
+          this._multiAnswerPerfect.delete(safeIndex);
         }
       } catch {
         // If the check fails for any reason, fall back to clearing
         // (safer than leaving a possibly-stale flag set).
-        _perfectMap?.delete(safeIndex);
+        this._multiAnswerPerfect.delete(safeIndex);
       }
     }
 
@@ -967,7 +967,7 @@ export class QuizService {
     // private QuizService fields.
     this.questionsQuizId = null;
     this.dataLoader.clearFetchPromise();
-    (this as any)._multiAnswerPerfect?.clear?.();
+    this._multiAnswerPerfect.clear();
   }
 
   private resolveShuffleQuizId(): string | null {

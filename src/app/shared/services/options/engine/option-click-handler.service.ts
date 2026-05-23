@@ -422,8 +422,7 @@ export class OptionClickHandlerService {
       const isMultiFromData = questionCorrectCount > 1;
 
       if (isMultiFromData) {
-        const perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
-        const isFullyResolved = perfectMap?.get(qIndex) === true;
+        const isFullyResolved = this.quizService._multiAnswerPerfect.get(qIndex) === true;
         if (!isFullyResolved) return false;
       } else {
         return false;

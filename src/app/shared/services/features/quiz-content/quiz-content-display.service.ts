@@ -284,8 +284,7 @@ export class QuizContentDisplayService {
     // are selected, trust it — but validate against pristine data first
     // to prevent false positives from mutated bindings.
     if (!shouldShowExplanation) {
-      const perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
-      if (perfectMap?.get(safeIdx) === true && hasInteracted) {
+      if (this.quizService._multiAnswerPerfect.get(safeIdx) === true && hasInteracted) {
         // Validate: for multi-answer questions, confirm all correct are truly selected
         let oisBypassAllowed = true;
         try {
@@ -322,7 +321,7 @@ export class QuizContentDisplayService {
             }
             if (!pCorrect.every(t => selNow2.has(t))) {
               oisBypassAllowed = false;
-              perfectMap?.delete?.(safeIdx);
+              this.quizService._multiAnswerPerfect.delete(safeIdx);
             }
           }
         } catch { /* ignore */ }
@@ -480,7 +479,7 @@ export class QuizContentDisplayService {
               shouldShowExplanation = false;
               // Also clear any falsely-set perfect flag so downstream
               // OIS-bypass can't re-trigger on the next emission.
-              (this.quizService as any)?._multiAnswerPerfect?.delete?.(safeIdx);
+              this.quizService._multiAnswerPerfect.delete(safeIdx);
             }
           }
         }

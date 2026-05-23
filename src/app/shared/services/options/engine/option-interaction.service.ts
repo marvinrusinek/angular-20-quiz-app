@@ -652,10 +652,7 @@ export class OptionInteractionService {
     if (!isShuffleActive) {
       // ── UNSHUFFLED: original gate ──
       if (allCorrectFound && !isMultipleMode && !pristineIsMultiAnswer) {
-        if (!(this.quizService as any)._multiAnswerPerfect) {
-          (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
-        }
-        (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
+        this.quizService._multiAnswerPerfect.set(qIdx, true);
         try { sessionStorage.setItem('multi_perfect_' + qIdx, 'true'); } catch {}
         this.quizService.scoreDirectly(qIdx, true, isMultipleMode);
         scoreFired = true;

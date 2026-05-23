@@ -143,10 +143,7 @@ export class AnswerSelectionService {
         // this question as fully resolved (and renders the green/gray
         // highlight). scoreDirectly only writes questionCorrectness; the
         // perfect flag must be set explicitly.
-        if (!(this.quizService as any)._multiAnswerPerfect) {
-          (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
-        }
-        (this.quizService as any)._multiAnswerPerfect.set(activeQuestionIndex, true);
+        this.quizService._multiAnswerPerfect.set(activeQuestionIndex, true);
         try { sessionStorage.setItem('multi_perfect_' + activeQuestionIndex, 'true'); } catch {}
         this.quizStateService.setAnswerSelected(true);
         return;

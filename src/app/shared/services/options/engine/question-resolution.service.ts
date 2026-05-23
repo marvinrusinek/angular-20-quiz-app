@@ -48,8 +48,7 @@ export class QuestionResolutionService {
     }
 
     // Signal 2: multi-answer perfect flag
-    const perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
-    let multiPerfect = perfectMap?.get(qIdx) === true;
+    let multiPerfect = this.quizService._multiAnswerPerfect.get(qIdx) === true;
     if (!multiPerfect) {
       try { multiPerfect = sessionStorage.getItem('multi_perfect_' + qIdx) === 'true'; } catch { /* ignore */ }
     }

@@ -102,10 +102,7 @@ export class SocAnswerProcessingService {
     // Set _multiAnswerPerfect BEFORE applying bindings so that
     // isDisabled() sees it when Angular re-renders the option items.
     if (clickState.remaining === 0) {
-      if (!(this.quizService as any)._multiAnswerPerfect) {
-        (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
-      }
-      (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
+      this.quizService._multiAnswerPerfect.set(qIdx, true);
       try { sessionStorage.setItem('multi_perfect_' + qIdx, 'true'); } catch {}
     }
 
@@ -239,10 +236,7 @@ export class SocAnswerProcessingService {
 
       this.quizService.scoreDirectly(qIdx, true, true);
 
-      if (!(this.quizService as any)._multiAnswerPerfect) {
-        (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
-      }
-      (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
+      this.quizService._multiAnswerPerfect.set(qIdx, true);
       try { sessionStorage.setItem('multi_perfect_' + qIdx, 'true'); } catch {}
 
       (this.explanationTextService as any)._fetLocked = false;
@@ -517,10 +511,7 @@ export class SocAnswerProcessingService {
       this.explanationTextService.fetBypassForQuestion.set(qIdx, true);
       this.quizService.scoreDirectly(qIdx, true, false);
       this.nextButtonStateService.setNextButtonState(true);
-      if (!(this.quizService as any)._multiAnswerPerfect) {
-        (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
-      }
-      (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
+      this.quizService._multiAnswerPerfect.set(qIdx, true);
       try { sessionStorage.setItem('multi_perfect_' + qIdx, 'true'); } catch {}
 
       (this.explanationTextService as any)._fetLocked = false;
