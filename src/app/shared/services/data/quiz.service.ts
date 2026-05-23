@@ -467,9 +467,6 @@ export class QuizService {
 
     const previousQuestion = this.currentQuestionSig();
     if (previousQuestion === question) return;
-    if (previousQuestion && question
-      && previousQuestion.questionText === question.questionText
-      && previousQuestion.options?.length === question.options?.length) return;
     if (!Array.isArray(question.options) || question.options.length === 0) return;
 
     const updatedOptions = question.options.map((option, index) => ({
