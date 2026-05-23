@@ -304,12 +304,40 @@ export class SharedOptionComponent
           const _perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
           // Also treat a click-confirmed CORRECT dot status as "resolved" so
           // single-answer-correct questions retain their highlight on
-          // revisit (Previous). Without this the microtask scrub clears the
-          // option highlight we set in QqcResetManager.restoreSelectionsAndIcons.
+          // revisit (Previous). Multi-answer needs more: dot=correct can fire
+          // on the first correct click of a multi-answer question (which is
+          // still partial), and we MUST scrub _autoRevealedCorrect there.
           const _confirmedCorrect = this.selectedOptionService.clickConfirmedDotStatus?.get(v) === 'correct';
-          const _isResolved = this.selectedOptionService.isQuestionLocked?.(v) === true
-                              || _perfectMap?.get(v) === true
-                              || _confirmedCorrect;
+          // Determine if THIS question is canonically multi-answer.
+          let _isCanonMulti = false;
+          try {
+            const _norm = (t: any) => String(t ?? '').trim().toLowerCase();
+            const _liveQText = _norm(
+              (this.quizService as any)?.questions?.[v]?.questionText
+            );
+            const _bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
+            outer: for (const _quiz of _bundle) {
+              for (const _pq of (_quiz?.questions ?? [])) {
+                if (_liveQText && _norm(_pq?.questionText) === _liveQText) {
+                  const _correctCount = (_pq?.options ?? []).filter(
+                    (o: any) => o?.correct === true || String(o?.correct) === 'true'
+                  ).length;
+                  _isCanonMulti = _correctCount > 1;
+                  break outer;
+                }
+              }
+            }
+          } catch { /* ignore */ }
+          // Also check the questionCorrectness scoring map — most durable
+          // signal of full correct resolution, works for both single & multi.
+          const _scoreMap = (this.quizService as any)?.questionCorrectness as Map<number, boolean> | undefined;
+          const _scoredCorrect = _scoreMap?.get?.(v) === true;
+          const _isResolved =
+            _scoredCorrect ||
+            this.selectedOptionService.isQuestionLocked?.(v) === true ||
+            _perfectMap?.get(v) === true ||
+            // Single-answer: dot=correct alone is sufficient
+            (!_isCanonMulti && _confirmedCorrect);
           if (!_isResolved) {
             queueMicrotask(() => {
               this._multiSelectByQuestion?.delete(v);

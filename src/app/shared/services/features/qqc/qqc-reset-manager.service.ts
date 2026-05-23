@@ -6,6 +6,7 @@ import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
 import { ExplanationTextService } from '../explanation/explanation-text.service';
 import { NextButtonStateService } from '../../state/next-button-state.service';
+import { QuizService } from '../../data/quiz.service';
 import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 import { TimerService } from '../timer/timer.service';
@@ -19,6 +20,7 @@ export class QqcResetManagerService {
   // ── injects ─────────────────────────────────────────────────────
   private readonly explanationTextService = inject(ExplanationTextService);
   private readonly nextButtonStateService = inject(NextButtonStateService);
+  private readonly quizService = inject(QuizService);
   private readonly quizStateService = inject(QuizStateService);
   private readonly selectedOptionService = inject(SelectedOptionService);
   private readonly timerService = inject(TimerService);
@@ -53,7 +55,20 @@ export class QqcResetManagerService {
     const i0 = params.normalizeIndex(params.index);
     const existingSelections =
       this.selectedOptionService.getSelectedOptionsForQuestion(i0) ?? [];
-    const hasSelections = existingSelections.length > 0;
+    // Treat the question as "has selections" if EITHER live selections are
+    // present OR the scoring map already recorded it correct (revisit on
+    // Previous: the in-memory selections may have been pruned but the
+    // questionCorrectness map persists across nav).
+    const questionCorrectnessMap: Map<number, boolean> | undefined =
+      (this.quizService as any)?.questionCorrectness;
+    const scoredCorrect = !!questionCorrectnessMap?.get?.(i0);
+    let dotConfirmed = false;
+    try {
+      const dotStored = sessionStorage.getItem('dot_confirmed_' + i0);
+      dotConfirmed = dotStored === 'correct' || dotStored === 'wrong';
+    } catch { /* ignore */ }
+    const hasSelections =
+      existingSelections.length > 0 || scoredCorrect || dotConfirmed;
 
     // Clear stale FET cache
     params.formattedByIndex.delete(i0);
