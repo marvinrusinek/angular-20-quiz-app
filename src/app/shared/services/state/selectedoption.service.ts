@@ -224,13 +224,8 @@ export class SelectedOptionService {
     this.stopTimerEmitted = false;
 
     // Emit clean state so UI updates
-    try {
-      this.selectedOptionSig.set([]);
-    } catch { }
-
-    try {
-      this.isOptionSelectedSig.set(false);
-    } catch { }
+    this.selectedOptionSig.set([]);
+    this.isOptionSelectedSig.set(false);
 
     this.saveState();
   }

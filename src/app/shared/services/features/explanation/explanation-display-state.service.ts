@@ -285,11 +285,7 @@ export class ExplanationDisplayStateService {
     this.formatter.formattedExplanationSig.set(finalExplanation);
 
     // Ensure direct subject update for visibility-stable downstream
-    try {
-      this.explanationTextSig.set(finalExplanation);
-    } catch {
-      // optional secondary stream
-    }
+    this.explanationTextSig.set(finalExplanation);
   }
 
   setExplanationTextForQuestionIndex(index: number, explanation: string): void {
