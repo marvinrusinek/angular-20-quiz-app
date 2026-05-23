@@ -313,12 +313,12 @@ export class OptionItemComponent implements OnInit {
     // Previous-revisit override: on a FULLY-resolved correct question, every
     // INCORRECT option must render disabled (dark gray).
     try {
-      const _inputIdx = this.currentQuestionIndex();
       const _svcIdx = (this.quizService as any)?.getCurrentQuestionIndex?.()
         ?? (this.quizService as any)?.currentQuestionIndex;
-      const _qIdxRev = (typeof _inputIdx === 'number' && _inputIdx >= 0)
-        ? _inputIdx
-        : (typeof _svcIdx === 'number' && _svcIdx >= 0 ? _svcIdx : 0);
+      const _inputIdx = this.currentQuestionIndex();
+      const _qIdxRev = (typeof _svcIdx === 'number' && _svcIdx >= 0)
+        ? _svcIdx
+        : _inputIdx;
 
       const res = this.questionResolution.resolve(_qIdxRev);
       if (res.fullyResolvedCorrect) {
