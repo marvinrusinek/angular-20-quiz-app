@@ -234,10 +234,13 @@ export class OptionItemComponent implements OnInit {
         } catch { /* ignore */ }
       }
 
-      // Signal 2: multi-answer perfect flag.
+      // Signal 2: multi-answer perfect flag (in-memory + sessionStorage fallback).
       const isMulti = this.type() === 'multiple';
       const perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
-      const multiPerfectFlag = perfectMap?.get(_qIdxRev) === true;
+      let multiPerfectFlag = perfectMap?.get(_qIdxRev) === true;
+      if (!multiPerfectFlag) {
+        try { multiPerfectFlag = sessionStorage.getItem('multi_perfect_' + _qIdxRev) === 'true'; } catch {}
+      }
 
       // Signal 3: pure comparison — canonical correct options vs persisted selections.
       const norm = (t: any) => String(t ?? '').trim().toLowerCase();
@@ -335,13 +338,29 @@ export class OptionItemComponent implements OnInit {
       // a partial multi-answer (1 of N picked) also sets dot=correct, and
       // would falsely trip the override. Require either the perfect flag
       // or the explicit selections-match check.
+      // For multi-answer, `scoredCorrect` alone is unreliable — the scoring
+      // map can be set to true for partial multi-answer in some flows. Gate
+      // it behind `multiPerfectFlag || computedPerfect` for multi-answer.
       const fullyResolvedCorrect =
-        scoredCorrect ||
+        (scoredCorrect && (!isCanonMulti || multiPerfectFlag || computedPerfect)) ||
         computedPerfect ||
         (!isCanonMulti && _dot === 'correct') ||
         (isCanonMulti && multiPerfectFlag);
-      // Imperfect (extras or missing) and NOT scored correct: clear all marks.
-      const fullyResolvedWrong = !scoredCorrect && (computedImperfect || _dot === 'wrong');
+      // Imperfect: clear all marks. Triggers when:
+      //   • Selections vs canonical match yielded a mismatch (extras/missing), OR
+      //   • Explicit wrong dot, OR
+      //   • Multi-answer with dot=correct but NO multiPerfectFlag (partial),
+      //     even if persisted selections were lost/empty.
+      // For multi-answer, ignore `scoredCorrect` when judging "wrong" —
+      // partial multi-answer can have scoredCorrect=true but should still
+      // render empty on revisit. Single-answer keeps the prior guard so a
+      // single-answer scored question never gets cleared.
+      const fullyResolvedWrong =
+        (!scoredCorrect || isCanonMulti) &&
+        (computedImperfect ||
+          _dot === 'wrong' ||
+          (isCanonMulti && _dot === 'correct' && !multiPerfectFlag));
+
       if (fullyResolvedCorrect) {
         // Use the canonical (pristine) correctness rather than trusting
         // binding().option.correct, which can be mutated/cleared during
@@ -373,7 +392,10 @@ export class OptionItemComponent implements OnInit {
           'highlighted': false,
           'disabled-option': true
         };
-      } else if (fullyResolvedWrong) {
+      } else if (fullyResolvedWrong && !this._userHasClicked) {
+        // Gate by !_userHasClicked so this only suppresses revisits and
+        // unpicked-correct auto-reveals — never overrides the just-clicked
+        // option's own green feedback on a forward partial multi-answer.
         return {
           ...classes,
           'selected': false,
@@ -454,10 +476,15 @@ export class OptionItemComponent implements OnInit {
     // paints it dark gray. The correct (selected) option stays interactive=false-
     // safe via its 'correct-option' class which already pointer-events:none.
     try {
+      // Prefer the option-item's input index — it always reflects the
+      // currently-rendered question for this template instance. Service
+      // index can lag during a Previous-nav transition.
+      const _inputIdx = this.currentQuestionIndex();
       const _svcIdx = (this.quizService as any)?.getCurrentQuestionIndex?.()
         ?? (this.quizService as any)?.currentQuestionIndex;
-      const _inputIdx = this.currentQuestionIndex();
-      const _qIdxRev = (typeof _svcIdx === 'number' && _svcIdx >= 0) ? _svcIdx : _inputIdx;
+      const _qIdxRev = (typeof _inputIdx === 'number' && _inputIdx >= 0)
+        ? _inputIdx
+        : (typeof _svcIdx === 'number' && _svcIdx >= 0 ? _svcIdx : 0);
       const _opt: any = this.binding()?.option;
       const _isCorrect = _opt?.correct === true || _opt?.correct === 1 || String(_opt?.correct) === 'true';
 
@@ -472,7 +499,10 @@ export class OptionItemComponent implements OnInit {
 
       const isMulti = this.type() === 'multiple';
       const perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
-      const multiPerfectFlag = perfectMap?.get(_qIdxRev) === true;
+      let multiPerfectFlag = perfectMap?.get(_qIdxRev) === true;
+      if (!multiPerfectFlag) {
+        try { multiPerfectFlag = sessionStorage.getItem('multi_perfect_' + _qIdxRev) === 'true'; } catch {}
+      }
 
       const norm = (t: any) => String(t ?? '').trim().toLowerCase();
       const optsForQ: any[] =
@@ -550,7 +580,7 @@ export class OptionItemComponent implements OnInit {
       const scoredCorrect = scoreCorrectMap?.get?.(_qIdxRev) === true;
       const isCanonMulti = correctOpts.length > 1;
       const fullyResolvedCorrect =
-        scoredCorrect ||
+        (scoredCorrect && (!isCanonMulti || multiPerfectFlag || computedPerfect)) ||
         computedPerfect ||
         (!isCanonMulti && _dot === 'correct') ||
         (isCanonMulti && multiPerfectFlag);

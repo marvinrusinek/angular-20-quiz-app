@@ -623,7 +623,10 @@ export class SharedOptionBindingService {
       const _scoreMap: Map<number, boolean> | undefined = _quizSvcRH?.questionCorrectness;
       const _scoredCorrect = _scoreMap?.get?.(qIndex) === true;
       const _perfectMap: Map<number, boolean> | undefined = _quizSvcRH?._multiAnswerPerfect;
-      const _multiPerfect = _perfectMap?.get?.(qIndex) === true;
+      let _multiPerfect = _perfectMap?.get?.(qIndex) === true;
+      if (!_multiPerfect) {
+        try { _multiPerfect = sessionStorage.getItem('multi_perfect_' + qIndex) === 'true'; } catch {}
+      }
       // Count canonical correct options for THIS question.
       let _correctCount = 0;
       try {
@@ -642,8 +645,10 @@ export class SharedOptionBindingService {
         }
       } catch { /* ignore */ }
       const _isCanonMulti = _correctCount > 1;
+      // For multi-answer, `_scoredCorrect` alone can be true for partial
+      // selections in some flows. Require `_multiPerfect` for multi-answer.
       const wasPerfect =
-        _scoredCorrect ||
+        (_scoredCorrect && (!_isCanonMulti || _multiPerfect)) ||
         _multiPerfect ||
         (!_isCanonMulti && dotStatus === 'correct');
 
@@ -678,6 +683,17 @@ export class SharedOptionBindingService {
         }
       }
 
+      // For partial multi-answer revisit: explicitly unlock all options for
+      // this question and clear stale lock state, so user can complete the
+      // remaining correct picks. Single-answer or unanswered questions also
+      // benefit (no-op when there are no locks).
+      if (!wasPerfect) {
+        try {
+          this.selectedOptionService.unlockAllOptionsForQuestion?.(qIndex);
+          this.selectedOptionService.unlockQuestion?.(qIndex);
+        } catch { /* ignore */ }
+      }
+
       if (comp.optionBindings()?.length) {
         for (const [idx, b] of comp.optionBindings().entries()) {
           const match = savedByIndex.get(idx);
@@ -687,6 +703,17 @@ export class SharedOptionBindingService {
               b.option.selected = false;
               b.option.highlight = false;
               b.option.showIcon = false;
+              // Clear stale cssClasses (e.g. `disabled-option:true` from
+              // a prior partial state) so visuals match the cleared state.
+              if (b.cssClasses) {
+                b.cssClasses['selected'] = false;
+                b.cssClasses['selected-option'] = false;
+                b.cssClasses['correct-option'] = false;
+                b.cssClasses['incorrect-option'] = false;
+                b.cssClasses['highlighted'] = false;
+                b.cssClasses['disabled-option'] = false;
+                b.cssClasses['locked-option'] = false;
+              }
               // Restore normal interactivity (not greyed)
               (b.option as any).active = true;
               b.disabled = comp.computeDisabledState(b.option, idx);

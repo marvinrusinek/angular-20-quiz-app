@@ -106,6 +106,7 @@ export class SocAnswerProcessingService {
         (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
       }
       (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
+      try { sessionStorage.setItem('multi_perfect_' + qIdx, 'true'); } catch {}
     }
 
     const bindingUpdates = this.clickHandler.computeMultiAnswerBindingUpdates(
@@ -242,6 +243,7 @@ export class SocAnswerProcessingService {
         (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
       }
       (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
+      try { sessionStorage.setItem('multi_perfect_' + qIdx, 'true'); } catch {}
 
       (this.explanationTextService as any)._fetLocked = false;
       this.explanationTextService.unlockExplanation();
@@ -519,6 +521,7 @@ export class SocAnswerProcessingService {
         (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
       }
       (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
+      try { sessionStorage.setItem('multi_perfect_' + qIdx, 'true'); } catch {}
 
       (this.explanationTextService as any)._fetLocked = false;
       this.explanationTextService.unlockExplanation();

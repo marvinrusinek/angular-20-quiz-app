@@ -332,10 +332,16 @@ export class SharedOptionComponent
           // signal of full correct resolution, works for both single & multi.
           const _scoreMap = (this.quizService as any)?.questionCorrectness as Map<number, boolean> | undefined;
           const _scoredCorrect = _scoreMap?.get?.(v) === true;
+          // For multi-answer, `_scoredCorrect` alone can be true for partial
+          // selections in some flows. Require `_multiPerfect` for multi-answer.
+          let _multiPerfect = _perfectMap?.get(v) === true;
+          if (!_multiPerfect) {
+            try { _multiPerfect = sessionStorage.getItem('multi_perfect_' + v) === 'true'; } catch {}
+          }
           const _isResolved =
-            _scoredCorrect ||
+            (_scoredCorrect && (!_isCanonMulti || _multiPerfect)) ||
             this.selectedOptionService.isQuestionLocked?.(v) === true ||
-            _perfectMap?.get(v) === true ||
+            _multiPerfect ||
             // Single-answer: dot=correct alone is sufficient
             (!_isCanonMulti && _confirmedCorrect);
           if (!_isResolved) {

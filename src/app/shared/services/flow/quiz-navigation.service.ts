@@ -156,12 +156,17 @@ export class QuizNavigationService {
       if (!isResolved(index)) {
         this.selectedOptionService.clearSelectionsForQuestion(index);
       }
-      // ALWAYS wipe _multiAnswerPerfect for the destination so leftover
-      // "resolved" flags from a prior visit don't make option-item's
-      // isDisabled return true via the multi.perfectMap+bindingDisabled path.
-      const _beforeDest = perfectMap?.get(index);
-      perfectMap?.delete(index);
-      if (sourceIdx >= 0 && sourceIdx !== index) perfectMap?.delete(sourceIdx);
+      // Wipe _multiAnswerPerfect for the destination unless the question
+      // was actually scored correct (questionCorrectness). For a genuinely
+      // perfectly-answered question we WANT the flag preserved so revisit
+      // re-renders the green/gray highlight; only buggy stale flags need
+      // wiping, and those won't have questionCorrectness set.
+      const _scoreMap = (this.quizService as any)?.questionCorrectness as Map<number, boolean> | undefined;
+      const _scoredDest = _scoreMap?.get?.(index) === true;
+      if (!_scoredDest) perfectMap?.delete(index);
+      if (sourceIdx >= 0 && sourceIdx !== index && _scoreMap?.get?.(sourceIdx) !== true) {
+        perfectMap?.delete(sourceIdx);
+      }
 
       // Update Service State (Index) - Update AFTER router nav success
       this.quizService.setCurrentQuestionIndex(index);

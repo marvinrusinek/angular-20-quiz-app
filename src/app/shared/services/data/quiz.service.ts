@@ -525,9 +525,14 @@ export class QuizService {
         const _userAnsweredCorrectly =
           _correctTexts.size > 0 &&
           [...(_correctTexts as Set<string>)].every((t: string) => _selectedTexts.has(t));
-        if (!_userAnsweredCorrectly) {
+        // Trust the durable scoring map as a fallback when selections are
+        // empty (they can be transiently cleared on navigation). If the
+        // question is recorded correct AND the multi-perfect flag is set,
+        // keep the flag — don't wipe it just because selectedOptionsMap
+        // was cleared elsewhere.
+        const _scored = (this as any)?.questionCorrectness?.get?.(safeIndex) === true;
+        if (!_userAnsweredCorrectly && !_scored) {
           _perfectMap?.delete(safeIndex);
-        } else {
         }
       } catch {
         // If the check fails for any reason, fall back to clearing

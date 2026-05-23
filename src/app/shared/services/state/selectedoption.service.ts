@@ -323,7 +323,6 @@ export class SelectedOptionService {
   clearSelectionsForQuestion(questionIndex: number): void {
     const idx = Number(questionIndex);
     if (!Number.isFinite(idx)) return;
-
     // Remove from selection and feedback maps
     if (this.selectedOptionsMap.has(idx)) this.selectedOptionsMap.delete(idx);
     this._selectionHistory.delete(idx);
@@ -354,12 +353,16 @@ export class SelectedOptionService {
     // sibling bindings still see the stale entry and stay disabled.
     this.selectedOptionsMapSig.set(new Map(this.selectedOptionsMap));
 
-    // Clear quizService._multiAnswerPerfect[idx] — when autoreveal fires
-    // on a question's first visit, this flag stays true forever and
-    // option-item.shouldHighlightOption() returns true for all correct
-    // options on revisit, painting them green via the correct-option class.
+    // Clear quizService._multiAnswerPerfect[idx] — ONLY if the question
+    // was NOT scored correct. For genuinely-perfect multi-answer questions,
+    // the flag must survive so revisit rehydrate renders the green/gray
+    // highlight. Partial/wrong answers never set this flag, so the delete
+    // is a no-op for those cases anyway.
     const perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
-    perfectMap?.delete(idx);
+    const _qcMap = (this.quizService as any)?.questionCorrectness as Map<number, boolean> | undefined;
+    if (_qcMap?.get?.(idx) !== true) {
+      perfectMap?.delete(idx);
+    }
   }
 
   // Method to get the current option selected state

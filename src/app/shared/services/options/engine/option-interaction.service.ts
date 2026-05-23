@@ -656,6 +656,7 @@ export class OptionInteractionService {
           (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
         }
         (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
+        try { sessionStorage.setItem('multi_perfect_' + qIdx, 'true'); } catch {}
         this.quizService.scoreDirectly(qIdx, true, isMultipleMode);
         scoreFired = true;
       }

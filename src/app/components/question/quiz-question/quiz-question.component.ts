@@ -1,7 +1,7 @@
 import {
-  AfterViewInit, ChangeDetectionStrategy, Component,
-  computed, DestroyRef, effect, HostListener, inject, input, model, OnDestroy, OnInit,
-  output, signal, viewChild, ViewContainerRef
+  AfterViewInit, ChangeDetectionStrategy, Component, computed, DestroyRef, 
+  effect, HostListener, inject, input, model, OnDestroy, OnInit, output, 
+  signal, viewChild, ViewContainerRef
 } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
