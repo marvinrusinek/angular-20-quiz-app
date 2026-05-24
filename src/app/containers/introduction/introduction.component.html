@@ -60,7 +60,7 @@
           (change)="onSlideToggleChange($event)"
           [disableRipple]="true"
         >
-          Shuffle questions
+          <ng-container i18n>Shuffle questions</ng-container>
         </mat-slide-toggle>
 
         <button
@@ -71,6 +71,7 @@
           [disabled]="isStartingQuiz()"
           (click)="onStartQuiz(quiz.quizId)"
           aria-label="Start the Quiz"
+        i18n-aria-label
         >
           <span i18n class="start-btn-content">
             <strong>Start the Quiz!</strong>&nbsp;
@@ -81,5 +82,5 @@
     </mat-card-actions>
   </mat-card>
 } @else {
-  <p>Loading&hellip;</p>
+  <p i18n>Loading&hellip;</p>
 }

@@ -1,9 +1,9 @@
-<h3 class="summary-header">
+<h3 class="summary-header" i18n>
   Detailed Summary <i>({{ accordionHeaderLabel() }})</i>
 </h3>
 
 @if (questions().length === 0) {
-  <p>No questions available to display. Please verify quiz data.</p>
+  <p i18n>No questions available to display. Please verify quiz data.</p>
 }
 
 <mat-accordion multi="true" #accordion="matAccordion">
@@ -31,7 +31,7 @@
           <ul class="quiz-summary-fields">
             <!-- USER ANSWERS -->
             <li>
-              <span class="leader">Your Answer(s):</span>
+              <span class="leader" i18n>Your Answer(s):</span>
 
               <!-- Try to get selections from SelectedOptionService first -->
             @if (hasSelectionsFromService(i)) {
@@ -77,7 +77,7 @@
 
           <!-- CORRECT ANSWERS -->
           <li>
-            <span class="leader">Correct Answer(s):</span>
+            <span class="leader" i18n>Correct Answer(s):</span>
             @let correctIndices = getCorrectOptionIndices(question, i);
             {{ formatOptionList(correctIndices) }}
 
@@ -89,7 +89,7 @@
 
           <!-- EXPLANATION -->
           <li>
-            <span class="leader">Explanation:</span>
+            <span class="leader" i18n>Explanation:</span>
             @let correctIndicesExp = getCorrectOptionIndices(question, i);
             {{ formatOptionList(correctIndicesExp) }}
             {{ correctIndicesExp.length === 1 ? 'was' : 'were' }} correct because {{ question.explanation }}.
@@ -97,7 +97,7 @@
 
           <!-- ELAPSED TIME -->
           <li>
-            <span class="leader">Elapsed Time:</span>
+            <span class="leader" i18n>Elapsed Time:</span>
             <span>{{ results.elapsedTimes[i] || 0 }} {{ (results.elapsedTimes[i] || 0) === 1 ? 'second' : 'seconds'
               }}</span>
           </li>

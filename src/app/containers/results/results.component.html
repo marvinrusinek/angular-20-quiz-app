@@ -8,6 +8,7 @@
         (click)="toggleMenu()"
         [class.open]="menuOpen()"
         aria-label="Toggle navigation menu"
+        i18n-aria-label
       >
         <span class="hamburger-line"></span>
         <span class="hamburger-line"></span>
@@ -24,7 +25,7 @@
             [class.active]="activeSection() === 'score'"
           >
             <span class="nav-icon">📊</span>
-            <span>Score Analysis</span>
+            <span i18n>Score Analysis</span>
           </button>
 
           <button 
@@ -34,7 +35,7 @@
             [class.active]="activeSection() === 'report'"
           >
             <span class="nav-icon">📈</span>
-            <span>Summary Report</span>
+            <span i18n>Summary Report</span>
           </button>
           
           <button 
@@ -44,7 +45,7 @@
             [class.active]="activeSection() === 'summary'"
           >
             <span class="nav-icon">📋</span>
-            <span>Detailed Summary</span>
+            <span i18n>Detailed Summary</span>
           </button>
           
           <button 
@@ -54,7 +55,7 @@
             [class.active]="activeSection() === 'highscores'"
           >
             <span class="nav-icon">🏆</span>
-            <span>High Scores</span>
+            <span i18n>High Scores</span>
           </button>
           
           <button 
@@ -64,7 +65,7 @@
             [class.active]="activeSection() === 'resources'"
           >
             <span class="nav-icon">📚</span>
-            <span>Resources</span>
+            <span i18n>Resources</span>
           </button>
 
           <div class="nav-divider"></div>
@@ -75,7 +76,7 @@
             (click)="selectQuiz()"
           >
             <span class="nav-icon">🔙</span>
-            <span>Return to Quiz Selection</span>
+            <span i18n>Return to Quiz Selection</span>
           </button>
         </nav>
       }
@@ -86,7 +87,7 @@
 
     <!-- LOGO (Right) -->
     <div class="logo">
-      <a href="https://www.codelab.fun" title="Angular Codelab" target="_blank">
+      <a href="https://www.codelab.fun" title="Angular Codelab" i18n-title target="_blank">
         <img
           class="header-image"
           ngSrc="assets/images/codelab_logo.jpeg"
@@ -96,6 +97,7 @@
           loading="lazy"
           (click)="selectQuiz()"
           matTooltip="Back to Codelab Quiz Selection"
+          i18n-matTooltip
           matTooltipPosition="left"
         />
       </a>

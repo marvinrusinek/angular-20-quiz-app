@@ -2,7 +2,9 @@
   <div class="print">
     <a
       matTooltip="Print"
-      aria-labelledby="Print"
+      i18n-matTooltip
+      aria-label="Print"
+      i18n-aria-label
       href="javascript:window.print()"
     >
       <i class="material-icons">print</i>
@@ -12,7 +14,9 @@
     <a
       target="_blank"
       matTooltip="E-mail"
-      aria-labelledby="E-mail"
+      i18n-matTooltip
+      aria-label="E-mail"
+      i18n-aria-label
       [href]="mailtoHref()"
     >
       <i class="material-icons">email</i>
@@ -22,7 +26,9 @@
     <a
       target="_blank"
       matTooltip="Share on Twitter"
-      aria-labelledby="Twitter"
+      i18n-matTooltip
+      aria-label="Share on Twitter"
+      i18n-aria-label
       [href]="twitterHref()"
     >
       <i class="material-icons">share</i>

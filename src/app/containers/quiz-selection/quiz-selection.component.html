@@ -1,7 +1,7 @@
 <div class="container">
   <header class="row">
     <div class="logo">
-      <a href="https://www.codelab.fun" title="Angular Codelab" target="_blank">
+      <a href="https://www.codelab.fun" title="Angular Codelab" i18n-title target="_blank">
         <img
           mat-card-avatar
           class="header-image"
@@ -16,7 +16,7 @@
 
     <div class="intro-titles">
       <h1 i18n>Angular Codelab Quiz App</h1>
-      <h4>How well do you know Angular? Find out!</h4>
+      <h4 i18n>How well do you know Angular? Find out!</h4>
     </div>
 
     <div class="info">
@@ -27,6 +27,7 @@
         <mat-icon
           class="material-icons"
           matTooltip="Angular Codelab info"
+          i18n-matTooltip
           matTooltipPosition="right"
         >
           info
@@ -37,7 +38,7 @@
 
   <!-- Toolbar: Milestones Menu -->
   <div class="toolbar">
-    <button [matMenuTriggerFor]="menu" aria-label="Milestones Menu">
+    <button [matMenuTriggerFor]="menu" aria-label="Milestones Menu" i18n-aria-label>
       <span i18n>Milestones ▼</span>
     </button>
 

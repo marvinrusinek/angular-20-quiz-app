@@ -1,12 +1,13 @@
 @for (quiz of quizzes(); track quiz.quizId) {
   @if (quiz.quizId === quizName) {
     <div class="challenge">
-      <h4>Challenge your friends!</h4>
+      <h4 i18n>Challenge your friends!</h4>
 
       <div class="social-buttons">
         <a
           class="btn twitter-share-button hvr-shutter-out-horizontal mdc-button mdc-button--outlined"
           title="Twitter"
+          i18n-title
           data-size="large"
           data-i18n="Twitter"
           target="_blank"
@@ -18,12 +19,13 @@
             codelabUrl
           }}!"
         >
-          <strong>Tweet your score</strong>
+          <strong i18n>Tweet your score</strong>
         </a>
 
         <a
           class="btn email hvr-shutter-out-horizontal mdc-button mdc-button--outlined"
           title="e-mail"
+          i18n-title
           data-size="large"
           data-i18n="Email"
           target="_blank"
@@ -33,7 +35,7 @@
             quiz.milestone
           }}. Try to beat my score at {{ codelabUrl }}"
         >
-          <strong>Email a friend</strong>
+          <strong i18n>Email a friend</strong>
         </a>
       </div>
     </div>

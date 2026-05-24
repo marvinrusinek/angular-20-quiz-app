@@ -37,7 +37,7 @@
       }
       <!-- MULTIPLE-ANSWER (CHECKBOX) -->
       @case ('multiple') {
-        <div class="options-group options" role="group" aria-label="Select one or more options">
+        <div class="options-group options" role="group" aria-label="Select one or more options" i18n-aria-label>
           @for (b of opts; let i = $index; track trackByOptionId(b, i)) {
             <app-option-item
               [binding]="b"
@@ -58,5 +58,5 @@
     }
   </form>
 } @else if (opts.length === 0) {
-  <span>Options not ready&hellip;</span>
+  <span i18n>Options not ready&hellip;</span>
 }

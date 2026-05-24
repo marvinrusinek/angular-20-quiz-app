@@ -46,14 +46,14 @@
                   <div class="nav-buttons">
                     @if (shouldShowPrevButton()) {
                       <button type="button" class="nav-btn" (click)="advanceToPreviousQuestion()"
-                        matTooltip="« Previous Question" matTooltipPosition="above" aria-label="Previous Question">
+                        matTooltip="« Previous Question" i18n-matTooltip matTooltipPosition="above" aria-label="Previous Question" i18n-aria-label>
                         <i class="material-icons">navigate_before</i>
                       </button>
                     }
 
                     @if (shouldShowRestartButton()) {
                       <button type="button" class="nav-btn restart-btn" (click)="restartQuiz()" matTooltip="Restart Quiz"
-                        matTooltipPosition="above" aria-label="Restart Quiz">
+                        i18n-matTooltip matTooltipPosition="above" aria-label="Restart Quiz" i18n-aria-label>
                         <i class="material-icons">replay</i>
                       </button>
                     }
@@ -61,7 +61,7 @@
                     @if (shouldShowNextButton()) {
                       <button type="button" class="nav-btn" #nextButton="matTooltip"
                         [disabled]="!nextButtonEnabled()" (click)="advanceToNextQuestion()"
-                        matTooltip="Next Question »" matTooltipPosition="above" aria-label="Next Question">
+                        matTooltip="Next Question »" i18n-matTooltip matTooltipPosition="above" aria-label="Next Question" i18n-aria-label>
                         <i class="material-icons">navigate_next</i>
                       </button>
                     }
@@ -72,9 +72,9 @@
               <!-- Show Results Button (when applicable) -->
               @if (shouldShowResultsButton) {
                 <section class="show-results-section">
-                  <button type="button" (click)="advanceToResults()" class="show-results-btn" aria-label="Show Results">
+                  <button type="button" (click)="advanceToResults()" class="show-results-btn" aria-label="Show Results" i18n-aria-label>
                     <i class="material-icons">score</i>
-                    <strong>Show Results</strong>
+                    <strong i18n>Show Results</strong>
                   </button>
                 </section>
               }
@@ -98,7 +98,7 @@
       </div>
     </div>
   } @else {
-    <p>Loading&hellip;</p>
+    <p i18n>Loading&hellip;</p>
   }
 </ng-container>
 

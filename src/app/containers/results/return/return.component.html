@@ -4,34 +4,37 @@
       <a
         class="btn hvr-radial-out mdc-button mdc-button--outlined"
         title="restart"
+        i18n-title
         (click)="restartQuiz()"
       >
         <div class="mdc-button__ripple"></div>
         <i class="material-icons mdc-button__icon" aria-hidden="true"
           >power_settings_new</i
         >&nbsp;&nbsp;
-        <span class="mdc-button__label"><strong>Restart Quiz</strong></span>
+        <span class="mdc-button__label"><strong i18n>Restart Quiz</strong></span>
       </a>
       <a
         class="btn hvr-radial-out mdc-button mdc-button--outlined"
         title="select quiz"
+        i18n-title
         (click)="selectQuiz()"
       >
         <div class="mdc-button__ripple"></div>
         <i class="material-icons mdc-button__icon" aria-hidden="true"
           >select_all</i
         >&nbsp;&nbsp;
-        <span class="mdc-button__label"><strong>Select Quiz</strong></span>
+        <span class="mdc-button__label"><strong i18n>Select Quiz</strong></span>
       </a>
       <a
         class="btn hvr-radial-out mdc-button mdc-button--outlined"
         title="back to Codelab"
+        i18n-title
         [href]="codelabUrl"
       >
         <div class="mdc-button__ripple"></div>
         <i class="material-icons mdc-button__icon" aria-hidden="true">laptop</i
         >&nbsp;&nbsp;
-        <span class="mdc-button__label"><strong>Back to Codelab</strong></span>
+        <span class="mdc-button__label"><strong i18n>Back to Codelab</strong></span>
       </a>
     </mat-nav-list>
   </mat-card-actions>
