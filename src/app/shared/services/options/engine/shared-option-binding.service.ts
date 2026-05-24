@@ -94,7 +94,7 @@ export class SharedOptionBindingService {
       comp.optionBindings.set(bindings);
       comp.showOptions.set(true);
       comp.renderReady.set(true);
-      comp.cdRef.markForCheck();
+      comp.cdRef.detectChanges();
     });
 
   }
@@ -429,13 +429,13 @@ export class SharedOptionBindingService {
     // matches (displayIndex/text) needed on refresh, AND it does not
     // populate `disabledOptionsPerQuestion` for never-clicked wrongs.
     // Calling rehydrate after the rebuild guarantees the canonical
-    // refresh state is the last write before markForCheck.
+    // refresh state is the last write before detectChanges.
     comp.rehydrateUiFromState('processOptionBindings');
 
     comp.optionsReady = true;
     comp.renderReady.set(true);
     comp.viewReady.set(true);
-    comp.cdRef.markForCheck();
+    comp.cdRef.detectChanges();
   }
 
   hydrateOptionsFromSelectionState(comp: any): void {

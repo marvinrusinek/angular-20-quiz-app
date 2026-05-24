@@ -171,6 +171,12 @@ export class CqcOrchestratorService {
       const intended = computeIntendedQText();
       if (!intended) return;
       if (!current || current !== intended) {
+        // If the h3 already has the multi-answer banner but the computed
+        // intended text does not, preserve the current content — the banner
+        // was correctly set by the navigation lock and should not be stripped.
+        if (current && current.includes('correct-count') && !intended.includes('correct-count')) {
+          return;
+        }
         this.fetGuard.writeQText(host, intended);
       }
     };
