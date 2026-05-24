@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, HostListener, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
@@ -7,13 +7,15 @@ import { CommonModule } from '@angular/common';
   imports: [CommonModule],
   templateUrl: './back-to-top.component.html',
   styleUrls: ['./back-to-top.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    '(window:scroll)': 'onWindowScroll()'
+  }
 })
 export class BackToTopComponent {
   readonly isVisible = signal(false);
 
   // Listen to window scroll events
-  @HostListener('window:scroll')
   onWindowScroll(): void {
     const yOffset = window.pageYOffset || document.documentElement.scrollTop;
     const docHeight = document.documentElement.scrollHeight;

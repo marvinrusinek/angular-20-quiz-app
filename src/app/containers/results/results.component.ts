@@ -1,6 +1,6 @@
 import {
   ChangeDetectionStrategy, ChangeDetectorRef, Component, computed, DestroyRef,
-  effect, HostListener, inject, OnInit, signal
+  effect, inject, OnInit, signal
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
@@ -54,7 +54,10 @@ import { getQuizData } from '../../shared/quiz-data-cache';
   ],
   templateUrl: './results.component.html',
   styleUrls: ['./results.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    '(window:scroll)': 'onWindowScroll()'
+  }
 })
 export class ResultsComponent implements OnInit {
   // ── injects ─────────────────────────────────────────────────────
@@ -154,7 +157,6 @@ export class ResultsComponent implements OnInit {
     // No snapshot: the constructor effect picks up finalResult$ emissions.
   }
 
-  @HostListener('window:scroll', [])
   onWindowScroll(): void {
     this.showScrollIndicator.set(window.scrollY < 100);
   }

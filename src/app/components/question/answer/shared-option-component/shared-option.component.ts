@@ -1,6 +1,6 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef,
-  DoCheck, effect, HostListener, inject, input, OnDestroy, OnInit, output, signal
+  DoCheck, effect, inject, input, OnDestroy, OnInit, output, signal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
@@ -65,7 +65,10 @@ import { norm } from '../../../../shared/utils/text-norm';
     './shared-option.component.scss'
   ],
   animations: [correctAnswerAnim],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    '(window:visibilitychange)': 'onVisibilityChange()'
+  }
 })
 export class SharedOptionComponent
     implements OnInit, DoCheck, OnDestroy, AfterViewInit {
@@ -337,7 +340,7 @@ export class SharedOptionComponent
               // in-place mutations are invisible to change detection and
               // leftover inline styles + cssClasses persist on DOM-reused
               // elements (mat-checkbox keeps mat-mdc-checkbox-checked, etc.).
-              this.optionBindings.set(current.map((b: any) => b ? { ...b } : b));
+              this.optionBindings.set(current.map((b: OptionBindings) => b ? { ...b } : b));
               this.cdRef.markForCheck();
             });
           }
@@ -357,11 +360,11 @@ export class SharedOptionComponent
           const idx = this.currentQuestionIndex ?? qs.currentQuestionIndex ?? 0;
           const correctQ = qs.shuffledQuestions[idx];
           if (correctQ?.options?.length > 0 && v.length > 0) {
-            const correctTexts = new Set(correctQ.options.map((o: any) => norm(o?.text)));
-            const actualTexts = new Set(v.map((o: any) => norm(o?.text)));
+            const correctTexts = new Set(correctQ.options.map((o: Option) => norm(o?.text)));
+            const actualTexts = new Set(v.map((o: Option) => norm(o?.text)));
             const match = correctTexts.size === actualTexts.size && [...correctTexts].every(t => actualTexts.has(t));
             if (!match) {
-              v = correctQ.options.map((o: any) => ({ ...o }));
+              v = correctQ.options.map((o: Option) => ({ ...o }));
             }
           }
         }
@@ -379,7 +382,7 @@ export class SharedOptionComponent
         // The parent's optionBindings() doesn't carry _autoRevealedCorrect,
         // so a zone.js tick re-evaluating the parent template would wipe
         // the green highlight set by triggerAllIncorrectsExhaustedAutoReveal.
-        if (this.optionBindings().some((b: any) => b?._autoRevealedCorrect)) return;
+        if (this.optionBindings().some((b: OptionBindings) => (b as any)?._autoRevealedCorrect)) return;
         this.optionBindings.set(v);
       }
     });
@@ -422,7 +425,7 @@ export class SharedOptionComponent
       let allCorrectSelected = false;
       for (const sels of selectionsMap.values()) {
         const selectedTexts = new Set(
-          (sels ?? []).map((s: any) => norm(s?.text)).filter((t: string) => !!t)
+          (sels ?? []).map((s: SelectedOption) => norm(s?.text)).filter((t: string) => !!t)
         );
         if ([...pristineCorrectTexts].every(t => selectedTexts.has(t))) {
           allCorrectSelected = true;
@@ -434,13 +437,13 @@ export class SharedOptionComponent
       // If auto-reveal already stamped _autoRevealedCorrect on the
       // bindings, do not overwrite — auto-reveal's highlight + disable
       // state is authoritative for exhausted-incorrect scenarios.
-      if (this.optionBindings().some((b: any) => b?._autoRevealedCorrect)) return;
+      if (this.optionBindings().some((b: OptionBindings) => (b as any)?._autoRevealedCorrect)) return;
 
       // Rebuild every binding with fresh refs so OnPush option-items pick
       // up the new disabled state via ngOnChanges.
       const correctTexts = pristineCorrectTexts;
       let mutated = false;
-      const next = this.optionBindings().map((b: any) => {
+      const next = this.optionBindings().map((b: OptionBindings) => {
         const myText = norm(b?.option?.text);
         const isCorrect = correctTexts.has(myText);
         const targetDisabled = !isCorrect;
@@ -499,7 +502,7 @@ export class SharedOptionComponent
       // Stamp bindings via cssClasses + new ref so OnPush option-items
       // re-render. ngClass will apply correct-option/incorrect-option
       // classes through the normal Angular pipeline.
-      const updated = (this.optionBindings() ?? []).map((b: any) => {
+      const updated = (this.optionBindings() ?? []).map((b: OptionBindings) => {
         if (!b) return b;
         const optText = norm(b.option?.text);
         const isCorrect = correctTexts.has(optText);
@@ -540,7 +543,6 @@ export class SharedOptionComponent
     return this.orchestrator.runIsMultiMode(this);
   }
 
-  @HostListener('window:visibilitychange', [])
   onVisibilityChange(): void {
     this.orchestrator.runOnVisibilityChange(this);
   }

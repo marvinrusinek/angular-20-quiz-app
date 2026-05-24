@@ -9,7 +9,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { FeedbackProps } from '../../../../../shared/models/FeedbackProps.model';
+import { Option } from '../../../../../shared/models/Option.model';
 import { OptionBindings } from '../../../../../shared/models/OptionBindings.model';
+import { SelectedOption } from '../../../../../shared/models/SelectedOption.model';
 import { SharedOptionConfig } from '../../../../../shared/models/SharedOptionConfig.model';
 
 import { OptionService } from '../../../../../shared/services/options/view/option.service';
@@ -233,7 +235,7 @@ export class OptionItemComponent implements OnInit {
       if (fullyResolvedCorrect) {
         const optId = _opt?.optionId;
         const optText = norm(_opt?.text);
-        const isCanonCorrectHere = correctOpts.some((c: any) =>
+        const isCanonCorrectHere = correctOpts.some((c: Option) =>
           (optId != null && c?.optionId === optId) ||
           (!!optText && norm(c?.text) === optText)
         );
@@ -257,7 +259,7 @@ export class OptionItemComponent implements OnInit {
           || !!this.binding()?.option?.highlight;
         if (!wasClickedIncorrect && optText) {
           const histEntries = this.selectedOptionService._selectionHistory.get(_qIdxRev) ?? [];
-          wasClickedIncorrect = histEntries.some((s: any) => norm(s?.text) === optText);
+          wasClickedIncorrect = histEntries.some((s: SelectedOption) => norm(s?.text) === optText);
         }
         return {
           ...classes,
@@ -353,7 +355,7 @@ export class OptionItemComponent implements OnInit {
         const _opt: any = this.binding()?.option;
         const optId = _opt?.optionId;
         const optText = norm(_opt?.text);
-        const isCanonCorrectHere = res.correctOpts.some((c: any) =>
+        const isCanonCorrectHere = res.correctOpts.some((c: Option) =>
           (optId != null && c?.optionId === optId) ||
           (!!optText && norm(c?.text) === optText)
         );
@@ -404,7 +406,7 @@ export class OptionItemComponent implements OnInit {
         const selectionsMap = this.selectedOptionService.selectedOptionsMapSig();
         const selections = selectionsMap.get(_qIdx) ?? [];
         const selectedTexts = new Set(
-          selections.map((s: any) => norm(s?.text)).filter((t: string) => !!t)
+          selections.map((s: SelectedOption) => norm(s?.text)).filter((t: string) => !!t)
         );
         const allPristineCorrectSelected =
           [...pristineCorrectTexts].every(t => selectedTexts.has(t));
@@ -455,7 +457,7 @@ export class OptionItemComponent implements OnInit {
     // the case where the cache lookup misses (stale questionText / wrong
     // qIdx). Selection records are spread from the binding option which
     // carries `correct: true` for the canonical correct option from JSON.
-    const hasCorrectSelection = selections.some((s: any) => {
+    const hasCorrectSelection = selections.some((s: SelectedOption) => {
       if (isOptionCorrect(s)) {
         return true;
       }
@@ -598,7 +600,7 @@ export class OptionItemComponent implements OnInit {
         if (pristineCorrectTextsSA.size === 1) {
           const selectionsMapSA = this.selectedOptionService.selectedOptionsMapSig();
           const selectionsSA = selectionsMapSA.get(_qIdxSA) ?? [];
-          const noCorrectSelectedSA = !selectionsSA.some((s: any) => {
+          const noCorrectSelectedSA = !selectionsSA.some((s: SelectedOption) => {
             const txt = norm(s?.text);
             return !!txt && pristineCorrectTextsSA.has(txt);
           });
@@ -621,7 +623,7 @@ export class OptionItemComponent implements OnInit {
         const _qIdxHist = this.quizService.currentQuestionIndex ?? this.currentQuestionIndex();
         const selHistory = this.selectedOptionService._selectionHistory.get(_qIdxHist) ?? [];
         const optText = norm(b?.option?.text);
-        if (optText && selHistory.some((s: any) => norm(s?.text) === optText)) {
+        if (optText && selHistory.some((s: SelectedOption) => norm(s?.text) === optText)) {
           return INCORRECT_COLOR;
         }
       }
@@ -651,7 +653,7 @@ export class OptionItemComponent implements OnInit {
           const selectionsMapBg = this.selectedOptionService.selectedOptionsMapSig();
           const selectionsBg = selectionsMapBg.get(_qIdx) ?? [];
           const selectedTextsBg = new Set(
-            selectionsBg.map((s: any) => norm(s?.text)).filter((t: string) => !!t)
+            selectionsBg.map((s: SelectedOption) => norm(s?.text)).filter((t: string) => !!t)
           );
           const allPristineCorrectSelectedBg =
             [...pristineCorrectTextsBg].every(t => selectedTextsBg.has(t));
@@ -784,7 +786,7 @@ export class OptionItemComponent implements OnInit {
       const selectionsMap = this.selectedOptionService.selectedOptionsMapSig();
       const selections = selectionsMap.get(_qIdx) ?? [];
       const selectedTexts = new Set(
-        selections.map((s: any) => norm(s?.text)).filter((t: string) => !!t)
+        selections.map((s: SelectedOption) => norm(s?.text)).filter((t: string) => !!t)
       );
       const allPristineCorrectSelected =
         [...pristineCorrectTexts].every(t => selectedTexts.has(t));
@@ -845,7 +847,7 @@ export class OptionItemComponent implements OnInit {
     if (question?.options && opt?.text) {
       const optText = norm(opt.text);
       const match = question.options.find(
-        (o: any) => o?.text && norm(o.text) === optText
+        (o: Option) => o?.text && norm(o.text) === optText
       );
       if (isOptionCorrect(match)) {
         return true;
@@ -993,6 +995,6 @@ export class OptionItemComponent implements OnInit {
 
   private isSelectedForCurrentQuestion(): boolean {
     const selections = this.getSelectionsForCurrentBinding();
-    return selections.some((s: any) => this.matchesBindingSelection(s));
+    return selections.some((s: SelectedOption) => this.matchesBindingSelection(s));
   }
 }

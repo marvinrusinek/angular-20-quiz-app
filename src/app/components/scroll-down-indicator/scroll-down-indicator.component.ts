@@ -1,5 +1,5 @@
 import {
-  ChangeDetectionStrategy, Component, HostListener, input, OnInit, signal
+  ChangeDetectionStrategy, Component, input, OnInit, signal
 } from '@angular/core';
 
 @Component({
@@ -13,7 +13,11 @@ import {
     }
   `,
   styleUrls: ['./scroll-down-indicator.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    '(window:scroll)': 'onScroll()',
+    '(window:resize)': 'onResize()'
+  }
 })
 export class ScrollDownIndicatorComponent implements OnInit {
   targetSelector = input<string>('');
@@ -23,12 +27,10 @@ export class ScrollDownIndicatorComponent implements OnInit {
     setTimeout(() => this.check(), 300);
   }
 
-  @HostListener('window:scroll')
   onScroll(): void {
     this.check();
   }
 
-  @HostListener('window:resize')
   onResize(): void {
     this.check();
   }

@@ -5,6 +5,7 @@ import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 
 import { FeedbackProps } from '../../../../shared/models/FeedbackProps.model';
+import { Option } from '../../../../shared/models/Option.model';
 
 import { FeedbackService } from '../../../../shared/services/features/feedback/feedback.service';
 import { QuizService } from '../../../../shared/services/data/quiz.service';
@@ -88,7 +89,7 @@ export class FeedbackComponent {
           const urlIdx = Number(m[1]) - 1;
           const liveQ = this.quizService.questions?.[urlIdx];
           const correctIdxs: number[] = (liveQ?.options ?? [])
-            .map((o: any, i: number) => o?.correct ? i + 1 : null)
+            .map((o: Option, i: number) => o?.correct ? i + 1 : null)
             .filter((n: number | null): n is number => n !== null);
           // If the cached string says "Option N" but the live question's
           // actual correct option isn't N, fall through and regenerate.
@@ -123,7 +124,7 @@ export class FeedbackComponent {
             if (candidates.length && Array.isArray(liveQ?.options)) {
               for (const candidateText of candidates) {
                 const match = liveQ.options.find(
-                  (o: any) => norm(o?.text) === candidateText
+                  (o: Option) => norm(o?.text) === candidateText
                 );
                 if (isOptionCorrect(match)) {
                   cacheMatchesUrl = false;

@@ -5,7 +5,6 @@ import {
   Component,
   computed,
   DestroyRef,
-  HostListener,
   inject,
   OnDestroy,
   OnInit,
@@ -74,6 +73,12 @@ type AnimationState = 'animationStarted' | 'none';
   animations: [ChangeRouteAnimation.changeRoute],
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    '(window:keydown)': 'onGlobalKey($event)',
+    '(window:focus)': 'onTabFocus()',
+    '(window:scroll)': 'onScroll()',
+    '(window:resize)': 'onResize()'
+  }
 })
 export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   // ── injects ─────────────────────────────────────────────────────
@@ -254,12 +259,10 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     this.quizSetupService.runOnDestroy(this);
   }
 
-  @HostListener('window:keydown', ['$event'])
   async onGlobalKey(event: KeyboardEvent): Promise<void> {
     return this.quizSetupService.runOnGlobalKey(this, event);
   }
 
-  @HostListener('window:focus')
   onTabFocus(): void {
     if (!this.quizStateService.isLoading()) {
       const idx = this.quizService.getCurrentQuestionIndex();
@@ -271,12 +274,10 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  @HostListener('window:scroll')
   onScroll(): void {
     this.checkScrollIndicator();
   }
 
-  @HostListener('window:resize')
   onResize(): void {
     this.checkScrollIndicator();
   }

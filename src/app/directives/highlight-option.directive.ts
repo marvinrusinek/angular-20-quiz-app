@@ -1,5 +1,5 @@
 import {
-  Directive, effect, ElementRef, HostListener, inject, input, OnInit, output, Renderer2
+  Directive, effect, ElementRef, inject, input, OnInit, output, Renderer2
 } from '@angular/core';
 
 import { Option } from '../shared/models/Option.model';
@@ -9,7 +9,10 @@ import { SharedOptionConfig } from '../shared/models/SharedOptionConfig.model';
 @Directive({
   selector: '[appHighlightOption]',
   exportAs: 'appHighlightOption',
-  standalone: true
+  standalone: true,
+  host: {
+    '(click)': 'onClick()'
+  }
 })
 export class HighlightOptionDirective implements OnInit {
   // ── injects ─────────────────────────────────────────────────────
@@ -101,7 +104,6 @@ export class HighlightOptionDirective implements OnInit {
     }
   }
 
-  @HostListener('click')
   onClick(): void {
     // NO-OP: Click handling is done by OptionItemComponent (onContentClick / onChanged).
     // Running updateHighlight() here fires BEFORE the click handler processes,

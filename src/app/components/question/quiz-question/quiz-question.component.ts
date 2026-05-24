@@ -1,6 +1,6 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, Component, computed, DestroyRef, 
-  effect, HostListener, inject, input, model, OnDestroy, OnInit, output, 
+  effect, inject, input, model, OnDestroy, OnInit, output,
   signal, viewChild, ViewContainerRef
 } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
@@ -48,7 +48,10 @@ const EXPLANATION_PURGE_DELAY_MS = 500;
   ],
   templateUrl: './quiz-question.component.html',
   styleUrls: ['./quiz-question.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    '(window:visibilitychange)': 'onVisibilityChange()'
+  }
 })
 export class QuizQuestionComponent extends BaseQuestion
   implements OnInit, OnDestroy, AfterViewInit {
@@ -262,7 +265,6 @@ export class QuizQuestionComponent extends BaseQuestion
   get subscriptionWiring() { return this.qqcFacade.subscriptionWiring; }
   get timerEffect() { return this.qqcFacade.timerEffect; }
 
-  @HostListener('window:visibilitychange', [])
   async onVisibilityChange(): Promise<void> {
     return this.componentOrchestrator.runOnVisibilityChange(this);
   }
