@@ -393,7 +393,7 @@ export class SharedOptionClickService {
     comp.cdRef.markForCheck();
   }
 
-  // ï¿½ï¿½â”€â”€ Option UI (delegated) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Option UI (delegated) ──────────────────────────────────────
 
   handleSelection(comp: any, option: SelectedOption, index: number, optionId: number): void {
     this.optionUi.handleSelection(comp, option, index, optionId);
