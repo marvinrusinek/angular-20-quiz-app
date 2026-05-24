@@ -9,7 +9,6 @@ import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { ExplanationTextService } from '../features/explanation/explanation-text.service';
 import { NextButtonStateService } from '../state/next-button-state.service';
 import { QuizContentLoaderService } from './quiz-content-loader.service';
-import { QuizDataService } from '../data/quizdata.service';
 import { QuizDotStatusService } from './quiz-dot-status.service';
 import { QuizNavigationService } from './quiz-navigation.service';
 import { QuizOptionProcessingService } from './quiz-option-processing.service';
@@ -46,7 +45,7 @@ export class QuizSetupService {
   private explanationTextService = inject(ExplanationTextService);
   private nextButtonStateService = inject(NextButtonStateService);
   private quizContentLoaderService = inject(QuizContentLoaderService);
-  private quizDataService = inject(QuizDataService);
+
   private quizNavigationService = inject(QuizNavigationService);
   private quizOptionProcessingService = inject(QuizOptionProcessingService);
   private quizPersistence = inject(QuizPersistenceService);

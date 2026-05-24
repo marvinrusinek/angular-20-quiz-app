@@ -6,7 +6,7 @@ import {
 } from 'rxjs';
 import {
   catchError, distinctUntilChanged, filter, map, shareReplay, startWith,
-  switchMap, take, tap, withLatestFrom
+  take, tap, withLatestFrom
 } from 'rxjs/operators';
 
 import { QuestionType } from '../../../models/question-type.enum';

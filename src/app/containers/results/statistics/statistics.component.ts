@@ -5,8 +5,6 @@ import {
 import { CommonModule } from '@angular/common';
 
 import { QuizStatus } from '../../../shared/models/quiz-status.enum'
-import { Quiz } from '../../../shared/models/Quiz.model';
-
 import { QuizMetadata } from '../../../shared/models/QuizMetadata.model';
 import { Resource } from '../../../shared/models/Resource.model';
 
