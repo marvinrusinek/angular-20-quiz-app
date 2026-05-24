@@ -6,6 +6,8 @@ import { OptionBindings } from '../../../models/OptionBindings.model';
 import { QuestionPayload } from '../../../models/QuestionPayload.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
+import { isOptionCorrect } from '../../../utils/is-option-correct';
+
 /**
  * Manages option display preparation and render-readiness logic for QQC.
  * Extracted from QuizQuestionComponent to reduce its size.
@@ -165,7 +167,7 @@ export class QqcDisplayStateManagerService {
       .filter((value: any): value is Option['value'] => value !== undefined && value !== null);
 
     const resolveCorrect = (option: Option): boolean => {
-      if (option.correct === true) return true;
+      if (isOptionCorrect(option)) return true;
 
       if (Array.isArray(answerValues) && answerValues.length > 0) {
         return answerValues.includes(option.value);

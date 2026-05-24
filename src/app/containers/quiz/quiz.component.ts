@@ -51,6 +51,7 @@ import { ThemeToggleComponent } from '../../components/theme-toggle/theme-toggle
 import { QUESTION_ROUTE_REGEX } from '../../shared/constants/route-patterns';
 
 import { ChangeRouteAnimation } from '../../animations/animations';
+import { isOptionCorrect } from '../../shared/utils/is-option-correct';
 import { norm } from '../../shared/utils/text-norm';
 
 type AnimationState = 'animationStarted' | 'none';
@@ -203,7 +204,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
 
     const opts = view?.options ?? [];
     const numCorrect = opts.filter(
-      (o: any) => o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true'
+      (o: any) => isOptionCorrect(o)
     ).length;
     if (numCorrect <= 1 || opts.length === 0) return baseText;
 

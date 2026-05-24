@@ -40,8 +40,7 @@ export class AnswerEvaluationService {
     if (totalCorrect === 0) return false;
 
     const selectedCorrectCount = selected.filter(sel => {
-      const c = (sel as any).correct;
-      if (c === true || String(c) === 'true' || c === 1 || c === '1') {
+      if (isOptionCorrect(sel)) {
         return true;
       }
 
@@ -119,7 +118,7 @@ export class AnswerEvaluationService {
       }
       if (pristineQ && Array.isArray(pristineQ.options)) {
         const pristineCorrectCount = pristineQ.options.filter((o: any) =>
-          o?.correct === true || String(o?.correct) === 'true'
+          isOptionCorrect(o)
         ).length;
         const currentCorrectCount = questionOptions.filter(o =>
           this.idResolver.coerceToBoolean(o.correct)
@@ -135,7 +134,7 @@ export class AnswerEvaluationService {
           : null;
         if (rawQ && Array.isArray(rawQ.options)) {
           const rawCorrectCount = rawQ.options.filter((o: any) =>
-            o?.correct === true || String(o?.correct) === 'true'
+            isOptionCorrect(o)
           ).length;
           const currentCorrectCount = questionOptions.filter(o =>
             this.idResolver.coerceToBoolean(o.correct)
@@ -228,7 +227,7 @@ export class AnswerEvaluationService {
     if (!Array.isArray(q.options)) return false;
 
     const correctAnswersCount = (q.options ?? []).filter(
-      (o: Option) => o.correct === true || String(o.correct) === 'true'
+      (o: Option) => isOptionCorrect(o)
     ).length;
     return correctAnswersCount > 1;
   }

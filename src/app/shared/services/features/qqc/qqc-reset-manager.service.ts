@@ -255,7 +255,7 @@ export class QqcResetManagerService {
         (sel) => sel.optionId === opt.optionId
       );
       const isSelectedAndCorrect =
-        !!match && (opt as any).correct === true;
+        !!match && isOptionCorrect(opt);
       return {
         ...opt,
         selected: isSelectedAndCorrect,

@@ -327,10 +327,10 @@ export class SharedOptionFeedbackService {
     // Single-answer fallback for immediate UI click before persistence catches up.
     if (!isResolved) {
       const correctCount = questionForResolution?.options?.filter(
-        (o: any) => o.correct === true || String(o.correct) === 'true'
+        (o: any) => isOptionCorrect(o)
       ).length ?? 0;
       const isSingleAnswer = correctCount <= 1;
-      if (isSingleAnswer && option?.correct === true) isResolved = true;
+      if (isSingleAnswer && isOptionCorrect(option)) isResolved = true;
     }
 
     if (isResolved) {

@@ -533,7 +533,7 @@ export class QuizService {
         const _question = this.questions?.[safeIndex];
         const _correctTexts = new Set(
           (_question?.options ?? [])
-            .filter((o: Option) => o?.correct === true || String(o?.correct) === 'true')
+            .filter((o: Option) => isOptionCorrect(o))
             .map((o: Option) => norm(o?.text))
             .filter((t: string) => !!t)
         );
