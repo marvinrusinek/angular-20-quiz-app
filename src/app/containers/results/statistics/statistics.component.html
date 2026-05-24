@@ -9,40 +9,36 @@
             <!-- LEFT COLUMN: Feedback Image, Score Text -->
             <div class="score-col-feedback">
               <div class="quiz-feedback">
-                @switch (percentage()) {
-                  @case (percentage() >= 80 ? percentage() : null) {
-                    <img
-                      mat-card-image
-                      loading="lazy"
-                      [src]="CONGRATULATIONS"
-                      alt="Photo of 'Congratulations'"
-                      i18n-title
-                      title="Congratulations"
-                    />
-                  }
-                  @case (percentage() >= 60 && percentage() < 80 ? percentage() : null) {
-                    <img
-                      mat-card-image
-                      loading="lazy"
-                      [src]="NOT_BAD"
-                      alt="Photo of 'Not Bad'"
-                      i18n-title
-                      title="Not Bad"
-                    />
-                  }
-                  @default {
-                    <img
-                      mat-card-image
-                      loading="lazy"
-                      [src]="TRY_AGAIN"
-                      alt="Photo of 'Try Again'"
-                      i18n-title
-                      title="Try Again"
-                    />
-                    <!-- If viewMode is 'all', show resources here for low scores -->
-                    @if (viewMode() === 'all') {
-                      <ng-container *ngTemplateOutlet="resourcesTemplate"></ng-container>
-                    }
+                @if (feedbackLevel() === 'excellent') {
+                  <img
+                    mat-card-image
+                    loading="lazy"
+                    [src]="CONGRATULATIONS"
+                    alt="Photo of 'Congratulations'"
+                    i18n-title
+                    title="Congratulations"
+                  />
+                } @else if (feedbackLevel() === 'good') {
+                  <img
+                    mat-card-image
+                    loading="lazy"
+                    [src]="NOT_BAD"
+                    alt="Photo of 'Not Bad'"
+                    i18n-title
+                    title="Not Bad"
+                  />
+                } @else {
+                  <img
+                    mat-card-image
+                    loading="lazy"
+                    [src]="TRY_AGAIN"
+                    alt="Photo of 'Try Again'"
+                    i18n-title
+                    title="Try Again"
+                  />
+                  <!-- If viewMode is 'all', show resources here for low scores -->
+                  @if (viewMode() === 'all') {
+                    <ng-container *ngTemplateOutlet="resourcesTemplate"></ng-container>
                   }
                 }
               </div>
@@ -53,7 +49,7 @@
                   You scored
                   <span class="result">{{ quizMetadata().correctAnswersCount?.() ?? 0 }}</span>
                   out of <span class="result">{{ quizMetadata().totalQuestions }}</span>
-                  {{ quizMetadata().totalQuestions === 1 ? 'question' : 'questions' }}
+                  {{ questionLabel() }}
                   correctly.
                 </span>
               </div>
@@ -67,9 +63,9 @@
                   <circle class="ring-bg" cx="70" cy="70" r="60" />
                   <circle 
                     class="ring-progress"
-                    [class.ring-excellent]="percentage() >= 80"
-                    [class.ring-good]="percentage() >= 60 && percentage() < 80"
-                    [class.ring-poor]="percentage() < 60"
+                    [class.ring-excellent]="feedbackLevel() === 'excellent'"
+                    [class.ring-good]="feedbackLevel() === 'good'"
+                    [class.ring-poor]="feedbackLevel() === 'poor'"
                     cx="70" 
                     cy="70" 
                     r="60"
@@ -88,8 +84,8 @@
                 @for (star of [1, 2, 3, 4, 5]; track star) {
                   <span 
                     class="star" 
-                    [class.filled]="star <= (percentage() >= 90 ? 5 : percentage() >= 75 ? 4 : percentage() >= 60 ? 3 : percentage() >= 40 ? 2 : 1)"
-                    [class.empty]="star > (percentage() >= 90 ? 5 : percentage() >= 75 ? 4 : percentage() >= 60 ? 3 : percentage() >= 40 ? 2 : 1)"
+                    [class.filled]="star <= starCount()"
+                    [class.empty]="star > starCount()"
                   >
                     ⭐
                   </span>
@@ -97,12 +93,12 @@
               </div>
 
               <!-- Achievement Badge -->
-              @if (percentage() >= 80) {
+              @if (feedbackLevel() === 'excellent') {
                 <div class="achievement-badge excellent">
                   <span class="badge-icon">🏆</span>
                   <span>Excellent Performance!</span>
                 </div>
-              } @else if (percentage() >= 60) {
+              } @else if (feedbackLevel() === 'good') {
                 <div class="achievement-badge good">
                   <span class="badge-icon">🥈</span>
                   <span>Good Job!</span>
@@ -124,7 +120,7 @@
             <span class="elapsed-time" i18n>
               Completed in
               <span class="result">{{ elapsedMinutes() }}</span>
-              {{ elapsedMinutes() === 1 ? 'minute' : 'minutes' }}
+              {{ minuteLabel() }}
               and <span class="result">{{ elapsedSeconds() }}</span> seconds.
             </span>
           </div>

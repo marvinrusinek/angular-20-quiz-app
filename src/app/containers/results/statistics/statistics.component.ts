@@ -54,6 +54,30 @@ export class StatisticsComponent implements OnInit {
   readonly elapsedSeconds = computed(() => this.completionTimeSig() % 60);
   readonly percentage = computed(() => this.quizMetadata().percentage ?? 0);
 
+  readonly feedbackLevel = computed<'excellent' | 'good' | 'poor'>(() => {
+    const pct = this.percentage();
+    if (pct >= 80) return 'excellent';
+    if (pct >= 60) return 'good';
+    return 'poor';
+  });
+
+  readonly starCount = computed(() => {
+    const pct = this.percentage();
+    if (pct >= 90) return 5;
+    if (pct >= 75) return 4;
+    if (pct >= 60) return 3;
+    if (pct >= 40) return 2;
+    return 1;
+  });
+
+  readonly questionLabel = computed(() =>
+    this.quizMetadata().totalQuestions === 1 ? 'question' : 'questions'
+  );
+
+  readonly minuteLabel = computed(() =>
+    this.elapsedMinutes() === 1 ? 'minute' : 'minutes'
+  );
+
   CONGRATULATIONS =
     'https://raw.githubusercontent.com/marvinrusinek/angular-9-quiz-app/master/src/assets/images/congratulations.jpg';
   NOT_BAD =
