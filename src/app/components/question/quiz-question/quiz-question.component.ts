@@ -98,7 +98,7 @@ export class QuizQuestionComponent extends BaseQuestion
   readonly questionToDisplay$ = input<Observable<string>>(of(''));
   readonly displayState$ = input<Observable<{ mode: 'question' | 'explanation'; answered: boolean }>>(of({ mode: 'question', answered: false }));
   readonly explanation = input<string>('');
-  readonly questionIndex = input<number>(undefined as unknown as number);
+  readonly questionIndex = input<number | undefined>(undefined);
   readonly questionPayload = input<QuestionPayload | null>(null);
 
   // ── models ──────────────────────────────────────────────────────
@@ -107,16 +107,16 @@ export class QuizQuestionComponent extends BaseQuestion
     explanationText?: string,
     correctAnswersText?: string,
     options: Option[]
-  }>(undefined as any);
-  readonly questionData = model<QuizQuestion>(undefined as unknown as QuizQuestion);
-  readonly options = model<Option[]>(undefined as unknown as Option[]);
+  } | undefined>(undefined);
+  readonly questionData = model<QuizQuestion | undefined>(undefined);
+  readonly options = model<Option[] | undefined>(undefined);
   readonly currentQuestion = model<QuizQuestion | null>(null);
   readonly currentQuestionIndex = model<number>(0);
-  readonly previousQuestionIndex = model<number>(undefined as unknown as number);
+  readonly previousQuestionIndex = model<number | undefined>(undefined);
   readonly quizId = model<string | null | undefined>('');
   readonly explanationText = model<string | null>(null);
   readonly isOptionSelected = model<boolean>(false);
-  readonly selectionMessage = model<string>(undefined as unknown as string);
+  readonly selectionMessage = model<string | undefined>(undefined);
   readonly shouldRenderOptions = model<boolean>(false);
 
   // ── remaining variables ─────────────────────────────────────────
@@ -209,7 +209,8 @@ export class QuizQuestionComponent extends BaseQuestion
       try {
         this.questionPayloadSig.set(value);
         this.hydrateFromPayload(value);
-      } catch {
+      } catch (e) {
+        console.error('QuizQuestionComponent questionPayload hydration failed:', e);
       }
     });
 

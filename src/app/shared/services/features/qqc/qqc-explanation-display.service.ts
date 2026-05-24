@@ -65,7 +65,9 @@ export class QqcExplanationDisplayService {
         const svcQuestions = (quizSvc as any).shuffledQuestions || quizSvc.questions || [];
         q = svcQuestions[i0];
       }
-    } catch (err) { }
+    } catch (err) {
+      console.error('QqcExplanationDisplayService.resolveFormatted question lookup failed:', err);
+    }
 
     if (!q) return ''; // Question object could not be resolved for this index
 
@@ -73,7 +75,9 @@ export class QqcExplanationDisplayService {
 
     try {
       svc.purgeAndDefer(i0);
-    } catch { }
+    } catch (e) {
+      console.error('QqcExplanationDisplayService.resolveFormatted purgeAndDefer failed:', e);
+    }
 
     await new Promise(res => requestAnimationFrame(res));
 
@@ -93,7 +97,9 @@ export class QqcExplanationDisplayService {
           if (targetQ?.options?.length) {
             visualOpts = targetQ.options;
           }
-        } catch { }
+        } catch (e) {
+          console.error('QqcExplanationDisplayService.resolveFormatted visual options lookup failed:', e);
+        }
       }
 
       if (!visualOpts?.length && params.options?.length) visualOpts = params.options;
@@ -103,7 +109,9 @@ export class QqcExplanationDisplayService {
         try {
           const fetchedOpts = await firstValueFrom(quizSvc.getOptions(i0));
           if (fetchedOpts?.length) visualOpts = fetchedOpts;
-        } catch { }
+        } catch (e) {
+          console.error('QqcExplanationDisplayService.resolveFormatted getOptions fetch failed:', e);
+        }
       }
 
       const correctIndices = svc.getCorrectOptionIndices(q, visualOpts, i0);
@@ -138,7 +146,9 @@ export class QqcExplanationDisplayService {
       if (typeof (svc as any).fetByIndex?.set === 'function') {
         (svc as any).fetByIndex.set(i0, clean || baseRaw);
       }
-    } catch { }
+    } catch (e) {
+      console.error('QqcExplanationDisplayService.resolveFormatted FET cache write failed:', e);
+    }
 
     // Step 4: Emit only if we're still on this index
     const nextText = (clean || baseRaw).trim();

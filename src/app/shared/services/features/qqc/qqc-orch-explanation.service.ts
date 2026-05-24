@@ -263,7 +263,7 @@ export class QqcOrchExplanationService {
         currentQuestionIndex: host.currentQuestionIndex(), 
         currentQuestion: host.currentQuestion(), 
         optionsToDisplay: host.optionsToDisplay(), 
-        options: host.options()
+        options: host.options() ?? []
       });
   }
 }

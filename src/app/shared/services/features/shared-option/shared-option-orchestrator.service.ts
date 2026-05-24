@@ -260,8 +260,8 @@ export class SharedOptionOrchestratorService {
       host.ensureOptionsToDisplay();
       host.preserveOptionHighlighting();
       host.cdRef.markForCheck();
-    } catch {
-      // visibility change handling failed
+    } catch (e) {
+      console.error('SharedOptionOrchestratorService.runOnVisibilityChange visibility handling failed:', e);
     }
   }
 
@@ -323,7 +323,7 @@ export class SharedOptionOrchestratorService {
       questionIndex,
       activeQuestionIndex: host.getActiveQuestionIndex(),
       currentQuestion: host.currentQuestion(),
-      quizId: host.quizId(),
+      quizId: host.quizId() ?? '',
       optionBindings: host.optionBindings(),
       optionsToDisplay: host.optionsToDisplay,
       isMultiMode: host.isMultiMode,

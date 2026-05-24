@@ -366,7 +366,9 @@ export class ExplanationFormatterService {
           : -1);
       const rawOpts = (quizSvc as any)?.questions?.[idx]?.options;
       if (Array.isArray(rawOpts) && rawOpts.length) opts = rawOpts;
-    } catch {}
+    } catch (e) {
+      console.error('ExplanationFormatterService.formatExplanation options fallback lookup failed:', e);
+    }
 
     const normalizeLocal = (s: any) => {
       if (typeof s !== 'string') return '';
@@ -392,7 +394,7 @@ export class ExplanationFormatterService {
           if (typeof svcIdx === 'number' && svcIdx >= 0) qIdx = svcIdx;
         }
       } catch (e) {
-        // ignore
+        console.error('ExplanationFormatterService.formatExplanation QuizService index fallback failed:', e);
       }
     }
 
@@ -522,7 +524,9 @@ export class ExplanationFormatterService {
           }
         }
       }
-    } catch (e) { }
+    } catch (e) {
+      console.error('ExplanationFormatterService.formatExplanation pristine correct-answer lookup failed:', e);
+    }
 
     // ATTEMPT 2: Use provided question.answer
     if (correctTexts.size === 0 && correctIds.size === 0) {
@@ -791,7 +795,7 @@ export class ExplanationFormatterService {
         }
       }
     } catch (e) {
-      // If validation fails, return as-is
+      console.error('ExplanationFormatterService.storeFormattedExplanation validation failed:', e);
     }
     return trimmed;
   }

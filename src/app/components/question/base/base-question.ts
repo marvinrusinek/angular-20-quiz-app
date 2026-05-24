@@ -43,10 +43,10 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
   readonly correctMessageChange = output<string>();
 
   // ── inputs ──────────────────────────────────────────────────────
-  readonly quizQuestionComponentOnOptionClicked = input<(option: SelectedOption, index: number) => void>(undefined as unknown as (option: SelectedOption, index: number) => void);
+  readonly quizQuestionComponentOnOptionClicked = input<((option: SelectedOption, index: number) => void) | undefined>(undefined);
   readonly feedback = input<string>('');
   readonly shouldResetBackground = input<boolean>(false);
-  readonly config = input<SharedOptionConfig>(undefined as unknown as SharedOptionConfig);
+  readonly config = input<SharedOptionConfig | undefined>(undefined);
 
   // ── models ──────────────────────────────────────────────────────
   readonly question = model<QuizQuestion | null>(null);

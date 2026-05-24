@@ -539,6 +539,7 @@ export class QqcFeedbackManagerService {
         }
       }
     } catch (err) {
+      console.error('QqcFeedbackManagerService.computeCorrectBanner banner computation failed:', err);
     }
 
     return { bannerText: '', numCorrect: 0 };

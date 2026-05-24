@@ -102,6 +102,7 @@ export class ExplanationDisplayStateService {
   public _gateToken = 0;
   public _currentGateToken = 0;
   private _unlockRAFId: number | null = null;
+  private _unlockTimeoutId: number | null = null;
   public latestExplanationIndex: number | null = -1;
 
   get _activeIndex(): number | null {
@@ -649,6 +650,7 @@ export class ExplanationDisplayStateService {
     this._gate.clear();
     this._gatesByIndex.clear();
     this.gate.clearTextMap();
+    this.cancelPendingUnlock();
     this._fetLocked = null;
     this._gateToken = 0;
     this._currentGateToken = 0;
@@ -910,6 +912,7 @@ export class ExplanationDisplayStateService {
 
   public closeAllGates(): void {
     this.gate.clearGatesByIndex();
+    this.cancelPendingUnlock();
     this._fetLocked = null;
 
     try {
@@ -964,18 +967,29 @@ export class ExplanationDisplayStateService {
     } catch { }
 
     // Cancel any pending unlocks from older cycles
-    if (this._unlockRAFId != null) {
-      cancelAnimationFrame(this._unlockRAFId);
-      this._unlockRAFId = null;
-    }
+    this.cancelPendingUnlock();
 
     // Strict token-based unlock logic
     const localToken = this._currentGateToken;
     this._unlockRAFId = requestAnimationFrame(() => {
-      setTimeout(() => {
+      this._unlockRAFId = null;
+      this._unlockTimeoutId = window.setTimeout(() => {
+        this._unlockTimeoutId = null;
         if (this._currentGateToken !== localToken) return;
         this._fetLocked = false;
       }, FET_UNLOCK_SETTLE_DELAY_MS);
     });
+  }
+
+  /** Cancel any in-flight rAF + setTimeout unlock pair. */
+  private cancelPendingUnlock(): void {
+    if (this._unlockRAFId != null) {
+      cancelAnimationFrame(this._unlockRAFId);
+      this._unlockRAFId = null;
+    }
+    if (this._unlockTimeoutId != null) {
+      clearTimeout(this._unlockTimeoutId);
+      this._unlockTimeoutId = null;
+    }
   }
 }

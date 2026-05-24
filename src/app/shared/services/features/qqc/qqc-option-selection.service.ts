@@ -143,7 +143,7 @@ export class QqcOptionSelectionService {
         }
       }
     } catch (error) {
-      // Error in timer logic
+      console.error('QqcOptionSelectionService.stopTimerOnCorrectAnswer timer logic failed:', error);
     }
   }
 
@@ -252,7 +252,7 @@ export class QqcOptionSelectionService {
         timerStopped: !!timerStopped
       };
     } catch (error) {
-      // Unhandled error in handleOptionClicked
+      console.error('QqcOptionSelectionService.handleOptionClicked option click handling failed:', error);
       return null;
     }
   }
@@ -475,7 +475,7 @@ export class QqcOptionSelectionService {
         isFeedbackApplied: true
       };
     } catch (error) {
-      // Error during option selection
+      console.error('QqcOptionSelectionService.selectOptionAndApplyFeedback option selection failed:', error);
       return null;
     }
   }
@@ -524,7 +524,7 @@ export class QqcOptionSelectionService {
 
       return { currentQuestion, optionsToDisplay, data };
     } catch (error) {
-      // Error fetching the current question
+      console.error('QqcOptionSelectionService.fetchAndProcessCurrentQuestion question fetch failed:', error);
       return null;
     }
   }
@@ -553,7 +553,7 @@ export class QqcOptionSelectionService {
         params.correctAnswersLength
       );
     } catch (stateUpdateError) {
-      // Error updating question state
+      console.error('QqcOptionSelectionService.updateQuestionState state update failed:', stateUpdateError);
     }
   }
 

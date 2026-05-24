@@ -180,7 +180,7 @@ export class QqcOrchLifecycleService {
 
       const qInit = host.question();
       if (qInit) {
-        host.data.set(host.questionLoader.buildInitialData(qInit, host.options()));
+        host.data.set(host.questionLoader.buildInitialData(qInit, host.options() ?? []));
       }
       host.initializeForm();
       host.quizStateService.setLoading(true);

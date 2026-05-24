@@ -54,7 +54,9 @@ export class QqcOrchClickService {
       if (Number.isFinite(lockIdNum) && host.selectedOptionService.isOptionLocked(idx, lockIdNum)) {
         return;
       }
-    } catch {}
+    } catch (e) {
+      console.error('QqcOrchClickService.handleOptionSelected lock check failed:', e);
+    }
 
     if (host._clickGate) return;
     host._clickGate = true;
@@ -166,7 +168,9 @@ export class QqcOrchClickService {
           soc?.cdRef?.markForCheck?.();
           soc?.cdRef?.detectChanges?.();
         }
-      } catch {}
+      } catch (e) {
+        console.error('QqcOrchClickService.handleOptionSelected single-answer disable failed:', e);
+      }
       };
 
       applySingleAnswerDisable();

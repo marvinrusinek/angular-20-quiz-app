@@ -342,7 +342,9 @@ export class ExplanationTextService {
       this.displayState._byIndex.get(index)?.next(
         this.formatter.formattedExplanations[index]?.explanation ?? ''
       );
-    } catch { }
+    } catch (e) {
+      console.error('ExplanationTextService.storeFormattedExplanation display state update failed:', e);
+    }
   }
 
   getCorrectOptionIndices(

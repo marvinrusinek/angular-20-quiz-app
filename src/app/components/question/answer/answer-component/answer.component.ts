@@ -53,13 +53,13 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
 
   // ── inputs ──────────────────────────────────────────────────────
   readonly isNavigatingBackwards = input<boolean>(false);
-  readonly quizId = input<string>(undefined as unknown as string);
-  readonly form = input<FormGroup>(undefined as unknown as FormGroup);
+  readonly quizId = input<string | undefined>(undefined);
+  readonly form = input<FormGroup | undefined>(undefined);
   readonly questionIndex = input<number | null>(null);
 
   // ── models ──────────────────────────────────────────────────────
-  readonly questionData = model<QuizQuestion>(undefined as unknown as QuizQuestion);
-  readonly currentQuestionIndex = model<number>(undefined as unknown as number);
+  readonly questionData = model<QuizQuestion | undefined>(undefined);
+  readonly currentQuestionIndex = model<number | undefined>(undefined);
 
   // ── remaining variables ─────────────────────────────────────────
   readonly renderReady = signal(false);
@@ -378,11 +378,12 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
 
     this.optionBindings.set(updatedBindings);
 
-    if (this.type() === 'single' && this.form()) {
+    const formGroup = this.form();
+    if (this.type() === 'single' && formGroup) {
       const selectedId = savedSelections[0]?.optionId;
 
       if (selectedId != null) {
-        this.form().patchValue(
+        formGroup.patchValue(
           { selectedOptionId: selectedId },
           { emitEvent: false }
         );
@@ -401,9 +402,8 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   }
 
   private getActiveQuestionIndex(): number {
-    return typeof this.currentQuestionIndex() === 'number'
-      ? this.currentQuestionIndex()
-      : 0;
+    const idx = this.currentQuestionIndex();
+    return typeof idx === 'number' ? idx : 0;
   }
 
   private resolveQuestion(activeQuestionIndex: number): QuizQuestion | undefined {

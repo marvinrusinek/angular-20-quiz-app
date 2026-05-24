@@ -2,9 +2,9 @@
   <app-shared-option
     [optionsToDisplayInput]="optionsToDisplay()"
     [optionBindingsInput]="optionBindings()"
-    [questionIndex]="currentQuestionIndex()"
+    [questionIndex]="currentQuestionIndex() ?? null"
     [currentQuestionIndexInput]="currentQuestionIndex()"
-    [currentQuestionInput]="questionData()"
+    [currentQuestionInput]="questionData() ?? null"
     [quizId]="quizId()"
     [renderReadyInput]="renderReady()"
     [config]="sharedOptionConfig"

@@ -631,7 +631,8 @@ export class QuizContentDisplayService {
       );
 
       return this.explanationTextService.fetByIndex?.get(idx)?.trim() || '';
-    } catch {
+    } catch (e) {
+      console.error('QuizContentDisplayService.regenerateFetForIndex FET regeneration failed:', e);
       return '';
     }
   }

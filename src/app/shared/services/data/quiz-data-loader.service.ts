@@ -299,7 +299,8 @@ export class QuizDataLoaderService {
 
         questionsSig.set(normalized);
         return normalized;
-      } catch {
+      } catch (e) {
+        console.error('QuizDataLoaderService.getShuffledQuestions quiz data fetch failed:', e);
         return [];
       } finally {
         this.fetchPromise = null;

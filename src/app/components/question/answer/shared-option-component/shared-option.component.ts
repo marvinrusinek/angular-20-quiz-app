@@ -105,14 +105,14 @@ export class SharedOptionComponent
   // logical names are kept below, since multiple services write to them via
   // `host as any`. Effects in the constructor mirror input → backing field.
   readonly currentQuestionInput = input<QuizQuestion | null>(null);
-  readonly currentQuestionIndexInput = input<number>(undefined as unknown as number);
+  readonly currentQuestionIndexInput = input<number | undefined>(undefined);
   readonly questionIndex = input<number | null>(null);
-  readonly optionsToDisplayInput = input<Option[]>(undefined as unknown as Option[]);
-  readonly quizId = input<string>(undefined as unknown as string);
+  readonly optionsToDisplayInput = input<Option[] | undefined>(undefined);
+  readonly quizId = input<string | undefined>(undefined);
   readonly typeInput = input<'single' | 'multiple'>('single');
-  readonly config = input<SharedOptionConfig>(undefined as unknown as SharedOptionConfig);
+  readonly config = input<SharedOptionConfig | undefined>(undefined);
   readonly highlightCorrectAfterIncorrect = input<boolean>(false);
-  readonly quizQuestionComponentOnOptionClicked = input<(option: SelectedOption, index: number) => void>(undefined as unknown as (option: SelectedOption, index: number) => void);
+  readonly quizQuestionComponentOnOptionClicked = input<((option: SelectedOption, index: number) => void) | undefined>(undefined);
   readonly optionBindingsInput = input<OptionBindings[]>([]);
   readonly selectedOptionId = input<number | null>(null);
   readonly isNavigatingBackwardsInput = input<boolean>(false);

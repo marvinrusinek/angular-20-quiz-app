@@ -275,14 +275,18 @@ export class QuizScoringService {
         this.questionCorrectness = new Map(
           Object.entries(parsed).map(([k, v]) => [Number(k), Boolean(v)])
         );      }
-    } catch (err) { }
+    } catch (err) {
+      console.error('QuizScoringService.loadQuestionCorrectness localStorage parse failed:', err);
+    }
   }
 
   saveQuestionCorrectness(): void {
     try {
       const obj = Object.fromEntries(this.questionCorrectness);
       localStorage.setItem('questionCorrectness', JSON.stringify(obj));
-    } catch (err) {  }
+    } catch (err) {
+      console.error('QuizScoringService.saveQuestionCorrectness localStorage write failed:', err);
+    }
   }
 
   restoreScoreFromPersistence(quizId: string): void {
@@ -327,7 +331,10 @@ export class QuizScoringService {
       const restored = Math.max(safeStored, mapTrueCount);
       this.correctCountSig.set(restored);
       this.correctAnswersCountSig.set(restored);
-      localStorage.setItem('correctAnswersCount', String(restored));    } catch (err) {    }
+      localStorage.setItem('correctAnswersCount', String(restored));
+    } catch (err) {
+      console.error('QuizScoringService.restoreScoreFromPersistence score restore failed:', err);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════

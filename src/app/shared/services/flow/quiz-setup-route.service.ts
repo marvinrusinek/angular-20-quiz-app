@@ -176,7 +176,9 @@ export class QuizSetupRouteService {
           sms._multiAnswerInProgressLock?.clear?.();
           sms._multiAnswerCompletionLock?.clear?.();
           sms._multiAnswerPreLock?.clear?.();
-        } catch {}
+        } catch (e) {
+          console.error('QuizSetupRouteService.subscribeToQuestionIndex lock clear failed:', e);
+        }
 
         // Start the timer on both initial load and navigation (unless answered)
         if (!this.selectedOptionService.isQuestionAnswered(idx)) {
@@ -252,7 +254,7 @@ export class QuizSetupRouteService {
       if (!result.hasValidSelections) this.timerService.restartForQuestion(index);
       localStorage.setItem('savedQuestionIndex', index.toString());
     } catch (error: any) {
-      // param map change handling failed
+      console.error('QuizSetupRouteService.subscribeToRouteParams param map change handling failed:', error);
     }
   }
 
@@ -324,7 +326,7 @@ export class QuizSetupRouteService {
       );
       setTimeout(() => this.quizContentLoaderService.enableAllOptionPointerEvents(), 200);
     } catch (error: any) {
-      // content update failed
+      console.error('QuizSetupRouteService.handleRouteIndexChange content update failed:', error);
     } finally {
       host.isNavigatedByUrl.set(false);
     }
@@ -357,7 +359,8 @@ export class QuizSetupRouteService {
           if (prev) this.selectedOptionService.reapplySelectionForQuestion(prev, host.currentQuestionIndex());
         }, 50);
       }, 50);
-    } catch {
+    } catch (e) {
+      console.error('QuizSetupRouteService.loadQuestionByRouteIndex question load failed:', e);
       host.cdRef.markForCheck();
     }
   }
