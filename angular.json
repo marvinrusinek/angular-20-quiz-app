@@ -29,7 +29,7 @@
             }
           },
           "options": {
-            "assets": ["src/assets", "src/favicon.ico", "src/manifest.webmanifest"],
+            "assets": ["src/assets", "src/favicon.ico", "src/manifest.webmanifest", "src/icons"],
             "index": "src/index.html",
             "browser": "src/main.ts",
             "outputPath": "dist/demo",
