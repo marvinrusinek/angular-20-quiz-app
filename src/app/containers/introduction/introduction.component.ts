@@ -165,8 +165,6 @@ export class IntroductionComponent implements OnInit {
       console.warn('[QuizSelection] Quiz was not found or failed to load.');
       return;
     }
-
-    console.debug('[QuizSelection] Quiz loaded:', quiz.quizId);
   }
 
   private handleLoadedQuiz(quiz: Quiz | null): void {
