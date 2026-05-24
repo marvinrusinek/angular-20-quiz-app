@@ -52,6 +52,7 @@ import { ThemeToggleComponent } from '../../components/theme-toggle/theme-toggle
 import { QUESTION_ROUTE_REGEX } from '../../shared/constants/route-patterns';
 
 import { ChangeRouteAnimation } from '../../animations/animations';
+import { norm } from '../../shared/utils/text-norm';
 
 type AnimationState = 'animationStarted' | 'none';
 
@@ -146,8 +147,8 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
         const urlIdx = Number(m[1]) - 1;
         const urlQ = this.quizService.questions?.[urlIdx];
         if (urlQ?.options?.length) {
-          const urlText = (urlQ.questionText ?? '').trim().toLowerCase();
-          const payloadText = (payload?.question?.questionText ?? '').trim().toLowerCase();
+          const urlText = norm(urlQ.questionText);
+          const payloadText = norm(payload?.question?.questionText);
           if (!payloadText || urlText !== payloadText) {
             return {
               question: urlQ,

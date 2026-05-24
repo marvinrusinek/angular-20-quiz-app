@@ -108,12 +108,12 @@ export class OptionUiSyncService {
       try {
         const saved = this.selectedOptionService.getSelectedOptionsForQuestion(currentIndex) ?? [];
         for (const s of saved) {
-          const sText = ((s as any)?.text ?? '').trim().toLowerCase();
+          const sText = norm((s as any)?.text);
           const sId = (s as any)?.optionId;
           let pos = -1;
           if (sText) {
             pos = ctx.optionBindings.findIndex((b: any) =>
-              (b?.option?.text ?? '').trim().toLowerCase() === sText
+              norm(b?.option?.text) === sText
             );
           }
           if (pos === -1 && sId != null && sId !== -1) {
@@ -624,7 +624,7 @@ export class OptionUiSyncService {
 
   private checkAndScoreMultiAnswer(ctx: OptionUiSyncContext, questionIndex: number): void {
     const isCorrectHelper = isOptionCorrect;
-    const normalize = (s: unknown): string => String(s ?? '').trim().toLowerCase();
+    const normalize = (s: unknown): string => norm(s);
 
     // Get the authoritative question data
     const question = ctx.getQuestionAtDisplayIndex(questionIndex);

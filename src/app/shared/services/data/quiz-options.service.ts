@@ -8,6 +8,7 @@ import { Option } from '../../models/Option.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 
 import { isOptionCorrect } from '../../utils/is-option-correct';
+import { norm } from '../../utils/text-norm';
 
 @Injectable({ providedIn: 'root' })
 export class QuizOptionsService {
@@ -195,7 +196,7 @@ export class QuizOptionsService {
     }
 
     const textKey = (value: string | null | undefined) =>
-      (value ?? '').trim().toLowerCase();
+      norm(value);
 
     const incomingList = Array.isArray(incoming) ? incoming : [];
     const incomingById = new Map<number, Option>();
@@ -310,7 +311,7 @@ export class QuizOptionsService {
         (option) =>
           option === answer ||
           (option.optionId !== undefined && answer.optionId !== undefined && String(option.optionId) === String(answer.optionId)) ||
-          (option.text && answer.text && option.text.trim().toLowerCase() === answer.text.trim().toLowerCase())
+          (option.text && answer.text && norm(option.text) === norm(answer.text))
       );
       return isOptionCorrect(found);
     });

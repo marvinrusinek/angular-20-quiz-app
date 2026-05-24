@@ -534,12 +534,12 @@ export class QuizService {
         const _correctTexts = new Set(
           (_question?.options ?? [])
             .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-            .map((o: any) => String(o?.text ?? '').trim().toLowerCase())
+            .map((o: any) => norm(o?.text))
             .filter((t: string) => !!t)
         );
         const _selectedTexts = new Set(
           _selections
-            .map((s: any) => String(s?.text ?? '').trim().toLowerCase())
+            .map((s: any) => norm(s?.text))
             .filter((t: string) => !!t)
         );
         const _userAnsweredCorrectly =
@@ -774,7 +774,7 @@ export class QuizService {
   public getPristineQuestionByText(
     questionText: string | null | undefined
   ): QuizQuestion | null {
-    const key = String(questionText ?? '').trim().toLowerCase();
+    const key = norm(questionText);
     if (!key) return null;
     if (!this._pristineByQText) {
       this._pristineByQText = this.buildPristineByTextCache();
@@ -794,7 +794,7 @@ export class QuizService {
   public getPristineCorrectTextsForQuestion(
     questionText: string | null | undefined
   ): Set<string> {
-    const key = String(questionText ?? '').trim().toLowerCase();
+    const key = norm(questionText);
     if (!key) return new Set();
     if (!this._correctTextsByQText) this._correctTextsByQText = new Map();
     const cached = this._correctTextsByQText.get(key);

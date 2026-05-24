@@ -9,6 +9,8 @@ import { SelectedOption } from '../../models/SelectedOption.model';
 import { OptionIdResolverService } from './option-id-resolver.service';
 import { QuizService } from '../data/quiz.service';
 
+import { norm } from '../../utils/text-norm';
+
 export interface ResolutionStatus {
   resolved: boolean;
   correctTotal: number;
@@ -105,12 +107,12 @@ export class AnswerEvaluationService {
 
     let questionOptions = Array.isArray(question.options) ? question.options : [];
     try {
-      const qText = (question.questionText ?? '').trim().toLowerCase();
+      const qText = norm(question.questionText);
       const pristineBundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
       let pristineQ: any = null;
       for (const quiz of pristineBundle) {
         for (const pq of (quiz?.questions ?? [])) {
-          if ((pq?.questionText ?? '').trim().toLowerCase() === qText) {
+          if (norm(pq?.questionText) === qText) {
             pristineQ = pq;
             break;
           }
@@ -131,7 +133,7 @@ export class AnswerEvaluationService {
       if (!pristineQ) {
         const rawQs: any[] = this.quizService?.questions ?? [];
         const rawQ = qText
-          ? rawQs.find(r => (r?.questionText ?? '').trim().toLowerCase() === qText)
+          ? rawQs.find(r => norm(r?.questionText) === qText)
           : null;
         if (rawQ && Array.isArray(rawQ.options)) {
           const rawCorrectCount = rawQ.options.filter((o: any) =>
@@ -164,9 +166,9 @@ export class AnswerEvaluationService {
 
       // STRATEGY 1: TEXT MATCH
       if (sel.text) {
-        const selText = sel.text.trim().toLowerCase();
+        const selText = norm(sel.text);
         matchedIdx = questionOptions.findIndex(o =>
-          o.text && o.text.trim().toLowerCase() === selText
+          o.text && norm(o.text) === selText
         );
       }
 

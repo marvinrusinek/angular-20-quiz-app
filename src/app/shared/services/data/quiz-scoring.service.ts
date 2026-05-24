@@ -47,7 +47,7 @@ export class QuizScoringService {
 
   /** Record that a correct option was clicked for a multi-answer question. */
   recordCorrectClick(questionIndex: number, optionText: string): void {
-    const nrm = String(optionText ?? '').trim().toLowerCase();
+    const nrm = norm(optionText);
     if (!nrm) return;
 
     if (!this._confirmedCorrectClicks.has(questionIndex)) {

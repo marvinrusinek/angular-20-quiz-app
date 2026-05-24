@@ -10,6 +10,8 @@ import { Option } from '../../../models/Option.model';
 import { QuestionPayload } from '../../../models/QuestionPayload.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
+import { shallowObjectEqual } from '../../../utils/shallow-equal';
+
 /**
  * Manages lifecycle-related orchestration for QuizQuestionComponent:
  * - ngOnInit subscription wiring and index tracking
@@ -103,7 +105,7 @@ export class QqcLifecycleService {
   }): Observable<boolean> {
     return params.questionPayload$.pipe(
       filter((payload): payload is QuestionPayload => !!payload),
-      distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b)),
+      distinctUntilChanged((a, b) => shallowObjectEqual(a, b)),
       tap((payload: QuestionPayload) => {
         // Assign all data at once
         const { question, options, explanation } = payload;

@@ -22,6 +22,8 @@ import { QuizService } from '../../data/quiz.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 import { TimerService } from '../../features/timer/timer.service';
 
+import { norm } from '../../../utils/text-norm';
+
 /**
  * Interface representing the component surface area that the init service needs.
  * The component passes `this` typed as this interface so the service can
@@ -731,7 +733,7 @@ export class SharedOptionInitService {
       // from a different question had the same index.
       for (let idx = 0; idx < comp.optionsToDisplay.length; idx++) {
         const opt = comp.optionsToDisplay[idx];
-        const optText = (opt.text ?? '').trim().toLowerCase();
+        const optText = norm(opt.text);
         const optId = opt.optionId;
         const optIdReal = optId != null && optId !== -1 && String(optId) !== '-1';
 
@@ -743,7 +745,7 @@ export class SharedOptionInitService {
           }
           const sId = (s as any).optionId;
           const sIdReal = sId != null && sId !== -1 && String(sId) !== '-1';
-          const sText = ((s as any).text ?? '').trim().toLowerCase();
+          const sText = norm((s as any).text);
           // Match by optionId
           if (optIdReal && sIdReal && String(optId) === String(sId)) {
             matchedSaved = s;
@@ -761,7 +763,7 @@ export class SharedOptionInitService {
           const sIdx = (s as any).displayIndex ?? (s as any).index;
           if (sIdx !== idx) return false;
           // Position matches â€” only accept if we can't verify by text
-          const sText2 = ((s as any).text ?? '').trim().toLowerCase();
+          const sText2 = norm((s as any).text);
           if (optText && sText2 && optText !== sText2) return false;
           matchedSaved = s;
           return true;

@@ -102,15 +102,15 @@ export class OptionClickHandlerService {
 
     // SOURCE 2: Raw _questions data for cross-reference
     const rawQs: any[] = (this.quizService as any)._questions ?? [];
-    const qText = (question?.questionText ?? '').trim().toLowerCase();
+    const qText = norm(question?.questionText);
     let fromRaw: number[] = [];
     for (const rq of rawQs) {
-      if ((rq.questionText ?? '').trim().toLowerCase() === qText) {
+      if (norm(rq.questionText) === qText) {
         const rawCorrectTexts = new Set<string>(
-          (rq.options ?? []).filter((o: any) => isOptionCorrect(o)).map((o: any) => (o.text ?? '').trim().toLowerCase())
+          (rq.options ?? []).filter((o: any) => isOptionCorrect(o)).map((o: any) => norm(o.text))
         );
         fromRaw = questionOpts
-          .map((o: any, idx: number) => rawCorrectTexts.has((o.text ?? '').trim().toLowerCase()) ? idx : -1)
+          .map((o: any, idx: number) => rawCorrectTexts.has(norm(o.text)) ? idx : -1)
           .filter((idx: number) => idx >= 0);
         break;
       }
@@ -123,14 +123,14 @@ export class OptionClickHandlerService {
         const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
         for (const quiz of bundle) {
           for (const pq of (quiz?.questions ?? [])) {
-            if ((pq?.questionText ?? '').trim().toLowerCase() !== qText) continue;
+            if (norm(pq?.questionText) !== qText) continue;
             const pristineCorrectTexts = new Set<string>(
               (pq?.options ?? [])
                 .filter((o: any) => isOptionCorrect(o))
-                .map((o: any) => (o?.text ?? '').trim().toLowerCase())
+                .map((o: any) => norm(o?.text))
             );
             fromPristine = questionOpts
-              .map((o: any, idx: number) => pristineCorrectTexts.has((o?.text ?? '').trim().toLowerCase()) ? idx : -1)
+              .map((o: any, idx: number) => pristineCorrectTexts.has(norm(o?.text)) ? idx : -1)
               .filter((idx: number) => idx >= 0);
             break;
           }

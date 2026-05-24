@@ -4,6 +4,8 @@ import { SK_DOT_CONFIRMED, SK_SEL_Q, SK_SELECTED_OPTIONS_MAP } from '../../const
 
 import { SelectedOption } from '../../models/SelectedOption.model';
 
+import { norm } from '../../utils/text-norm';
+
 /**
  * The subset of SelectedOptionService state that the persistence layer
  * needs to read/write. Passing this interface avoids a circular dependency.
@@ -213,7 +215,7 @@ export class SelectionPersistenceService {
   }
 
   private buildMergeKey(s: any): string {
-    const sKeyText = ((s as any).text ?? '').trim().toLowerCase();
+    const sKeyText = norm((s as any).text);
     return sKeyText
       ? `t:${s.optionId}|${sKeyText}`
       : `i:${s.optionId}|${(s as any).displayIndex ?? (s as any).index ?? -1}`;

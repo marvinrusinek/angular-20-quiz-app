@@ -7,6 +7,8 @@ import { OptionIdResolverService } from './option-id-resolver.service';
 import { QuizService } from '../data/quiz.service';
 import type { SelectedOptionService } from './selectedoption.service';
 
+import { norm } from '../../utils/text-norm';
+
 type Host = SelectedOptionService;
 
 /**
@@ -54,10 +56,10 @@ export class SelectionCrudService {
       const history = host._selectionHistory.get(questionIndex) ?? [];
       for (const c of committed) {
         if (!c || c.optionId == null) continue;
-        const cText = ((c as any).text ?? '').trim().toLowerCase();
+        const cText = norm((c as any).text);
         const dup = history.some((h: any) =>
           h.optionId === c.optionId &&
-          (((h as any).text ?? '').trim().toLowerCase() === cText)
+          (norm((h as any).text) === cText)
         );
         if (!dup) {
           history.push({

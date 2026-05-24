@@ -5,6 +5,8 @@ import { SelectedOption } from '../../models/SelectedOption.model';
 
 import { QuizService } from '../data/quiz.service';
 
+import { norm } from '../../utils/text-norm';
+
 @Injectable({ providedIn: 'root' })
 export class OptionIdResolverService {
   // ── injects ─────────────────────────────────────────────────────
@@ -383,7 +385,7 @@ export class OptionIdResolverService {
     if (typeof value === 'boolean') return value;
 
     if (typeof value === 'string') {
-      const normalized = value.trim().toLowerCase();
+      const normalized = norm(value);
       if (normalized === 'true') return true;
       if (normalized === 'false' || normalized.length === 0) return false;
     }

@@ -8,6 +8,7 @@ import { SelectedOption } from '../../../models/SelectedOption.model';
 
 import { QUESTION_ROUTE_REGEX } from '../../../constants/route-patterns';
 import { isOptionCorrect } from '../../../utils/is-option-correct';
+import { norm } from '../../../utils/text-norm';
 
 import { ExplanationTextService } from '../explanation/explanation-text.service';
 import { QuizService } from '../../data/quiz.service';
@@ -73,7 +74,7 @@ export class FeedbackService {
           const allTextsURL = new Set<string>();
           for (const [i, o] of urlOpts.entries()) {
             const c = (o as any)?.correct;
-            const text = String(o?.text ?? '').trim().toLowerCase();
+            const text = norm(o?.text);
             if (text) allTextsURL.add(text);
             if (c === true || c === 1 || String(c) === 'true') {
               correctIdxsURL.push(i + 1);
@@ -84,17 +85,17 @@ export class FeedbackService {
           if (correctTextsURL.size > 0) {
             const candidateTexts = new Set<string>();
             if (targetOption?.text) {
-              candidateTexts.add(String(targetOption.text).trim().toLowerCase());
+              candidateTexts.add(norm(targetOption.text));
             }
             for (const s of (selected ?? []) as any[]) {
-              if (s?.text) candidateTexts.add(String(s.text).trim().toLowerCase());
+              if (s?.text) candidateTexts.add(norm(s.text));
             }
             try {
               const liveSelections =
                 quizSvcEarly?.selectedOptionService?.getSelectedOptionsForQuestion?.(urlIdx) ??
                 this.selectedOptionService?.getSelectedOptionsForQuestion?.(urlIdx) ?? [];
               for (const s of liveSelections) {
-                if (s?.text) candidateTexts.add(String(s.text).trim().toLowerCase());
+                if (s?.text) candidateTexts.add(norm(s.text));
               }
             } catch { /* ignore */ }
 
@@ -176,10 +177,10 @@ export class FeedbackService {
       // when the URL parse fails (e.g., during early bootstrap or in a
       // non-browser environment).
       if (resolvedIdx < 0) {
-        const passedText = (question?.questionText || '').trim().toLowerCase();
+        const passedText = norm(question?.questionText);
         if (passedText && allQs.length) {
           resolvedIdx = allQs.findIndex(
-            (q) => (q?.questionText || '').trim().toLowerCase() === passedText
+            (q) => norm(q?.questionText) === passedText
           );
           if (resolvedIdx >= 0 && allQs[resolvedIdx]?.options?.length) {
             resolvedQuestion = allQs[resolvedIdx];
@@ -211,11 +212,11 @@ export class FeedbackService {
     const isCorrectHelper = isOptionCorrect;
 
     if ((!correctIndices || correctIndices.length === 0) && quizSvc) {
-      const qText = (question.questionText || '').trim().toLowerCase();
+      const qText = norm(question.questionText);
       if (qText) {
         const allQuestions = (quizSvc as any)._questions || quizSvc.questions || [];
         const sourceQ = allQuestions.find(
-          (q: QuizQuestion) => (q.questionText || '').trim().toLowerCase() === qText
+          (q: QuizQuestion) => norm(q.questionText) === qText
         );
         if (sourceQ?.options) {
           const foundIndices = sourceQ.options
@@ -465,9 +466,9 @@ export class FeedbackService {
     let canonicalQ: QuizQuestion | undefined = question;
     try {
       const allQs: QuizQuestion[] = (quizSvc as any)?.questions ?? [];
-      const passedText = (question?.questionText || '').trim().toLowerCase();
+      const passedText = norm(question?.questionText);
       if (passedText && allQs.length) {
-        const idx = allQs.findIndex(q => (q?.questionText || '').trim().toLowerCase() === passedText);
+        const idx = allQs.findIndex(q => norm(q?.questionText) === passedText);
         if (idx >= 0 && allQs[idx]?.options?.length) canonicalQ = allQs[idx];
       }
     } catch {}

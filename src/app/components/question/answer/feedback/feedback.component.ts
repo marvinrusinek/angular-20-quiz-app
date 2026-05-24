@@ -12,6 +12,7 @@ import { SelectedOptionService } from '../../../../shared/services/state/selecte
 
 import { QUESTION_ROUTE_REGEX } from '../../../../shared/constants/route-patterns';
 import { isOptionCorrect } from '../../../../shared/utils/is-option-correct';
+import { norm } from '../../../../shared/utils/text-norm';
 
 @Component({
   selector: 'codelab-quiz-feedback',
@@ -105,7 +106,7 @@ export class FeedbackComponent {
           if (cacheMatchesUrl && /not this one/i.test(cachedFeedback)) {
             const candidates: string[] = [];
             const sel: any = cfg.selectedOption;
-            if (sel?.text) candidates.push(String(sel.text).trim().toLowerCase());
+            if (sel?.text) candidates.push(norm(sel.text));
 
             // Also look at the selectedOptionService — it carries the
             // authoritative committed click for this question, which can
@@ -115,14 +116,14 @@ export class FeedbackComponent {
               const liveSelections =
                 this.selectedOptionService?.getSelectedOptionsForQuestion?.(urlIdx) ?? [];
               for (const s of liveSelections) {
-                if (s?.text) candidates.push(String(s.text).trim().toLowerCase());
+                if (s?.text) candidates.push(norm(s.text));
               }
             } catch { /* ignore */ }
 
             if (candidates.length && Array.isArray(liveQ?.options)) {
               for (const candidateText of candidates) {
                 const match = liveQ.options.find(
-                  (o: any) => (o?.text ?? '').trim().toLowerCase() === candidateText
+                  (o: any) => norm(o?.text) === candidateText
                 );
                 if (isOptionCorrect(match)) {
                   cacheMatchesUrl = false;

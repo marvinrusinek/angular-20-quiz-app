@@ -15,6 +15,7 @@ import { QuizStateService } from '../state/quizstate.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
 
 import { isOptionCorrect } from '../../utils/is-option-correct';
+import { norm } from '../../utils/text-norm';
 
 /**
  * Manages dot status computation, selection evaluation, and question
@@ -99,7 +100,7 @@ export class QuizDotStatusService {
   ): boolean {
     if (!selection || !option) return false;
 
-    const normalize = (value: unknown): string => String(value ?? '').trim().toLowerCase();
+    const normalize = (value: unknown): string => norm(value);
     const selectionId = String(selection.optionId ?? '').trim();
     const optionId = String(option.optionId ?? '').trim();
 
@@ -142,7 +143,7 @@ export class QuizDotStatusService {
         const id = Number(answer.optionId);
         if (!Number.isNaN(id)) correctIds.add(id);
 
-        const text = String(answer.text ?? '').trim().toLowerCase();
+        const text = norm(answer.text);
         if (text) correctTexts.add(text);
       }
     }
@@ -151,7 +152,7 @@ export class QuizDotStatusService {
       .map((opt: Option, index: number) => ({ option: opt, index }))
       .filter(({ option }) => {
         const id = Number(option?.optionId);
-        const text = String(option?.text ?? '').trim().toLowerCase();
+        const text = norm(option?.text);
 
         return (!Number.isNaN(id) && correctIds.has(id)) || (!!text && correctTexts.has(text));
       });
@@ -294,7 +295,7 @@ export class QuizDotStatusService {
       ? question!.options
       : currentQuestionOptions;
 
-    const normalize = (value: unknown): string => String(value ?? '').trim().toLowerCase();
+    const normalize = (value: unknown): string => norm(value);
     const optionIdSet = new Set(
       referenceOptions
         .map((opt: Option, optIndex: number) => {

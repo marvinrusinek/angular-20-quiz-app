@@ -266,7 +266,7 @@ export class OptionInteractionService {
     const futureKeys = new Set<number>();
     for (const s of futureSelection) {
       const sId = (s as any).optionId;
-      const sText = (s as any).text?.trim().toLowerCase();
+      const sText = norm((s as any).text);
       let idx = (s as any).displayIndex ?? (s as any).index ?? (s as any).idx;
 
       if (idx === undefined || idx === null || idx === -1 || isNaN(Number(idx))) {
@@ -274,14 +274,14 @@ export class OptionInteractionService {
           if (b.option === s) return true;
           const bId = b.option?.optionId;
           if (sId != null && sId !== -1 && bId != null && bId !== -1 && String(sId) === String(bId)) return true;
-          return !!sText && b.option?.text?.trim().toLowerCase() === sText;
+          return !!sText && norm(b.option?.text) === sText;
         });
         if (foundIdx !== -1) idx = foundIdx;
         else {
           const oIdx = state.optionsToDisplay.findIndex(o => {
             if (o === s) return true;
             if (sId != null && sId !== -1 && o.optionId != null && o.optionId !== -1 && String(sId) === String(o.optionId)) return true;
-            return !!sText && o.text?.trim().toLowerCase() === sText;
+            return !!sText && norm(o.text) === sText;
           });
           if (oIdx !== -1) idx = oIdx;
         }
@@ -309,16 +309,16 @@ export class OptionInteractionService {
         s?.displayIndex != null && Number.isFinite(Number(s.displayIndex));
       if (hasIdx) return s;
       const sId = s?.optionId;
-      const sText = (s?.text ?? '').trim().toLowerCase();
+      const sText = norm(s?.text);
       let pos = state.optionBindings.findIndex((b: any) => {
         const bId = b?.option?.optionId;
         if (sId != null && sId !== -1 && bId != null && bId !== -1 && String(sId) === String(bId)) return true;
-        return !!sText && (b?.option?.text ?? '').trim().toLowerCase() === sText;
+        return !!sText && norm(b?.option?.text) === sText;
       });
       if (pos === -1) {
         pos = state.optionsToDisplay.findIndex((o: any) => {
           if (sId != null && sId !== -1 && o?.optionId != null && o.optionId !== -1 && String(sId) === String(o.optionId)) return true;
-          return !!sText && (o?.text ?? '').trim().toLowerCase() === sText;
+          return !!sText && norm(o?.text) === sText;
         });
       }
       if (pos === -1) return s;
@@ -425,12 +425,12 @@ export class OptionInteractionService {
       try {
         const saved = this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
         for (const s of saved) {
-          const sText = ((s as any)?.text ?? '').trim().toLowerCase();
+          const sText = norm((s as any)?.text);
           const sId = (s as any)?.optionId;
           let pos = -1;
           if (sText) {
             pos = state.optionBindings.findIndex((b: any) =>
-              (b?.option?.text ?? '').trim().toLowerCase() === sText
+              norm(b?.option?.text) === sText
             );
           }
           if (pos === -1 && sId != null && sId !== -1) {

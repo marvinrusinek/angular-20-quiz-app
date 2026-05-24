@@ -357,8 +357,8 @@ export class SharedOptionComponent
           const idx = this.currentQuestionIndex ?? qs.currentQuestionIndex ?? 0;
           const correctQ = qs.shuffledQuestions[idx];
           if (correctQ?.options?.length > 0 && v.length > 0) {
-            const correctTexts = new Set(correctQ.options.map((o: any) => (o?.text ?? '').trim().toLowerCase()));
-            const actualTexts = new Set(v.map((o: any) => (o?.text ?? '').trim().toLowerCase()));
+            const correctTexts = new Set(correctQ.options.map((o: any) => norm(o?.text)));
+            const actualTexts = new Set(v.map((o: any) => norm(o?.text)));
             const match = correctTexts.size === actualTexts.size && [...correctTexts].every(t => actualTexts.has(t));
             if (!match) {
               v = correctQ.options.map((o: any) => ({ ...o }));
@@ -492,7 +492,7 @@ export class SharedOptionComponent
       const correctTexts = new Set<string>();
       for (const opt of displayOpts) {
         if (isOptionCorrect(opt)) {
-          correctTexts.add(((opt.text as string) || '').trim().toLowerCase());
+          correctTexts.add(norm(opt.text));
         }
       }
 
@@ -501,7 +501,7 @@ export class SharedOptionComponent
       // classes through the normal Angular pipeline.
       const updated = (this.optionBindings() ?? []).map((b: any) => {
         if (!b) return b;
-        const optText = ((b.option?.text as string) || '').trim().toLowerCase();
+        const optText = norm(b.option?.text);
         const isCorrect = correctTexts.has(optText);
         return {
           ...b,

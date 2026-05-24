@@ -12,6 +12,7 @@ import { QuizQuestion } from '../../../models/QuizQuestion.model';
 import { QuizService } from '../../data/quiz.service';
 import { QuizShuffleService } from '../../flow/quiz-shuffle.service';
 import { isOptionCorrect } from '../../../utils/is-option-correct';
+import { norm } from '../../../utils/text-norm';
 
 @Injectable({ providedIn: 'root' })
 export class ExplanationFormatterService {
@@ -446,7 +447,7 @@ export class ExplanationFormatterService {
 
       const uniqueMention = opts
         .map((o, i) => {
-          const t = (o.text || '').trim().toLowerCase();
+          const t = norm(o.text);
           if (t.length < 3) return null;
           return lowerExpContent.includes(t) ? i + 1 : null;
         })

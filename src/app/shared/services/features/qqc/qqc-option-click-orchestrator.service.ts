@@ -316,9 +316,9 @@ export class QqcOptionClickOrchestratorService {
     if (isMultiForSelection) {
       try {
         const rawQs: any[] = (this.quizService as any)?.questions ?? [];
-        const qText = (question?.questionText ?? '').trim().toLowerCase();
+        const qText = norm(question?.questionText);
         const rawQ = qText
-          ? rawQs.find((r: any) => (r?.questionText ?? '').trim().toLowerCase() === qText)
+          ? rawQs.find((r: any) => norm(r?.questionText) === qText)
           : rawQs[questionIndex];
         if (rawQ && Array.isArray(rawQ.options)) {
           const rawCorrectTexts = rawQ.options

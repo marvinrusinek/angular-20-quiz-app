@@ -287,10 +287,10 @@ export class SharedOptionClickService {
     try {
       let allCorrectIdxs: number[] = [];
       const allQs: any[] = (this.quizService as any)?.questions ?? [];
-      const passedText = (comp.currentQuestion()?.questionText || '').trim().toLowerCase();
+      const passedText = norm(comp.currentQuestion()?.questionText);
       let canonicalQ: any = null;
       if (passedText && allQs.length) {
-        const cIdx = allQs.findIndex((q: any) => (q?.questionText || '').trim().toLowerCase() === passedText);
+        const cIdx = allQs.findIndex((q: any) => norm(q?.questionText) === passedText);
         if (cIdx >= 0) canonicalQ = allQs[cIdx];
       }
       if (!canonicalQ) canonicalQ = allQs[qIdx] ?? comp.currentQuestion();

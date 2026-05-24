@@ -24,6 +24,7 @@ import { SharedOptionComponent } from '../shared-option-component/shared-option.
 import { BaseQuestion } from '../../base/base-question';
 
 import { isOptionCorrect } from '../../../../shared/utils/is-option-correct';
+import { norm } from '../../../../shared/utils/text-norm';
 
 @Component({
   selector: 'codelab-question-answer',
@@ -356,7 +357,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
 
       const savedTexts = new Set(
         savedSelections.map(selection =>
-          (selection.text || '').trim().toLowerCase(),
+          norm(selection.text),
         )
       );
 
@@ -364,7 +365,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
         option.optionId != null && savedIds.has(String(option.optionId));
 
       const textMatch =
-        !!(option.text && savedTexts.has(option.text.trim().toLowerCase()));
+        !!(option.text && savedTexts.has(norm(option.text)));
 
       option.selected = idMatch || textMatch;
     }

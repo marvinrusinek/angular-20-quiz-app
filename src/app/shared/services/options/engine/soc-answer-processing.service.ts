@@ -415,10 +415,10 @@ export class SocAnswerProcessingService {
     let correctIdxs: number[] = [];
     try {
       const allQs: any[] = (this.quizService as any)?.questions ?? [];
-      const passedText = (comp.currentQuestion()?.questionText || '').trim().toLowerCase();
+      const passedText = norm(comp.currentQuestion()?.questionText);
       let canonicalQ: any = null;
       if (passedText && allQs.length) {
-        const idx = allQs.findIndex((q: any) => (q?.questionText || '').trim().toLowerCase() === passedText);
+        const idx = allQs.findIndex((q: any) => norm(q?.questionText) === passedText);
         if (idx >= 0) canonicalQ = allQs[idx];
       }
       if (!canonicalQ) canonicalQ = allQs[qIdx] ?? comp.currentQuestion();

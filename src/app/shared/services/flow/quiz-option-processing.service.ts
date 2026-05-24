@@ -278,7 +278,7 @@ export class QuizOptionProcessingService {
   }): SingleAnswerResult {
     const { option, idx, optionsForImmediateScoring, liveCorrectness, quizId } = params;
 
-    const normalize = (value: unknown): string => String(value ?? '').trim().toLowerCase();
+    const normalize = (value: unknown): string => norm(value);
     const clickedOptionId = String(option?.optionId ?? '').trim();
     const clickedText = normalize(option?.text);
     const payloadSaysCorrect = isOptionCorrect(option);

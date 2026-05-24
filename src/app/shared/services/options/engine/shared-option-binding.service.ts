@@ -182,8 +182,8 @@ export class SharedOptionBindingService {
     if (this.quizService.isShuffleEnabled() && this.quizService.shuffledQuestions?.length > 0) {
       const correctQ = this.quizService.shuffledQuestions[currentIndex];
       if (correctQ?.options?.length > 0) {
-        const correctTexts = new Set(correctQ.options.map((o: any) => (o?.text ?? '').trim().toLowerCase()));
-        const currentTexts = new Set((comp.optionsToDisplay ?? []).map((o: any) => (o?.text ?? '').trim().toLowerCase()));
+        const correctTexts = new Set(correctQ.options.map((o: any) => norm(o?.text)));
+        const currentTexts = new Set((comp.optionsToDisplay ?? []).map((o: any) => norm(o?.text)));
         const match = correctTexts.size === currentTexts.size && [...correctTexts].every((t: string) => currentTexts.has(t));
         if (!match && comp.optionsToDisplay?.length > 0) {
           comp.optionsToDisplay = correctQ.options.map((o: any) => ({ ...o }));
@@ -200,7 +200,7 @@ export class SharedOptionBindingService {
     if (cqForAnswers && Array.isArray(cqForAnswers.answer)) {
       for (const a of cqForAnswers.answer) {
         if (!a) continue;
-        if (a.text) correctTexts.add(a.text.trim().toLowerCase());
+        if (a.text) correctTexts.add(norm(a.text));
         const id = Number(a.optionId);
         if (!isNaN(id)) correctIds.add(id);
       }
@@ -209,7 +209,7 @@ export class SharedOptionBindingService {
     comp.optionsToDisplay = localOpts.map((opt: any, i: number) => {
       const oIdNum = Number(opt.optionId);
       const oId = !isNaN(oIdNum) ? oIdNum : (currentIndex + 1) * 100 + (i + 1);
-      const oText = (opt.text ?? '').trim().toLowerCase();
+      const oText = norm(opt.text);
 
       const isCorrect = isOptionCorrect(opt) ||
         (!isNaN(oIdNum) && correctIds.has(oIdNum)) ||
@@ -327,8 +327,8 @@ export class SharedOptionBindingService {
     if (this.quizService.isShuffleEnabled() && this.quizService.shuffledQuestions?.length > 0) {
       const correctQ = this.quizService.shuffledQuestions[pIdx];
       if (correctQ?.options?.length > 0 && comp.optionsToDisplay?.length > 0) {
-        const correctTexts = new Set(correctQ.options.map((o: any) => (o?.text ?? '').trim().toLowerCase()));
-        const currentTexts = new Set((comp.optionsToDisplay).map((o: any) => (o?.text ?? '').trim().toLowerCase()));
+        const correctTexts = new Set(correctQ.options.map((o: any) => norm(o?.text)));
+        const currentTexts = new Set((comp.optionsToDisplay).map((o: any) => norm(o?.text)));
         const match = correctTexts.size === currentTexts.size && [...correctTexts].every((t: string) => currentTexts.has(t));
         if (!match) {
           comp.optionsToDisplay = correctQ.options.map((o: any) => ({ ...o }));
@@ -529,7 +529,7 @@ export class SharedOptionBindingService {
         if (sQIdx != null && Number(sQIdx) !== qIndex) continue;
         if ((s as any)?.selected === false && !(s as any)?.showIcon && !(s as any)?.highlight) continue;
 
-        const sText = ((s as any).text ?? '').trim().toLowerCase();
+        const sText = norm((s as any).text);
 
         let pos = -1;
 
@@ -539,7 +539,7 @@ export class SharedOptionBindingService {
         // saved entry to the wrong binding when options shuffle.
         if (sText && comp.optionBindings()?.length) {
           pos = comp.optionBindings().findIndex((b: any) => {
-            const bText = (b?.option?.text ?? '').trim().toLowerCase();
+            const bText = norm(b?.option?.text);
             return bText && bText === sText;
           });
         }
@@ -796,12 +796,12 @@ export class SharedOptionBindingService {
       if (saved.length === 0) {
         saved = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
       }
-      const bText = (b.option?.text ?? '').trim().toLowerCase();
+      const bText = norm(b.option?.text);
       // TEXT-ONLY PRIMARY MATCH: immune to synthetic ID mismatches and
       // position shifts from shuffled options. ID/index fallbacks are only
       // used when the saved entry has no text (legacy data).
       const matchEntry = saved.find((s: any) => {
-        const sText = ((s as any).text ?? '').trim().toLowerCase();
+        const sText = norm((s as any).text);
         // If saved entry has text, ONLY match by text
         if (sText) return bText && sText === bText;
         // Legacy fallback (no text on saved entry): displayIndex then optionId

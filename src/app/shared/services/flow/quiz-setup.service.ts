@@ -656,8 +656,8 @@ subscribeToTimerExpiry(host: Host): void {
           if (m) {
             const urlIdx = Number(m[1]) - 1;
             const urlQuestion = this.quizService.questions?.[urlIdx];
-            const urlText = (urlQuestion?.questionText ?? '').trim().toLowerCase();
-            const payloadText = (payload.question?.questionText ?? '').trim().toLowerCase();
+            const urlText = norm(urlQuestion?.questionText);
+            const payloadText = norm(payload.question?.questionText);
             if (urlText && payloadText && urlText !== payloadText) {
               return;  // skip stale payload that doesn't match the URL question
             }

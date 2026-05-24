@@ -843,9 +843,9 @@ export class OptionItemComponent implements OnInit {
     const qIdx = this.quizService.currentQuestionIndex ?? this.currentQuestionIndex();
     const question = (this.quizService as any).questions?.[qIdx];
     if (question?.options && opt?.text) {
-      const optText = (opt.text as string).trim().toLowerCase();
+      const optText = norm(opt.text);
       const match = question.options.find(
-        (o: any) => o?.text && (o.text as string).trim().toLowerCase() === optText
+        (o: any) => o?.text && norm(o.text) === optText
       );
       if (isOptionCorrect(match)) {
         return true;
@@ -940,8 +940,8 @@ export class OptionItemComponent implements OnInit {
 
     // TEXT MATCH (most reliable — immune to synthetic ID mismatches
     // and index collisions from different init paths).
-    const selText = ((sel as any)?.text ?? '').trim().toLowerCase();
-    const bText = (this.binding()?.option?.text ?? '').trim().toLowerCase();
+    const selText = norm((sel as any)?.text);
+    const bText = norm(this.binding()?.option?.text);
     if (selText && bText) return selText === bText;
 
     // Prefer `displayIndex` — that's what setSelectedOption enriches with

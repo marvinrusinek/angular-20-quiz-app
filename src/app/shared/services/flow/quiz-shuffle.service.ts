@@ -5,6 +5,7 @@ import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { ShuffleState } from '../../models/ShuffleState.model';
 
 import { isOptionCorrect } from '../../utils/is-option-correct';
+import { norm } from '../../utils/text-norm';
 import { Utils } from '../../utils/utils';
 
 export interface PrepareShuffleOpts {
@@ -192,7 +193,7 @@ export class QuizShuffleService {
 
         const alignedAnswers = this.alignAnswersWithOptions(source.answer, orderedOptions);
         const correctIds = new Set(alignedAnswers.map(a => Number(a.optionId)));
-        const correctTexts = new Set(alignedAnswers.map(a => (a.text ?? '').trim().toLowerCase()));
+        const correctTexts = new Set(alignedAnswers.map(a => norm(a.text)));
 
         return {
           ...source,
@@ -200,7 +201,7 @@ export class QuizShuffleService {
             ...option,
             correct: isOptionCorrect(option) ||
               (option.optionId !== undefined && correctIds.has(Number(option.optionId))) ||
-              (option.text !== undefined && correctTexts.has((option.text ?? '').trim().toLowerCase()))
+              (option.text !== undefined && correctTexts.has(norm(option.text)))
           })),
           answer: alignedAnswers
         } as QuizQuestion;
@@ -218,7 +219,7 @@ export class QuizShuffleService {
           normalizedOptions
         );
         const correctIds = new Set(alignedAnswers.map(a => Number(a.optionId)));
-        const correctTexts = new Set(alignedAnswers.map(a => (a.text ?? '').trim().toLowerCase()));
+        const correctTexts = new Set(alignedAnswers.map(a => norm(a.text)));
 
         return {
           ...question,
@@ -226,7 +227,7 @@ export class QuizShuffleService {
             ...option,
             correct: isOptionCorrect(option) ||
               (option.optionId !== undefined && correctIds.has(Number(option.optionId))) ||
-              (option.text !== undefined && correctTexts.has((option.text ?? '').trim().toLowerCase()))
+              (option.text !== undefined && correctTexts.has(norm(option.text)))
           })),
           answer: alignedAnswers
         };

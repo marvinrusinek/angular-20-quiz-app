@@ -55,7 +55,7 @@ export class CqcFetGuardService {
           const urlIdx = Number(m[1]) - 1;
           const allQs: any[] = (host.quizService as any)?.questions ?? [];
           const urlQ = allQs[urlIdx];
-          const safeText = safe.trim().toLowerCase();
+          const safeText = norm(safe);
           const safeIsFet = safeText.includes('correct because') ||
                             safeText.includes('correct answer is option') ||
                             safeText.includes('correct answers are options');

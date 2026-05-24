@@ -6,6 +6,7 @@ import { SelectedOption } from '../../../../shared/models/SelectedOption.model';
 
 import { AnswerOptionsService } from './answer-options.service';
 import { isOptionCorrect } from '../../../../shared/utils/is-option-correct';
+import { norm } from '../../../../shared/utils/text-norm';
 
 @Injectable({ providedIn: 'root' })
 export class AnswerBindingsService {
@@ -160,7 +161,7 @@ export class AnswerBindingsService {
 
     const savedTexts = new Set(
       savedSelections.map(selection =>
-        (selection.text || '').trim().toLowerCase(),
+        norm(selection.text),
       )
     );
 
@@ -170,7 +171,7 @@ export class AnswerBindingsService {
 
       const idMatch = id != null && savedIds.has(String(id));
       const textMatch =
-        !!(text && savedTexts.has(text.trim().toLowerCase()));
+        !!(text && savedTexts.has(norm(text)));
 
       const isSelected = isMulti ? false : idMatch || textMatch;
 

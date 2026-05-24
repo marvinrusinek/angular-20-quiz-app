@@ -9,6 +9,7 @@ import { Option } from '../../../models/Option.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
 import { isOptionCorrect } from '../../../utils/is-option-correct';
+import { norm } from '../../../utils/text-norm';
 
 import { QuizService } from '../../data/quiz.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
@@ -99,8 +100,8 @@ export class SelectionMessageService {
       if (!o) return '__nil';
       if (o.optionId != null) return o.optionId;
       if (o.id != null) return o.id;
-      const v = (o.value ?? '').toString().trim().toLowerCase();
-      const t = (o.text ?? o.label ?? '').toString().trim().toLowerCase();
+      const v = norm(o.value);
+      const t = norm(o.text ?? o.label);
       return `${v}|${t}`;
     };
 
@@ -299,8 +300,8 @@ export class SelectionMessageService {
     if (!opt) return `unknown-${idx ?? 0}`;
     if (opt.optionId != null && String(opt.optionId) !== '-1') return String(opt.optionId);
     if ((opt as any).id != null && String((opt as any).id) !== '-1') return String((opt as any).id);
-    const v = String(opt.value ?? '').trim().toLowerCase();
-    const t = String(opt.text ?? (opt as any).label ?? '').trim().toLowerCase();
+    const v = norm(opt.value);
+    const t = norm(opt.text ?? (opt as any).label);
     const core = v || t ? `${v}|${t}` : 'any';
     return `ix:${idx ?? 0}:${core}`;
   }

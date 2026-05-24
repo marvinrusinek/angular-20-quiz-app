@@ -18,6 +18,8 @@ import { QuizService } from '../../../shared/services/data/quiz.service';
 import { SelectedOptionService } from '../../../shared/services/state/selectedoption.service';
 import { TimerService } from '../../../shared/services/features/timer/timer.service';
 
+import { norm } from '../../../shared/utils/text-norm';
+
 @Component({
   selector: 'codelab-results-accordion',
   standalone: true,
@@ -199,12 +201,12 @@ export class AccordionComponent implements OnInit {
     // Get correct option texts
     const correctTexts = question.options
       .filter(opt => opt.correct)
-      .map(opt => (opt.text || '').trim().toLowerCase());
+      .map(opt => norm(opt.text));
 
     // Get selected option texts
     const selectedOpts = this.getSelectedOptionsForQuestion(questionIndex);
     const selectedTexts = selectedOpts
-      .map(o => (o.text || '').trim().toLowerCase());
+      .map(o => norm(o.text));
 
     // Check if ALL correct answers are included in selections
     return correctTexts.every(ct => selectedTexts.includes(ct));
