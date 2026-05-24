@@ -234,16 +234,11 @@ export class QqcTimerEffectService {
       this.selectionMessageService.releaseBaseline(activeIndex);
       this.selectionMessageService.setOptionsSnapshot(canonicalOpts);
 
-      const anySelected = canonicalOpts.some(opt => !!opt?.selected);
-      if (!anySelected) {
-        const total = params.totalQuestions ?? this.quizService?.totalQuestions() ?? 0;
-        const isLastQuestion = total > 0 && i0 === total - 1;
-        this.selectionMessageService.forceNextButtonMessage(i0, {
-          isLastQuestion
-        });
-      } else {
-        this.selectionMessageService.setSelectionMessage(params.lastAllCorrect);
-      }
+      const total = params.totalQuestions ?? this.quizService?.totalQuestions() ?? 0;
+      const isLastQuestion = total > 0 && i0 === total - 1;
+      this.selectionMessageService.forceNextButtonMessage(i0, {
+        isLastQuestion
+      });
     } catch { }
 
     // Show explanation regardless of correctness

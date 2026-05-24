@@ -701,6 +701,7 @@ export class SocAnswerProcessingService {
       // All incorrects exhausted — auto-reveal the correct answer(s).
       try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
       this.nextButtonStateService.setNextButtonState(true);
+      this.selectionMessageService.forceNextButtonMessage(qIdx);
       this.explanationTextService.fetBypassForQuestion.set(qIdx, true);
       // INTENTIONALLY do NOT set _multiAnswerPerfect — see comment in
       // sibling autoreveal block (~line 711). Used as the navigation-clear
