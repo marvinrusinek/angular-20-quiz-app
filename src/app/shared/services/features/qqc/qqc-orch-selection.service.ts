@@ -148,7 +148,7 @@ export class QqcOrchSelectionService {
     if (result.shouldTriggerExplanation) {
       host.explanationTextService.triggerExplanationEvaluation();
     }
-    host.cdRef.detectChanges();
+    host.cdRef.markForCheck();
   }
 
   async runApplyOptionFeedback(host: Host, selectedOption: Option): Promise<void> {

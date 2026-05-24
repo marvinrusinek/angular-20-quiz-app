@@ -259,12 +259,12 @@ export class QqcOrchLifecycleService {
         const soc = host.sharedOptionComponent?.();
         if (!soc) return;
         // soc.renderReady is now a WritableSignal (was a Subject pre-migration).
-        // Poll once on next microtask â€” if already ready, fire detectChanges; else
+        // Poll once on next microtask â€” if already ready, fire markForCheck; else
         // back off via rAF until ready. Preserves the "wait for next true" semantic
         // without needing a reactive context inside this service callback.
         const check = (): void => {
           if (soc.renderReady()) {
-            host.cdRef.detectChanges();
+            host.cdRef.markForCheck();
           } else {
             requestAnimationFrame(check);
           }

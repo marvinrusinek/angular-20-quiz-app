@@ -76,7 +76,7 @@ export class QqcOrchResetService {
           result.i0, host.optionsToDisplay()
         )
       );
-      host.cdRef.detectChanges();
+      host.cdRef.markForCheck();
     }
 
     host.displayExplanation.set(result.displayExplanation);
@@ -100,7 +100,6 @@ export class QqcOrchResetService {
     } catch { }
     queueMicrotask(() => host.emitPassiveNow(index));
     host.cdRef.markForCheck();
-    host.cdRef.detectChanges();
   }
 
   runResetState(host: Host): void {

@@ -61,7 +61,7 @@ export class QqcOrchDisplayService {
     // signal API (.set) to keep the host fields valid signals.
     host.renderReady.set(false);
     host.finalRenderReady.set(false);
-    host.cdRef.detectChanges();
+    host.cdRef.markForCheck();
 
     host.currentQuestion.set(result.currentQuestion);
     host.optionsToDisplay.set(result.optionsToDisplay);
@@ -108,7 +108,6 @@ export class QqcOrchDisplayService {
   runUpdateOptionHighlighting(host: Host, selectedKeys: Set<string | number>): void {
     host.optionsToDisplay.set(host.feedbackManager.updateOptionHighlighting(host.optionsToDisplay(), selectedKeys, host.currentQuestionIndex(), host.question()?.type));
     host.cdRef.markForCheck();
-    host.cdRef.detectChanges();
   }
 
   runRefreshFeedbackFor(host: Host, opt: Option): void {

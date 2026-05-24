@@ -230,7 +230,6 @@ export class QqcOrchExplanationService {
     host.explanationToDisplay.set(text);
     host.explanationToDisplayChange.emit(text);
     host.cdRef.markForCheck();
-    host.cdRef.detectChanges();
   }
 
   runApplyExplanationFlags(host: Host, flags: any): void {

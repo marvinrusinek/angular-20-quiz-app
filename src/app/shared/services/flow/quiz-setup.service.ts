@@ -764,7 +764,7 @@ subscribeToTimerExpiry(host: Host): void {
         }
       }, 300);
     }
-    Promise.resolve().then(() => host.cdRef.detectChanges());
+    Promise.resolve().then(() => host.cdRef.markForCheck());
 
     this.subscribeToTimerExpiry(host);
 

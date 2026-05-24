@@ -166,7 +166,6 @@ export class QqcOrchClickService {
             }
           }
           soc?.cdRef?.markForCheck?.();
-          soc?.cdRef?.detectChanges?.();
         }
       } catch (e) {
         console.error('QqcOrchClickService.handleOptionSelected single-answer disable failed:', e);
@@ -176,7 +175,6 @@ export class QqcOrchClickService {
       applySingleAnswerDisable();
 
       host.cdRef.markForCheck();
-      host.cdRef.detectChanges();
 
       const lockedIndex = host.currentQuestionIndex() ?? idx;
 
@@ -243,7 +241,6 @@ export class QqcOrchClickService {
         host.refreshFeedbackFor(evtOpt ?? undefined);
         applySingleAnswerDisable();
         host.cdRef.markForCheck();
-        host.cdRef.detectChanges();
       });
 
       requestAnimationFrame(() => {
@@ -278,7 +275,7 @@ export class QqcOrchClickService {
               host.isAnswered.set(coreResult.displayStateAnswered);
               host.displayMode.set(coreResult.displayStateMode);
             }
-            host.cdRef.detectChanges();
+            host.cdRef.markForCheck();
           },
           markBindingSelected: (opt: any) => {
             const b = host.feedbackManager.markBindingSelected(opt, host.currentQuestionIndex(), host.optionBindings());
@@ -292,16 +289,13 @@ export class QqcOrchClickService {
         }).catch(() => {}).finally(() => {
           applySingleAnswerDisable();
           host.cdRef?.markForCheck?.();
-          host.cdRef?.detectChanges?.();
         });
       });
 
       setTimeout(() => {
         applySingleAnswerDisable();
         host.sharedOptionComponent?.()?.cdRef?.markForCheck?.();
-        host.sharedOptionComponent?.()?.cdRef?.detectChanges?.();
         host.cdRef?.markForCheck?.();
-        host.cdRef?.detectChanges?.();
       }, 0);
 
     } finally {

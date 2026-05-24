@@ -227,7 +227,7 @@ export class SharedOptionOrchestratorService {
       b.showFeedbackForOption = host.showFeedbackForOption;
       if (host.showFeedback()) b.showFeedback = true;
     }
-    host.cdRef.detectChanges();
+    host.cdRef.markForCheck();
   }
 
   runRegenerateFeedback(host: Host, idx: number): void {

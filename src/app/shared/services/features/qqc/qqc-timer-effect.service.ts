@@ -316,7 +316,6 @@ export class QqcTimerEffectService {
       optionsToDisplay: Option[];
     };
     markForCheck: () => void;
-    detectChanges: () => void;
   }): boolean {
     if (params.timerStoppedForQuestion) return true;
 
@@ -346,7 +345,6 @@ export class QqcTimerEffectService {
     }
 
     params.markForCheck();
-    params.detectChanges();
 
     return true;  // timerStoppedForQuestion = true
   }

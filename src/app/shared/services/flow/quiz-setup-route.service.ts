@@ -86,7 +86,7 @@ export class QuizSetupRouteService {
           };
           host.combinedQuestionData.set(payload);
           host.questionToDisplaySig.set(question.questionText?.trim() ?? '');
-          host.cdRef.detectChanges();
+          host.cdRef.markForCheck();
 
           // Force question text (with multi-answer banner) into <h3 #qText>
           const displayHTML = this.buildQuestionDisplayHTML(question);
@@ -108,7 +108,7 @@ export class QuizSetupRouteService {
           // Retry after microtask to ensure child components have rendered
           Promise.resolve().then(() => {
             host.combinedQuestionData.set(payload);
-            host.cdRef.detectChanges();
+            host.cdRef.markForCheck();
           });
         }
       });
@@ -237,7 +237,7 @@ export class QuizSetupRouteService {
       host.optionsToDisplaySig.set([...result.options]);
       host.explanationToDisplay.set(result.explanation);
       host.shouldRenderOptions.set(true);
-      host.cdRef.detectChanges();
+      host.cdRef.markForCheck();
 
       // Force question text (with multi-answer banner) into <h3 #qText>
       const displayHTML = this.buildQuestionDisplayHTML(result.question);
@@ -324,7 +324,7 @@ export class QuizSetupRouteService {
       this.quizContentLoaderService.unlockFetGateAfterRender(
         adjustedIndex,
         () => host.currentQuestionIndex(),
-        () => host.cdRef.detectChanges()
+        () => host.cdRef.markForCheck()
       );
       setTimeout(() => this.quizContentLoaderService.enableAllOptionPointerEvents(), 200);
     } catch (error: any) {
@@ -373,7 +373,7 @@ export class QuizSetupRouteService {
       option.showIcon = false;
       option.selected = false;
     }
-    host.cdRef.detectChanges();
+    host.cdRef.markForCheck();
   }
 
   /**

@@ -175,8 +175,7 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
       // Update the correct message for the question
       this.updateCorrectMessageForQuestion();
 
-      // Trigger change detection to update the UI
-      this.cdRef.detectChanges();
+      this.cdRef.markForCheck();
     } catch (error: any) {
       // error handled silently
     }
@@ -187,7 +186,7 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
       this.feedbackService.setCorrectMessage(this.optionsToDisplay())
     );
     this.correctMessageChange.emit(this.correctMessage());
-    this.cdRef.detectChanges();
+    this.cdRef.markForCheck();
   }
 
   protected initializeQuestion(): void {

@@ -267,7 +267,6 @@ export class SharedOptionInitService {
 
       comp.timeoutCorrectOptionKeys = keys;
       comp.cdRef.markForCheck();
-      comp.cdRef.detectChanges();
     });
   }
 
@@ -286,7 +285,7 @@ export class SharedOptionInitService {
         // If options are now ready, try to initialize them
         if (comp.optionsToDisplay?.length && !comp.optionBindings()?.length) {
           comp.generateOptionBindings();
-          comp.cdRef.detectChanges();  // force immediate update for OnPush
+          comp.cdRef.markForCheck();  // force immediate update for OnPush
           return;
         }
 
@@ -298,7 +297,7 @@ export class SharedOptionInitService {
             comp.renderReady.set(true);
             comp.optionsReady = true;
             comp.showNoOptionsFallback = false;
-            comp.cdRef.detectChanges();  // force immediate update for OnPush
+            comp.cdRef.markForCheck();  // force immediate update for OnPush
           }
           return;
         }
@@ -307,7 +306,7 @@ export class SharedOptionInitService {
         if (attempt >= maxAttempts) {
           if (!comp.renderReady() || !comp.optionsToDisplay?.length) {
             comp.showNoOptionsFallback = true;
-            comp.cdRef.detectChanges();  // force immediate update for OnPush
+            comp.cdRef.markForCheck();  // force immediate update for OnPush
           }
           return;
         }
@@ -386,7 +385,7 @@ export class SharedOptionInitService {
       comp.renderReady.set(true);
       comp.showOptions.set(true);
       comp.optionsReady = true;
-      comp.cdRef.detectChanges();
+      comp.cdRef.markForCheck();
     }
 
     // Fallback: retry after short delay for Stackblitz timing issues
@@ -395,7 +394,7 @@ export class SharedOptionInitService {
         comp.renderReady.set(true);
         comp.showOptions.set(true);
         comp.optionsReady = true;
-        comp.cdRef.detectChanges();
+        comp.cdRef.markForCheck();
       }
     }, 50);
   }

@@ -149,9 +149,7 @@ export class StatisticsComponent implements OnInit {
     this.calculateElapsedTime();
     this.sendQuizStatusToQuizService();
 
-    // Force change detection for OnPush when navigating back or tab switching
     this.cdRef.markForCheck();
-    this.cdRef.detectChanges();
   }
 
   private sendQuizStatusToQuizService(): void {

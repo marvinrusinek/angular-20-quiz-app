@@ -40,7 +40,7 @@ export class QclFetGateService {
   unlockFetGateAfterRender(
     adjustedIndex: number,
     getCurrentIndex: () => number,
-    detectChanges: () => void
+    markForCheck: () => void
   ): void {
     const ets = this.explanationTextService;
     ets._fetLocked = true;
@@ -49,7 +49,7 @@ export class QclFetGateService {
     ets.latestExplanation = '';
 
     setTimeout(() => {
-      detectChanges();
+      markForCheck();
       requestAnimationFrame(() => {
         setTimeout(() => {
           const stillCurrent =

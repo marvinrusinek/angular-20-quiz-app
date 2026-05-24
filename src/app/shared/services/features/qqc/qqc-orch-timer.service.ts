@@ -102,7 +102,6 @@ export class QqcOrchTimerService {
 
     if (soc) {
       soc.cdRef.markForCheck();
-      soc.cdRef.detectChanges();
     }
   }
 
@@ -120,8 +119,7 @@ export class QqcOrchTimerService {
       revealFeedbackForAllOptions: (opts: Option[]) => host.revealFeedbackForAllOptions(opts),
       forceDisableSharedOption: () => host.forceDisableSharedOption(),
       updateBindingsAndOptions: () => host.disableAllBindingsAndOptions(),
-      markForCheck: () => host.cdRef.markForCheck(),
-      detectChanges: () => host.cdRef.detectChanges()
+      markForCheck: () => host.cdRef.markForCheck()
     });
     if (stopped) host._timerStoppedForQuestion = true;
   }

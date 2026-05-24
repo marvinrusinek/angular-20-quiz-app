@@ -131,8 +131,6 @@ export class SummaryReportComponent implements OnInit {
       });
     }
 
-    // Force change detection for OnPush when navigating back or tab switching
     this.cdRef.markForCheck();
-    this.cdRef.detectChanges();
   }
 }

@@ -113,9 +113,9 @@ export class QuizContentLoaderService {
   unlockFetGateAfterRender(
     adjustedIndex: number,
     getCurrentIndex: () => number,
-    detectChanges: () => void
+    markForCheck: () => void
   ): void {
-    this.fetGate.unlockFetGateAfterRender(adjustedIndex, getCurrentIndex, detectChanges);
+    this.fetGate.unlockFetGateAfterRender(adjustedIndex, getCurrentIndex, markForCheck);
   }
 
   prepareExplanationForQuestion(params: {

@@ -506,7 +506,7 @@ export class QqcQuestionLoaderService {
    */
   performPostOptionsBindingSetup(params: {
     generateOptionBindings: () => void;
-    detectChanges: () => void;
+    markForCheck: () => void;
     currentQuestionIndex: number;
     emitPassiveNow: (idx: number) => void;
   }): {
@@ -516,7 +516,7 @@ export class QqcQuestionLoaderService {
     pendingPassiveRaf: number;
   } {
     params.generateOptionBindings();
-    params.detectChanges();
+    params.markForCheck();
 
     // UI is now interactive
     this.quizStateService.setLoading(false);
