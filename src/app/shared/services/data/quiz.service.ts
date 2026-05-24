@@ -221,8 +221,8 @@ export class QuizService {
   set quizScore(val: QuizScore | null) { this.scoringService.quizScore = val; }
   get highScores(): QuizScore[] { return this.scoringService.highScores; }
   set highScores(val: QuizScore[]) { this.scoringService.highScores = val; }
-  get highScoresLocal(): any { return this.scoringService.highScoresLocal; }
-  set highScoresLocal(val: any) { this.scoringService.highScoresLocal = val; }
+  get highScoresLocal(): QuizScore[] { return this.scoringService.highScoresLocal; }
+  set highScoresLocal(val: QuizScore[]) { this.scoringService.highScoresLocal = val; }
 
   questionPayloadSig = signal<QuestionPayload | null>(null);
   questionPayload$ = toObservable(this.questionPayloadSig).pipe(

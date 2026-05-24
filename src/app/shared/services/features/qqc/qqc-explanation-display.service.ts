@@ -15,6 +15,7 @@ import { QuizService } from '../../data/quiz.service';
 import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 import { isOptionCorrect } from '../../../utils/is-option-correct';
+import { delay } from '../../../utils/delay';
 import { norm } from '../../../utils/text-norm';
 
 /**
@@ -284,7 +285,7 @@ export class QqcExplanationDisplayService {
     this.quizService.setCurrentQuestion(currentQuestion);
 
     // Wait for rendering
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await delay(100);
 
     if (
       params.shouldDisplayExplanation &&

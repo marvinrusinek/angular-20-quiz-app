@@ -8,6 +8,8 @@ import { QuizQuestion } from '../../../models/QuizQuestion.model';
 import { QuizDataService } from '../../data/quizdata.service';
 import { QuizService } from '../../data/quiz.service';
 
+import { delay } from '../../../utils/delay';
+
 /**
  * Handles question data fetching, validation, and quiz loading for QQC.
  * Extracted from QqcQuestionLoaderService.
@@ -65,7 +67,7 @@ export class QqcQlFetchService {
 
     if (this.isLoadingInProgress) {
       while (this.isLoadingInProgress) {
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await delay(100);
       }
       return { loaded: this.isQuizLoaded, questions: questionsArray };
     }

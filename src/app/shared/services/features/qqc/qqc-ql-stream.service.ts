@@ -22,6 +22,8 @@ import { SelectedOptionService } from '../../state/selectedoption.service';
 import { SelectionMessageService } from '../selection-message/selection-message.service';
 import { TimerService } from '../timer/timer.service';
 
+import { delay } from '../../../utils/delay';
+
 /**
  * Manages reactive streams, DOM freeze/thaw, and legacy question-loading pipeline.
  * Absorbed from QuizQuestionLoaderService into the QQC sub-service layer.
@@ -362,7 +364,7 @@ export class QqcQlStreamService {
     this.resetComplete = false;
 
     if (!canReuseCachedQuestion) {
-      await new Promise((res) => setTimeout(res, 30));
+      await delay(30);
     }
 
     if (this.selectedOptionService.isQuestionAnswered(index)) {

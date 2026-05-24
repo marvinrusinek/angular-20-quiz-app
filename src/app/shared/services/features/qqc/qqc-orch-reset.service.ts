@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 
 import type { QuizQuestionComponent } from '../../../../components/question/quiz-question/quiz-question.component';
 
+import { delay } from '../../../utils/delay';
+
 type Host = QuizQuestionComponent;
 
 /**
@@ -45,7 +47,7 @@ export class QqcOrchResetService {
     }, 0);
 
     const resetDelay = host.resetManager.computeResetDelay(result.preserveVisualState);
-    if (resetDelay > 0) await new Promise((resolve) => setTimeout(resolve, resetDelay));
+    if (resetDelay > 0) await delay(resetDelay);
   }
 
   runResetPerQuestionState(host: Host, index: number): void {

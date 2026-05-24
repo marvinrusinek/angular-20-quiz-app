@@ -17,6 +17,8 @@ import { SelectionMessageService } from '../selection-message/selection-message.
 import { SoundService } from '../../ui/sound.service';
 import { TimerService } from '../timer/timer.service';
 
+import { delay } from '../../../utils/delay';
+
 /**
  * Handles timer expiry, lock, and disable logic for QQC.
  * Extracted from QuizQuestionComponent to reduce its size.
@@ -486,7 +488,7 @@ export class QqcTimerEffectService {
     const ets = this.explanationTextService;
 
     // Wait if the explanation gate is still locked
-    if (ets._fetLocked) await new Promise(res => setTimeout(res, 60));
+    if (ets._fetLocked) await delay(60);
 
     // PREFER cached FET
     const cachedFet = params.formattedByIndex.get(i0)

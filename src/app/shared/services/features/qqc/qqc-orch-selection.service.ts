@@ -7,6 +7,8 @@ import { SelectedOption } from '../../../models/SelectedOption.model';
 
 import type { QuizQuestionComponent } from '../../../../components/question/quiz-question/quiz-question.component';
 
+import { delay } from '../../../utils/delay';
+
 type Host = QuizQuestionComponent;
 
 /**
@@ -161,7 +163,7 @@ export class QqcOrchSelectionService {
     host.showFeedbackForOption = result.showFeedbackForOption;
     host.selectedOptionIndex = result.selectedOptionIndex;
     host.feedbackApplied.emit(selectedOption.optionId ?? -1);
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await delay(50);
     host.cdRef.markForCheck();
   }
 

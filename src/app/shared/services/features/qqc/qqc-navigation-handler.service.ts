@@ -12,6 +12,8 @@ import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 import { TimerService } from '../timer/timer.service';
 
+import { delay } from '../../../utils/delay';
+
 /**
  * Manages navigation-related logic for QuizQuestionComponent:
  * - Visibility change handling (tab switch, background/foreground)
@@ -531,7 +533,7 @@ export class QqcNavigationHandlerService {
     }
 
     // Debounce before applying FET state (ensures no race)
-    await new Promise(res => setTimeout(res, 60));
+    await delay(60);
 
     return {
       currentExplanationText: restoredState.explanationText,

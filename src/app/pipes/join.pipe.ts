@@ -4,7 +4,7 @@
   name: 'join',
 })
 export class JoinPipe implements PipeTransform {
-  transform(value: any, _args?: any): any {
+  transform(value: string[], _args?: any): string {
     return value.join(' and ');
   }
 }

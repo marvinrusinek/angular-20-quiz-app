@@ -4,6 +4,7 @@ import { Option } from '../../../models/Option.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
 import type { QuizQuestionComponent } from '../../../../components/question/quiz-question/quiz-question.component';
+import { delay } from '../../../utils/delay';
 import { norm } from '../../../utils/text-norm';
 
 type Host = QuizQuestionComponent;
@@ -177,7 +178,7 @@ export class QqcOrchExplanationService {
 
     try {
       host.quizService.setCurrentQuestion(validated.currentQuestion);
-      new Promise<void>((resolve) => setTimeout(resolve, 100))
+      delay(100)
         .then(async () => {
           if (host.shouldDisplayExplanation() && (await host.isAnyOptionSelected(validated.adjustedIndex))) {
             host.emitExplanationChange('', false);

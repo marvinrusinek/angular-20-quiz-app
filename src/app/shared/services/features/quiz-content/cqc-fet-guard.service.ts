@@ -4,6 +4,7 @@ import { QUESTION_ROUTE_REGEX } from '../../../constants/route-patterns';
 import { SK_SEL_Q } from '../../../constants/session-keys';
 
 import { Option } from '../../../models/Option.model';
+import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
 import { QuizDotStatusService } from '../../flow/quiz-dot-status.service';
 
@@ -937,7 +938,7 @@ export class CqcFetGuardService {
       : (qs?.getCurrentQuestionIndex?.() ?? 0);
   }
 
-  private getLiveQuestion(host: Host, idx: number = this.getActiveIdx(host)): any {
+  private getLiveQuestion(host: Host, idx: number = this.getActiveIdx(host)): QuizQuestion | undefined {
     const qs: any = host.quizService;
     const isShuffled = qs?.isShuffleEnabled?.()
       && Array.isArray(qs?.shuffledQuestions)
