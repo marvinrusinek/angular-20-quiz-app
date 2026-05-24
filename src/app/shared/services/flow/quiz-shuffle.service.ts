@@ -249,7 +249,7 @@ export class QuizShuffleService {
         }
       }
     } catch (err: any) {
-      // clear failed â€” non-critical
+      // clear failed — non-critical
     }
   }
 
@@ -329,7 +329,7 @@ export class QuizShuffleService {
       this.shuffleByQuizId.set(quizId, state);
       return true;
     } catch (err: any) {
-      // load failed â€” non-critical
+      // load failed — non-critical
       return false;
     }
   }
