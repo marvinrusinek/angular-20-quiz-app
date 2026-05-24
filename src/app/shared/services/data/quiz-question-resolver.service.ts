@@ -117,15 +117,6 @@ export class QuizQuestionResolverService {
 
       if (!clone.type) clone.type = question.type ?? QuestionType.SingleAnswer;
 
-      if (currentQuestion) {
-        const incomingText = normalizeQuestionText(clone.questionText);
-        const currentText = normalizeQuestionText(currentQuestion.questionText);
-        if (incomingText && currentText && incomingText !== currentText) {
-          console.debug('[resolveCanonicalQuestion] Replacing mismatched question text', 
-            { reason, currentText, incomingText, index }
-          );
-        }
-      }
 
       return clone;
     };
