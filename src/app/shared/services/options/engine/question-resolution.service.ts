@@ -172,4 +172,18 @@ export class QuestionResolutionService {
       liveSel,
     };
   }
+
+  /** Check whether a single option is among the canonical correct set. */
+  isOptionCanonCorrect(
+    option: { optionId?: number; text?: string } | null | undefined,
+    correctOpts: any[]
+  ): boolean {
+    if (!option || !correctOpts.length) return false;
+    const optId = option.optionId;
+    const optText = norm(option.text);
+    return correctOpts.some((c: any) =>
+      (optId != null && c?.optionId === optId) ||
+      (!!optText && norm(c?.text) === optText)
+    );
+  }
 }

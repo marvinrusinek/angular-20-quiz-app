@@ -14,4 +14,5 @@ export interface Option {
   feedback?: string;
   showFeedback?: boolean;
   styleClass?: string;
+  _autoRevealedCorrect?: boolean;
 }

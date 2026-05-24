@@ -202,15 +202,6 @@ export class SharedOptionClickService {
     for (const b of state.optionBindings) {
       if (b) b.showFeedbackForOption = { ...comp.showFeedbackForOption };
     }
-    // If auto-reveal already stamped the live bindings with
-    // _autoRevealedCorrect (all-incorrects-exhausted scenario), use
-    // the live bindings — state.optionBindings is a stale snapshot
-    // captured before auto-reveal ran and would wipe the green
-    // highlight, disabled state, and correct-option CSS class.
-    const liveBindings = comp.optionBindings();
-    const autoRevealed = liveBindings?.some((b: any) => b?._autoRevealedCorrect);
-    comp.optionBindings.set(autoRevealed ? liveBindings : state.optionBindings);
-
     let qIdx = comp.getActiveQuestionIndex();
     // Self-heal: getActiveQuestionIndex falls back to quizService's signal,
     // which can be stuck at 0 while the user is actually on Q2/Q3 (observed
@@ -234,6 +225,15 @@ export class SharedOptionClickService {
     }
     const durableSet = comp._multiSelectByQuestion.get(qIdx)!;
     durableSet.add(index);
+
+    // If auto-reveal already stamped the live bindings with
+    // _autoRevealedCorrect (all-incorrects-exhausted scenario), use
+    // the live bindings — state.optionBindings is a stale snapshot
+    // captured before auto-reveal ran and would wipe the green
+    // highlight, disabled state, and correct-option CSS class.
+    const liveBindings = comp.optionBindings();
+    const autoRevealed = liveBindings?.some((b: any) => b?._autoRevealedCorrect);
+    comp.optionBindings.set(autoRevealed ? liveBindings : state.optionBindings);
 
     this.nextButtonStateService.forceEnable(2000);
     this.selectedOptionService.setAnswered(true, true);

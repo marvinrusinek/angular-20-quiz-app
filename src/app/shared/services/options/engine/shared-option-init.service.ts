@@ -170,7 +170,7 @@ export class SharedOptionInitService {
       : (_rawBindings ?? []);
     for (const b of _bindings) {
       if (!b) continue;
-      delete (b as any)._timerExpiredStamped;
+      delete b._timerExpiredStamped;
       if (b.cssClasses) {
         delete b.cssClasses['correct-option'];
         delete b.cssClasses['incorrect-option'];

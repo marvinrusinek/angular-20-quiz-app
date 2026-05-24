@@ -34,4 +34,7 @@ export interface OptionBindings {
   cssClasses?: { [key: string]: boolean };
   optionIcon?: string;
   optionCursor?: string;
+  _autoRevealedCorrect?: boolean;
+  _timerExpiredStamped?: boolean;
+  _timerExpiredStampedForIndex?: number;
 }

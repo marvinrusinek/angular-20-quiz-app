@@ -247,9 +247,9 @@ export class SharedOptionComponent
           this._timerExpiryHandled = false;
           for (const b of this.optionBindings() ?? []) {
             if (!b) continue;
-            delete (b as any)._timerExpiredStamped;
-            delete (b as any)._timerExpiredStampedForIndex;
-            delete (b as any)._autoRevealedCorrect;
+            delete b._timerExpiredStamped;
+            delete b._timerExpiredStampedForIndex;
+            delete b._autoRevealedCorrect;
             if (b.cssClasses) {
               delete b.cssClasses['correct-option'];
               delete b.cssClasses['incorrect-option'];
@@ -265,8 +265,8 @@ export class SharedOptionComponent
               b.option.highlight = false;
               b.option.showIcon = false;
               b.option.active = true;
-              delete (b.option as any)._autoRevealedCorrect;
-              delete (b.option as any).feedback;
+              delete b.option._autoRevealedCorrect;
+              delete b.option.feedback;
             }
           }
           this.selectedOptionMap.clear();
@@ -312,9 +312,9 @@ export class SharedOptionComponent
               const current = this.optionBindings() ?? [];
               for (const b of current) {
                 if (!b) continue;
-                delete (b as any)._timerExpiredStamped;
-                delete (b as any)._timerExpiredStampedForIndex;
-                delete (b as any)._autoRevealedCorrect;
+                delete b._timerExpiredStamped;
+                delete b._timerExpiredStampedForIndex;
+                delete b._autoRevealedCorrect;
                 // Also clear binding-level cssClasses that drive
                 // ngClass — without this the `correct-option` / `selected`
                 // classes persist via DOM reuse + OnPush staleness.
@@ -324,14 +324,14 @@ export class SharedOptionComponent
                 }
                 b.isSelected = false;
                 if (b.option) {
-                  delete (b.option as any)._autoRevealedCorrect;
+                  delete b.option._autoRevealedCorrect;
                   // Reset option-level state that persists on shared refs
                   // across navigations — without this, prior-visit clicks
                   // make preserveOptionHighlighting re-render them as
                   // highlighted on revisit.
-                  (b.option as any).selected = false;
-                  (b.option as any).highlight = false;
-                  (b.option as any).showIcon = false;
+                  b.option.selected = false;
+                  b.option.highlight = false;
+                  b.option.showIcon = false;
                 }
               }
               // Replace EACH binding object with a fresh spread (not just
@@ -382,7 +382,7 @@ export class SharedOptionComponent
         // The parent's optionBindings() doesn't carry _autoRevealedCorrect,
         // so a zone.js tick re-evaluating the parent template would wipe
         // the green highlight set by triggerAllIncorrectsExhaustedAutoReveal.
-        if (this.optionBindings().some((b: OptionBindings) => (b as any)?._autoRevealedCorrect)) return;
+        if (this.optionBindings().some((b: OptionBindings) => b?._autoRevealedCorrect)) return;
         this.optionBindings.set(v);
       }
     });
@@ -437,7 +437,7 @@ export class SharedOptionComponent
       // If auto-reveal already stamped _autoRevealedCorrect on the
       // bindings, do not overwrite — auto-reveal's highlight + disable
       // state is authoritative for exhausted-incorrect scenarios.
-      if (this.optionBindings().some((b: OptionBindings) => (b as any)?._autoRevealedCorrect)) return;
+      if (this.optionBindings().some((b: OptionBindings) => b?._autoRevealedCorrect)) return;
 
       // Rebuild every binding with fresh refs so OnPush option-items pick
       // up the new disabled state via ngOnChanges.
