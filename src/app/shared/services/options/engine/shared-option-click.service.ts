@@ -203,6 +203,7 @@ export class SharedOptionClickService {
       if (b) b.showFeedbackForOption = { ...comp.showFeedbackForOption };
     }
     let qIdx = comp.getActiveQuestionIndex();
+    const displayIdx = qIdx; // Preserve display index before self-heal corrects to original
     // Self-heal: getActiveQuestionIndex falls back to quizService's signal,
     // which can be stuck at 0 while the user is actually on Q2/Q3 (observed
     // via diagnostics). When qIdx and comp.currentQuestion's text don't
@@ -324,7 +325,7 @@ export class SharedOptionClickService {
       // multi-answer question shows a sad face instead of smiley.
       const freshBinding = comp.optionBindings()?.[index] ?? binding;
       this.answerProcessing.processMultiAnswerClick({
-        comp, index, binding: freshBinding, qIdx, durableSet,
+        comp, index, binding: freshBinding, qIdx, displayIdx, durableSet,
         effectiveCorrectIndices, effectiveCorrectCount, isShuffled
       });
       return;
@@ -332,7 +333,7 @@ export class SharedOptionClickService {
 
     if (!isMultiFromQ) {
       this.answerProcessing.processSingleAnswerClick({
-        comp, index, qIdx, durableSet,
+        comp, index, qIdx, displayIdx, durableSet,
         effectiveCorrectIndices, isShuffled
       });
     }

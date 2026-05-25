@@ -52,12 +52,13 @@ export class SocAnswerProcessingService {
     index: number;
     binding: any;
     qIdx: number;
+    displayIdx: number;
     durableSet: Set<number>;
     effectiveCorrectIndices: number[];
     effectiveCorrectCount: number;
     isShuffled: boolean;
   }): void {
-    const { comp, index, binding, qIdx, durableSet, isShuffled } = params;
+    const { comp, index, binding, qIdx, displayIdx, durableSet, isShuffled } = params;
     let { effectiveCorrectIndices } = params;
 
     // PRISTINE-AUTHORITATIVE: always recompute correctIndices from
@@ -108,8 +109,8 @@ export class SocAnswerProcessingService {
     // Set _multiAnswerPerfect BEFORE applying bindings so that
     // isDisabled() sees it when Angular re-renders the option items.
     if (clickState.remaining === 0) {
-      this.quizService._multiAnswerPerfect.set(qIdx, true);
-      try { sessionStorage.setItem(SK_MULTI_PERFECT + qIdx, 'true'); } catch {}
+      this.quizService._multiAnswerPerfect.set(displayIdx, true);
+      try { sessionStorage.setItem(SK_MULTI_PERFECT + displayIdx, 'true'); } catch {}
     }
 
     const bindingUpdates = this.clickHandler.computeMultiAnswerBindingUpdates(
@@ -124,7 +125,7 @@ export class SocAnswerProcessingService {
     let suppressDisableForUnselected = false;
     try {
       const liveQS: any = comp.currentQuestion()
-        ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]
+        ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[displayIdx]
         ?? (this.quizService as any)?.questions?.[qIdx];
       const pristineCorrectTextsS =
         this.quizService.getPristineCorrectTextsForQuestion(liveQS?.questionText);
@@ -212,7 +213,7 @@ export class SocAnswerProcessingService {
       effectiveCorrectIndices.every((ci: number) => durableSet.has(ci));
     try {
       const liveQAC: any = comp.currentQuestion()
-        ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]
+        ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[displayIdx]
         ?? (this.quizService as any)?.questions?.[qIdx];
       const bindingsAC: any[] = comp.optionBindings() ?? [];
       if (bindingsAC.length) {
@@ -233,13 +234,24 @@ export class SocAnswerProcessingService {
       try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
       this.nextButtonStateService.setNextButtonState(true);
 
-      // Set FET bypass BEFORE scoring so all downstream gates are open
-      this.explanationTextService.fetBypassForQuestion.set(qIdx, true);
+      // Set FET bypass BEFORE scoring so all downstream gates are open.
+      // Use displayIdx for all display-pipeline keys (FET, multiPerfect,
+      // sessionStorage) because CQC/navigation read by display index.
+      // Keep qIdx (original/canonical) for scoreDirectly — scoring
+      // handles shuffle mapping internally.
+      this.explanationTextService.fetBypassForQuestion.set(displayIdx, true);
 
       this.quizService.scoreDirectly(qIdx, true, true);
 
-      this.quizService._multiAnswerPerfect.set(qIdx, true);
-      try { sessionStorage.setItem(SK_MULTI_PERFECT + qIdx, 'true'); } catch {}
+      // Also mirror questionCorrectness at the display index so the
+      // navigation service (which checks by display index) can find it
+      // and won't wrongly wipe _multiAnswerPerfect on Next click.
+      if (isShuffled && displayIdx !== qIdx) {
+        this.quizService.questionCorrectness?.set(displayIdx, true);
+      }
+
+      this.quizService._multiAnswerPerfect.set(displayIdx, true);
+      try { sessionStorage.setItem(SK_MULTI_PERFECT + displayIdx, 'true'); } catch {}
 
       (this.explanationTextService as any)._fetLocked = false;
       this.explanationTextService.unlockExplanation();
@@ -250,8 +262,8 @@ export class SocAnswerProcessingService {
       let fetText = '';
       try {
         const fetQText = isShuffled
-          ? ((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText
-            ?? (this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText)
+          ? ((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[displayIdx]?.questionText
+            ?? (this.quizService as any)?.shuffledQuestions?.[displayIdx]?.questionText)
           : (comp.currentQuestion()?.questionText
             ?? (this.quizService as any)?.questions?.[qIdx]?.questionText);
         const pristineFETQ = this.quizService.getPristineQuestionByText(fetQText);
@@ -259,8 +271,8 @@ export class SocAnswerProcessingService {
         // Also try live question objects
         if (!fetText) {
           const liveQ = comp.currentQuestion()
-            ?? comp.getQuestionAtDisplayIndex?.(qIdx)
-            ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx];
+            ?? comp.getQuestionAtDisplayIndex?.(displayIdx)
+            ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[displayIdx];
           fetText = (liveQ?.explanation ?? '').trim();
         }
       } catch (e) { console.error('processMultiAnswerClick FET-text resolution failed:', e); }
@@ -275,8 +287,8 @@ export class SocAnswerProcessingService {
             .map((ci: number) => ci + 1)
             .filter((n: number) => Number.isFinite(n) && n > 0);
           const qForFormat = comp.currentQuestion()
-            ?? comp.getQuestionAtDisplayIndex?.(qIdx)
-            ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]
+            ?? comp.getQuestionAtDisplayIndex?.(displayIdx)
+            ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[displayIdx]
             ?? (this.quizService as any)?.questions?.[qIdx];
           if (qForFormat && oneBasedIndices.length > 0) {
             formattedFET = this.explanationTextService.formatExplanation(
@@ -287,22 +299,23 @@ export class SocAnswerProcessingService {
           }
         } catch (e) { console.error('processMultiAnswerClick FET formatting failed:', e); }
 
-        // Write directly via explanationTextService
-        this.explanationTextService._activeIndex = qIdx;
+        // Write directly via explanationTextService — use displayIdx
+        // so the CQC display pipeline (which reads by display index) finds it.
+        this.explanationTextService._activeIndex = displayIdx;
         (this.explanationTextService as any).latestExplanation = formattedFET;
-        (this.explanationTextService as any).latestExplanationIndex = qIdx;
+        (this.explanationTextService as any).latestExplanationIndex = displayIdx;
         this.explanationTextService.setExplanationText(formattedFET, {
           force: true,
-          context: `question:${qIdx}`,
-          index: qIdx
+          context: `question:${displayIdx}`,
+          index: displayIdx
         });
-        this.explanationTextService.emitFormatted(qIdx, formattedFET);
+        this.explanationTextService.emitFormatted(displayIdx, formattedFET);
         this.explanationTextService.setShouldDisplayExplanation(true, {
-          context: `question:${qIdx}`,
+          context: `question:${displayIdx}`,
           force: true
         } as any);
         this.explanationTextService.setIsExplanationTextDisplayed(true, {
-          context: `question:${qIdx}`,
+          context: `question:${displayIdx}`,
           force: true
         } as any);
         this.explanationTextService.lockExplanation();
@@ -313,7 +326,7 @@ export class SocAnswerProcessingService {
       // Also try the component path as backup
       setTimeout(() => {
         try {
-          comp.emitExplanation(qIdx, true);
+          comp.emitExplanation(displayIdx, true);
         } catch { /* ignore */ }
       }, MULTI_ANSWER_BACKUP_FET_DELAY_MS);
     }
@@ -368,11 +381,12 @@ export class SocAnswerProcessingService {
     comp: any;
     index: number;
     qIdx: number;
+    displayIdx: number;
     durableSet: Set<number>;
     effectiveCorrectIndices: number[];
     isShuffled: boolean;
   }): void {
-    const { comp, index, qIdx, durableSet, effectiveCorrectIndices, isShuffled } = params;
+    const { comp, index, qIdx, displayIdx, durableSet, effectiveCorrectIndices, isShuffled } = params;
 
     // GUARD: If pristine data says this is actually a multi-answer
     // question, abort the single-answer path. Otherwise selecting one
@@ -400,6 +414,7 @@ export class SocAnswerProcessingService {
           index,
           binding: comp.optionBindings()?.[index],
           qIdx,
+          displayIdx,
           durableSet,
           effectiveCorrectIndices: correctIndicesByText.length
             ? correctIndicesByText
