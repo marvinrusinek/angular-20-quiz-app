@@ -71,6 +71,9 @@ export class CqcDisplayTextService {
                 || host.quizService?._multiAnswerPerfect?.get(_latestExpIdx) === true
             ))
             || _clickedThisIdx;
+          if (lowerText.includes('correct because')) {
+            console.log('[FET-DIAG-G] CQC subscriber received FET, currentIdx:', currentIdx, '_latestExpIdx:', _latestExpIdx, 'isQuestionText:', isQuestionText, '_fetBypass:', _fetBypass, '_clickedThisIdx:', _clickedThisIdx, 'bypassMap.get(curr):', host.explanationTextService?.fetBypassForQuestion?.get(currentIdx), 'multiPerfectMap.get(curr):', host.quizService?._multiAnswerPerfect?.get(currentIdx), 'clickedSessionHas(curr):', host.quizStateService?.hasClickedInSession?.(currentIdx));
+          }
           if (!isQuestionText && lowerText.includes('correct because') && _fetBypass) {
             const el = host.qText?.()?.nativeElement;
             if (el) {
