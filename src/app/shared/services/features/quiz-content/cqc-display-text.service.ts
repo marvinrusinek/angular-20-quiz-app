@@ -67,6 +67,7 @@ export class CqcDisplayTextService {
             ));
           if (!isQuestionText && lowerText.includes('correct because') && _fetBypass) {
             const el = host.qText?.()?.nativeElement;
+            console.log('[FET-DIAG-D] FAST-PATH FET BYPASS fired, el present:', !!el, 'currentIdx:', currentIdx, '_latestExpIdx:', _latestExpIdx);
             if (el) {
               host.qTextHtmlSig?.set(text);
               host._lastDisplayedText = text;
@@ -74,6 +75,8 @@ export class CqcDisplayTextService {
               (host as any)._fetLockedForIndex = currentIdx;
               return;
             }
+          } else if (lowerText.includes('correct because')) {
+            console.log('[FET-DIAG-E] FAST-PATH SKIPPED for FET. isQuestionText:', isQuestionText, '_fetBypass:', _fetBypass, 'currentIdx:', currentIdx, '_latestExpIdx:', _latestExpIdx, 'fetBypassMap.get(curr):', host.explanationTextService?.fetBypassForQuestion?.get(currentIdx), 'multiPerfectMap.get(curr):', host.quizService?._multiAnswerPerfect?.get(currentIdx));
           }
 
           // TIMER-EXPIRY FET FAST PATH: when timed out and incoming text
