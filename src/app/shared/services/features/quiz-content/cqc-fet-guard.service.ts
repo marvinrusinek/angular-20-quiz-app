@@ -43,6 +43,9 @@ export class CqcFetGuardService {
   writeQText(host: Host, html: string): void {
     try {
       let safe = html ?? '';
+      const _wLower = (safe ?? '').toLowerCase();
+      const _hasBanner = (safe ?? '').includes('correct-count');
+      console.log('[MULTI-DIAG-J] writeQText IN. isFET:', _wLower.includes('correct because'), 'hasBanner:', _hasBanner, 'first80:', safe.substring(0, 80));
 
       // URL-AUTHORITATIVE GUARD: when on a /question/{quizId}/{N} URL,
       // ALWAYS overwrite non-FET writes with the URL question's text.
@@ -687,6 +690,9 @@ export class CqcFetGuardService {
         }
       } catch { /* ignore */ }
 
+      const _wLower2 = (safe ?? '').toLowerCase();
+      const _hasBanner2 = (safe ?? '').includes('correct-count');
+      console.log('[MULTI-DIAG-K] writeQText OUT. isFET:', _wLower2.includes('correct because'), 'hasBanner:', _hasBanner2, 'first80:', safe.substring(0, 80));
       host.qTextHtmlSig?.set(safe);
       host._lastDisplayedText = safe;
       const el = host.qText?.()?.nativeElement;
