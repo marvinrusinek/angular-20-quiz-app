@@ -33,6 +33,8 @@ export class CqcDisplayTextService {
         next: (text: string) => {
           let finalText = text;
           const lowerText = (text ?? '').toLowerCase();
+          const _isFetIn = lowerText.includes('correct because');
+          if (_isFetIn) console.log('[FET-DIAG-B] displayText$ emitted FET to CQC subscriber, len:', text.length, 'first80:', text.substring(0,80));
           // Read currentIdx from the input signal — host.currentIndex is a
           // plain field updated asynchronously by an effect, so it lags
           // questionIndex() by a microtask. Without this, after timer
