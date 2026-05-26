@@ -81,6 +81,15 @@ export class CqcDisplayTextService {
               host._lastDisplayedText = text;
               host.renderer.setProperty(el, 'innerHTML', text);
               (host as any)._fetLockedForIndex = currentIdx;
+              const _expectFet = text;
+              setTimeout(() => {
+                const dom1 = (el.innerHTML ?? '').trim();
+                console.log('[FET-DIAG-H] 100ms after FAST-PATH write: matches FET?', dom1 === _expectFet.trim(), 'DOM first80:', dom1.substring(0, 80));
+              }, 100);
+              setTimeout(() => {
+                const dom2 = (el.innerHTML ?? '').trim();
+                console.log('[FET-DIAG-I] 500ms after FAST-PATH write: matches FET?', dom2 === _expectFet.trim(), 'DOM first80:', dom2.substring(0, 80));
+              }, 500);
               return;
             }
           }
