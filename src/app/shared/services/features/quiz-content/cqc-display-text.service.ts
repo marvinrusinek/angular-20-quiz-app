@@ -84,6 +84,18 @@ export class CqcDisplayTextService {
                 || host.quizService?._multiAnswerPerfect?.get(_latestExpIdx) === true
             ))
             || _incomingMatchesCachedFet;
+          if (lowerText.includes('correct because')) {
+            console.log('[WC-DIAG] FET arrived at CQC. currentIdx:', currentIdx,
+              '| bypass.get(curr):', host.explanationTextService?.fetBypassForQuestion?.get(currentIdx),
+              '| multiPerfect.get(curr):', host.quizService?._multiAnswerPerfect?.get(currentIdx),
+              '| latestExpIdx:', _latestExpIdx,
+              '| _latestExpMatchesCurr:', _latestExpMatchesCurr,
+              '| cachedFetForCurr exists:', !!_cachedFetForCurr,
+              '| incomingMatchesCachedFet:', _incomingMatchesCachedFet,
+              '| _fetBypass:', _fetBypass,
+              '| isQuestionText:', isQuestionText,
+              '| FAST-PATH will fire:', !isQuestionText && _fetBypass);
+          }
           if (!isQuestionText && lowerText.includes('correct because') && _fetBypass) {
             const el = host.qText?.()?.nativeElement;
             if (el) {
