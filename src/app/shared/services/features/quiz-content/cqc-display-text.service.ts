@@ -71,24 +71,6 @@ export class CqcDisplayTextService {
                 || host.quizService?._multiAnswerPerfect?.get(_latestExpIdx) === true
             ))
             || _clickedThisIdx;
-          if (lowerText.includes('correct because')) {
-            console.log('[MULTI-DIAG-G] CQC subscriber received FET, currentIdx:', currentIdx, '_latestExpIdx:', _latestExpIdx, 'isQuestionText:', isQuestionText, '_fetBypass:', _fetBypass, '_clickedThisIdx:', _clickedThisIdx, 'bypassMap.get(curr):', host.explanationTextService?.fetBypassForQuestion?.get(currentIdx), 'multiPerfectMap.get(curr):', host.quizService?._multiAnswerPerfect?.get(currentIdx));
-          }
-          // ATTACH ONE-TIME MUTATION-WATCHER on H3 to log EVERY DOM change
-          if (!(host as any).__diagMutObs) {
-            try {
-              const elW = host.qText?.()?.nativeElement;
-              if (elW && typeof MutationObserver !== 'undefined') {
-                const obs = new MutationObserver(() => {
-                  const html = (elW.innerHTML ?? '').trim();
-                  console.log('[MULTI-DIAG-M] H3 innerHTML mutated. isFET:', html.toLowerCase().includes('correct because'), 'hasBanner:', html.includes('correct-count'), 'first80:', html.substring(0, 80));
-                });
-                obs.observe(elW, { childList: true, characterData: true, subtree: true });
-                (host as any).__diagMutObs = obs;
-                console.log('[MULTI-DIAG-M-init] MutationObserver attached to H3');
-              }
-            } catch { /* ignore */ }
-          }
           if (!isQuestionText && lowerText.includes('correct because') && _fetBypass) {
             const el = host.qText?.()?.nativeElement;
             if (el) {
