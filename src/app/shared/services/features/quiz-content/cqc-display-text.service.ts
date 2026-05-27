@@ -92,9 +92,7 @@ export class CqcDisplayTextService {
             // option selected. Required-AND prevents timer-expiry leak
             // (no correct selection → no bypass).
             || (_incomingMatchesCachedFet && _hasCorrectSelected);
-          if (lowerText.includes('correct because')) {
-            console.log('[Q5-DIAG] FET arrived. currentIdx:', currentIdx, '_latestExpIdx:', _latestExpIdx, 'isQuestionText:', isQuestionText, 'bypass.get(curr):', host.explanationTextService?.fetBypassForQuestion?.get(currentIdx), 'multiPerfect.get(curr):', host.quizService?._multiAnswerPerfect?.get(currentIdx), '_incomingMatchesCachedFet:', _incomingMatchesCachedFet, '_hasCorrectSelected:', _hasCorrectSelected, '_fetBypass:', _fetBypass, 'allBypassKeys:', [...(host.explanationTextService?.fetBypassForQuestion?.keys?.() ?? [])], 'allMultiPerfectKeys:', [...(host.quizService?._multiAnswerPerfect?.keys?.() ?? [])]);
-          }
+          console.log('[Q5-DIAG] emission. currentIdx:', currentIdx, 'incoming first60:', (text ?? '').substring(0, 60), 'isFET:', lowerText.includes('correct because'), 'isQText:', isQuestionText, 'bypassMapSize:', host.explanationTextService?.fetBypassForQuestion?.size, 'multiPerfectMapSize:', host.quizService?._multiAnswerPerfect?.size, 'bypassKeys:', [...(host.explanationTextService?.fetBypassForQuestion?.keys?.() ?? [])], 'multiPerfectKeys:', [...(host.quizService?._multiAnswerPerfect?.keys?.() ?? [])], '_hasCorrectSelected:', _hasCorrectSelected, '_fetBypass:', _fetBypass);
           if (!isQuestionText && lowerText.includes('correct because') && _fetBypass) {
             const el = host.qText?.()?.nativeElement;
             if (el) {
