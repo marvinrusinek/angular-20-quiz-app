@@ -518,6 +518,14 @@ export class OptionItemComponent implements OnInit {
   }
 
   getOptionBackgroundColor(): string | null {
+    const _origRet = this._computeBackgroundColor();
+    if (this._userHasClicked) {
+      console.log('[BG-DIAG] getOptionBackgroundColor for clicked. optionId:', this.binding()?.option?.optionId, 'returned:', _origRet, 'isCorrect:', this.isCurrentOptionCorrect(), 'shouldHighlight:', this.shouldHighlightOption());
+    }
+    return _origRet;
+  }
+
+  private _computeBackgroundColor(): string | null {
     // AUTO-REVEAL: persistent flag wins over all other guards.
     // Must be checked FIRST — the revisit guard below would return null
     // for unclicked correct options on unresolved multi-answer questions,
