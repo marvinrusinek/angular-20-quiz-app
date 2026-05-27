@@ -92,9 +92,6 @@ export class CqcDisplayTextService {
             // option selected. Required-AND prevents timer-expiry leak
             // (no correct selection → no bypass).
             || (_incomingMatchesCachedFet && _hasCorrectSelected);
-          if (lowerText.includes('correct because')) {
-            console.log('[FET-DIAG] CQC subscriber FET arrived. currentIdx:', currentIdx, '_latestExpIdx:', _latestExpIdx, 'isQuestionText:', isQuestionText, 'bypass.get(curr):', host.explanationTextService?.fetBypassForQuestion?.get(currentIdx), 'multiPerfect.get(curr):', host.quizService?._multiAnswerPerfect?.get(currentIdx), '_incomingMatchesCachedFet:', _incomingMatchesCachedFet, '_hasCorrectSelected:', _hasCorrectSelected, '_latestExpMatchesCurr:', _latestExpMatchesCurr, '_fetBypass:', _fetBypass);
-          }
           if (!isQuestionText && lowerText.includes('correct because') && _fetBypass) {
             const el = host.qText?.()?.nativeElement;
             if (el) {
