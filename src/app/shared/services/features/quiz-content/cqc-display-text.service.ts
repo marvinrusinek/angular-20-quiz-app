@@ -57,15 +57,16 @@ export class CqcDisplayTextService {
           // Check at currentIdx first; also check at latestExplanationIndex
           // in case host.questionIndex() is stale (lags a microtask behind SOC).
           const _latestExpIdx = host.explanationTextService?.latestExplanationIndex ?? -1;
-          // PIPELINE-TRUST (TIGHTENED): only accept incoming FET when the
-          // explanation service has stored a FET FOR THIS EXACT QUESTION
-          // INDEX AND it matches the incoming text. This closes both races:
-          //   • SOC hasn't set bypass yet but pipeline emitted FET on a real
-          //     correct click — the cached FET will match.
-          //   • User clicks wrong on a new question after previously
-          //     answering another correctly — the cache at currentIdx has
-          //     no entry (or different text), so leak from previous Q's
-          //     bypass is rejected.
+          // PIPELINE-TRUST (TIGHTENED): only accept incoming FET when there
+          // is concrete evidence the user actually got this question
+          // correct. The pipeline may emit FET on timer expiry too — we
+          // must NOT show FET on timer expiry without a correct selection,
+          // per requirement "only show FET for correct answers".
+          //
+          // Race fallback: pipeline can emit FET (because isResolved=true)
+          // BEFORE SOC sets fetBypassForQuestion. To catch this case
+          // without leaking timer-expiry FETs, also accept when at least
+          // one selected option for this idx is a correct answer.
           const _cachedFetForCurr = (
             host.explanationTextService?.formattedExplanations?.[currentIdx]?.explanation
             ?? (host.explanationTextService as any)?.fetByIndex?.get?.(currentIdx)
@@ -73,9 +74,13 @@ export class CqcDisplayTextService {
           ).toString().trim();
           const _incomingMatchesCachedFet =
             !!_cachedFetForCurr && (text ?? '').trim() === _cachedFetForCurr;
-          // _latestExpIdx fallback is only valid when it points to THE SAME
-          // current question — otherwise it's a leak from a previously
-          // answered question and must not be used as bypass evidence here.
+          let _hasCorrectSelected = false;
+          try {
+            const _selOpts = host.selectedOptionService?.getSelectedOptionsForQuestion?.(currentIdx) ?? [];
+            _hasCorrectSelected = Array.isArray(_selOpts) && _selOpts.some(
+              (s: any) => (s?.correct === true || s?.isCorrect === true) && s?.selected !== false
+            );
+          } catch { /* ignore */ }
           const _latestExpMatchesCurr = _latestExpIdx === currentIdx;
           const _fetBypass = host.explanationTextService?.fetBypassForQuestion?.get(currentIdx) === true
             || host.quizService?._multiAnswerPerfect?.get(currentIdx) === true
@@ -83,30 +88,13 @@ export class CqcDisplayTextService {
                 host.explanationTextService?.fetBypassForQuestion?.get(_latestExpIdx) === true
                 || host.quizService?._multiAnswerPerfect?.get(_latestExpIdx) === true
             ))
-            || _incomingMatchesCachedFet;
-          // ATTACH H3 MutationObserver to capture EVERY DOM write with FET
-          if (!(host as any).__fetMutObs) {
-            try {
-              const elObs = host.qText?.()?.nativeElement;
-              if (elObs && typeof MutationObserver !== 'undefined') {
-                const obs = new MutationObserver(() => {
-                  const html = (elObs.innerHTML ?? '').trim();
-                  if (html.toLowerCase().includes('correct because')) {
-                    console.log('[FET-TRACE-B] H3 mutated to FET. first80:', html.substring(0, 80));
-                  }
-                });
-                obs.observe(elObs, { childList: true, characterData: true, subtree: true });
-                (host as any).__fetMutObs = obs;
-              }
-            } catch { /* ignore */ }
-          }
-          if (lowerText.includes('correct because')) {
-            console.log('[FET-TRACE-C] CQC subscriber FET arrived. currentIdx:', currentIdx, '_fetBypass:', _fetBypass, 'isQuestionText:', isQuestionText, 'bypass.get(curr):', host.explanationTextService?.fetBypassForQuestion?.get(currentIdx), 'multiPerfect.get(curr):', host.quizService?._multiAnswerPerfect?.get(currentIdx), 'incomingMatchesCachedFet:', _incomingMatchesCachedFet);
-          }
+            // Race fallback: cached-FET match AND user has a correct
+            // option selected. Required-AND prevents timer-expiry leak
+            // (no correct selection → no bypass).
+            || (_incomingMatchesCachedFet && _hasCorrectSelected);
           if (!isQuestionText && lowerText.includes('correct because') && _fetBypass) {
             const el = host.qText?.()?.nativeElement;
             if (el) {
-              console.log('[FET-TRACE-D] FAST-PATH about to write FET via setProperty');
               host.qTextHtmlSig?.set(text);
               host._lastDisplayedText = text;
               host.renderer.setProperty(el, 'innerHTML', text);
