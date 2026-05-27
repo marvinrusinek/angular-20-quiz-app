@@ -214,9 +214,6 @@ export class OptionItemComponent implements OnInit {
 
   getOptionClasses(): { [key: string]: boolean } {
     const classes = { ...this.binding().cssClasses };
-    const _b = this.binding();
-    const _ts = Date.now() % 100000;
-    console.log('[CD-DIAG]', _ts, 'getOptionClasses for optionId:', _b?.option?.optionId, 'displayIdx:', this.displayIndex(), '_userHasClicked:', this._userHasClicked, 'isSelected:', _b?.isSelected, 'highlight:', _b?.option?.highlight, 'shouldHL:', this.shouldHighlightOption(), 'isCorrect:', this.isCurrentOptionCorrect());
 
     // Previous-revisit override (highest priority): when the user revisits a
     // FULLY-resolved question, paint correct options green and incorrect ones
@@ -514,14 +511,6 @@ export class OptionItemComponent implements OnInit {
   }
 
   getOptionBackgroundColor(): string | null {
-    const _origRet = this._computeBackgroundColor();
-    if (this._userHasClicked) {
-      console.log('[BG-DIAG] getOptionBackgroundColor for clicked. optionId:', this.binding()?.option?.optionId, 'returned:', _origRet, 'isCorrect:', this.isCurrentOptionCorrect(), 'shouldHighlight:', this.shouldHighlightOption());
-    }
-    return _origRet;
-  }
-
-  private _computeBackgroundColor(): string | null {
     // AUTO-REVEAL: persistent flag wins over all other guards.
     // Must be checked FIRST — the revisit guard below would return null
     // for unclicked correct options on unresolved multi-answer questions,
