@@ -84,9 +84,29 @@ export class CqcDisplayTextService {
                 || host.quizService?._multiAnswerPerfect?.get(_latestExpIdx) === true
             ))
             || _incomingMatchesCachedFet;
+          // ATTACH H3 MutationObserver to capture EVERY DOM write with FET
+          if (!(host as any).__fetMutObs) {
+            try {
+              const elObs = host.qText?.()?.nativeElement;
+              if (elObs && typeof MutationObserver !== 'undefined') {
+                const obs = new MutationObserver(() => {
+                  const html = (elObs.innerHTML ?? '').trim();
+                  if (html.toLowerCase().includes('correct because')) {
+                    console.log('[FET-TRACE-B] H3 mutated to FET. first80:', html.substring(0, 80));
+                  }
+                });
+                obs.observe(elObs, { childList: true, characterData: true, subtree: true });
+                (host as any).__fetMutObs = obs;
+              }
+            } catch { /* ignore */ }
+          }
+          if (lowerText.includes('correct because')) {
+            console.log('[FET-TRACE-C] CQC subscriber FET arrived. currentIdx:', currentIdx, '_fetBypass:', _fetBypass, 'isQuestionText:', isQuestionText, 'bypass.get(curr):', host.explanationTextService?.fetBypassForQuestion?.get(currentIdx), 'multiPerfect.get(curr):', host.quizService?._multiAnswerPerfect?.get(currentIdx), 'incomingMatchesCachedFet:', _incomingMatchesCachedFet);
+          }
           if (!isQuestionText && lowerText.includes('correct because') && _fetBypass) {
             const el = host.qText?.()?.nativeElement;
             if (el) {
+              console.log('[FET-TRACE-D] FAST-PATH about to write FET via setProperty');
               host.qTextHtmlSig?.set(text);
               host._lastDisplayedText = text;
               host.renderer.setProperty(el, 'innerHTML', text);
