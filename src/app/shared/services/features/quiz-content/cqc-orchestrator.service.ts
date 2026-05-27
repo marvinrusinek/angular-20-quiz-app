@@ -240,8 +240,8 @@ export class CqcOrchestratorService {
       .subscribe(() => {
         // Use signal-first idx resolution. host.currentIndex is a plain field
         // updated asynchronously by an effect, so it lags the signal by a
-        // microtask. Reading it first lets a stale Q(N) timer expiry write
-        // Q(N)'s FET into Q(N+1)'s heading after navigation.
+        // microtask. Reading it first prevents stale Q(N) timer expiry from
+        // writing Q(N)'s FET into Q(N+1)'s heading after navigation.
         const sigIdx = host.questionIndex?.();
         const idx = (typeof sigIdx === 'number' && sigIdx >= 0)
           ? sigIdx
@@ -253,30 +253,15 @@ export class CqcOrchestratorService {
         host.timedOutIdxSubject.next(idx);
         (window as any).__quizTimerExpired = true;
 
-        // GATE: only auto-reveal FET on timer expiry when the user has
-        // actually answered correctly (fetBypass or multiPerfect set by SOC,
-        // or scoring service confirms correctness). Otherwise no FET — the
-        // user only sees the FET for questions they got right.
-        const expSvc: any = host.explanationTextService;
-        const quizSvc: any = host.quizService;
-        const isCorrectlyAnswered =
-          expSvc?.fetBypassForQuestion?.get?.(idx) === true
-          || quizSvc?._multiAnswerPerfect?.get?.(idx) === true
-          || quizSvc?.questionCorrectness?.get?.(idx) === true;
-
         const isShuffled = host.quizService.isShuffleEnabled?.() && Array.isArray(host.quizService.shuffledQuestions) && host.quizService.shuffledQuestions.length > 0;
         let q = isShuffled
           ? host.quizService.shuffledQuestions[idx]
           : host.quizService.questions?.[idx];
 
         q = q ?? null;
-        if (q?.explanation && isCorrectlyAnswered) {
+        if (q?.explanation) {
           const visualOpts = host.quizQuestionComponent?.()?.optionsToDisplay ?? q.options;
           host.explanationTextService.storeFormattedExplanation(idx, q.explanation, q, visualOpts);
-        }
-        if (!isCorrectlyAnswered) {
-          host.cdRef.markForCheck();
-          return;
         }
 
         // DIRECT DOM FET WRITE on timer expiry â€” bypasses all service/guard layers
