@@ -230,6 +230,8 @@ export class SocAnswerProcessingService {
       }
     } catch (e) { console.error('processMultiAnswerClick allCorrectInDurable check failed:', e); }
 
+    const _ts = Date.now() % 100000;
+    console.log('[SOC-MA]', _ts, 'allCorrectInDurable:', allCorrectInDurable, 'qIdx:', qIdx, 'displayIdx:', displayIdx, 'durableSet:', [...durableSet], 'effectiveCorrectIndices:', effectiveCorrectIndices, 'isShuffled:', isShuffled);
     if (allCorrectInDurable) {
       try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
       this.nextButtonStateService.setNextButtonState(true);
