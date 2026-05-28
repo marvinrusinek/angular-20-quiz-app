@@ -388,6 +388,8 @@ export class SocAnswerProcessingService {
   }): void {
     const { comp, index, qIdx, displayIdx, durableSet, effectiveCorrectIndices, isShuffled } = params;
 
+    const _ts = Date.now() % 100000;
+    console.log('[SOC-SA-ENTRY]', _ts, 'index:', index, 'qIdx:', qIdx, 'displayIdx:', displayIdx, 'effectiveCorrectIndices:', effectiveCorrectIndices, 'isShuffled:', isShuffled);
     // GUARD: If pristine data says this is actually a multi-answer
     // question, abort the single-answer path. Otherwise selecting one
     // correct option (or one incorrect + one correct) would lock the
