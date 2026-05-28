@@ -148,12 +148,38 @@ export class CqcFetGuardService {
         }
       }
 
+      // SOC-CONFIRMED FET PRESERVATION: when incoming is QUESTION TEXT
+      // but SOC has confirmed the question correct AND a cached FET exists,
+      // write the cached FET instead. Prevents question-text writes (from
+      // stale pipeline emissions, stampQuestionTextNow retries, etc.) from
+      // overwriting a legitimate FET after the user has answered correctly.
+      const _safeIsFetEarly = (safe ?? '').toLowerCase().includes('correct because');
+      if (!_safeIsFetEarly && _liveIdx >= 0) {
+        const _socConfirmedNow =
+          host.explanationTextService?.fetBypassForQuestion?.get(_liveIdx) === true
+          || host.quizService?._multiAnswerPerfect?.get(_liveIdx) === true;
+        if (_socConfirmedNow) {
+          const _cachedFet = (
+            host.explanationTextService?.formattedExplanations?.[_liveIdx]?.explanation ?? ''
+          ).toString().trim() || (
+            (host.explanationTextService as any)?.fetByIndex?.get?.(_liveIdx) ?? ''
+          ).toString().trim();
+          if (_cachedFet && _cachedFet.toLowerCase().includes('correct because')) {
+            host.qTextHtmlSig?.set(_cachedFet);
+            host._lastDisplayedText = _cachedFet;
+            const el = host.qText?.()?.nativeElement;
+            if (el) host.renderer.setProperty(el, 'innerHTML', _cachedFet);
+            (host as any)._fetLockedForIndex = _liveIdx;
+            return;
+          }
+        }
+      }
+
       // SOC-CONFIRMED FET BYPASS: when SOC has explicitly confirmed this
       // question correct (fetBypassForQuestion or _multiAnswerPerfect),
       // skip ALL downstream gates and write FET directly. This prevents
       // the many selection-checking gates from blocking legitimate FET
       // due to timing/index issues in shuffled mode.
-      const _safeIsFetEarly = (safe ?? '').toLowerCase().includes('correct because');
       if (_safeIsFetEarly) {
         const _expIdx = host.explanationTextService?.latestExplanationIndex ?? -1;
         const _checkIdx = _liveIdx >= 0 ? _liveIdx : (_expIdx >= 0 ? _expIdx : -1);
