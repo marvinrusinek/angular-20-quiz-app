@@ -573,6 +573,17 @@ export class SocAnswerProcessingService {
           } as any);
           this.explanationTextService.lockExplanation();
           this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
+
+          // DIRECT DOM WRITE: same as multi-answer path — ensure the FET
+          // shows in the H3 immediately, bypassing the pipeline race.
+          try {
+            const qTextEl =
+              (typeof document !== 'undefined'
+                && document.querySelector('codelab-quiz-content h3')) as HTMLElement | null;
+            if (qTextEl && fetText) {
+              qTextEl.innerHTML = fetText;
+            }
+          } catch { /* ignore */ }
         }
       } catch (e) { console.error('processSingleAnswerClick FET-sync write failed:', e); }
 
