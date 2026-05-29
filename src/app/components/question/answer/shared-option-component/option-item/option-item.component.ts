@@ -222,6 +222,17 @@ export class OptionItemComponent implements OnInit {
           return { c: r.fullyResolvedCorrect, w: r.fullyResolvedWrong };
         } catch { return { c: 'err', w: 'err' }; }
       })();
+      setTimeout(() => {
+        try {
+          const el = (document.querySelectorAll(`[data-option-id="${_b?.option?.optionId}"]`) as any)?.[0] as HTMLElement;
+          if (el) {
+            const cls = el.className;
+            const inlineBg = el.style.backgroundColor;
+            const computedBg = getComputedStyle(el).backgroundColor;
+            console.log('[HL3-DOM] optId:', _b?.option?.optionId, 'classList:', cls, 'inlineBg:', inlineBg, 'computedBg:', computedBg);
+          }
+        } catch (e) { console.error('HL3-DOM err', e); }
+      }, 100);
       console.log('[HL2]', 'optId:', _b?.option?.optionId, 'idx:', this.displayIndex(), 'isSel:', _b?.isSelected, 'hl:', _b?.option?.highlight, 'sHL:', this.shouldHighlightOption(), 'isCorr:', this.isCurrentOptionCorrect(), 'disabled:', this.isDisabled(), 'frc:', _res.c, 'frw:', _res.w);
     }
 
