@@ -411,21 +411,29 @@ export class SharedOptionOrchestratorService {
 
   runCanShowOptions(host: Host): boolean {
     const hasBindings = (host.optionBindings()?.length ?? 0) > 0;
-    if (!hasBindings) return false;
-    // Primary path: strict gating on form + render-ready + show-options
-    // signals. Used in the happy path.
-    if (host.canDisplayOptions() && host.renderReady()) return true;
-    // Resilience fallback: if we have a form AND all bindings have an
-    // option resolved, render them even if the renderReady/showOptions
-    // signals haven't propagated yet. This eliminates the intermittent
-    // empty-options bug where one upstream signal stays false past
-    // bootstrap. Form is non-negotiable — without it the inputs can't
-    // bind their FormControl, so we still require it here.
+    // Primary path: strict gating
+    if (hasBindings && host.canDisplayOptions() && host.renderReady()) return true;
+    // Resilience fallback
     const bindings = host.optionBindings();
     const everyHasOption = Array.isArray(bindings)
       && bindings.length > 0
       && bindings.every((b: OptionBindings) => !!b?.option);
-    return !!host.form && everyHasOption;
+    if (!!host.form && everyHasOption) return true;
+    // Diagnostic: log why we're returning false
+    const _h: any = host;
+    _h.__optsFailSeq = (_h.__optsFailSeq ?? 0) + 1;
+    if (_h.__optsFailSeq <= 5) {
+      console.log('[OPTS-FAIL]', 'seq:', _h.__optsFailSeq,
+        'hasBindings:', hasBindings,
+        'bindingsLen:', host.optionBindings()?.length ?? 0,
+        'form:', !!host.form,
+        'canDisplay:', host.canDisplayOptions?.(),
+        'renderReady:', host.renderReady?.(),
+        'showOptions:', host.showOptions?.(),
+        'optsToDisplayLen:', host.optionsToDisplay?.length ?? 0,
+        'everyHasOption:', everyHasOption);
+    }
+    return false;
   }
 
   runCanDisplayOptions(host: Host): boolean {
