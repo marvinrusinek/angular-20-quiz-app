@@ -214,10 +214,6 @@ export class OptionItemComponent implements OnInit {
 
   getOptionClasses(): { [key: string]: boolean } {
     const classes = { ...this.binding().cssClasses };
-    const _b = this.binding();
-    if (this._userHasClicked) {
-      console.log('[GOC] optId:', _b?.option?.optionId, 'idx:', this.displayIndex(), 'isSel:', _b?.isSelected, 'hl:', _b?.option?.highlight, 'sHL:', this.shouldHighlightOption(), 'isCorr:', this.isCurrentOptionCorrect(), 'disabled:', this.isDisabled());
-    }
 
     // Previous-revisit override (highest priority): when the user revisits a
     // FULLY-resolved question, paint correct options green and incorrect ones
@@ -677,8 +673,11 @@ export class OptionItemComponent implements OnInit {
   }
 
   onChanged(event: any): void {
-    console.log('[CLK-CH] onChanged. optId:', this.optionId, 'idx:', this.displayIndex());
     this._userHasClicked = true;
+    // Latch _wasSelected immediately so shouldHighlightOption() returns
+    // true on this CD pass — without this, the parent's async binding
+    // update can race the render and the highlight misses intermittently.
+    this._wasSelected = true;
     this.cdRef.markForCheck();
     this.optionUI.emit({
       optionId: this.optionId,
@@ -690,9 +689,9 @@ export class OptionItemComponent implements OnInit {
   }
 
   onContentClick(event: MouseEvent): void {
-    console.log('[CLK-CC] onContentClick. optId:', this.optionId, 'idx:', this.displayIndex());
     event.stopPropagation();
     this._userHasClicked = true;
+    this._wasSelected = true;
     this.cdRef.markForCheck();
     this.optionUI.emit({
       optionId: this.optionId,
