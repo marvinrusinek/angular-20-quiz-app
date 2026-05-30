@@ -376,6 +376,32 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     const selected = this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
     if (selected.length > 0) return true;
 
+    // Also show Results button when the user previously answered this
+    // question (selections may have been cleared on navigation). Reads
+    // the same answered-state signals used by the selection-message logic
+    // — including shuffle display→original mapping for questionCorrectness.
+    const qs: any = this.quizService;
+    let origIdx = -1;
+    try {
+      const isShuf = qs?.isShuffleEnabled?.() && qs?.shuffledQuestions?.length > 0;
+      if (isShuf) {
+        let eqId = qs?.quizId || '';
+        if (!eqId) {
+          try { eqId = localStorage.getItem('lastQuizId') || ''; } catch { /* ignore */ }
+        }
+        if (eqId) {
+          const mapped = qs?.scoringService?.quizShuffleService?.toOriginalIndex?.(eqId, idx);
+          if (typeof mapped === 'number' && mapped >= 0) origIdx = mapped;
+        }
+      }
+    } catch { /* ignore */ }
+    const previouslyAnswered =
+      this.quizStateService.isQuestionAnswered?.(idx) === true
+      || qs?.questionCorrectness?.get?.(idx) === true
+      || (origIdx >= 0 && qs?.questionCorrectness?.get?.(origIdx) === true)
+      || qs?._multiAnswerPerfect?.get?.(idx) === true;
+    if (previouslyAnswered) return true;
+
     // Also show Results button when timer expired on last question without an answer
     return this.dotStatusService.timerExpiredUnanswered.has(idx);
   }
