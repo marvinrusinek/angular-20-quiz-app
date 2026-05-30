@@ -182,6 +182,20 @@ export class CodelabQuizContentComponent implements OnInit, OnDestroy {
         this.questionRenderedSig.set(true);
       }
     });
+
+    // qText DOM-write effect: signal-driven binding from qTextHtmlSig to
+    // the H3 element's innerHTML. This is the single canonical owner of
+    // the heading's DOM state — all writers should call qTextHtmlSig.set(...)
+    // instead of mutating innerHTML directly via renderer.setProperty or
+    // document.querySelector. Centralising here prevents the layered-gates
+    // problem where many services fight over the H3.
+    effect(() => {
+      const el = this.qText()?.nativeElement;
+      const html = this.qTextHtmlSig();
+      if (!el) return;
+      if ((el.innerHTML ?? '') === html) return;
+      this.renderer.setProperty(el, 'innerHTML', html);
+    });
   }
 
   async ngOnInit(): Promise<void> {
