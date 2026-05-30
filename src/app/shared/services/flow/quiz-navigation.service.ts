@@ -102,9 +102,7 @@ export class QuizNavigationService {
       console.error('QuizNavigationService.advanceToNextQuestion explanation reset failed:', err);
     }
 
-    const result = await this.navigateWithOffset(1);  // defer navigation until state is clean
-    this.pushNavMessageForCurrentRoute();
-    return result;
+    return await this.navigateWithOffset(1);  // defer navigation until state is clean
   }
 
   public async advanceToPreviousQuestion(): Promise<boolean> {
@@ -122,64 +120,11 @@ export class QuizNavigationService {
     } catch (err: any) { }
 
     const result = await this.navigateWithOffset(-1);
-    this.pushNavMessageForCurrentRoute();
 
     // Reset flag after a short delay to allow display pipeline to process
     setTimeout(() => this.isNavigatingToPreviousSig.set(false), PREVIOUS_NAV_SIGNAL_RESET_DELAY_MS);
 
     return result;
-  }
-
-  /**
-   * Push the correct "answered/unanswered" selection message for the
-   * question the route currently points to. Used after Previous/Next/dot
-   * navigation so the message accurately reflects the target question's
-   * answered state — not the message from the source question.
-   */
-  public pushNavMessageForCurrentRoute(): void {
-    const pushForIdx = (targetIdx: number): void => {
-      if (!Number.isFinite(targetIdx) || targetIdx < 0) return;
-      const total = this.quizService.totalQuestions();
-      const qs: any = this.quizService;
-      // Resolve original index for shuffled mode — questionCorrectness
-      // is keyed by ORIGINAL question index, not display position.
-      let _origIdx = -1;
-      try {
-        const isShuf = qs?.isShuffleEnabled?.() && qs?.shuffledQuestions?.length > 0;
-        if (isShuf) {
-          let eqId = qs?.quizId || '';
-          if (!eqId) { try { eqId = localStorage.getItem('lastQuizId') || ''; } catch { /* ignore */ } }
-          if (eqId) {
-            const mapped = qs?.scoringService?.quizShuffleService?.toOriginalIndex?.(eqId, targetIdx);
-            if (typeof mapped === 'number' && mapped >= 0) _origIdx = mapped;
-          }
-        }
-      } catch { /* ignore */ }
-      const answered =
-        this.quizStateService.isQuestionAnswered?.(targetIdx) === true
-        || qs?.questionCorrectness?.get?.(targetIdx) === true
-        || (_origIdx >= 0 && qs?.questionCorrectness?.get?.(_origIdx) === true)
-        || qs?._multiAnswerPerfect?.get?.(targetIdx) === true
-        || this.explanationTextService?.fetBypassForQuestion?.get?.(targetIdx) === true;
-      const isLast = total > 0 && targetIdx === total - 1;
-      const msg = answered
-        ? (isLast ? 'Answered ✓ Click Show Results button.' : 'Answered ✓ Click Next to continue...')
-        : 'Please select an option to continue...';
-      this.selectionMessageService.pushMessage(msg, targetIdx);
-    };
-
-    try {
-      let targetIdx = -1;
-      try {
-        const urlIdx = this.readQuestionIndexFromRouterSnapshot();
-        if (Number.isFinite(urlIdx) && urlIdx >= 1) targetIdx = urlIdx - 1;
-      } catch { /* ignore */ }
-      if (targetIdx < 0) targetIdx = this.quizService.currentQuestionIndex;
-      pushForIdx(targetIdx);
-      // Retry after async state populates
-      setTimeout(() => pushForIdx(targetIdx), 50);
-      setTimeout(() => pushForIdx(targetIdx), 200);
-    } catch { /* ignore */ }
   }
 
   private async navigateWithOffset(offset: number): Promise<boolean> {
@@ -274,9 +219,10 @@ export class QuizNavigationService {
 
       // Finalize
       this.notifyNavigationSuccess();
-      // Push the answered/unanswered selection message for the new question.
-      // Covers dot navigation (which calls navigateToQuestion directly).
-      this.pushNavMessageForCurrentRoute();
+      // Selection message is derived automatically via
+      // SelectionMessageService.computedNavMessage (a computed signal that
+      // re-fires whenever currentQuestionIndexSig changes). No imperative
+      // push needed here — and the dot-nav path benefits the same way.
 
       return true;
     } catch (err: any) {

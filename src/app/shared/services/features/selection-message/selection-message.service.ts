@@ -1,7 +1,9 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { computed, effect, Injectable, inject, signal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { Observable } from 'rxjs';
 import { distinctUntilChanged } from 'rxjs/operators';
+
+import { ExplanationTextService } from '../explanation/explanation-text.service';
 
 import { QuestionType } from '../../../models/question-type.enum';
 
@@ -53,9 +55,72 @@ export class SelectionMessageService {
 
   private _pendingMsgTokens = new Map<number, number>();
 
+  private explanationTextService = inject(ExplanationTextService);
   private quizService = inject(QuizService);
   private quizStateService = inject(QuizStateService);
   private selectedOptionService = inject(SelectedOptionService);
+
+  // Derived nav-driven message. Re-evaluates whenever the current question
+  // index changes (i.e. on Previous / Next / dot navigation). Reads the
+  // answered-state maps non-reactively — they're updated infrequently and
+  // by the time a new index lands they reflect the prior question's state.
+  //
+  // This is the computed-signal replacement for the imperative
+  // pushNavMessageForCurrentRoute() that the navigation service was
+  // calling after every nav transition. Now: nav changes index → computed
+  // re-fires → effect pushes the message. No explicit push needed.
+  private readonly computedNavMessage = computed<string | null>(() => {
+    const idx = this.quizService.currentQuestionIndexSig();
+    if (!Number.isFinite(idx) || idx < 0) return null;
+    return this.deriveNavMessageForIdx(idx);
+  });
+
+  constructor() {
+    // Push the computed nav message into the writable signal whenever the
+    // current question changes. Click-driven messages (wrong-click feedback,
+    // partial-multi progress) still push directly via pushMessage() and
+    // remain authoritative until the next nav transition.
+    effect(() => {
+      const msg = this.computedNavMessage();
+      if (msg && msg !== this.selectionMessageSig()) {
+        this.selectionMessageSig.set(msg);
+      }
+    });
+  }
+
+  private deriveNavMessageForIdx(idx: number): string {
+    const total = this.quizService.totalQuestions();
+    const qs: any = this.quizService;
+
+    // Resolve original index for shuffled mode — questionCorrectness
+    // is keyed by ORIGINAL question index, not display position.
+    let origIdx = -1;
+    try {
+      const isShuf = qs?.isShuffleEnabled?.() && qs?.shuffledQuestions?.length > 0;
+      if (isShuf) {
+        let eqId = qs?.quizId || '';
+        if (!eqId) {
+          try { eqId = localStorage.getItem('lastQuizId') || ''; } catch { /* ignore */ }
+        }
+        if (eqId) {
+          const mapped = qs?.scoringService?.quizShuffleService?.toOriginalIndex?.(eqId, idx);
+          if (typeof mapped === 'number' && mapped >= 0) origIdx = mapped;
+        }
+      }
+    } catch { /* ignore */ }
+
+    const answered =
+      this.quizStateService.isQuestionAnswered?.(idx) === true
+      || qs?.questionCorrectness?.get?.(idx) === true
+      || (origIdx >= 0 && qs?.questionCorrectness?.get?.(origIdx) === true)
+      || qs?._multiAnswerPerfect?.get?.(idx) === true
+      || this.explanationTextService?.fetBypassForQuestion?.get?.(idx) === true;
+
+    const isLast = total > 0 && idx === total - 1;
+    return answered
+      ? (isLast ? 'Answered ✓ Click Show Results button.' : 'Answered ✓ Click Next to continue...')
+      : 'Please select an option to continue...';
+  }
 
   public getCurrentMessage(): string {
     return this.selectionMessageSig();
