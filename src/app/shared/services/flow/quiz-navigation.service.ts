@@ -18,6 +18,7 @@ import { QuizQuestionManagerService } from '../flow/quizquestionmgr.service';
 import { QuizService } from '../data/quiz.service';
 import { QuizStateService } from '../state/quizstate.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
+import { SelectionMessageService } from '../features/selection-message/selection-message.service';
 import { TimerService } from '../features/timer/timer.service';
 import { SK_CORRECT_ANSWERS_COUNT, SK_SAVED_QUESTION_INDEX, SK_SELECTED_OPTIONS_MAP, SK_USER_ANSWERS } from '../../constants/session-keys';
 
@@ -44,6 +45,7 @@ export class QuizNavigationService {
   private quizStateService = inject(QuizStateService);
   private router = inject(Router);
   private selectedOptionService = inject(SelectedOptionService);
+  private selectionMessageService = inject(SelectionMessageService);
   private timerService = inject(TimerService);
 
   // ── signals ─────────────────────────────────────────────────────
@@ -116,6 +118,27 @@ export class QuizNavigationService {
     } catch (err: any) { }
 
     const result = await this.navigateWithOffset(-1);
+
+    // After Previous navigation lands, push the correct selection message
+    // for the target question. Without this, the message stays whatever
+    // it was on the prior question, which feels wrong on Previous.
+    try {
+      const targetIdx = this.quizService.currentQuestionIndex;
+      const total = this.quizService.totalQuestions();
+      const answered = this.quizStateService.isQuestionAnswered?.(targetIdx) === true;
+      const isLast = total > 0 && targetIdx === total - 1;
+      if (answered) {
+        this.selectionMessageService.pushMessage(
+          isLast ? 'Answered ✓ Click Show Results...' : 'Answered ✓ Click Next to continue...',
+          targetIdx
+        );
+      } else {
+        this.selectionMessageService.pushMessage(
+          'Please select an option to continue...',
+          targetIdx
+        );
+      }
+    } catch { /* ignore */ }
 
     // Reset flag after a short delay to allow display pipeline to process
     setTimeout(() => this.isNavigatingToPreviousSig.set(false), PREVIOUS_NAV_SIGNAL_RESET_DELAY_MS);
