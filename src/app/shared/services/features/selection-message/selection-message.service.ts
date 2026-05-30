@@ -125,8 +125,35 @@ export class SelectionMessageService {
 
     const isLast = total > 0 && idx === total - 1;
     return answered
-      ? (isLast ? SHOW_RESULTS_MSG : 'Answered ✓ Click Next to continue...')
+      ? (isLast ? SHOW_RESULTS_MSG : NEXT_BTN_MSG)
       : 'Please select an option to continue...';
+  }
+
+  // Cheap check used by enforceBaselineAtInit to skip pushing the baseline
+  // ("Select N correct options...") when the question is already answered —
+  // otherwise the baseline overwrites the nav-driven Next/Show-Results
+  // message after the question is revisited.
+  private isQuestionAlreadyAnswered(idx: number): boolean {
+    const qs: any = this.quizService;
+    let origIdx = -1;
+    try {
+      const isShuf = qs?.isShuffleEnabled?.() && qs?.shuffledQuestions?.length > 0;
+      if (isShuf) {
+        let eqId = qs?.quizId || '';
+        if (!eqId) {
+          try { eqId = localStorage.getItem('lastQuizId') || ''; } catch { /* ignore */ }
+        }
+        if (eqId) {
+          const mapped = qs?.scoringService?.quizShuffleService?.toOriginalIndex?.(eqId, idx);
+          if (typeof mapped === 'number' && mapped >= 0) origIdx = mapped;
+        }
+      }
+    } catch { /* ignore */ }
+    return this.quizStateService.isQuestionAnswered?.(idx) === true
+      || qs?.questionCorrectness?.get?.(idx) === true
+      || (origIdx >= 0 && qs?.questionCorrectness?.get?.(origIdx) === true)
+      || qs?._multiAnswerPerfect?.get?.(idx) === true
+      || this.explanationTextService?.fetBypassForQuestion?.get?.(idx) === true;
   }
 
   public getCurrentMessage(): string {
@@ -293,6 +320,16 @@ export class SelectionMessageService {
 
   public enforceBaselineAtInit(i0: number, qType: QuestionType, totalCorrect: number): void {
     if (this._baselineReleased.has(i0)) return;
+    // Skip baseline for already-answered questions — pushing "Select N..."
+    // would overwrite the nav-driven Next / Show-Results message on revisit.
+    if (this.isQuestionAlreadyAnswered(i0)) {
+      const total = this.quizService.totalQuestions();
+      const isLast = total > 0 && i0 === total - 1;
+      const navMsg = isLast ? SHOW_RESULTS_MSG : NEXT_BTN_MSG;
+      this._lastMessageByIndex.set(i0, navMsg);
+      this.pushMessage(navMsg, i0);
+      return;
+    }
     const msg = qType === QuestionType.MultipleAnswer
       ? `Select ${totalCorrect} correct options to continue...`
       : (i0 === 0 ? START_MSG : CONTINUE_MSG);
