@@ -156,7 +156,13 @@ export class QuizNavigationService {
       const msg = answered
         ? (isLast ? 'Answered ✓ Click Show Results...' : 'Answered ✓ Click Next to continue...')
         : 'Please select an option to continue...';
+      console.log('[PREV-MSG2] targetIdx:', targetIdx, '_origIdx:', _origIdx, 'answered:', answered, 'scoredAtOrig:', scoredAtOrig, 'msg:', msg, 'scoredKeys:', [...(qs?.questionCorrectness?.keys?.() ?? [])]);
       this.selectionMessageService.pushMessage(msg, targetIdx);
+      // Watch what overwrites the message after our push
+      setTimeout(() => {
+        const live = this.selectionMessageService.getCurrentMessage?.();
+        console.log('[PREV-MSG2-CHECK] 500ms after push, live message:', live);
+      }, 500);
     };
 
     try {
