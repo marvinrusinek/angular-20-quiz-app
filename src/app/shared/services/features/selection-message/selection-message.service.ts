@@ -88,6 +88,7 @@ export class SelectionMessageService {
       const msg = this.computedNavMessage();
       if (!msg) return;
       const current = untracked(() => this.selectionMessageSig());
+      console.log('[NAV-EFFECT] computedMsg:', msg, 'currentMsg:', current, 'willWrite:', msg !== current);
       if (msg !== current) {
         this.selectionMessageSig.set(msg);
       }
@@ -272,6 +273,7 @@ export class SelectionMessageService {
   }
 
   public pushMessage(newMsg: string, _index: number): void {
+    console.log('[PUSH-MSG]', 'idx:', _index, 'msg:', newMsg, 'from:', new Error().stack?.split('\n')[2]?.trim());
     this.selectionMessageSig.set(newMsg);
   }
 
