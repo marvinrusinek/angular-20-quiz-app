@@ -100,7 +100,9 @@ export class QuizNavigationService {
       console.error('QuizNavigationService.advanceToNextQuestion explanation reset failed:', err);
     }
 
-    return await this.navigateWithOffset(1);  // defer navigation until state is clean
+    const result = await this.navigateWithOffset(1);  // defer navigation until state is clean
+    this.pushNavMessageForCurrentRoute();
+    return result;
   }
 
   public async advanceToPreviousQuestion(): Promise<boolean> {
@@ -118,15 +120,22 @@ export class QuizNavigationService {
     } catch (err: any) { }
 
     const result = await this.navigateWithOffset(-1);
+    this.pushNavMessageForCurrentRoute();
 
-    // After Previous navigation lands, push the correct selection message
-    // for the target question. The check below uses multiple signals so
-    // it survives even if one source hasn't updated yet:
-    //   - quizStateService.isQuestionAnswered (in-memory answered set)
-    //   - questionCorrectness map (set by scoreDirectly on correct click)
-    //   - _multiAnswerPerfect map (set by SOC on multi-answer all-correct)
-    //   - fetBypassForQuestion (set by SOC paths that show FET)
-    const pushMsgForIdx = (targetIdx: number): void => {
+    // Reset flag after a short delay to allow display pipeline to process
+    setTimeout(() => this.isNavigatingToPreviousSig.set(false), PREVIOUS_NAV_SIGNAL_RESET_DELAY_MS);
+
+    return result;
+  }
+
+  /**
+   * Push the correct "answered/unanswered" selection message for the
+   * question the route currently points to. Used after Previous/Next/dot
+   * navigation so the message accurately reflects the target question's
+   * answered state — not the message from the source question.
+   */
+  public pushNavMessageForCurrentRoute(): void {
+    const pushForIdx = (targetIdx: number): void => {
       if (!Number.isFinite(targetIdx) || targetIdx < 0) return;
       const total = this.quizService.totalQuestions();
       const qs: any = this.quizService;
@@ -144,46 +153,31 @@ export class QuizNavigationService {
           }
         }
       } catch { /* ignore */ }
-      const scoredAtDisplay = qs?.questionCorrectness?.get?.(targetIdx) === true;
-      const scoredAtOrig = _origIdx >= 0 && qs?.questionCorrectness?.get?.(_origIdx) === true;
       const answered =
         this.quizStateService.isQuestionAnswered?.(targetIdx) === true
-        || scoredAtDisplay
-        || scoredAtOrig
+        || qs?.questionCorrectness?.get?.(targetIdx) === true
+        || (_origIdx >= 0 && qs?.questionCorrectness?.get?.(_origIdx) === true)
         || qs?._multiAnswerPerfect?.get?.(targetIdx) === true
         || this.explanationTextService?.fetBypassForQuestion?.get?.(targetIdx) === true;
       const isLast = total > 0 && targetIdx === total - 1;
       const msg = answered
-        ? (isLast ? 'Answered ✓ Click Show Results...' : 'Answered ✓ Click Next to continue...')
+        ? (isLast ? 'Answered ✓ Click Show Results button.' : 'Answered ✓ Click Next to continue...')
         : 'Please select an option to continue...';
-      console.log('[PREV-MSG2] targetIdx:', targetIdx, '_origIdx:', _origIdx, 'answered:', answered, 'scoredAtOrig:', scoredAtOrig, 'msg:', msg, 'scoredKeys:', [...(qs?.questionCorrectness?.keys?.() ?? [])]);
       this.selectionMessageService.pushMessage(msg, targetIdx);
-      // Watch what overwrites the message after our push
-      setTimeout(() => {
-        const live = this.selectionMessageService.getCurrentMessage?.();
-        console.log('[PREV-MSG2-CHECK] 500ms after push, live message:', live);
-      }, 500);
     };
 
     try {
-      // Read target idx from the route (authoritative), with currentQuestionIndex
-      // as fallback. The route is 1-based; convert to 0-based.
       let targetIdx = -1;
       try {
         const urlIdx = this.readQuestionIndexFromRouterSnapshot();
         if (Number.isFinite(urlIdx) && urlIdx >= 1) targetIdx = urlIdx - 1;
       } catch { /* ignore */ }
       if (targetIdx < 0) targetIdx = this.quizService.currentQuestionIndex;
-      pushMsgForIdx(targetIdx);
-      // Re-push after a tick in case the answered-state maps populate late.
-      setTimeout(() => pushMsgForIdx(targetIdx), 50);
-      setTimeout(() => pushMsgForIdx(targetIdx), 200);
+      pushForIdx(targetIdx);
+      // Retry after async state populates
+      setTimeout(() => pushForIdx(targetIdx), 50);
+      setTimeout(() => pushForIdx(targetIdx), 200);
     } catch { /* ignore */ }
-
-    // Reset flag after a short delay to allow display pipeline to process
-    setTimeout(() => this.isNavigatingToPreviousSig.set(false), PREVIOUS_NAV_SIGNAL_RESET_DELAY_MS);
-
-    return result;
   }
 
   private async navigateWithOffset(offset: number): Promise<boolean> {
@@ -278,6 +272,9 @@ export class QuizNavigationService {
 
       // Finalize
       this.notifyNavigationSuccess();
+      // Push the answered/unanswered selection message for the new question.
+      // Covers dot navigation (which calls navigateToQuestion directly).
+      this.pushNavMessageForCurrentRoute();
 
       return true;
     } catch (err: any) {
