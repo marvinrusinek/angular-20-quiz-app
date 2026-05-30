@@ -125,7 +125,7 @@ export class SelectionMessageService {
 
     const isLast = total > 0 && idx === total - 1;
     return answered
-      ? (isLast ? SHOW_RESULTS_MSG : NEXT_BTN_MSG)
+      ? (isLast ? 'Answered ✓ Click Show Results...' : 'Answered ✓ Click Next to continue...')
       : 'Please select an option to continue...';
   }
 
@@ -321,11 +321,13 @@ export class SelectionMessageService {
   public enforceBaselineAtInit(i0: number, qType: QuestionType, totalCorrect: number): void {
     if (this._baselineReleased.has(i0)) return;
     // Skip baseline for already-answered questions — pushing "Select N..."
-    // would overwrite the nav-driven Next / Show-Results message on revisit.
+    // would overwrite the nav-driven Answered ✓ message on revisit.
     if (this.isQuestionAlreadyAnswered(i0)) {
       const total = this.quizService.totalQuestions();
       const isLast = total > 0 && i0 === total - 1;
-      const navMsg = isLast ? SHOW_RESULTS_MSG : NEXT_BTN_MSG;
+      const navMsg = isLast
+        ? 'Answered ✓ Click Show Results...'
+        : 'Answered ✓ Click Next to continue...';
       this._lastMessageByIndex.set(i0, navMsg);
       this.pushMessage(navMsg, i0);
       return;
