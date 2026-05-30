@@ -12,6 +12,7 @@ import { isOptionCorrect } from '../../../utils/is-option-correct';
 import { norm } from '../../../utils/text-norm';
 
 import { QuizService } from '../../data/quiz.service';
+import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 
 const START_MSG = 'Please start the quiz by selecting an option.';
@@ -53,6 +54,7 @@ export class SelectionMessageService {
   private _pendingMsgTokens = new Map<number, number>();
 
   private quizService = inject(QuizService);
+  private quizStateService = inject(QuizStateService);
   private selectedOptionService = inject(SelectedOptionService);
 
   public getCurrentMessage(): string {
@@ -143,6 +145,17 @@ export class SelectionMessageService {
     const { index, total, qType, opts } = args;
     if (!opts || opts.length === 0) return index === 0 ? START_MSG : CONTINUE_MSG;
     const isLastQuestion = total > 0 && index === total - 1;
+
+    // Already-answered short-circuit. When the user revisits a question
+    // they've already answered correctly (e.g. via the Previous button or
+    // after a refresh), surface the "Answered ✓ ..." message immediately
+    // — don't rely on the per-call option-selection state, which can be
+    // briefly empty during navigation rebinding.
+    const questionAlreadyAnswered =
+      this.quizStateService?.isQuestionAnswered?.(index) === true;
+    if (questionAlreadyAnswered) {
+      return isLastQuestion ? SHOW_RESULTS_MSG : NEXT_BTN_MSG;
+    }
 
     const isCorrectHelper = isOptionCorrect;
 
