@@ -308,6 +308,17 @@ export class ExplanationDisplayStateService {
     }
   }
 
+  /**
+   * Authoritative FET reader for a specific question index.
+   *
+   * Returns `Observable<string | null>` (null = no FET available — caller
+   * decides the fallback display). This is the *workhorse* — it gates on
+   * `_fetLocked`, purges per-index cached state on index transition, and
+   * emits via the per-index observable cache.
+   *
+   * Sister methods (see `getLatestFormattedExplanation`, `getFormattedExplanation`)
+   * have different shapes / fallbacks and are NOT interchangeable.
+   */
   public getFormattedExplanationTextForQuestion(
     questionIndex: number
   ): Observable<string | null> {
@@ -412,6 +423,17 @@ export class ExplanationDisplayStateService {
     return new Observable(sub => { sub.next(explanation); sub.complete(); });
   }
 
+  /**
+   * Synchronous read of the *current* formatted explanation signal —
+   * whatever was last written to `formatter.formattedExplanationSig`,
+   * regardless of question index. No gating, no index purge.
+   *
+   * Use this when you need a snapshot for a synchronous decision (e.g.,
+   * "is there an explanation currently displayed?"). Do NOT use it for
+   * per-question lookups — use `getFormattedExplanationTextForQuestion`
+   * (idx-scoped + gated) or `getFormattedExplanation` (idx-scoped +
+   * string fallback) instead.
+   */
   public getLatestFormattedExplanation(): string | null {
     try {
       return this.formatter.formattedExplanationSig();
@@ -421,6 +443,21 @@ export class ExplanationDisplayStateService {
     }
   }
 
+  /**
+   * Display-layer wrapper over `getFormattedExplanationTextForQuestion`.
+   *
+   * Adds two behaviors the workhorse doesn't:
+   *   1. Returns `Observable<string>` (never null) — emits the literal
+   *      'No explanation available' string as a fallback so the template
+   *      can bind directly without a null guard.
+   *   2. Pre-emptively emits null + closes the gate on the *prior* active
+   *      index before delegating, so a slow upstream observable can't
+   *      surface a stale-question's explanation.
+   *
+   * Prefer this over `getFormattedExplanationTextForQuestion` when wiring
+   * to a template / async pipe. Use the workhorse directly when you need
+   * to distinguish "no FET" (null) from "FET says nothing" (empty string).
+   */
   getFormattedExplanation(questionIndex: number): Observable<string> {
     if (!this.formatter.explanationsInitializedSig()) {
       return new Observable(sub => { sub.next('No explanation available'); sub.complete(); });
