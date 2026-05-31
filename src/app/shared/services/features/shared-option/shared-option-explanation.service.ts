@@ -128,7 +128,7 @@ export class SharedOptionExplanationService {
 
     // Clear locks and pulse stream
     try {
-      (this.explanationTextService as any)._fetLocked = false;
+      this.explanationTextService._fetLocked = false;
       this.explanationTextService.unlockExplanation();
     } catch (err) {
       console.error('SharedOptionExplanationService.emitExplanation unlock failed:', err);

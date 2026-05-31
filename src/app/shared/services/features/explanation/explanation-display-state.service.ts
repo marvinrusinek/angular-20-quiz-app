@@ -554,7 +554,7 @@ export class ExplanationDisplayStateService {
               && correctTexts.every((t: string) => selTexts.has(t));
             if (!allCorrectSelected) {
               // Check questionCorrectness override before blocking
-              const scoringSvc = quizSvc?.scoringService as any;
+              const scoringSvc = quizSvc?.scoringService;
               const scoredCorrect = scoringSvc?.questionCorrectness?.get(activeIdx) === true;
               if (!scoredCorrect) {
                 return;

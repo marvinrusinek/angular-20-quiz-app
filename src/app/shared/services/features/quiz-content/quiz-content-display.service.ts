@@ -315,7 +315,7 @@ export class QuizContentDisplayService {
     // don't reflect the SharedOptionComponent's binding state.
     if (!shouldShowExplanation && hasInteracted) {
       try {
-        const scoringSvc = this.quizService?.scoringService as any;
+        const scoringSvc = this.quizService?.scoringService;
         if (scoringSvc?.questionCorrectness) {
           let scored = scoringSvc.questionCorrectness.get(safeIdx) === true;
           if (!scored) {
@@ -417,7 +417,7 @@ export class QuizContentDisplayService {
             // conversion internally.
             let scoringOverrideGate = false;
             try {
-              const scoringSvc4 = this.quizService?.scoringService as any;
+              const scoringSvc4 = this.quizService?.scoringService;
               if (scoringSvc4?.questionCorrectness) {
                 scoringOverrideGate = scoringSvc4.questionCorrectness.get(safeIdx) === true;
                 if (!scoringOverrideGate) {

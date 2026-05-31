@@ -54,7 +54,7 @@ export class ExplanationTextService {
       // FAST PATH: if SOC has confirmed this question correct, bypass all checks.
       if (this.fetBypassForQuestion.get(idx) === true) return true;
       try {
-        const scoringSvc = this.quizService?.scoringService as any;
+        const scoringSvc = this.quizService?.scoringService;
         if (scoringSvc?.questionCorrectness?.get(idx) === true) return true;
       } catch { /* ignore */ }
 

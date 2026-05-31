@@ -438,8 +438,8 @@ export class QuizSetupService {
     try {
       this.quizStateService._hasUserInteracted?.clear?.();
       this.quizStateService._answeredQuestionIndices?.clear?.();
-      (this.quizStateService as any)._clickedInSession?.clear?.();
-      (this.quizStateService as any).persistInteractionState?.();
+      this.quizStateService._clickedInSession?.clear?.();
+      this.quizStateService.persistInteractionState?.();
     } catch {}
 
     this.router.navigate(['/quiz/question', host.quizId(), 1])
@@ -545,7 +545,7 @@ subscribeToTimerExpiry(host: Host): void {
     if (!isMultiAnswer) {
       let scoredCorrect = false;
       try {
-        const scoringSvc = this.quizService?.scoringService as any;
+        const scoringSvc = this.quizService?.scoringService;
         const isShuf = this.quizService?.isShuffleEnabled?.() && this.quizService?.shuffledQuestions?.length > 0;
         if (isShuf && scoringSvc?.questionCorrectness) {
           let effectiveQuizId = this.quizService?.quizId || '';
@@ -583,7 +583,7 @@ subscribeToTimerExpiry(host: Host): void {
       if (!allCorrectSelected) {
         let scoredCorrect = false;
         try {
-          const scoringSvc = this.quizService?.scoringService as any;
+          const scoringSvc = this.quizService?.scoringService;
           const isShuf = this.quizService?.isShuffleEnabled?.() && this.quizService?.shuffledQuestions?.length > 0;
           if (isShuf && scoringSvc?.questionCorrectness) {
             let effectiveQuizId = this.quizService?.quizId || '';

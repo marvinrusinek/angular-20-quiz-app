@@ -242,7 +242,7 @@ export class QqcQlStreamService {
           : [...opts.map((o) => ({ ...o }))];
     }
 
-    (this.explanationTextService as any)._fetLocked = false;
+    this.explanationTextService._fetLocked = false;
     this.explanationTextService.setShouldDisplayExplanation(false);
     this.explanationTextService.setIsExplanationTextDisplayed(false);
     this.explanationTextService.setExplanationText('');

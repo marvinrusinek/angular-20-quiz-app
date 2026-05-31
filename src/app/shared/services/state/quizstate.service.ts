@@ -157,7 +157,7 @@ export class QuizStateService {
     } catch { /* ignore */ }
   }
 
-  private persistInteractionState(): void {
+  public persistInteractionState(): void {
     try {
       sessionStorage.setItem(
         this.INTERACTED_STORAGE_KEY,
@@ -473,7 +473,7 @@ export class QuizStateService {
   // sessionStorage says that idx was already answered — this keeps
   // Q1's FET visible after F5 without contaminating sibling indices.
   // ───────────────────────────────────────────────────────────────
-  private _clickedInSession = new Set<number>();
+  public _clickedInSession = new Set<number>();
 
   markClickedInSession(idx: number): void {
     if (!Number.isFinite(idx) || idx < 0) return;

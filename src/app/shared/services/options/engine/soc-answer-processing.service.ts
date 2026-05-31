@@ -248,7 +248,7 @@ export class SocAnswerProcessingService {
       this.quizService._multiAnswerPerfect.set(displayIdx, true);
       try { sessionStorage.setItem(SK_MULTI_PERFECT + displayIdx, 'true'); } catch {}
 
-      (this.explanationTextService as any)._fetLocked = false;
+      this.explanationTextService._fetLocked = false;
       this.explanationTextService.unlockExplanation();
 
       comp.showExplanationChange.emit(true);
@@ -297,8 +297,8 @@ export class SocAnswerProcessingService {
         // Write directly via explanationTextService — use displayIdx
         // so the CQC display pipeline (which reads by display index) finds it.
         this.explanationTextService._activeIndex = displayIdx;
-        (this.explanationTextService as any).latestExplanation = formattedFET;
-        (this.explanationTextService as any).latestExplanationIndex = displayIdx;
+        this.explanationTextService.latestExplanation = formattedFET;
+        this.explanationTextService.latestExplanationIndex = displayIdx;
         const qForStore = comp.currentQuestion()
           ?? comp.getQuestionAtDisplayIndex?.(displayIdx)
           ?? this.quizService?.getQuestionsInDisplayOrder?.()?.[displayIdx];
@@ -518,7 +518,7 @@ export class SocAnswerProcessingService {
       this.quizService._multiAnswerPerfect.set(displayIdx, true);
       try { sessionStorage.setItem(SK_MULTI_PERFECT + displayIdx, 'true'); } catch {}
 
-      (this.explanationTextService as any)._fetLocked = false;
+      this.explanationTextService._fetLocked = false;
       this.explanationTextService.unlockExplanation();
       comp.showExplanationChange.emit(true);
       const singleFetQuestion = comp.currentQuestion()
@@ -540,8 +540,8 @@ export class SocAnswerProcessingService {
           || singleFetQuestion?.explanation || '';
         if (fetText) {
           this.explanationTextService._activeIndex = displayIdx;
-          (this.explanationTextService as any).latestExplanation = fetText;
-          (this.explanationTextService as any).latestExplanationIndex = displayIdx;
+          this.explanationTextService.latestExplanation = fetText;
+          this.explanationTextService.latestExplanationIndex = displayIdx;
           // Populate per-index cache so resolveDisplayText finds the FET
           // even if the reactive stream doesn't deliver it in time.
           this.explanationTextService.storeFormattedExplanation(
@@ -746,7 +746,7 @@ export class SocAnswerProcessingService {
       // Unlock the explanation BEFORE setting new FET — without this,
       // a previous question's lockExplanation() would silently swallow
       // setExplanationText() calls and the FET would never display.
-      (this.explanationTextService as any)._fetLocked = false;
+      this.explanationTextService._fetLocked = false;
       this.explanationTextService.unlockExplanation();
       // Emit early so the explanation panel becomes visible before we
       // resolve and write the text (mirrors processMultiAnswerClick's
@@ -815,8 +815,8 @@ export class SocAnswerProcessingService {
       }
       if (fetTextAR) {
         this.explanationTextService._activeIndex = displayIdx;
-        (this.explanationTextService as any).latestExplanation = fetTextAR;
-        (this.explanationTextService as any).latestExplanationIndex = displayIdx;
+        this.explanationTextService.latestExplanation = fetTextAR;
+        this.explanationTextService.latestExplanationIndex = displayIdx;
         this.explanationTextService.storeFormattedExplanation(
           displayIdx, fetTextAR, fetQuestionAR, fetQuestionAR?.options ?? [], true
         );

@@ -13,7 +13,7 @@ import { norm } from '../../utils/text-norm';
 @Injectable({ providedIn: 'root' })
 export class QuizScoringService {
   // ── injects ─────────────────────────────────────────────────────
-  private readonly quizShuffleService = inject(QuizShuffleService);
+  public readonly quizShuffleService = inject(QuizShuffleService);
 
   // ── signals ─────────────────────────────────────────────────────
   readonly correctCountSig = signal<number>(0);

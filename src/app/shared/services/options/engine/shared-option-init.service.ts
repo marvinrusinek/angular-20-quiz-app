@@ -209,7 +209,7 @@ export class SharedOptionInitService {
 
     // Reset FET state so next question can emit freely
     try {
-      (this.explanationTextService as any)._fetLocked = false;
+      this.explanationTextService._fetLocked = false;
       this.explanationTextService.unlockExplanation();
       const newIdx = comp.currentQuestionIndex ?? comp.questionIndex() ?? 0;
       this.explanationTextService._activeIndex = newIdx;
