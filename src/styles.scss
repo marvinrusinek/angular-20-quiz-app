@@ -610,6 +610,14 @@ button.mat-mdc-menu-trigger {
     overflow: hidden !important;
   }
 
+  // Countdown timer turns red at 5 seconds or fewer (dark-mode override).
+  // The .low-time class is added by codelab-scoreboard-timer; needs to
+  // out-specify the dark-mode span.scoreboard rule above (which uses
+  // !important). One extra class (.low-time) does the job here.
+  span.scoreboard.low-time {
+    color: vars.$red !important;
+  }
+
   // Scoreboard sections
   section.scoreboard-score,
   section.scoreboard-timer {

@@ -33,21 +33,10 @@
 }
 
 /* Countdown timer turns red when 5 or fewer seconds remain.
- *
- * Light mode: the base color comes from the _mixins scoreboard-span
- *   mixin (no !important) — our scoped span.scoreboard.low-time
- *   selector + !important wins on specificity.
- *
- * Dark mode: styles.scss has a more-specific selector
- *   `[data-theme="dark"] codelab-quiz-component span.scoreboard` with
- *   `!important`, which beats our scoped rule. Use :host-context()
- *   to add the dark-mode wrapper to our selector so we out-specify
- *   the global dark-mode rule. */
+ * Light-mode rule only — the dark-mode override lives in styles.scss
+ * (alongside the global dark-mode span.scoreboard rule it must
+ * out-specify). */
 span.scoreboard.low-time {
-  color: vars.$red !important;
-}
-
-:host-context([data-theme="dark"]) span.scoreboard.low-time {
   color: vars.$red !important;
 }
 
