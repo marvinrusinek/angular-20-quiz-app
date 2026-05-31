@@ -445,6 +445,11 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   restartQuiz(): void {
+    // Guard against accidental clicks mid-quiz — restart wipes every
+    // answer + reschedules the timer. Native confirm() keeps the
+    // dependency surface minimal (no MatDialog wiring required).
+    const ok = window.confirm('Restart the quiz? Your progress will be lost.');
+    if (!ok) return;
     this.quizSetupService.restartQuiz(this);
   }
 
