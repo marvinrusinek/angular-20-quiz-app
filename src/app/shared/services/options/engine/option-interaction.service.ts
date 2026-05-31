@@ -609,6 +609,22 @@ export class OptionInteractionService {
 
 
     // MESSAGE UPDATE
+    this.syncMessageAfterClick(state, qIdx, isMultipleMode, futureKeys);
+  }
+
+  /**
+   * Tail-end of handleOptionClick: compute the post-click selection message
+   * for the current question and push it. Reads the live optionBindings
+   * (signal-or-array tolerant) and projects each option's "selected" state
+   * from the just-computed futureKeys set so the message reflects the new
+   * state, not the pre-click state.
+   */
+  private syncMessageAfterClick(
+    state: OptionInteractionState,
+    qIdx: number,
+    isMultipleMode: boolean,
+    futureKeys: Set<number>
+  ): void {
     try {
       // RESOLVE: state.optionBindings may be a signal in -clean / array in -main
       const _rawSob = state.optionBindings as any;
