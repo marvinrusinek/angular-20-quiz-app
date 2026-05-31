@@ -42,7 +42,6 @@ export interface QuizSessionState {
   nextQuestionSig: WritableSignal<QuizQuestion | null>;
   nextOptionsSig: WritableSignal<Option[]>;
   currentOptionsSig: WritableSignal<Option[]>;
-  optionsSource: Subject<Option[]>;
   questionPayloadSig: WritableSignal<any>;
   badgeTextSig: WritableSignal<string>;
 
@@ -357,7 +356,6 @@ export class QuizSessionManagerService {
     state.nextQuestionSig.set(null);
     state.nextOptionsSig.set([]);
     state.currentOptionsSig.set([]);
-    state.optionsSource.next([]);
     state.questionPayloadSig.set(null);
     this.scoringService.correctAnswersCountSig.set(0);
     state.userAnswers = [];
