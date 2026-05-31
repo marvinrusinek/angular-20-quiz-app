@@ -375,10 +375,7 @@ export class SocAnswerProcessingService {
 
     }
 
-    // INCORRECT CLICK + ALL-INCORRECT-EXHAUSTED auto-reveal for multi-answer.
-    // Mirrors the single-answer block in processSingleAnswerClick (~line 642).
-    // Fires only when every incorrect option has been clicked — disables
-    // remaining incorrects and auto-highlights any unclicked correct options.
+    // All-incorrects-exhausted auto-reveal (shared helper).
     this.triggerAllIncorrectsExhaustedAutoReveal(comp, index, qIdx, displayIdx);
   }
 
@@ -651,10 +648,7 @@ export class SocAnswerProcessingService {
       return;
     }
 
-    // INCORRECT CLICK + ALL-INCORRECT-EXHAUSTED auto-reveal:
-    // When every incorrect option has been clicked, auto-highlight canonical
-    // correct option(s) and emit FET. Delegates to the shared helper that
-    // processMultiAnswerClick also uses.
+    // All-incorrects-exhausted auto-reveal (shared helper).
     this.triggerAllIncorrectsExhaustedAutoReveal(comp, index, qIdx, displayIdx);
   }
 
