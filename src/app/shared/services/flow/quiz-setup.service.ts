@@ -473,8 +473,13 @@ subscribeToTimerExpiry(host: Host): void {
       .pipe(takeUntilDestroyed(host.destroyRef))
       .subscribe(() => {
         const idx = host.currentQuestionIndex();
-        const selections = host.getSelectionsForQuestion(idx);
-        if (selections.length === 0) {
+        // Use the authoritative committed-selection map, not
+        // getSelectionsForQuestion(): for the current question that helper
+        // reports every option as "active" (raw options carry no
+        // selected:false flag), so it never reads as unanswered.
+        const answered =
+          (this.selectedOptionService.getSelectedOptionsForQuestion?.(idx) ?? []).length > 0;
+        if (!answered) {
           this.dotStatusService.timerExpiredUnanswered.add(idx);
           host.cdRef.markForCheck();
         }
