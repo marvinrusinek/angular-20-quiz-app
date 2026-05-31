@@ -18,6 +18,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Observable, Subscription } from 'rxjs';
 import { MatCardModule } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
+import { MatIconModule } from '@angular/material/icon';
 import { MatTooltip, MatTooltipModule } from '@angular/material/tooltip';
 
 import { SK_SAVED_QUESTION_INDEX } from '../../shared/constants/session-keys';
@@ -43,6 +44,7 @@ import { QuizSetupService } from '../../shared/services/flow/quiz-setup.service'
 import { QuizStateService } from '../../shared/services/state/quizstate.service';
 import { SelectedOptionService } from '../../shared/services/state/selectedoption.service';
 import { SelectionMessageService } from '../../shared/services/features/selection-message/selection-message.service';
+import { TimerService } from '../../shared/services/features/timer/timer.service';
 
 import { CodelabQuizContentComponent } from './quiz-content/codelab-quiz-content.component';
 import { CodelabQuizHeaderComponent } from './quiz-header/quiz-header.component';
@@ -68,6 +70,7 @@ type AnimationState = 'animationStarted' | 'none';
   imports: [
     CommonModule,
     MatCardModule,
+    MatIconModule,
     MatTooltipModule,
     QuizQuestionComponent,
     CodelabQuizHeaderComponent,
@@ -104,6 +107,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   public readonly quizStateService = inject(QuizStateService);
   private readonly selectedOptionService = inject(SelectedOptionService);
   private readonly selectionMessageService = inject(SelectionMessageService);
+  private readonly timerService = inject(TimerService);
   public readonly activatedRoute = inject(ActivatedRoute);
   public readonly cdRef = inject(ChangeDetectorRef);
   public readonly destroyRef = inject(DestroyRef);
@@ -237,6 +241,11 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     const effectiveTotal = Math.max(this.totalQuestions(), serviceCount);
     return this.getEffectiveQuestionIndex() < effectiveTotal - 1;
   });
+
+  // True when the countdown ran out on the question currently on screen.
+  readonly isCurrentQuestionTimedOut = computed(() =>
+    this.timerService.expiredForQuestionIndexSig() === this.currentQuestionIndex()
+  );
 
   questions$: Observable<QuizQuestion[]> = this.quizService.questions$;
   currentQuestion$ = this.quizStateService.currentQuestion$;

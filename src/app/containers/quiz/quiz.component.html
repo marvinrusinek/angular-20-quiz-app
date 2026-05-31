@@ -20,6 +20,13 @@
                 [explanationToDisplay]="explanationToDisplay()"
                 [displayState$]="displayState$" />
 
+              @if (isCurrentQuestionTimedOut()) {
+                <div class="times-up-banner" role="alert" aria-live="assertive">
+                  <mat-icon class="times-up-icon">timer_off</mat-icon>
+                  <span i18n>Time's up!</span>
+                </div>
+              }
+
               <codelab-quiz-question
                 [questionPayload]="qa"
                 [question]="qa.question"
