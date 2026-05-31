@@ -673,6 +673,16 @@ button.mat-mdc-menu-trigger {
   color: var(--text-primary) !important;
 }
 
+// Confirm dialog (rendered in the CDK overlay, outside component scope).
+// The overlay sits under <html data-theme>, so the theme custom props
+// resolve here for both light and dark without a per-theme rule.
+.themed-confirm-dialog .mat-mdc-dialog-surface {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+}
+
 // Mobile: scoreboard overrides
 @media (max-width: 600px) {
   // Score/Timer values hug their labels

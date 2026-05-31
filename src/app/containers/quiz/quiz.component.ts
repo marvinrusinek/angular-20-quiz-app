@@ -17,6 +17,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Observable, Subscription } from 'rxjs';
 import { MatCardModule } from '@angular/material/card';
+import { MatDialog } from '@angular/material/dialog';
 import { MatTooltip, MatTooltipModule } from '@angular/material/tooltip';
 
 import { SK_SAVED_QUESTION_INDEX } from '../../shared/constants/session-keys';
@@ -45,6 +46,7 @@ import { SelectionMessageService } from '../../shared/services/features/selectio
 
 import { CodelabQuizContentComponent } from './quiz-content/codelab-quiz-content.component';
 import { CodelabQuizHeaderComponent } from './quiz-header/quiz-header.component';
+import { ConfirmDialogComponent, ConfirmDialogData } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 import { QuizQuestionComponent } from '../../components/question/quiz-question/quiz-question.component';
 import { ScoreboardComponent } from '../scoreboard/scoreboard.component';
 import { SharedOptionComponent } from '../../components/question/answer/shared-option-component/shared-option.component';
@@ -87,6 +89,7 @@ type AnimationState = 'animationStarted' | 'none';
 })
 export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   // ── injects ─────────────────────────────────────────────────────
+  private readonly dialog = inject(MatDialog);
   private readonly dotStatusService = inject(QuizDotStatusService);
   private readonly nextButtonStateService = inject(NextButtonStateService);
   private readonly quizDataService = inject(QuizDataService);
@@ -446,11 +449,29 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
 
   restartQuiz(): void {
     // Guard against accidental clicks mid-quiz — restart wipes every
-    // answer + reschedules the timer. Native confirm() keeps the
-    // dependency surface minimal (no MatDialog wiring required).
-    const ok = window.confirm('Restart the quiz? Your progress will be lost.');
-    if (!ok) return;
-    this.quizSetupService.restartQuiz(this);
+    // answer + reschedules the timer. A themed confirm dialog matches
+    // the app (incl. dark mode) instead of the native confirm() box.
+    const ref = this.dialog.open<
+      ConfirmDialogComponent,
+      ConfirmDialogData,
+      boolean
+    >(ConfirmDialogComponent, {
+      width: '360px',
+      panelClass: 'themed-confirm-dialog',
+      autoFocus: 'dialog',
+      data: {
+        title: 'Restart the quiz?',
+        message: 'Your progress will be lost.',
+        confirmText: 'Restart',
+        cancelText: 'Cancel',
+        confirmColor: 'warn',
+      },
+    });
+
+    ref.afterClosed().subscribe((confirmed) => {
+      if (!confirmed) return;
+      this.quizSetupService.restartQuiz(this);
+    });
   }
 
   // ── Progress / dots ────────────────────────────────────────────
