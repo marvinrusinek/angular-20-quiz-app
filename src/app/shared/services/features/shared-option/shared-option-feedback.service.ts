@@ -112,10 +112,7 @@ export class SharedOptionFeedbackService {
     const isMulti = ctx.type === 'multiple' ||
       question?.type === QuestionType.MultipleAnswer ||
       (question as any)?.multipleAnswer ||
-      ((question?.options?.filter(o => {
-        const c = (o as any).correct;
-        return c === true || String(c) === 'true' || c === 1 || c === '1';
-      }).length ?? 0) > 1);
+      ((question?.options?.filter(o => isOptionCorrect(o)).length ?? 0) > 1);
 
     // For Multi-Answer: We must consider ALL selected options to return "Select 1 more" etc.
     // For Single-Answer: Just the current one is fine (since only one can be selected).

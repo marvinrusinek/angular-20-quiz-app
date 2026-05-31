@@ -238,10 +238,7 @@ export class AnswerEvaluationService {
     selectedOptionIds: Set<number>
   ): boolean {
     const correctIds = question.options
-      .filter(o => {
-        const c = (o as any).correct;
-        return c === true || String(c) === 'true' || c === 1 || c === '1';
-      })
+      .filter(o => isOptionCorrect(o))
       .map(o => o.optionId)
       .filter((id): id is number => typeof id === 'number');
 

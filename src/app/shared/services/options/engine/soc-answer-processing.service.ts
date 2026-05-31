@@ -7,6 +7,7 @@ import { Option } from '../../../models/Option.model';
 import { OptionBindings } from '../../../models/OptionBindings.model';
 
 import { SK_MULTI_PERFECT, SK_SEL_Q } from '../../../constants/session-keys';
+import { isOptionCorrect } from '../../../utils/is-option-correct';
 import { writeSessionString } from '../../../utils/session-storage';
 
 import { ExplanationTextService } from '../../features/explanation/explanation-text.service';
@@ -448,10 +449,7 @@ export class SocAnswerProcessingService {
       if (!canonicalQ) canonicalQ = allQs[qIdx] ?? comp.currentQuestion();
       const rawOpts = canonicalQ?.options ?? [];
       correctIdxs = rawOpts
-        .map((o: any, i: number) => {
-          const c = o?.correct ?? o?.isCorrect;
-          return (c === true || c === 'true' || c === 1 || c === '1') ? i : -1;
-        })
+        .map((o: any, i: number) => isOptionCorrect(o) ? i : -1)
         .filter((n: number) => n >= 0);
     } catch (e) { console.error('processSingleAnswerClick canonical-resolution failed:', e); }
     if (correctIdxs.length === 0 && effectiveCorrectIndices?.length) {
@@ -474,11 +472,7 @@ export class SocAnswerProcessingService {
     try {
       const clickedBinding = comp.optionBindings()?.[index];
       const clickedText = norm(clickedBinding?.option?.text);
-      const clickedFlag = clickedBinding?.option?.correct;
-      if (
-        clickedFlag === true || String(clickedFlag) === 'true' ||
-        clickedFlag === 1 || clickedFlag === '1'
-      ) {
+      if (isOptionCorrect(clickedBinding?.option)) {
         pristineSingleCorrect = true;
       } else if (clickedText) {
         const candidates = isShuffled

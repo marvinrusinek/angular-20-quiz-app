@@ -297,10 +297,7 @@ export class SharedOptionClickService {
       if (!canonicalQ) canonicalQ = allQs[qIdx] ?? comp.currentQuestion();
       const rawOpts = canonicalQ?.options ?? [];
       allCorrectIdxs = rawOpts
-        .map((o: any, i: number) => {
-          const c = o?.correct ?? o?.isCorrect;
-          return (c === true || c === 'true' || c === 1 || c === '1') ? i : -1;
-        })
+        .map((o: any, i: number) => isOptionCorrect(o) ? i : -1)
         .filter((n: number) => n >= 0);
       if (allCorrectIdxs.length === 0 && effectiveCorrectIndices?.length) {
         allCorrectIdxs = effectiveCorrectIndices;
@@ -477,10 +474,9 @@ export class SharedOptionClickService {
     // SINGLE-ANSWER GUARD
     const isCheckedForGuard = 'checked' in event ? event.checked : true;
     if (isCheckedForGuard && ctx.type === 'single') {
-      const correctCount = (ctx.optionBindings ?? []).filter((b: any) => {
-        const c = b?.option?.correct ?? b?.option?.isCorrect;
-        return c === true || String(c) === 'true' || c === 1 || c === '1';
-      }).length;
+      const correctCount = (ctx.optionBindings ?? []).filter((b: any) =>
+        isOptionCorrect(b?.option)
+      ).length;
       if (correctCount <= 1) {
         for (let bi = 0; bi < (comp.optionBindings() ?? []).length; bi++) {
           const ob = comp.optionBindings()[bi];

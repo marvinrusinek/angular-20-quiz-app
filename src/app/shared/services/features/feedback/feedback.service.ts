@@ -73,10 +73,9 @@ export class FeedbackService {
           const correctTextsURL = new Set<string>();
           const allTextsURL = new Set<string>();
           for (const [i, o] of urlOpts.entries()) {
-            const c = (o as any)?.correct;
             const text = norm(o?.text);
             if (text) allTextsURL.add(text);
-            if (c === true || c === 1 || String(c) === 'true') {
+            if (isOptionCorrect(o)) {
               correctIdxsURL.push(i + 1);
               if (text) correctTextsURL.add(text);
             }
