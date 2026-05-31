@@ -32,9 +32,12 @@
   }
 }
 
-/* Countdown timer turns red when 5 or fewer seconds remain. */
-.scoreboard.low-time {
-  color: vars.$red;
+/* Countdown timer turns red when 5 or fewer seconds remain.
+ * Needs both higher specificity (span.scoreboard.low-time) AND
+ * !important to override the global styles.scss span.scoreboard rule
+ * which uses `color: #66bb6a !important`. */
+span.scoreboard.low-time {
+  color: vars.$red !important;
 }
 
 /* Remove the MDC focus/selection 1px border from all mat-button */
