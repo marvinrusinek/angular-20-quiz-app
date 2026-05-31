@@ -567,6 +567,12 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.dotStatusService.getDotClassSimple({ index, ...this._dotParams });
   }
 
+  // True only when this question's countdown ran out with no answer
+  // committed — distinct from the generic 'pending' (unanswered) state.
+  isDotTimedOut(index: number): boolean {
+    return this.dotStatusService.timerExpiredUnanswered.has(index);
+  }
+
   navigateToDot(index: number): void {
     if (!this.isDotClickable(index)) return;
     const quizId = this.quizService.quizId || this.quizService.getCurrentQuizId();

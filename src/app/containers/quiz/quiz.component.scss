@@ -368,7 +368,9 @@ mat-card {
           }
 
           // Timer ran out with no answer committed for this question.
-          &.pending {
+          // Distinct from the generic 'pending' (unanswered) state, which
+          // keeps the default gray dot.
+          &.timed-out {
             background-color: #f0ad4e !important;  // amber
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
           }

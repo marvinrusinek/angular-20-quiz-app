@@ -91,7 +91,7 @@
                   <section class="footer-row-2">
                     <div class="paging-dots">
                       @for (q of questionsList(); track q.questionText) {
-                        <div class="dot" [ngClass]="getDotClass($index)" [class.disabled]="!isDotClickable($index)"
+                        <div class="dot" [ngClass]="getDotClass($index)" [class.timed-out]="isDotTimedOut($index)" [class.disabled]="!isDotClickable($index)"
                           (click)="navigateToDot($index)"
                           role="button"
                           [attr.tabindex]="isDotClickable($index) ? 0 : -1"
