@@ -49,6 +49,13 @@ export class TimerComponent {
       : elapsed;
   });
 
+  /** True when the countdown has 5 or fewer seconds remaining. Used to flag
+   *  the display red. Only applies in countdown mode — stopwatch never
+   *  decrements so the "low time" concept doesn't apply. */
+  readonly isLowTime = computed<boolean>(() =>
+    this.currentTimerType() === TimerType.Countdown && this.displayTime() <= 5
+  );
+
   setTimerType(type: TimerType): void {
     if (this.currentTimerType() === type) return;
     this.timerService.setTimerType(

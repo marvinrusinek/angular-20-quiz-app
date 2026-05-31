@@ -32,6 +32,11 @@
   }
 }
 
+/* Countdown timer turns red when 5 or fewer seconds remain. */
+.scoreboard.low-time {
+  color: vars.$red;
+}
+
 /* Remove the MDC focus/selection 1px border from all mat-button */
 .mat-mdc-button {
   --mdc-text-button-outline-color: transparent !important;
