@@ -799,6 +799,7 @@ export class QqcQlStreamService {
       );
 
       this.quizService.currentQuestionSig.set(safeQuestion);
+      this.quizService.optionsSource.next(finalOpts);
 
       return true;
     } catch (err: any) {

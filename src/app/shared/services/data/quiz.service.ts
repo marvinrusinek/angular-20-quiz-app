@@ -196,6 +196,7 @@ export class QuizService {
       return [];
     }
   })();
+  optionsSource: Subject<Option[]> = new Subject<Option[]>();
 
   nextQuestionSig = signal<QuizQuestion | null>(null);
   nextQuestion$: Observable<QuizQuestion | null> = toObservable(this.nextQuestionSig);
