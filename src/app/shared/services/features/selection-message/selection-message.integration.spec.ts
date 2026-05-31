@@ -115,15 +115,18 @@ describe('SelectionMessageService integration', () => {
   // ── revisit-answered → "Answered ✓..." ─────────────────────
 
   it('revisit-derivation: when override is gone, completed-set drives "Answered ✓ Click Next..."', () => {
-    // Simulate "user clicked correct on Q1, then nav cleared the override".
-    // We exercise the derivation directly by pushing the completion at idx 0,
-    // then displacing the click override (by pushing a benign progress message
-    // for a non-completion at idx 1), then navigating back to 0.
+    // The constructor-time nav-clear effect cannot be flushed under Jest
+    // (TestBed.flushEffects doesn't reach root-providedIn constructor effects
+    // because they're scheduled before the test harness wires its flush
+    // callback). To test the post-nav state without relying on the effect,
+    // we explicitly DISPLACE the override by pushing a non-completion
+    // message at the intermediate idx — this is what the click pipeline
+    // would do in production after the user clicks on the new question.
     service.pushMessage(NEXT_BTN_MSG, 0);          // marks 0 in completed-set
     currentIdxSig.set(1);
     service.pushMessage('Select 1 more correct answer to continue...', 1);
     currentIdxSig.set(0);
-    // Override now targets idx 1 (last push); current idx is 0; override.idx !== idx
+    // Override now targets idx 1; current idx 0; override.idx !== idx
     // → derive(0); 0 is in completed-set → "Answered ✓..."
     expect(service.selectionMessageSig()).toBe(ANSWERED_NEXT);
   });

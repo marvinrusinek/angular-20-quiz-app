@@ -86,6 +86,23 @@ export class SelectionMessageService {
     // index. Without this, revisiting a previously-completed Q would see the
     // stale "Please click the Next button..." override and skip the
     // "Answered ✓..." derivation.
+    //
+    // Why this is an `effect` and not a `computed`:
+    //   - Detecting an idx TRANSITION requires comparing the new value to a
+    //     remembered previous value. A computed can't write back state, so
+    //     can't store the "lastIdx" needed for comparison.
+    //   - Tried alternatives (per-visit token signal, override.idx-equality
+    //     gating alone) either still need a writer on nav or fail to clear
+    //     a stale override when the user navs away and back to the same idx.
+    //
+    // Test-environment caveat:
+    //   - Jest does not flush constructor-time root-providedIn effects via
+    //     `TestBed.flushEffects()`. The selection-message integration spec
+    //     verifies post-nav semantics by displacing the override with a
+    //     subsequent `pushMessage` at a different idx (the same thing the
+    //     click pipeline does in production). In real Angular runtime this
+    //     effect fires synchronously on signal change, so production code
+    //     works correctly even without the displacement.
     let lastIdx: number | null = null;
     effect(() => {
       const idx = this.quizService.currentQuestionIndexSig();
