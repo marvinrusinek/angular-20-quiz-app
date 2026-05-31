@@ -9,6 +9,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { SK_COMPLETED_QUIZ_IDS, SK_STARTED_QUIZ_IDS } from '../../shared/constants/session-keys';
+import { readSessionJson, writeSessionJson } from '../../shared/utils/session-storage';
 
 import { QuizRoutes } from '../../shared/models/quiz-routes.enum';
 import { QuizStatus } from '../../shared/models/quiz-status.enum';
@@ -230,9 +231,7 @@ export class QuizSelectionComponent implements OnInit {
     // persist across visits to the selection page, otherwise the
     // "You've accessed N quizzes" banner resets to whatever the latest
     // results page wrote (typically 1).
-    const completedIds: string[] = JSON.parse(
-      sessionStorage.getItem(SK_COMPLETED_QUIZ_IDS) || '[]'
-    );
+    const completedIds = readSessionJson<string[]>(SK_COMPLETED_QUIZ_IDS, []);
 
     for (const id of completedIds) {
       this.completedQuizIds.update(s => new Set(s).add(id));
@@ -249,9 +248,7 @@ export class QuizSelectionComponent implements OnInit {
 
   private consumeStartedQuizIds(): string[] {
     // Read but DON'T remove — see consumeCompletedQuizIds.
-    const startedIds: string[] = JSON.parse(
-      sessionStorage.getItem(SK_STARTED_QUIZ_IDS) || '[]'
-    );
+    const startedIds = readSessionJson<string[]>(SK_STARTED_QUIZ_IDS, []);
 
     for (const id of startedIds) {
       this.quizDataService.updateQuizStatus(id, QuizStatus.STARTED);
@@ -268,17 +265,13 @@ export class QuizSelectionComponent implements OnInit {
   private recordQuizAccess(quizId: string): void {
     if (!quizId) return;
     try {
-      const completed: string[] = JSON.parse(
-        sessionStorage.getItem(SK_COMPLETED_QUIZ_IDS) || '[]'
-      );
+      const completed = readSessionJson<string[]>(SK_COMPLETED_QUIZ_IDS, []);
       if (completed.includes(quizId)) return;  // already counted
 
-      const started: string[] = JSON.parse(
-        sessionStorage.getItem(SK_STARTED_QUIZ_IDS) || '[]'
-      );
+      const started = readSessionJson<string[]>(SK_STARTED_QUIZ_IDS, []);
       if (!started.includes(quizId)) {
         started.push(quizId);
-        sessionStorage.setItem(SK_STARTED_QUIZ_IDS, JSON.stringify(started));
+        writeSessionJson(SK_STARTED_QUIZ_IDS, started);
       }
 
       // Update the live count immediately so the banner refreshes without

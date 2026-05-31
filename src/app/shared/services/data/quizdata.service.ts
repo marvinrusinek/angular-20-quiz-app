@@ -7,6 +7,7 @@ import {
 } from 'rxjs/operators';
 
 import { SK_COMPLETED_QUIZ_IDS, SK_STARTED_QUIZ_IDS } from '../../constants/session-keys';
+import { readSessionJson } from '../../utils/session-storage';
 
 import { QuestionType } from '../../models/question-type.enum';
 
@@ -70,19 +71,14 @@ export class QuizDataService {
           if (quiz.status) existingStatuses.set(quiz.quizId, quiz.status);
         }
         // Also restore quiz statuses from sessionStorage
-        try {
-          const completedIds: string[] = JSON.parse(sessionStorage.getItem(SK_COMPLETED_QUIZ_IDS) || '[]');
-          for (const id of completedIds) {
-            if (!existingStatuses.has(id)) existingStatuses.set(id, 'completed');
-          }
-
-          const startedIds: string[] = 
-            JSON.parse(sessionStorage.getItem(SK_STARTED_QUIZ_IDS) || '[]');
-          
-          for (const id of startedIds) {
-            if (!existingStatuses.has(id)) existingStatuses.set(id, 'started');
-          }
-        } catch {}
+        const completedIds = readSessionJson<string[]>(SK_COMPLETED_QUIZ_IDS, []);
+        for (const id of completedIds) {
+          if (!existingStatuses.has(id)) existingStatuses.set(id, 'completed');
+        }
+        const startedIds = readSessionJson<string[]>(SK_STARTED_QUIZ_IDS, []);
+        for (const id of startedIds) {
+          if (!existingStatuses.has(id)) existingStatuses.set(id, 'started');
+        }
 
         // Merge statuses into new data
         const mergedQuizzes = Array.isArray(quizzes) 

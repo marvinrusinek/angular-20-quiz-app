@@ -5,6 +5,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatListModule } from '@angular/material/list';
 
 import { SK_COMPLETED_QUIZ_IDS, SK_CORRECT_ANSWERS_COUNT, SK_DISPLAY_MODE, SK_DOT_CONFIRMED, SK_IS_ANSWERED, SK_SEL_Q, SK_SELECTED_OPTIONS_MAP, SK_STARTED_QUIZ_IDS } from '../../../shared/constants/session-keys';
+import { readSessionJson, removeSessionKey, writeSessionJson } from '../../../shared/utils/session-storage';
 
 import { ExplanationTextService } from '../../../shared/services/features/explanation/explanation-text.service';
 import { QuizDataService } from '../../../shared/services/data/quizdata.service';
@@ -65,27 +66,15 @@ export class ReturnComponent implements OnInit {
     const id = this.quizId() || this.quizService.quizId;
 
     // Only mark as completed (checkmark) if score is 100%
-    let isPerfect = false;
-    try {
-      const snapshot = JSON.parse(sessionStorage.getItem('finalResult') || '{}');
-      isPerfect = snapshot.total > 0 && snapshot.correct === snapshot.total;
-    } catch {}
+    const snapshot = readSessionJson<{ total?: number; correct?: number }>('finalResult', {});
+    const isPerfect = (snapshot.total ?? 0) > 0 && snapshot.correct === snapshot.total;
     if (id) {
-      try {
-        if (isPerfect) {
-          const existing = JSON.parse(sessionStorage.getItem(SK_COMPLETED_QUIZ_IDS) || '[]');
-          if (!existing.includes(id)) {
-            existing.push(id);
-          }
-          sessionStorage.setItem(SK_COMPLETED_QUIZ_IDS, JSON.stringify(existing));
-        } else {
-          const existing = JSON.parse(sessionStorage.getItem(SK_STARTED_QUIZ_IDS) || '[]');
-          if (!existing.includes(id)) {
-            existing.push(id);
-          }
-          sessionStorage.setItem(SK_STARTED_QUIZ_IDS, JSON.stringify(existing));
-        }
-      } catch {}
+      const key = isPerfect ? SK_COMPLETED_QUIZ_IDS : SK_STARTED_QUIZ_IDS;
+      const existing = readSessionJson<string[]>(key, []);
+      if (!existing.includes(id)) {
+        existing.push(id);
+        writeSessionJson(key, existing);
+      }
     }
 
     // Clear quiz status so non-perfect quizzes don't show as completed
@@ -107,7 +96,7 @@ export class ReturnComponent implements OnInit {
       this.themeService.toggle();
     }
 
-    try { sessionStorage.removeItem('resultsActiveSection'); } catch {}
+    removeSessionKey('resultsActiveSection');
 
     this.quizId.set('');
     this.router.navigate(['/select/']);

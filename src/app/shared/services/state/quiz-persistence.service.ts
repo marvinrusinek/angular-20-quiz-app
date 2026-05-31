@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 
 import { SK_COMPLETED_QUIZ_IDS, SK_CORRECT_ANSWERS_COUNT, SK_DOT_CONFIRMED, SK_DISPLAY_MODE, SK_IS_ANSWERED, SK_SAVED_QUESTION_INDEX, SK_SEL_Q, SK_SELECTED_OPTIONS_MAP, SK_USER_ANSWERS } from '../../constants/session-keys';
+import { readSessionJson, removeSessionKey, writeSessionJson } from '../../utils/session-storage';
 
 import { QuizStatus } from '../../models/quiz-status.enum';
 
@@ -186,16 +187,12 @@ export class QuizPersistenceService {
       sessionStorage.removeItem('completionTime');
 
       // Drop this quiz from the completed list (we're restarting it)
-      try {
-        const ids: string[] = JSON.parse(sessionStorage.getItem(SK_COMPLETED_QUIZ_IDS) || '[]');
-        const filtered = ids.filter(id => id !== quizId);
-        if (filtered.length > 0) {
-          sessionStorage.setItem(SK_COMPLETED_QUIZ_IDS, JSON.stringify(filtered));
-        } else {
-          sessionStorage.removeItem(SK_COMPLETED_QUIZ_IDS);
-        }
-      } catch {
-        sessionStorage.removeItem(SK_COMPLETED_QUIZ_IDS);
+      const ids = readSessionJson<string[]>(SK_COMPLETED_QUIZ_IDS, []);
+      const filtered = ids.filter(id => id !== quizId);
+      if (filtered.length > 0) {
+        writeSessionJson(SK_COMPLETED_QUIZ_IDS, filtered);
+      } else {
+        removeSessionKey(SK_COMPLETED_QUIZ_IDS);
       }
 
       // Per-question session entries from the previous quiz

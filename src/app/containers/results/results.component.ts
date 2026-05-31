@@ -14,6 +14,7 @@ import { take } from 'rxjs/operators';
 import { QuizStatus } from '../../shared/models/quiz-status.enum';
 
 import { SK_COMPLETED_QUIZ_IDS, SK_DOT_CONFIRMED, SK_SEL_Q, SK_SELECTED_OPTIONS_MAP, SK_SHUFFLED_QUESTIONS, SK_STARTED_QUIZ_IDS, SK_USER_ANSWERS } from '../../shared/constants/session-keys';
+import { readSessionJson, writeSessionJson, writeSessionString } from '../../shared/utils/session-storage';
 
 import { FinalResult, ScoreAnalysisItem } from '../../shared/models/Final-Result.model';
 import { Quiz } from '../../shared/models/Quiz.model';
@@ -171,7 +172,7 @@ export class ResultsComponent implements OnInit {
 
   setActiveSection(section: 'score' | 'report' | 'summary' | 'highscores' | 'resources'): void {
     this.activeSection.set(section);
-    try { sessionStorage.setItem('resultsActiveSection', section); } catch {}
+    writeSessionString('resultsActiveSection', section);
     this.closeMenu();
     window.scrollTo({ top: 0, behavior: 'smooth' });
     this.cdRef.markForCheck();
@@ -184,21 +185,12 @@ export class ResultsComponent implements OnInit {
     const snapshot = this.finalResult();
     const isPerfect = snapshot && snapshot.total > 0 && snapshot.correct === snapshot.total;
     if (quizId) {
-      try {
-        if (isPerfect) {
-          const existing = JSON.parse(sessionStorage.getItem(SK_COMPLETED_QUIZ_IDS) || '[]');
-          if (!existing.includes(quizId)) {
-            existing.push(quizId);
-          }
-          sessionStorage.setItem(SK_COMPLETED_QUIZ_IDS, JSON.stringify(existing));
-        } else {
-          const existing = JSON.parse(sessionStorage.getItem(SK_STARTED_QUIZ_IDS) || '[]');
-          if (!existing.includes(quizId)) {
-            existing.push(quizId);
-          }
-          sessionStorage.setItem(SK_STARTED_QUIZ_IDS, JSON.stringify(existing));
-        }
-      } catch {}
+      const key = isPerfect ? SK_COMPLETED_QUIZ_IDS : SK_STARTED_QUIZ_IDS;
+      const existing = readSessionJson<string[]>(key, []);
+      if (!existing.includes(quizId)) {
+        existing.push(quizId);
+        writeSessionJson(key, existing);
+      }
     }
 
     // Clear quiz status set by setCompletedQuiz() so non-perfect quizzes
@@ -226,7 +218,7 @@ export class ResultsComponent implements OnInit {
     this.quizStateService._hasUserInteracted?.clear();
 
     // Signal to quiz component that this is a fresh start from results
-    try { sessionStorage.setItem('freshStartFromResults', 'true'); } catch {}
+    writeSessionString('freshStartFromResults', 'true');
 
     // Nuclear: wipe ALL quiz-related sessionStorage and localStorage
     try {

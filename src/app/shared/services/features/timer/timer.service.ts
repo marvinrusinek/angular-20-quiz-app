@@ -9,6 +9,7 @@ import { SelectedOption } from '../../../models/SelectedOption.model';
 
 import { QuizService } from '../../data/quiz.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
+import { readSessionJson } from '../../../utils/session-storage';
 import { isOptionCorrect } from '../../../utils/is-option-correct';
 
 interface StopTimerAttemptOptions {
@@ -22,13 +23,7 @@ interface StopTimerAttemptOptions {
 export class TimerService implements OnDestroy {
   timePerQuestion = 30;
   completionTime = Number(sessionStorage.getItem('completionTime')) || 0;
-  elapsedTimes: number[] = (() => {
-    try {
-      return JSON.parse(sessionStorage.getItem('elapsedTimes') || '[]');
-    } catch {
-      return [];
-    }
-  })();
+  elapsedTimes: number[] = readSessionJson<number[]>('elapsedTimes', []);
 
   isTimerRunning = false;  // tracks whether the timer is currently running
   isTimerStoppedForCurrentQuestion = false;
