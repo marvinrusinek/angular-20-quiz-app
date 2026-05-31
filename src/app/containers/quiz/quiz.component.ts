@@ -384,6 +384,13 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     // records a real completion (NEXT_BTN / SHOW_RESULTS / Answered ✓).
     if (this.selectionMessageService.isCompletedInSession(idx)) return true;
 
+    // Any in-session click on the last question enables Show Results.
+    // _hasUserInteracted is a fresh-per-session Set populated by the click
+    // pipeline (markUserInteracted) — shuffle-safe because it's in-memory
+    // only, NOT persisted. Lets users see results after ANY click (right
+    // or wrong) rather than requiring a fully-correct answer first.
+    if (this.quizStateService._hasUserInteracted?.has(idx)) return true;
+
     // Also show Results when timer expired this session on the last
     // unanswered question.
     return this.dotStatusService.timerExpiredUnanswered.has(idx);
