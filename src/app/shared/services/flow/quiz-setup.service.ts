@@ -808,6 +808,15 @@ subscribeToTimerExpiry(host: Host): void {
     const tag = (event.target as HTMLElement)?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA') return;
 
+    // Number keys 1–9 select the matching answer option. We click the
+    // option's native input rather than re-implementing the selection
+    // logic, so the keyboard path is identical to a mouse click and
+    // can't drift from the (fragile) click pipeline.
+    if (/^[1-9]$/.test(event.key) && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      this.selectOptionByKeyboard(Number(event.key) - 1, event);
+      return;
+    }
+
     const currentIdx = this.quizService.getCurrentQuestionIndex();
     const hasSelectionForCurrent =
       (this.selectedOptionService.getSelectedOptionsForQuestion?.(currentIdx) ?? []).length > 0;
@@ -837,5 +846,22 @@ subscribeToTimerExpiry(host: Host): void {
         break;
       }
     }
+  }
+
+  // Selects the option at displayIndex by clicking its native input,
+  // mirroring a real mouse click through the existing pipeline.
+  private selectOptionByKeyboard(displayIndex: number, event: KeyboardEvent): void {
+    // Never hijack number keys while a dialog (e.g. restart confirm) is open.
+    if (document.querySelector('.cdk-overlay-container .mat-mdc-dialog-container')) return;
+
+    const rows = document.querySelectorAll<HTMLElement>('.options-group .option-row');
+    const row = rows[displayIndex];
+    if (!row) return;
+
+    const input = row.querySelector<HTMLInputElement>('input');
+    if (!input || input.disabled) return;
+
+    event.preventDefault();
+    input.click();
   }
 }
