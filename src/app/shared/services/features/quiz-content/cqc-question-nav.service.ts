@@ -100,11 +100,11 @@ export class CqcQuestionNavService {
       try {
         host.quizStateService._hasUserInteracted?.delete(idx);
         host.quizStateService._answeredQuestionIndices?.delete(idx);
-        (host.quizStateService as any).persistInteractionState?.();
+        host.quizStateService.persistInteractionState?.();
       } catch { /* ignore */ }
       try {
         host.selectedOptionService.selectedOptionsMap?.delete(idx);
-        (host.selectedOptionService as any)._refreshBackup?.delete(idx);
+        host.selectedOptionService._refreshBackup?.delete(idx);
       } catch { /* ignore */ }
       try {
         host.quizService.selectedOptionsMap?.delete(idx);
@@ -312,7 +312,7 @@ export class CqcQuestionNavService {
             try {
               host.quizStateService._hasUserInteracted?.delete(zeroBasedIndex);
               host.quizStateService._answeredQuestionIndices?.delete(zeroBasedIndex);
-              (host.quizStateService as any).persistInteractionState?.();
+              host.quizStateService.persistInteractionState?.();
             } catch { /* ignore */ }
             try {
               host.selectedOptionService.selectedOptionsMap?.delete(zeroBasedIndex);
