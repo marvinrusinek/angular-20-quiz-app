@@ -32,12 +32,29 @@
   }
 }
 
-/* Countdown timer turns red when 5 or fewer seconds remain.
- * Light-mode rule only — the dark-mode override lives in styles.scss
- * (alongside the global dark-mode span.scoreboard rule it must
- * out-specify). */
+/* Countdown timer turns red AND pulses when 5 or fewer seconds remain.
+ * Light-mode color override lives here; the dark-mode color override
+ * lives in styles.scss (alongside the global dark-mode span.scoreboard
+ * rule it must out-specify). The animation here applies in BOTH modes
+ * — no global rule overrides the `animation` property. */
+@keyframes timer-low-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.65;
+    transform: scale(1.08);
+  }
+}
+
 span.scoreboard.low-time {
   color: vars.$red !important;
+  animation: timer-low-pulse 1s ease-in-out infinite;
+  /* keep transform-origin centered so scale doesn't shift the digits sideways */
+  transform-origin: center center;
+  /* hint for smoother animation */
+  will-change: opacity, transform;
 }
 
 /* Remove the MDC focus/selection 1px border from all mat-button */
