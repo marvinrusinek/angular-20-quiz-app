@@ -12,6 +12,7 @@ import { QuizService } from '../data/quiz.service';
 import { QuizStateService } from '../state/quizstate.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
 import { SK_DISPLAY_MODE, SK_DOT_CONFIRMED, SK_IS_ANSWERED } from '../../constants/session-keys';
+import { writeSessionString } from '../../utils/session-storage';
 
 import { isOptionCorrect } from '../../utils/is-option-correct';
 import { norm } from '../../utils/text-norm';
@@ -308,11 +309,11 @@ export class QuizOptionProcessingService {
       this.dotStatusService.pendingDotStatusOverrides.set(idx, 'correct');
       this.dotStatusService.dotStatusCache.set(idx, 'correct');
       this.selectedOptionService.clickConfirmedDotStatus.set(idx, 'correct');
-      try { sessionStorage.setItem(SK_DOT_CONFIRMED + idx, 'correct'); } catch {}
+      writeSessionString(SK_DOT_CONFIRMED + idx, 'correct');
       this.quizService.scoreDirectly(idx, true, false);
     } else {
       this.selectedOptionService.clickConfirmedDotStatus.set(idx, 'wrong');
-      try { sessionStorage.setItem(SK_DOT_CONFIRMED + idx, 'wrong'); } catch {}
+      writeSessionString(SK_DOT_CONFIRMED + idx, 'wrong');
     }
 
     return {

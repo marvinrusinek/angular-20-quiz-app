@@ -9,6 +9,7 @@ import { QuizQuestion } from '../../../models/QuizQuestion.model';
 import { SelectedOption } from '../../../models/SelectedOption.model';
 
 import { SK_DOT_CONFIRMED, SK_MULTI_PERFECT } from '../../../constants/session-keys';
+import { writeSessionString } from '../../../utils/session-storage';
 
 import { QuizService } from '../../data/quiz.service';
 import { QuizStateService } from '../../state/quizstate.service';
@@ -547,7 +548,7 @@ export class OptionInteractionService {
       // ── UNSHUFFLED: original gate ──
       if (allCorrectFound && !isMultipleMode && !pristineIsMultiAnswer) {
         this.quizService._multiAnswerPerfect.set(qIdx, true);
-        try { sessionStorage.setItem(SK_MULTI_PERFECT + qIdx, 'true'); } catch {}
+        writeSessionString(SK_MULTI_PERFECT + qIdx, 'true');
         this.quizService.scoreDirectly(qIdx, true, isMultipleMode);
         scoreFired = true;
       }

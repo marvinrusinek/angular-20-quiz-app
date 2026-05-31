@@ -27,6 +27,7 @@ import { TimerService } from '../features/timer/timer.service';
 
 import type { QuizComponent } from '../../../containers/quiz/quiz.component';
 import { SK_DISPLAY_MODE, SK_DOT_CONFIRMED, SK_SEL_Q, SK_SELECTED_OPTIONS_MAP } from '../../constants/session-keys';
+import { removeSessionKey } from '../../utils/session-storage';
 
 import { QUESTION_ROUTE_REGEX } from '../../constants/route-patterns';
 import { isOptionCorrect } from '../../utils/is-option-correct';
@@ -393,7 +394,7 @@ export class QuizSetupService {
         this.selectedOptionService.lastClickedCorrectByQuestion.delete(destIndex);
         this.selectedOptionService.clickConfirmedDotStatus.delete(destIndex);
         this.quizPersistence.clearPersistedDotStatus(host.quizId(), destIndex);
-        try { sessionStorage.removeItem(SK_DOT_CONFIRMED + destIndex); } catch {}
+        removeSessionKey(SK_DOT_CONFIRMED + destIndex);
       }
     }
     if (direction === 'next') {

@@ -1,6 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 
 import { SK_DOT_CONFIRMED, SK_MULTI_PERFECT, SK_SEL_Q } from '../../../constants/session-keys';
+import { readSessionString } from '../../../utils/session-storage';
 
 import { QuizService } from '../../data/quiz.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
@@ -53,7 +54,7 @@ export class QuestionResolutionService {
     // Signal 2: multi-answer perfect flag
     let multiPerfect = this.quizService._multiAnswerPerfect.get(qIdx) === true;
     if (!multiPerfect) {
-      try { multiPerfect = sessionStorage.getItem(SK_MULTI_PERFECT + qIdx) === 'true'; } catch { /* ignore */ }
+      multiPerfect = readSessionString(SK_MULTI_PERFECT + qIdx) === 'true';
     }
 
     // Signal 3: scoring map (must use original index in shuffled mode)

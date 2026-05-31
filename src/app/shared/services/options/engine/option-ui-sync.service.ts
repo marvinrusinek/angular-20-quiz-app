@@ -9,6 +9,7 @@ import { OptionBindings } from '../../../models/OptionBindings.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
 import { SK_DISPLAY_MODE, SK_IS_ANSWERED, SK_MULTI_PERFECT } from '../../../constants/session-keys';
+import { writeSessionString } from '../../../utils/session-storage';
 
 import { FeedbackService } from '../../features/feedback/feedback.service';
 import { NextButtonStateService } from '../../state/next-button-state.service';
@@ -753,7 +754,7 @@ export class OptionUiSyncService {
         // policy correctly stamps b.disabled=true but the UI still
         // returns false from isDisabled() in multi-answer mode.
         this.quizService._multiAnswerPerfect.set(questionIndex, true);
-        try { sessionStorage.setItem(SK_MULTI_PERFECT + questionIndex, 'true'); } catch {}
+        writeSessionString(SK_MULTI_PERFECT + questionIndex, 'true');
         // Force FET readiness even if already scored correct (to be safe)
         this.selectedOptionService.setAnswered(true, true);
         // Persist FET-ready state to sessionStorage. quiz-option-processing's

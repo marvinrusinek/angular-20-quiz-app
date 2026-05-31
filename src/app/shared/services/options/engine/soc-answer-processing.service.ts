@@ -7,6 +7,7 @@ import { Option } from '../../../models/Option.model';
 import { OptionBindings } from '../../../models/OptionBindings.model';
 
 import { SK_MULTI_PERFECT, SK_SEL_Q } from '../../../constants/session-keys';
+import { writeSessionString } from '../../../utils/session-storage';
 
 import { ExplanationTextService } from '../../features/explanation/explanation-text.service';
 import { FeedbackService } from '../../features/feedback/feedback.service';
@@ -112,7 +113,7 @@ export class SocAnswerProcessingService {
     // isDisabled() sees it when Angular re-renders the option items.
     if (clickState.remaining === 0) {
       this.quizService._multiAnswerPerfect.set(displayIdx, true);
-      try { sessionStorage.setItem(SK_MULTI_PERFECT + displayIdx, 'true'); } catch {}
+      writeSessionString(SK_MULTI_PERFECT + displayIdx, 'true');
     }
 
     const bindingUpdates = this.clickHandler.computeMultiAnswerBindingUpdates(
@@ -246,7 +247,7 @@ export class SocAnswerProcessingService {
       this.quizService.scoreDirectly(qIdx, true, true);
 
       this.quizService._multiAnswerPerfect.set(displayIdx, true);
-      try { sessionStorage.setItem(SK_MULTI_PERFECT + displayIdx, 'true'); } catch {}
+      writeSessionString(SK_MULTI_PERFECT + displayIdx, 'true');
 
       this.explanationTextService._fetLocked = false;
       this.explanationTextService.unlockExplanation();
@@ -516,7 +517,7 @@ export class SocAnswerProcessingService {
       this.quizService.scoreDirectly(qIdx, true, false);
       this.nextButtonStateService.setNextButtonState(true);
       this.quizService._multiAnswerPerfect.set(displayIdx, true);
-      try { sessionStorage.setItem(SK_MULTI_PERFECT + displayIdx, 'true'); } catch {}
+      writeSessionString(SK_MULTI_PERFECT + displayIdx, 'true');
 
       this.explanationTextService._fetLocked = false;
       this.explanationTextService.unlockExplanation();
