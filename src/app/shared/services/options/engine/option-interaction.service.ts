@@ -332,36 +332,7 @@ export class OptionInteractionService {
       if (hIdx !== -1)  state.selectedOptionHistory.splice(hIdx, 1);
     }
 
-    const correctIndicesSet = new Set<number>();
-
-    // PRISTINE-FIRST: Resolve correct indices from quizInitialState to avoid
-    // stale/mutated correct flags on questionOptions (e.g. after Restart Quiz).
-    try {
-      const qTextForLookup = question?.questionText ?? state.currentQuestion?.questionText;
-      const pristineCorrectTexts =
-        this.quizService.getPristineCorrectTextsForQuestion(qTextForLookup);
-      if (pristineCorrectTexts.size > 0) {
-        for (const [i, o] of questionOptions.entries()) {
-          if (pristineCorrectTexts.has(norm(o?.text))) {
-            correctIndicesSet.add(i);
-          }
-        }
-      }
-    } catch { /* ignore */ }
-
-    // Fallback: use questionOptions directly (may have stale flags but better than nothing)
-    if (correctIndicesSet.size === 0) {
-      for (const [i, o] of questionOptions.entries()) {
-        if (isCorrectHelper(o)) correctIndicesSet.add(i);
-      }
-    }
-
-    // Also try bindings as a source of correct info
-    if (correctIndicesSet.size === 0) {
-      for (const [i, b] of state.optionBindings.entries()) {
-        if (b.isCorrect || isCorrectHelper(b.option)) correctIndicesSet.add(i);
-      }
-    }
+    const correctIndicesSet = this.resolveCorrectIndicesSet(question, state, questionOptions);
 
     const allCorrectFound = correctIndicesSet.size > 0 && [...correctIndicesSet].every(i => futureKeys.has(i));
 
@@ -589,6 +560,56 @@ export class OptionInteractionService {
 
     // MESSAGE UPDATE
     this.syncMessageAfterClick(state, qIdx, isMultipleMode, futureKeys);
+  }
+
+  /**
+   * Resolve the canonical set of correct-option indices for the current
+   * question via a 3-tier fallback:
+   *   1. Pristine-first: text-match against quizInitialState (immune to
+   *      stale/mutated correct flags after Restart Quiz)
+   *   2. questionOptions's own `correct` flags
+   *   3. state.optionBindings's `isCorrect` / `option.correct`
+   *
+   * Pure read — never mutates inputs. Returns an empty Set if all three
+   * sources fail.
+   */
+  private resolveCorrectIndicesSet(
+    question: QuizQuestion | null,
+    state: OptionInteractionState,
+    questionOptions: Option[]
+  ): Set<number> {
+    const correctIndicesSet = new Set<number>();
+
+    // PRISTINE-FIRST: Resolve correct indices from quizInitialState to avoid
+    // stale/mutated correct flags on questionOptions (e.g. after Restart Quiz).
+    try {
+      const qTextForLookup = question?.questionText ?? state.currentQuestion?.questionText;
+      const pristineCorrectTexts =
+        this.quizService.getPristineCorrectTextsForQuestion(qTextForLookup);
+      if (pristineCorrectTexts.size > 0) {
+        for (const [i, o] of questionOptions.entries()) {
+          if (pristineCorrectTexts.has(norm(o?.text))) {
+            correctIndicesSet.add(i);
+          }
+        }
+      }
+    } catch { /* ignore */ }
+
+    // Fallback: use questionOptions directly (may have stale flags but better than nothing)
+    if (correctIndicesSet.size === 0) {
+      for (const [i, o] of questionOptions.entries()) {
+        if (isOptionCorrect(o)) correctIndicesSet.add(i);
+      }
+    }
+
+    // Also try bindings as a source of correct info
+    if (correctIndicesSet.size === 0) {
+      for (const [i, b] of state.optionBindings.entries()) {
+        if (b.isCorrect || isOptionCorrect(b.option)) correctIndicesSet.add(i);
+      }
+    }
+
+    return correctIndicesSet;
   }
 
   /**
