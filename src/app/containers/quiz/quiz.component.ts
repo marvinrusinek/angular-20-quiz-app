@@ -367,7 +367,6 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
 
     const question: QuizQuestion | null =
       this.question() ??
-      ((this.quizService as any).currentQuestion?.value as QuizQuestion | null) ??
       this.quizService.questions?.[idx] ??
       this.quizService.shuffledQuestions?.[idx] ??
       null;
