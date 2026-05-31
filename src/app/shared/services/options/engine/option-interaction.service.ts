@@ -374,25 +374,8 @@ export class OptionInteractionService {
 
     const allCorrectFound = correctIndicesSet.size > 0 && [...correctIndicesSet].every(i => futureKeys.has(i));
 
-    // DEFERRED DOT PERSIST: For single-answer, persist immediately.
-    // For multi-answer, only persist 'correct' when ALL correct answers
-    // are selected. A partial 'correct' causes the DOT-CONFIRMED FALLBACK
-    // LOCK to treat the question as fully resolved on refresh, which
-    // auto-highlights the 2nd correct answer the user never selected.
-    try {
-      if (!isMultipleMode) {
-        sessionStorage.setItem(SK_DOT_CONFIRMED + qIdx, dotStatusEarly);
-      } else if (allCorrectFound) {
-        sessionStorage.setItem(SK_DOT_CONFIRMED + qIdx, 'correct');
-      } else if (!clickedIsCorrectEarly) {
-        sessionStorage.setItem(SK_DOT_CONFIRMED + qIdx, 'wrong');
-      }
-      // For multi-answer partial correct: don't persist to sessionStorage.
-      // The in-memory map handles live rendering; refresh should NOT see
-      // a 'correct' status for an incomplete multi-answer question.
-    } catch (e) {
-      console.error('OptionInteractionService.handleOptionClick dot-status persist failed:', e);
-    }
+    // DEFERRED DOT PERSIST (see persistDotConfirmedStatus for rationale).
+    this.persistDotConfirmedStatus(qIdx, isMultipleMode, allCorrectFound, clickedIsCorrectEarly, dotStatusEarly);
 
     // COMMIT STATE
     simulatedSelection = [...futureSelection];
@@ -598,6 +581,37 @@ export class OptionInteractionService {
 
     // MESSAGE UPDATE
     this.syncMessageAfterClick(state, qIdx, isMultipleMode, futureKeys);
+  }
+
+  /**
+   * Persist the DOT-CONFIRMED status to sessionStorage with multi-answer-safe
+   * semantics:
+   *  - Single-answer: always persist the current click result (correct/wrong).
+   *  - Multi-answer, all correct selected: persist 'correct'.
+   *  - Multi-answer, the just-clicked option is incorrect: persist 'wrong'.
+   *  - Multi-answer, partial-correct selection: do NOT persist. Otherwise the
+   *    DOT-CONFIRMED FALLBACK LOCK would treat the question as fully
+   *    resolved on refresh and auto-highlight a correct answer the user
+   *    never selected.
+   */
+  private persistDotConfirmedStatus(
+    qIdx: number,
+    isMultipleMode: boolean,
+    allCorrectFound: boolean,
+    clickedIsCorrectEarly: boolean,
+    dotStatusEarly: string
+  ): void {
+    try {
+      if (!isMultipleMode) {
+        sessionStorage.setItem(SK_DOT_CONFIRMED + qIdx, dotStatusEarly);
+      } else if (allCorrectFound) {
+        sessionStorage.setItem(SK_DOT_CONFIRMED + qIdx, 'correct');
+      } else if (!clickedIsCorrectEarly) {
+        sessionStorage.setItem(SK_DOT_CONFIRMED + qIdx, 'wrong');
+      }
+    } catch (e) {
+      console.error('OptionInteractionService.handleOptionClick dot-status persist failed:', e);
+    }
   }
 
   /**
