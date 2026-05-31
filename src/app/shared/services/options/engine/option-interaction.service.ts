@@ -522,19 +522,7 @@ export class OptionInteractionService {
     // PRISTINE MULTI-ANSWER GUARD: correctCountInBindings can be wrong
     // (bindings may show only 1 correct due to mutation). Cross-check
     // against quizInitialState to detect true multi-answer questions.
-    let pristineIsMultiAnswer = false;
-    try {
-      const isShuffledPM = (this.quizService as any)?.isShuffleEnabled?.()
-        && (this.quizService as any)?.shuffledQuestions?.length > 0;
-      const qTextForLookup = isShuffledPM
-        ? (question?.questionText
-          ?? this.quizService.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText
-          ?? (this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText
-          ?? state.currentQuestion?.questionText)
-        : (question?.questionText ?? state.currentQuestion?.questionText);
-      const pristineTexts = this.quizService.getPristineCorrectTextsForQuestion(qTextForLookup);
-      if (pristineTexts.size > 1) pristineIsMultiAnswer = true;
-    } catch { /* ignore */ }
+    const pristineIsMultiAnswer = this.resolvePristineIsMultiAnswer(question, qIdx, state);
 
     // ─── SCORING ───
     // In SHUFFLED mode, ALL scoring and FET is handled by the SOC
@@ -610,6 +598,34 @@ export class OptionInteractionService {
 
     // MESSAGE UPDATE
     this.syncMessageAfterClick(state, qIdx, isMultipleMode, futureKeys);
+  }
+
+  /**
+   * Pristine multi-answer probe: looks up the pristine quiz data by the
+   * current question text (shuffle-aware) and returns true when there's
+   * more than one correct answer. Bindings can carry stale/mutated correct
+   * flags, so this is the authoritative single/multi classifier inside
+   * handleOptionClick.
+   */
+  private resolvePristineIsMultiAnswer(
+    question: QuizQuestion | null,
+    qIdx: number,
+    state: OptionInteractionState
+  ): boolean {
+    try {
+      const isShuffledPM = (this.quizService as any)?.isShuffleEnabled?.()
+        && (this.quizService as any)?.shuffledQuestions?.length > 0;
+      const qTextForLookup = isShuffledPM
+        ? (question?.questionText
+          ?? this.quizService.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText
+          ?? (this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText
+          ?? state.currentQuestion?.questionText)
+        : (question?.questionText ?? state.currentQuestion?.questionText);
+      const pristineTexts = this.quizService.getPristineCorrectTextsForQuestion(qTextForLookup);
+      return pristineTexts.size > 1;
+    } catch {
+      return false;
+    }
   }
 
   /**
