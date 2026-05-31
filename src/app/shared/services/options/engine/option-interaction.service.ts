@@ -224,7 +224,7 @@ export class OptionInteractionService {
     // durable sel_Q* / _selectionHistory entries are legitimate prior clicks
     // that must be preserved so they rehydrate as prev-clicked (dark gray /
     // red+X) on the next refresh. Only use isStaleFromRefresh to scope the
-    // LOCAL simulatedSelection shape; do NOT call clearAllSelectionsForQuestion
+    // LOCAL simulatedSelection shape; do NOT call clearSelectionsForQuestion
     // here — it wipes _selectionHistory and sel_Q* in sessionStorage.
     let simulatedSelection = isStaleFromRefresh ? [] : [...storedSelection];
 
@@ -251,7 +251,7 @@ export class OptionInteractionService {
       } as SelectedOption;
       
       if (!isMultipleMode) {
-        // Do NOT call clearAllSelectionsForQuestion here: it wipes
+        // Do NOT call clearSelectionsForQuestion here: it wipes
         // _selectionHistory and sel_Q* in sessionStorage, which erases the
         // "previously clicked" record for prior wrong clicks. We still
         // want A to rehydrate on refresh (as previously-clicked, even if

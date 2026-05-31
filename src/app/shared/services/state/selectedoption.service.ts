@@ -197,38 +197,9 @@ export class SelectedOptionService {
     );
   }
 
-  public clearAllSelectionsForQuestion(questionIndex: number): void {
-    const idx = this.idResolver.normalizeQuestionIndex(questionIndex);
-    if (idx < 0) return;
-
-    // Canonical selection state
-    this.selectedOptionsMap.set(idx, []);
-    this.selectedOptionIndices[idx] = [];
-
-    // Clear accumulated history so saveState() doesn't re-merge stale
-    // wrong-click entries back into sel_Q*. The live interaction uses
-    // _multiSelectByQuestion (not _selectionHistory) for the binding
-    // rebuild, so this is safe.
-    this._selectionHistory.delete(idx);
-
-    // Clear the durable per-question sessionStorage key BEFORE saveState
-    // runs â€” otherwise saveState's merge reads the old key and re-adds
-    // entries that were just cleared. This prevents stale wrong-click
-    // entries from accumulating across multiple click attempts.
-    this.persistence.clearPerQuestionSessionKey(idx);
-
-    // Snapshot used by correctness logic
-    this.optionSnapshotByQuestion.delete(idx);
-
-    // Timer / correctness flags
-    this.stopTimerEmitted = false;
-
-    // Emit clean state so UI updates
-    this.selectedOptionSig.set([]);
-    this.isOptionSelectedSig.set(false);
-
-    this.saveState();
-  }
+  // (clearAllSelectionsForQuestion removed — was dead code; live callers
+  // all use clearSelectionsForQuestion which performs the same wipe of
+  // _selectionHistory + sel_Q* in sessionStorage.)
 
   setSelectedOption(
     option: SelectedOption | null,
@@ -720,6 +691,14 @@ export class SelectedOptionService {
     }
   }
 
+  /**
+   * Used by the constructor's `quizReset$` subscriber. Differs from
+   * `clearState()` only in that it ALSO emits via `selectedOptionSig`
+   * (the array signal) — `clearState` resets the underlying
+   * `this.selectedOption` field but doesn't push to the signal.
+   * The trailing `isOptionSelectedSig`/`isAnsweredSig` writes are
+   * idempotent re-emissions of values `clearState` already set.
+   */
   public resetAllOptions(): void {
     this.clearState();
     this.selectedOptionSig.set([]);
