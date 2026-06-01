@@ -188,4 +188,29 @@ describe('ExplanationDisplayStateService', () => {
     service.setGate(1, false);
     expect(gate!.getValue()).toBe(false);
   });
+
+  // ── emitFormatted lock-leak tripwires (E6) ──────────────────────────
+  // emitFormatted sets _fetLocked = true up front, then bails early on an
+  // empty/null value. The early-return must NOT leak the lock — an empty
+  // "clear" emit should leave _fetLocked at whatever it was on entry, so a
+  // subsequent real emit isn't permanently gated. See E6 design doc §3.2.
+
+  it('emitFormatted with an empty string should not leave _fetLocked stuck true', () => {
+    service._fetLocked = false;
+    service.emitFormatted(0, '', { bypassGuard: true });
+    expect(service._fetLocked).toBe(false);
+  });
+
+  it('emitFormatted with a null value should not leave _fetLocked stuck true', () => {
+    service._fetLocked = false;
+    service.emitFormatted(0, null, { bypassGuard: true });
+    expect(service._fetLocked).toBe(false);
+  });
+
+  it('emitFormatted empty-value bail should preserve a prior locked state', () => {
+    service._fetLocked = true;
+    service.emitFormatted(0, '', { bypassGuard: true });
+    // A no-op empty emit must not change the lock either way.
+    expect(service._fetLocked).toBe(true);
+  });
 });

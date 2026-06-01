@@ -130,33 +130,21 @@ describe('FET emission contract', () => {
   // the gate locked indefinitely, blocking subsequent emissions until
   // some external caller resets the lock.
 
-  it('DOCUMENTS BUG: emitFormatted with empty value leaks _fetLocked = true', () => {
-    // Reach into the underlying displayState (the facade delegates).
+  // FIXED (E6): emitFormatted now restores the prior lock state on an
+  // empty/null/whitespace bail instead of leaking _fetLocked = true.
+  it('emitFormatted with empty value should NOT leave _fetLocked stuck', () => {
     const displayState = (service as any).displayState;
-    displayState._fetLocked = false; // baseline
+    displayState._fetLocked = false;
 
     service.emitFormatted(0, '', { bypassGuard: true });
-    expect(displayState._fetLocked).toBe(true);
+    expect(displayState._fetLocked).toBe(false);
 
-    // Same for null and whitespace
     displayState._fetLocked = false;
     service.emitFormatted(0, null, { bypassGuard: true });
-    expect(displayState._fetLocked).toBe(true);
+    expect(displayState._fetLocked).toBe(false);
 
     displayState._fetLocked = false;
     service.emitFormatted(0, '   \n\t', { bypassGuard: true });
-    expect(displayState._fetLocked).toBe(true);
-  });
-
-  xit('DESIRED: emitFormatted with empty value should NOT leave _fetLocked stuck (un-skip when fixed)', () => {
-    const displayState = (service as any).displayState;
-    displayState._fetLocked = false;
-
-    service.emitFormatted(0, '', { bypassGuard: true });
-    expect(displayState._fetLocked).toBe(false); // currently FAILS — lock leaks
-
-    displayState._fetLocked = false;
-    service.emitFormatted(0, null, { bypassGuard: true });
     expect(displayState._fetLocked).toBe(false);
   });
 

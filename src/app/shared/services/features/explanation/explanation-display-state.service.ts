@@ -732,6 +732,9 @@ export class ExplanationDisplayStateService {
     options: { token?: number; bypassGuard?: boolean } = {}
   ): void {
     const { bypassGuard = false } = options;
+    // Capture the lock state on entry so an early no-op bail (empty value)
+    // can restore it instead of leaking a permanent lock. See E6 §3.2.
+    const priorLock = this._fetLocked;
     // Lock immediately to prevent race conditions with reactive streams
     this._fetLocked = true;
 
@@ -802,7 +805,12 @@ export class ExplanationDisplayStateService {
     }
 
     const trimmed = (value ?? '').trim();
-    if (!trimmed) return;
+    if (!trimmed) {
+      // Empty/null value is a no-op clear — do NOT leak the lock we set
+      // above; restore whatever it was on entry. (E6 lock-leak fix.)
+      this._fetLocked = priorLock;
+      return;
+    }
 
     this.latestExplanationIndex = index;
 
