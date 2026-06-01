@@ -133,6 +133,26 @@ export class AccordionComponent implements OnInit {
     return `Options ${rest}, and ${last}`;
   }
 
+  // ── Timer expiry (countdown only) ───────────────────────────────
+  // A question "timed out" when its elapsed time reached the per-question
+  // countdown duration. Stopwatch mode has no expiry, so always false.
+  isQuestionTimedOut(index: number): boolean {
+    if (!this.timerService.isCountdown()) return false;
+    const duration = this.timerService.timePerQuestion;
+    const elapsed = this.results.elapsedTimes?.[index] ?? 0;
+    return duration > 0 && elapsed >= duration;
+  }
+
+  get timedOutCount(): number {
+    if (!this.timerService.isCountdown()) return 0;
+    const total = this.questions().length;
+    let count = 0;
+    for (let i = 0; i < total; i++) {
+      if (this.isQuestionTimedOut(i)) count++;
+    }
+    return count;
+  }
+
   // Get selected options directly from SelectedOptionService for a given question index
   // Returns visual 1-based indices (Option 1, Option 2, etc.) in SELECTION ORDER (not sorted)
   getSelectedOptionsForQuestion(questionIndex: number): { text: string; visualIndex: number }[] {

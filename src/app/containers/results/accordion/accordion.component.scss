@@ -52,6 +52,27 @@ mat-accordion {
       color: vars.$dark-blue;
       white-space: nowrap;
     }
+
+    .timed-out-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      margin-left: 6px;
+      padding: 1px 8px;
+      border-radius: 10px;
+      background-color: #f0ad4e;  // amber, matches in-quiz timer-expiry
+      color: #4a2f00;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      vertical-align: middle;
+
+      .material-icons {
+        width: 14px;
+        height: 14px;
+        font-size: 14px;
+      }
+    }
   }
 
   .accordion-icon {
@@ -130,6 +151,21 @@ mat-accordion {
   color: vars.$dark-blue;
 }
 
+.timed-out-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: -6px 0 15px 40px;
+  font-family: vars.$font-stack;
+  font-weight: 600;
+  color: #b26a00;
+
+  .material-icons {
+    font-size: 18px;
+    color: #f0ad4e;
+  }
+}
+
 @media (max-width: 600px) {
   :host ::ng-deep .mat-expansion-panel-header {
     padding: 8px 2px 8px 2px !important;
@@ -186,6 +222,12 @@ mat-accordion {
     display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
+  }
+
+  .timed-out-summary {
+    margin: 0 0 12px 0 !important;
+    justify-content: center;
+    font-size: 14px;
   }
 
   mat-accordion {

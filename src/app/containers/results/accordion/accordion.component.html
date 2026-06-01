@@ -2,6 +2,13 @@
   Detailed Summary <i>({{ accordionHeaderLabel() }})</i>
 </h3>
 
+@if (timedOutCount > 0) {
+  <p class="timed-out-summary">
+    <i class="material-icons">timer_off</i>
+    <span i18n>Ran out of time on {{ timedOutCount }} of {{ questions().length }} questions.</span>
+  </p>
+}
+
 @if (questions().length === 0) {
   <p i18n>No questions available to display. Please verify quiz data.</p>
 }
@@ -23,6 +30,9 @@
             @let correctCount = getCorrectOptionIndices(question, i).length;
             @if (correctCount > 1) {
               <span class="question-correct-count">({{ correctCount }} correct answers)</span>
+            }
+            @if (isQuestionTimedOut(i)) {
+              <span class="timed-out-badge"><i class="material-icons">timer_off</i><span i18n>Timed out</span></span>
             }
           </span>
         </mat-panel-title>
