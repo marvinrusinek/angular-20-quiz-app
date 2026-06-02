@@ -370,93 +370,9 @@ export class OptionInteractionService {
 
     // UPDATE UI
 
-    // AUTHORITATIVE HIGHLIGHT SYNC for single-answer mode:
-    // - isSelected (radio state): ONLY the current click
-    // - highlight/showIcon: current click + all previously clicked options
-    // - feedback: ONLY the current click (handled by _feedbackDisplay)
-    if (!isMultipleMode) {
-      // Accumulate history (don't reset it)
-      if (!state.selectedOptionHistory.includes(index)) {
-        state.selectedOptionHistory.push(index);
-      }
-      // Seed history from durable sel_Q* on first post-refresh click.
-      // state.selectedOptionHistory is component-local and empty after
-      // refresh, but sel_Q* holds every prior click for this question. Without
-      // seeding, the binding loop below unhighlights prev-clicked options
-      // (wasPreviouslyClicked=false) and turns them white.
-      const historySet = new Set<number | string>(state.selectedOptionHistory);
-      try {
-        const saved = this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
-        for (const s of saved) {
-          const sText = norm(s?.text);
-          const sId = s?.optionId;
-          let pos = -1;
-          if (sText) {
-            pos = state.optionBindings.findIndex((b: OptionBindings) =>
-              norm(b?.option?.text) === sText
-            );
-          }
-          if (pos === -1 && sId != null && sId !== -1) {
-            pos = state.optionBindings.findIndex((b: OptionBindings) =>
-              b?.option?.optionId != null && String(b.option.optionId) === String(sId)
-            );
-          }
-          if (pos === -1) {
-            const sIdx = s?.displayIndex ?? s?.index;
-            if (sIdx != null && Number.isFinite(Number(sIdx))) pos = Number(sIdx);
-          }
-          if (pos !== -1) {
-            historySet.add(pos);
-            if (!state.selectedOptionHistory.includes(pos)) {
-              state.selectedOptionHistory.push(pos);
-            }
-          }
-        }
-      } catch { /* ignore */ }
-      for (const [i, b] of state.optionBindings.entries()) {
-        const isCurrent = (i === index);
-        const wasPreviouslyClicked = historySet.has(i);
-        // Radio state: only current
-        b.isSelected = isCurrent;
-        if (b.option) {
-          b.option.selected = isCurrent;
-          // Highlight: current + previously clicked
-          b.option.highlight = isCurrent || wasPreviouslyClicked;
-          b.option.showIcon = isCurrent || wasPreviouslyClicked;
-        }
-        b.highlightCorrect = false;
-        b.highlightIncorrect = false;
-        b.showFeedback = isCurrent;
-      }
-      state.selectedOptionMap.clear();
-      state.selectedOptionMap.set(targetKey, true);
-      state.feedbackConfigs = {};
-    } else { // Multiple mode: two-pass update to ensure correct results regardless of binding order
-      // Pass 1: Sync 'selected' state for all bindings AND optionsToDisplay based on futureKeys.
-      // Binding options are structuredClone'd copies of optionsToDisplay, so both must be updated.
-      for (const [i, b] of state.optionBindings.entries()) {
-        const isCurrentlySelected = futureKeys.has(i);
-        b.isSelected = isCurrentlySelected;
-        if (b.option) {
-          b.option.selected = isCurrentlySelected;
-        }
-        if (state.optionsToDisplay?.[i]) {
-          state.optionsToDisplay[i].selected = isCurrentlySelected;
-        }
-      }
-
-      // Pass 2: Calculate 'highlight' and 'showIcon' based on the updated state
-      for (const [i, b] of state.optionBindings.entries()) {
-        if (!b.option) continue;
-        const isCurrentlySelected = b.isSelected;
-        b.option.highlight = isCurrentlySelected;
-        b.option.showIcon = isCurrentlySelected;
-        if (state.optionsToDisplay?.[i]) {
-          state.optionsToDisplay[i].highlight = isCurrentlySelected;
-          state.optionsToDisplay[i].showIcon = isCurrentlySelected;
-        }
-      }
-    }
+    // AUTHORITATIVE HIGHLIGHT SYNC (single- vs multi-answer). Extracted to
+    // applyHighlightSync; body is unchanged.
+    this.applyHighlightSync(state, index, qIdx, targetKey, isMultipleMode, futureKeys);
 
     // Detect shuffle mode early — needed for timer and scoring gates
     const isShuffleActive = (this.quizService as any)?.isShuffleEnabled?.() &&
@@ -560,6 +476,108 @@ export class OptionInteractionService {
 
     // MESSAGE UPDATE
     this.syncMessageAfterClick(state, qIdx, isMultipleMode, futureKeys);
+  }
+
+  /**
+   * Authoritative highlight/selection sync for the option bindings after a
+   * click. Single-answer: only the current click is "selected", but the
+   * current click plus all previously-clicked options stay highlighted
+   * (history is seeded from durable storage so prior clicks survive a
+   * refresh). Multi-answer: a two-pass update mirrors `futureKeys` onto both
+   * bindings and optionsToDisplay. Void side-effect on `state`; body extracted
+   * verbatim from handleOptionClick.
+   */
+  private applyHighlightSync(
+    state: OptionInteractionState,
+    index: number,
+    qIdx: number,
+    targetKey: number | string,
+    isMultipleMode: boolean,
+    futureKeys: Set<number>
+  ): void {
+    if (!isMultipleMode) {
+      // Accumulate history (don't reset it)
+      if (!state.selectedOptionHistory.includes(index)) {
+        state.selectedOptionHistory.push(index);
+      }
+      // Seed history from durable sel_Q* on first post-refresh click.
+      // state.selectedOptionHistory is component-local and empty after
+      // refresh, but sel_Q* holds every prior click for this question. Without
+      // seeding, the binding loop below unhighlights prev-clicked options
+      // (wasPreviouslyClicked=false) and turns them white.
+      const historySet = new Set<number | string>(state.selectedOptionHistory);
+      try {
+        const saved = this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
+        for (const s of saved) {
+          const sText = norm(s?.text);
+          const sId = s?.optionId;
+          let pos = -1;
+          if (sText) {
+            pos = state.optionBindings.findIndex((b: OptionBindings) =>
+              norm(b?.option?.text) === sText
+            );
+          }
+          if (pos === -1 && sId != null && sId !== -1) {
+            pos = state.optionBindings.findIndex((b: OptionBindings) =>
+              b?.option?.optionId != null && String(b.option.optionId) === String(sId)
+            );
+          }
+          if (pos === -1) {
+            const sIdx = s?.displayIndex ?? s?.index;
+            if (sIdx != null && Number.isFinite(Number(sIdx))) pos = Number(sIdx);
+          }
+          if (pos !== -1) {
+            historySet.add(pos);
+            if (!state.selectedOptionHistory.includes(pos)) {
+              state.selectedOptionHistory.push(pos);
+            }
+          }
+        }
+      } catch { /* ignore */ }
+      for (const [i, b] of state.optionBindings.entries()) {
+        const isCurrent = (i === index);
+        const wasPreviouslyClicked = historySet.has(i);
+        // Radio state: only current
+        b.isSelected = isCurrent;
+        if (b.option) {
+          b.option.selected = isCurrent;
+          // Highlight: current + previously clicked
+          b.option.highlight = isCurrent || wasPreviouslyClicked;
+          b.option.showIcon = isCurrent || wasPreviouslyClicked;
+        }
+        b.highlightCorrect = false;
+        b.highlightIncorrect = false;
+        b.showFeedback = isCurrent;
+      }
+      state.selectedOptionMap.clear();
+      state.selectedOptionMap.set(targetKey, true);
+      state.feedbackConfigs = {};
+    } else { // Multiple mode: two-pass update to ensure correct results regardless of binding order
+      // Pass 1: Sync 'selected' state for all bindings AND optionsToDisplay based on futureKeys.
+      // Binding options are structuredClone'd copies of optionsToDisplay, so both must be updated.
+      for (const [i, b] of state.optionBindings.entries()) {
+        const isCurrentlySelected = futureKeys.has(i);
+        b.isSelected = isCurrentlySelected;
+        if (b.option) {
+          b.option.selected = isCurrentlySelected;
+        }
+        if (state.optionsToDisplay?.[i]) {
+          state.optionsToDisplay[i].selected = isCurrentlySelected;
+        }
+      }
+
+      // Pass 2: Calculate 'highlight' and 'showIcon' based on the updated state
+      for (const [i, b] of state.optionBindings.entries()) {
+        if (!b.option) continue;
+        const isCurrentlySelected = b.isSelected;
+        b.option.highlight = isCurrentlySelected;
+        b.option.showIcon = isCurrentlySelected;
+        if (state.optionsToDisplay?.[i]) {
+          state.optionsToDisplay[i].highlight = isCurrentlySelected;
+          state.optionsToDisplay[i].showIcon = isCurrentlySelected;
+        }
+      }
+    }
   }
 
   /**
