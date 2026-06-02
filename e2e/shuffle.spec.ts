@@ -14,6 +14,7 @@ import * as path from 'path';
 const HEADING = 'codelab-quiz-content h3';
 const FEEDBACK = 'codelab-quiz-feedback';
 const NEXT_BTN = '.nav-btn[aria-label="Next Question"]';
+const PREV_BTN = '.nav-btn[aria-label="Previous Question"]';
 
 const quizData = JSON.parse(
   fs.readFileSync(path.join(process.cwd(), 'src/assets/data/quiz.json'), 'utf8')
@@ -74,5 +75,41 @@ test.describe('shuffle mode — explanation pipeline', () => {
         return findQuestionForHeading(t) ? 'question' : 'other';
       }, { timeout: 8000 })
       .toBe('question');
+  });
+
+  // Repro for the reported bug: bouncing Q1<->Q2 repeatedly in shuffle, the
+  // Next button fails to re-enable on the 3rd visit to Q2 even though Q2 was
+  // already answered. Next is [disabled]="!nextButtonEnabled()".
+  test('Next stays enabled on repeated revisits to position 2 (Q1<->Q2 x3)', async ({ page }) => {
+    await enableShuffleAndStart(page);
+    const next = page.locator(NEXT_BTN);
+    const prev = page.locator(PREV_BTN);
+    const rows = page.locator('.option-row');
+
+    // Answer position 1.
+    let h = (await page.locator(HEADING).textContent()) ?? '';
+    await rows.nth(correctIndexForHeading(h)).click();
+    await expect(next).toBeEnabled();
+
+    // Go to position 2 and answer it.
+    await next.click();
+    await expect(page).toHaveURL(/\/2$/);
+    await rows.first().waitFor({ state: 'visible' });
+    h = (await page.locator(HEADING).textContent()) ?? '';
+    await rows.nth(correctIndexForHeading(h)).click();
+    await expect(next).toBeEnabled();
+
+    // Bounce: 2 -> 1 -> 2 (2nd visit), then 1 -> 2 (3rd visit).
+    for (let i = 0; i < 2; i++) {
+      await prev.click();
+      await expect(page).toHaveURL(/\/1$/);
+      await expect(next).toBeEnabled(); // Q1 answered -> Next enabled
+      await next.click();
+      await expect(page).toHaveURL(/\/2$/);
+      await rows.first().waitFor({ state: 'visible' });
+    }
+
+    // On the 3rd visit to position 2 (already answered), Next must be enabled.
+    await expect(next).toBeEnabled();
   });
 });
