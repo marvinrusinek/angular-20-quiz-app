@@ -296,26 +296,7 @@ export class OptionInteractionService {
     // keys strictly on displayIndex — so entries without it silently fail
     // to restore on refresh. Resolve by matching optionId/text against the
     // current bindings or optionsToDisplay to stamp the correct position.
-    futureSelection = futureSelection.map((s: SelectedOption) => {
-      const hasIdx =
-        s?.displayIndex != null && Number.isFinite(Number(s.displayIndex));
-      if (hasIdx) return s;
-      const sId = s?.optionId;
-      const sText = norm(s?.text);
-      let pos = state.optionBindings.findIndex((b: OptionBindings) => {
-        const bId = b?.option?.optionId;
-        if (sId != null && sId !== -1 && bId != null && bId !== -1 && String(sId) === String(bId)) return true;
-        return !!sText && norm(b?.option?.text) === sText;
-      });
-      if (pos === -1) {
-        pos = state.optionsToDisplay.findIndex((o: Option) => {
-          if (sId != null && sId !== -1 && o?.optionId != null && o.optionId !== -1 && String(sId) === String(o.optionId)) return true;
-          return !!sText && norm(o?.text) === sText;
-        });
-      }
-      if (pos === -1) return s;
-      return { ...s, displayIndex: pos, index: pos };
-    });
+    futureSelection = this.normalizeSelectionDisplayIndices(futureSelection, state);
 
     // Re-sync simulatedSelection with the normalized futureSelection so the
     // subsequent syncSelectionState call below persists the corrected data.
@@ -560,6 +541,40 @@ export class OptionInteractionService {
 
     // MESSAGE UPDATE
     this.syncMessageAfterClick(state, qIdx, isMultipleMode, futureKeys);
+  }
+
+  /**
+   * Stamp a `displayIndex` onto any selection entry missing one, by matching
+   * the entry's optionId/text against the current bindings (then
+   * optionsToDisplay). Persisted/rehydrated entries can arrive without a
+   * displayIndex, and rehydrate keys strictly on displayIndex — so entries
+   * without it silently fail to restore on refresh. Pure transform: reads
+   * `state` but mutates nothing. Extracted verbatim from handleOptionClick.
+   */
+  private normalizeSelectionDisplayIndices(
+    futureSelection: SelectedOption[],
+    state: OptionInteractionState
+  ): SelectedOption[] {
+    return futureSelection.map((s: SelectedOption) => {
+      const hasIdx =
+        s?.displayIndex != null && Number.isFinite(Number(s.displayIndex));
+      if (hasIdx) return s;
+      const sId = s?.optionId;
+      const sText = norm(s?.text);
+      let pos = state.optionBindings.findIndex((b: OptionBindings) => {
+        const bId = b?.option?.optionId;
+        if (sId != null && sId !== -1 && bId != null && bId !== -1 && String(sId) === String(bId)) return true;
+        return !!sText && norm(b?.option?.text) === sText;
+      });
+      if (pos === -1) {
+        pos = state.optionsToDisplay.findIndex((o: Option) => {
+          if (sId != null && sId !== -1 && o?.optionId != null && o.optionId !== -1 && String(sId) === String(o.optionId)) return true;
+          return !!sText && norm(o?.text) === sText;
+        });
+      }
+      if (pos === -1) return s;
+      return { ...s, displayIndex: pos, index: pos };
+    });
   }
 
   /**
