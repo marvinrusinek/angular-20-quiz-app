@@ -370,16 +370,7 @@ export class OptionInteractionService {
       (this.quizService as any)?.shuffledQuestions?.length > 0;
 
     // Stop timer when correct answer(s) selected.
-    // In shuffled mode, only trust isPristineCorrect — allCorrectFound uses
-    // mutated binding flags which can be wrong.
-    const shouldStopTimer = isShuffleActive
-      ? (!isMultipleMode && isPristineCorrect(binding.option))
-      : (allCorrectFound || (!isMultipleMode && isPristineCorrect(binding.option)));
-    if (shouldStopTimer) {
-      try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch (e) {
-        console.error('OptionInteractionService.handleOptionClick timer stop failed:', e);
-      }
-    }
+    this.maybeStopTimer(isShuffleActive, isMultipleMode, isPristineCorrect, binding.option, allCorrectFound);
 
     // FET & Explanation & Scoring
     // For MULTI-ANSWER, defer FET/scoring to runOptionContentClick which uses
@@ -467,6 +458,29 @@ export class OptionInteractionService {
 
     // MESSAGE UPDATE
     this.syncMessageAfterClick(state, qIdx, isMultipleMode, futureKeys);
+  }
+
+  /**
+   * Stop the countdown timer when the answer is resolved correctly. In
+   * shuffled mode only isPristineCorrect is trusted (allCorrectFound uses
+   * mutated binding flags that can be wrong when questions are reordered).
+   * Terminal side-effect; extracted verbatim from handleOptionClick.
+   */
+  private maybeStopTimer(
+    isShuffleActive: boolean,
+    isMultipleMode: boolean,
+    isPristineCorrect: (o: any) => boolean,
+    clickedOption: any,
+    allCorrectFound: boolean
+  ): void {
+    const shouldStopTimer = isShuffleActive
+      ? (!isMultipleMode && isPristineCorrect(clickedOption))
+      : (allCorrectFound || (!isMultipleMode && isPristineCorrect(clickedOption)));
+    if (shouldStopTimer) {
+      try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch (e) {
+        console.error('OptionInteractionService.maybeStopTimer timer stop failed:', e);
+      }
+    }
   }
 
   /**
