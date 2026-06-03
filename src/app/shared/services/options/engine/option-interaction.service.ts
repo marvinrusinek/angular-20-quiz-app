@@ -356,17 +356,8 @@ export class OptionInteractionService {
       console.error('OptionInteractionService.handleOptionClick dot-status persist failed:', e);
     }
 
-    // COMMIT STATE
-    simulatedSelection = [...futureSelection];
-    this.selectedOptionService.syncSelectionState(qIdx, simulatedSelection);
-    this.quizService.updateUserAnswer(
-      qIdx,
-      Array.from(futureKeys).map(idx => {
-        const o = state.optionsToDisplay[idx] || state.optionBindings[idx]?.option;
-        const eid = getEffectiveId(o, idx);
-        return typeof eid === 'number' ? eid : -1;
-      }).filter(id => id !== -1)
-    );
+    // COMMIT STATE (extracted to commitSelectionState; body unchanged).
+    this.commitSelectionState(qIdx, futureSelection, futureKeys, state);
 
     // UPDATE UI
 
@@ -476,6 +467,32 @@ export class OptionInteractionService {
 
     // MESSAGE UPDATE
     this.syncMessageAfterClick(state, qIdx, isMultipleMode, futureKeys);
+  }
+
+  /**
+   * Commit the resolved selection to the durable stores: the per-question
+   * selection map (via syncSelectionState) and the quiz-service user-answer
+   * record (the option ids derived from futureKeys). Terminal side-effect;
+   * extracted verbatim from handleOptionClick (passes a fresh copy of
+   * futureSelection, matching the prior `simulatedSelection = [...]` spread).
+   */
+  private commitSelectionState(
+    qIdx: number,
+    futureSelection: SelectedOption[],
+    futureKeys: Set<number>,
+    state: OptionInteractionState
+  ): void {
+    const getEffectiveId = (o: any, i: number) =>
+      (o?.optionId != null && o.optionId !== -1) ? o.optionId : i;
+    this.selectedOptionService.syncSelectionState(qIdx, [...futureSelection]);
+    this.quizService.updateUserAnswer(
+      qIdx,
+      Array.from(futureKeys).map(idx => {
+        const o = state.optionsToDisplay[idx] || state.optionBindings[idx]?.option;
+        const eid = getEffectiveId(o, idx);
+        return typeof eid === 'number' ? eid : -1;
+      }).filter(id => id !== -1)
+    );
   }
 
   /**
