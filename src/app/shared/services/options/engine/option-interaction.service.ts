@@ -370,7 +370,7 @@ export class OptionInteractionService {
       (this.quizService as any)?.shuffledQuestions?.length > 0;
 
     // Stop timer when correct answer(s) selected.
-    this.maybeStopTimer(isShuffleActive, isMultipleMode, isPristineCorrect, binding.option, allCorrectFound);
+    this.stopTimerIfAnswerCorrect(isShuffleActive, isMultipleMode, isPristineCorrect, binding.option, allCorrectFound);
 
     // FET & Explanation & Scoring
     // For MULTI-ANSWER, defer FET/scoring to runOptionContentClick which uses
@@ -466,7 +466,7 @@ export class OptionInteractionService {
    * mutated binding flags that can be wrong when questions are reordered).
    * Terminal side-effect; extracted verbatim from handleOptionClick.
    */
-  private maybeStopTimer(
+  private stopTimerIfAnswerCorrect(
     isShuffleActive: boolean,
     isMultipleMode: boolean,
     isPristineCorrect: (o: any) => boolean,
@@ -478,7 +478,7 @@ export class OptionInteractionService {
       : (allCorrectFound || (!isMultipleMode && isPristineCorrect(clickedOption)));
     if (shouldStopTimer) {
       try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch (e) {
-        console.error('OptionInteractionService.maybeStopTimer timer stop failed:', e);
+        console.error('OptionInteractionService.stopTimerIfAnswerCorrect timer stop failed:', e);
       }
     }
   }
