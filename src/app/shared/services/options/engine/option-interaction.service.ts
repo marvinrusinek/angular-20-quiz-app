@@ -71,14 +71,8 @@ export class OptionInteractionService {
     // RESOLVE: state.optionBindings may arrive as a signal function (-clean)
     // or plain array (-main). Normalize to array on the state object so ALL
     // downstream code (.entries, .findIndex, .map, .filter, .[idx]) works.
-    // Mutating state.optionBindings here is safe because `state` is a
-    // per-call context object, not the SOC itself.
-    const _rawOb = (state as any).optionBindings;
-    if (typeof _rawOb === 'function') {
-      (state as any).optionBindings = (_rawOb() ?? []);
-    } else if (!Array.isArray(_rawOb)) {
-      (state as any).optionBindings = [];
-    }
+    // Extracted to normalizeStateOptionBindings; body unchanged.
+    this.normalizeStateOptionBindings(state);
     // Always prefer the live quiz service index over the state snapshot.
     // On the first click after navigating Q1→Q2, state.currentQuestionIndex
     // can still be 0 (stale) while the user is physically on Q2, causing
@@ -525,6 +519,22 @@ export class OptionInteractionService {
       try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch (e) {
         console.error('OptionInteractionService.stopTimerIfAnswerCorrect timer stop failed:', e);
       }
+    }
+  }
+
+  /**
+   * Normalize state.optionBindings to a plain array in place. It may arrive
+   * as a signal function (-clean) or plain array (-main); all downstream code
+   * iterates/indexes it, so coerce once up front. Mutating `state` is safe —
+   * it's a per-call context object, not the SOC itself. Self-contained leaf
+   * side-effect; extracted verbatim from handleOptionClick's head.
+   */
+  private normalizeStateOptionBindings(state: OptionInteractionState): void {
+    const _rawOb = (state as any).optionBindings;
+    if (typeof _rawOb === 'function') {
+      (state as any).optionBindings = (_rawOb() ?? []);
+    } else if (!Array.isArray(_rawOb)) {
+      (state as any).optionBindings = [];
     }
   }
 
