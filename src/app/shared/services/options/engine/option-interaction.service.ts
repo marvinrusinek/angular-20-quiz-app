@@ -248,40 +248,7 @@ export class OptionInteractionService {
         futureSelection = [...simulatedSelection, newOpt];
       }
     }
-    const futureKeys = new Set<number>();
-    for (const s of futureSelection) {
-      const sId = s.optionId;
-      const sText = norm(s.text);
-      let idx = s.displayIndex ?? s.index ?? s.idx;
-
-      if (idx === undefined || idx === null || idx === -1 || isNaN(Number(idx))) {
-        const foundIdx = state.optionBindings.findIndex(b => {
-          if (b.option === s) return true;
-          const bId = b.option?.optionId;
-          if (sId != null && sId !== -1 && bId != null && bId !== -1 && String(sId) === String(bId)) return true;
-          return !!sText && norm(b.option?.text) === sText;
-        });
-        if (foundIdx !== -1) idx = foundIdx;
-        else {
-          const oIdx = state.optionsToDisplay.findIndex(o => {
-            if (o === s) return true;
-            if (sId != null && sId !== -1 && o.optionId != null && o.optionId !== -1 && String(sId) === String(o.optionId)) return true;
-            return !!sText && norm(o.text) === sText;
-          });
-          if (oIdx !== -1) idx = oIdx;
-        }
-      }
-      if (idx !== undefined && idx !== null && idx !== -1 && !isNaN(Number(idx))) {
-        futureKeys.add(Number(idx));
-      }
-    }
-
-    state.selectedOptionMap.clear();
-    for (const k of futureKeys) {
-      const b = state.optionBindings[k];
-      const eid = b ? getEffectiveId(b.option, k) : k;
-      state.selectedOptionMap.set(eid, true);
-    }
+    const futureKeys = this.buildFutureKeysAndSyncMap(futureSelection, state);
 
     // Normalize displayIndex on EVERY futureSelection entry (not just the
     // freshly-clicked one). Pre-existing entries in simulatedSelection can
@@ -434,6 +401,57 @@ export class OptionInteractionService {
 
     // MESSAGE UPDATE
     this.syncMessageAfterClick(state, qIdx, isMultipleMode, futureKeys);
+  }
+
+  /**
+   * Resolve the display-index set for the future selection and mirror it onto
+   * state.selectedOptionMap. Each selection entry's display index is taken
+   * directly when present, else recovered by matching optionId/text against
+   * the current bindings (then optionsToDisplay). Returns the resolved index
+   * set and clears+repopulates selectedOptionMap by effective id. Extracted
+   * verbatim from handleOptionClick (capture-free getEffectiveId redefined).
+   */
+  private buildFutureKeysAndSyncMap(
+    futureSelection: SelectedOption[],
+    state: OptionInteractionState
+  ): Set<number> {
+    const getEffectiveId = (o: any, i: number) =>
+      (o?.optionId != null && o.optionId !== -1) ? o.optionId : i;
+    const futureKeys = new Set<number>();
+    for (const s of futureSelection) {
+      const sId = s.optionId;
+      const sText = norm(s.text);
+      let idx = s.displayIndex ?? s.index ?? s.idx;
+
+      if (idx === undefined || idx === null || idx === -1 || isNaN(Number(idx))) {
+        const foundIdx = state.optionBindings.findIndex(b => {
+          if (b.option === s) return true;
+          const bId = b.option?.optionId;
+          if (sId != null && sId !== -1 && bId != null && bId !== -1 && String(sId) === String(bId)) return true;
+          return !!sText && norm(b.option?.text) === sText;
+        });
+        if (foundIdx !== -1) idx = foundIdx;
+        else {
+          const oIdx = state.optionsToDisplay.findIndex(o => {
+            if (o === s) return true;
+            if (sId != null && sId !== -1 && o.optionId != null && o.optionId !== -1 && String(sId) === String(o.optionId)) return true;
+            return !!sText && norm(o.text) === sText;
+          });
+          if (oIdx !== -1) idx = oIdx;
+        }
+      }
+      if (idx !== undefined && idx !== null && idx !== -1 && !isNaN(Number(idx))) {
+        futureKeys.add(Number(idx));
+      }
+    }
+
+    state.selectedOptionMap.clear();
+    for (const k of futureKeys) {
+      const b = state.optionBindings[k];
+      const eid = b ? getEffectiveId(b.option, k) : k;
+      state.selectedOptionMap.set(eid, true);
+    }
+    return futureKeys;
   }
 
   /**
