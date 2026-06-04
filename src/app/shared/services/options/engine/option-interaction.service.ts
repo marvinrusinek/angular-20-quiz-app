@@ -160,14 +160,7 @@ export class OptionInteractionService {
     const clickedIsCorrectEarly = isPristineCorrect(binding.option);
     const dotStatusEarly = clickedIsCorrectEarly ? 'correct' : 'wrong';
 
-    // Record correct clicks for the scoring service's multi-answer gate.
-    try {
-      if (isPristineCorrect(binding.option)) {
-        (this.quizService as any)?.scoringService?.recordCorrectClick?.(qIdx, binding.option.text);
-      }
-    } catch { /* ignore */ }
-    this.selectedOptionService.clickConfirmedDotStatus.set(qIdx, dotStatusEarly);
-    this.selectedOptionService.lastClickedCorrectByQuestion.set(qIdx, clickedIsCorrectEarly);
+    this.recordEarlyDotStatus(qIdx, binding, clickedIsCorrectEarly, dotStatusEarly, isPristineCorrect);
     // NOTE: sessionStorage persist of dot_confirmed is deferred to AFTER we
     // know the question type. For multi-answer, a single correct click must
     // NOT persist 'correct' — only full resolution should. The in-memory
@@ -458,6 +451,31 @@ export class OptionInteractionService {
 
     // MESSAGE UPDATE
     this.syncMessageAfterClick(state, qIdx, isMultipleMode, futureKeys);
+  }
+
+  /**
+   * Record the click's early dot status: register a correct click for the
+   * scoring service's multi-answer gate, and set the in-memory confirmed
+   * dot status + last-clicked-correct flag for this question. Terminal
+   * side-effect; extracted verbatim from handleOptionClick. (The
+   * sessionStorage persist of dot_confirmed is deliberately left inline and
+   * deferred until the question type is known.)
+   */
+  private recordEarlyDotStatus(
+    qIdx: number,
+    binding: OptionBindings,
+    clickedIsCorrectEarly: boolean,
+    dotStatusEarly: 'correct' | 'wrong',
+    isPristineCorrect: (o: any) => boolean
+  ): void {
+    // Record correct clicks for the scoring service's multi-answer gate.
+    try {
+      if (isPristineCorrect(binding.option)) {
+        (this.quizService as any)?.scoringService?.recordCorrectClick?.(qIdx, binding.option.text);
+      }
+    } catch { /* ignore */ }
+    this.selectedOptionService.clickConfirmedDotStatus.set(qIdx, dotStatusEarly);
+    this.selectedOptionService.lastClickedCorrectByQuestion.set(qIdx, clickedIsCorrectEarly);
   }
 
   /**
