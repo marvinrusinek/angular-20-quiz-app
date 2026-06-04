@@ -73,28 +73,26 @@ export class OptionInteractionService {
     // downstream code (.entries, .findIndex, .map, .filter, .[idx]) works.
     // Extracted to normalizeStateOptionBindings; body unchanged.
     this.normalizeStateOptionBindings(state);
-    // Always prefer the live quiz service index over the state snapshot.
-    // On the first click after navigating Q1→Q2, state.currentQuestionIndex
-    // can still be 0 (stale) while the user is physically on Q2, causing
-    // the click to be attributed to the wrong question and dropped.
+    // INDEX-MODEL REWRITE (Phase 1): the caller (shared-option-click.service)
+    // seeds state.currentQuestionIndex from the URL-authoritative
+    // getActiveQuestionIndex() (the questionIndex() @Input). That is the single
+    // source of truth for the active DISPLAY position, so trust it first; fall
+    // back to the live service signal only when it's missing/invalid.
+    //
+    // The previous logic preferred quizService.getCurrentQuestionIndex() (which
+    // is documented to stick at 0 during init/hydration) and then ran a
+    // text-match "self-heal" against ORIGINAL-order questions[]. In shuffle,
+    // state.currentQuestion is itself wrong-order, so the self-heal collapsed
+    // every click onto the same original slot (the index-0 mis-keying behind
+    // the revisit bug). It also produced an original-order qIdx while every
+    // downstream consumer here (getQuestionAtDisplayIndex, isPristineCorrectFor)
+    // expects a DISPLAY index. Removed — qIdx is now the display index, end to
+    // end, matching the answered-state read path on revisit.
+    const stateIdx = state.currentQuestionIndex;
     const liveIdx = this.quizService?.getCurrentQuestionIndex?.();
-    let qIdx = (typeof liveIdx === 'number' && Number.isFinite(liveIdx) && liveIdx >= 0)
-      ? liveIdx : state.currentQuestionIndex;
-    // Self-heal: quizService.getCurrentQuestionIndex() can be stuck at 0
-    // even when the user is on Q2/Q3. Correct qIdx by matching the live
-    // currentQuestion text against quizService.questions, so confirmed
-    // clicks get recorded under the right question slot.
-    try {
-      const liveQText = norm(state.currentQuestion?.questionText);
-      const allQs: any[] = (this.quizService as any)?.questions ?? [];
-      if (liveQText && allQs.length) {
-        const atQIdx = norm(allQs[qIdx]?.questionText);
-        if (liveQText !== atQIdx) {
-          const fixed = allQs.findIndex((q: any) => norm(q?.questionText) === liveQText);
-          if (fixed >= 0) qIdx = fixed;
-        }
-      }
-    } catch { /* ignore */ }
+    let qIdx = (typeof stateIdx === 'number' && Number.isFinite(stateIdx) && stateIdx >= 0)
+      ? stateIdx
+      : ((typeof liveIdx === 'number' && Number.isFinite(liveIdx) && liveIdx >= 0) ? liveIdx : 0);
     const isCorrectHelper = isOptionCorrect;
 
     // PRISTINE CORRECTNESS RESOLVER: Resolve whether the clicked option is
