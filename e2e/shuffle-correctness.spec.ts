@@ -81,14 +81,14 @@ test.describe('correctness — scoring control (non-shuffle)', () => {
 });
 
 test.describe('shuffle correctness — scoring', () => {
-  // KNOWN BROKEN (fixme): the IDENTICAL hardened playthrough passes 4/4 in
-  // non-shuffle (control above) but fails in shuffle — clicks don't register
-  // as selected, Next doesn't enable, and the score comes out wrong (e.g. 7/9
-  // with every answer correct). Confirms the shuffle index mis-attribution
-  // (clicks recorded under index 0) corrupts the CORE flow, not just the
-  // Next-button-on-revisit edge. This is the Phase 2 finding that justifies
-  // the index-model rewrite (option B). Un-fixme when shuffle is fixed.
-  test.fixme('all-correct in shuffle scores 100%', async ({ page }) => {
+  // FIXED: previously an all-correct shuffle run scored wrong (e.g. 7/9)
+  // because some clicks were silently dropped — the contentClick branch in
+  // SharedOptionClickService bailed (deferring to the radio's change event)
+  // when the click was inside the radio control, but the wrapper's
+  // stopPropagation meant change never fired, so the click was lost. Now
+  // contentClick processes as a backstop unless the option is already
+  // selected. This is the regression guard.
+  test('all-correct in shuffle scores 100%', async ({ page }) => {
     await startQuiz(page, true);
     await playThroughShuffle(page, new Set());
     const { correct, total, pct } = await readScore(page);

@@ -106,7 +106,16 @@ export class SharedOptionClickService {
       if (isInsideMaterialControl) {
         const isCorrectOpt = isOptionCorrect(binding?.option);
         const isSingleMode = comp.type === 'single' && !comp.isMultiMode;
-        if (!(isSingleMode && isCorrectOpt && binding.disabled)) return;
+        // Defer to the radio's (change) event ONLY when the option is already
+        // selected (change handled it). Otherwise contentClick must process as
+        // a backstop: when the inner wrapper swallows the click via
+        // stopPropagation, the radio's (change) never fires and the click is
+        // silently dropped — the cause of the shuffle "lost answer" bug (a new
+        // question's correct option whose index didn't trigger change). The
+        // rapid-duplicate guards below dedup if (change) does also fire. The
+        // single-correct-disabled exception is preserved.
+        const alreadySelected = !!(binding?.option?.selected || binding?.isSelected);
+        if (alreadySelected && !(isSingleMode && isCorrectOpt && binding.disabled)) return;
       }
 
       if (isRapidDuplicate) return;
