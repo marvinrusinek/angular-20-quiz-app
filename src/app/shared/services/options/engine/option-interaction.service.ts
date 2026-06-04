@@ -377,30 +377,13 @@ export class OptionInteractionService {
     // against quizInitialState to detect true multi-answer questions.
     const pristineIsMultiAnswer = this.resolvePristineIsMultiAnswer(question, qIdx, state);
 
-    // ─── SCORING ───
-    // In SHUFFLED mode, ALL scoring and FET is handled by the SOC
-    // (runOptionContentClick) which has authoritative pristine-based logic.
-    // OIS must NOT score or emit FET in shuffled mode — its data sources
-    // (allCorrectFound, correctIndicesSet, binding flags) are unreliable
-    // when questions are reordered.
-    let scoreFired = false;
-
-    if (!isShuffleActive) {
-      // ── UNSHUFFLED: original gate ──
-      if (allCorrectFound && !isMultipleMode && !pristineIsMultiAnswer) {
-        this.quizService._multiAnswerPerfect.set(qIdx, true);
-        writeSessionString(SK_MULTI_PERFECT + qIdx, 'true');
-        this.quizService.scoreDirectly(qIdx, true, isMultipleMode);
-        scoreFired = true;
-      }
-
-      if (scoreFired) {
-        if ((state as any).showExplanationChange) {
-          (state as any).showExplanationChange.emit(true);
-        }
-        queueMicrotask(() => emitExplanation(qIdx, true));
-      }
-    }
+    // ─── SCORING ─── (extracted to scoreAndEmitIfUnshuffledPerfect; body
+    // unchanged). In shuffled mode scoring/FET is handled by the SOC, so OIS
+    // must not score or emit there.
+    this.scoreAndEmitIfUnshuffledPerfect(
+      isShuffleActive, allCorrectFound, isMultipleMode, pristineIsMultiAnswer,
+      qIdx, state, emitExplanation
+    );
 
     // UPDATE ANCHOR: If we just selected something, that's the new anchor.
     // If we unselected, find the most recently selected option that's still selected.
@@ -451,6 +434,38 @@ export class OptionInteractionService {
 
     // MESSAGE UPDATE
     this.syncMessageAfterClick(state, qIdx, isMultipleMode, futureKeys);
+  }
+
+  /**
+   * Unshuffled single-answer "perfect" scoring + FET emission. When the
+   * clicked answer fully resolves the question correctly (and it's not a
+   * multi-answer question), record the score and emit the explanation. In
+   * shuffled mode this is a no-op — the SOC owns scoring/FET there, using
+   * authoritative pristine logic. Terminal side-effect; extracted verbatim.
+   */
+  private scoreAndEmitIfUnshuffledPerfect(
+    isShuffleActive: boolean,
+    allCorrectFound: boolean,
+    isMultipleMode: boolean,
+    pristineIsMultiAnswer: boolean,
+    qIdx: number,
+    state: OptionInteractionState,
+    emitExplanation: (idx: number, skipGuard?: boolean) => void
+  ): void {
+    if (isShuffleActive) return;
+    let scoreFired = false;
+    if (allCorrectFound && !isMultipleMode && !pristineIsMultiAnswer) {
+      this.quizService._multiAnswerPerfect.set(qIdx, true);
+      writeSessionString(SK_MULTI_PERFECT + qIdx, 'true');
+      this.quizService.scoreDirectly(qIdx, true, isMultipleMode);
+      scoreFired = true;
+    }
+    if (scoreFired) {
+      if ((state as any).showExplanationChange) {
+        (state as any).showExplanationChange.emit(true);
+      }
+      queueMicrotask(() => emitExplanation(qIdx, true));
+    }
   }
 
   /**
