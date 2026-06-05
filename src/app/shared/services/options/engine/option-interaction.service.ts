@@ -227,20 +227,7 @@ export class OptionInteractionService {
     // are selected. A partial 'correct' causes the DOT-CONFIRMED FALLBACK
     // LOCK to treat the question as fully resolved on refresh, which
     // auto-highlights the 2nd correct answer the user never selected.
-    try {
-      if (!isMultipleMode) {
-        sessionStorage.setItem(SK_DOT_CONFIRMED + qIdx, dotStatusEarly);
-      } else if (allCorrectFound) {
-        sessionStorage.setItem(SK_DOT_CONFIRMED + qIdx, 'correct');
-      } else if (!clickedIsCorrectEarly) {
-        sessionStorage.setItem(SK_DOT_CONFIRMED + qIdx, 'wrong');
-      }
-      // For multi-answer partial correct: don't persist to sessionStorage.
-      // The in-memory map handles live rendering; refresh should NOT see
-      // a 'correct' status for an incomplete multi-answer question.
-    } catch (e) {
-      console.error('OptionInteractionService.handleOptionClick dot-status persist failed:', e);
-    }
+    this.persistDotConfirmedStatus(isMultipleMode, allCorrectFound, clickedIsCorrectEarly, dotStatusEarly, qIdx);
 
     // COMMIT STATE (extracted to commitSelectionState; body unchanged).
     this.commitSelectionState(qIdx, futureSelection, futureKeys, state);
@@ -479,6 +466,39 @@ export class OptionInteractionService {
       try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch (e) {
         console.error('OptionInteractionService.stopTimerIfAnswerCorrect timer stop failed:', e);
       }
+    }
+  }
+
+  /**
+   * DEFERRED DOT PERSIST: persist the dot-confirmed status to sessionStorage.
+   * Single-answer persists immediately; multi-answer persists 'correct' only
+   * when ALL correct are selected (a partial 'correct' makes the DOT-CONFIRMED
+   * FALLBACK LOCK treat the question as fully resolved on refresh and
+   * auto-highlight an unselected correct answer), and 'wrong' on an incorrect
+   * click; multi-answer partial-correct is intentionally NOT persisted (the
+   * in-memory map handles live rendering). Terminal side-effect; closure-free;
+   * extracted verbatim from handleOptionClick.
+   */
+  private persistDotConfirmedStatus(
+    isMultipleMode: boolean,
+    allCorrectFound: boolean,
+    clickedIsCorrectEarly: boolean,
+    dotStatusEarly: string,
+    qIdx: number
+  ): void {
+    try {
+      if (!isMultipleMode) {
+        sessionStorage.setItem(SK_DOT_CONFIRMED + qIdx, dotStatusEarly);
+      } else if (allCorrectFound) {
+        sessionStorage.setItem(SK_DOT_CONFIRMED + qIdx, 'correct');
+      } else if (!clickedIsCorrectEarly) {
+        sessionStorage.setItem(SK_DOT_CONFIRMED + qIdx, 'wrong');
+      }
+      // For multi-answer partial correct: don't persist to sessionStorage.
+      // The in-memory map handles live rendering; refresh should NOT see
+      // a 'correct' status for an incomplete multi-answer question.
+    } catch (e) {
+      console.error('OptionInteractionService.handleOptionClick dot-status persist failed:', e);
     }
   }
 
