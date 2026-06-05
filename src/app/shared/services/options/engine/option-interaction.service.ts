@@ -314,20 +314,10 @@ export class OptionInteractionService {
       }
     }
 
-    // AUTHORITATIVE FEEDBACK ANCHORING
-    // Reset completely for both single and multi-answer questions so feedback only shows under the LAST selection.
-    state.showFeedbackForOption = {}; 
-
-    state.showFeedbackForOption = {
-      [targetKey]: true,
-      [index]: true,
-      [`idx:${index}`]: true
-    };
-    if (binding.option.optionId != null) {
-      state.showFeedbackForOption[binding.option.optionId] = true;
-    }
-    state.lastFeedbackOptionId = targetKey;
-    state.showFeedback = true;
+    // AUTHORITATIVE FEEDBACK ANCHORING (extracted to applyFeedbackAnchoring;
+    // body unchanged). Retried in Phase 3 — previously worsened the shuffle
+    // revisit Next-button race, which Phases 1+2 fixed deterministically.
+    this.applyFeedbackAnchoring(state, targetKey, index, binding);
 
     state.lastClickedOptionId = index;
     state.hasUserClicked = true;
@@ -511,6 +501,33 @@ export class OptionInteractionService {
         console.error('OptionInteractionService.stopTimerIfAnswerCorrect timer stop failed:', e);
       }
     }
+  }
+
+  /**
+   * AUTHORITATIVE FEEDBACK ANCHORING: reset showFeedbackForOption completely
+   * (so feedback only shows under the LAST selection), then re-anchor it on the
+   * clicked option's keys, and set lastFeedbackOptionId + showFeedback. Terminal
+   * side-effect on state; closure-free; extracted verbatim from handleOptionClick.
+   */
+  private applyFeedbackAnchoring(
+    state: OptionInteractionState,
+    targetKey: number,
+    index: number,
+    binding: OptionBindings
+  ): void {
+    // Reset completely for both single and multi-answer questions so feedback only shows under the LAST selection.
+    state.showFeedbackForOption = {};
+
+    state.showFeedbackForOption = {
+      [targetKey]: true,
+      [index]: true,
+      [`idx:${index}`]: true
+    };
+    if (binding.option.optionId != null) {
+      state.showFeedbackForOption[binding.option.optionId] = true;
+    }
+    state.lastFeedbackOptionId = targetKey;
+    state.showFeedback = true;
   }
 
   /**
