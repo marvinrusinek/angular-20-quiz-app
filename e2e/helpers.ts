@@ -9,6 +9,7 @@ export const quizData = JSON.parse(
 
 export const tsQuiz = quizData.find((q: any) => (q.quizId || q.id) === 'typescript');
 export const formsQuiz = quizData.find((q: any) => (q.quizId || q.id) === 'forms');
+export const diQuiz = quizData.find((q: any) => (q.quizId || q.id) === 'dependency-injection');
 
 export const HEADING = 'codelab-quiz-content h3';
 export const FEEDBACK = 'codelab-quiz-feedback';
@@ -34,15 +35,32 @@ export function correctIndices(q: any): number[] {
     .filter((i: number) => i >= 0);
 }
 
-/** Resolve the quiz question whose text the heading begins with. */
-export function findTsQuestion(headingText: string): any {
+/**
+ * Resolve, within a given quiz, the question whose text the heading begins
+ * with. The heading is rendered via innerHTML, so tag-like sequences are
+ * stripped from both sides before comparing.
+ */
+export function findQuestionIn(quiz: any, headingText: string): any {
   const qt = norm(stripTags(headingText));
-  return tsQuiz.questions.find((qq: any) =>
+  return (quiz?.questions ?? []).find((qq: any) =>
     qt.startsWith(norm(stripTags(qq.questionText)))
   );
 }
 
-/** The single correct option index for the question shown in the heading. */
+/** ALL correct option indices for the question shown in the heading (multi-answer aware). */
+export function correctIndicesForHeading(quiz: any, headingText: string): number[] {
+  const q = findQuestionIn(quiz, headingText);
+  return q ? correctIndices(q) : [];
+}
+
+// ─── typescript-quiz convenience wrappers (kept for existing specs) ─────────
+
+/** Resolve the typescript-quiz question whose text the heading begins with. */
+export function findTsQuestion(headingText: string): any {
+  return findQuestionIn(tsQuiz, headingText);
+}
+
+/** The single correct option index for the typescript question shown in the heading. */
 export function correctIndexForHeading(headingText: string): number {
   const q = findTsQuestion(headingText);
   return q ? correctIndices(q)[0] ?? -1 : -1;
