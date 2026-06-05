@@ -93,7 +93,6 @@ export class OptionInteractionService {
     let qIdx = (typeof stateIdx === 'number' && Number.isFinite(stateIdx) && stateIdx >= 0)
       ? stateIdx
       : ((typeof liveIdx === 'number' && Number.isFinite(liveIdx) && liveIdx >= 0) ? liveIdx : 0);
-    const isCorrectHelper = isOptionCorrect;
 
     // PRISTINE CORRECTNESS RESOLVER: Resolve whether the clicked option is
     // truly correct from quizInitialState, not from potentially-mutated binding data.
@@ -136,24 +135,17 @@ export class OptionInteractionService {
     // map is fine for live dot rendering; the sessionStorage value drives
     // the DOT-CONFIRMED FALLBACK LOCK on refresh.
 
-    // RESOLVE: state.optionBindings may be a signal (-clean) or plain array (-main).
-    // Call as function if it's a signal, otherwise use directly.
-    const _rawBindings = state.optionBindings as any;
-    const bindingsForScore: any[] = typeof _rawBindings === 'function'
-      ? (_rawBindings() ?? [])
-      : (_rawBindings ?? []);
-    const correctCountInBindings = bindingsForScore.filter((b: any) => isCorrectHelper(b.option)).length;
+    // Count the correct options in the live bindings (extracted to
+    // resolveCorrectCountInBindings; handles signal-or-array bindings).
+    const correctCountInBindings = this.resolveCorrectCountInBindings(state);
 
     // PRISTINE correct-count: bindings can have mutated correct flags (e.g.
     // only 1 of 2 shown as correct). Cross-check against quizInitialState
     // so multi-answer questions are never misidentified as single-answer.
     const pristineCorrectCount = this.resolvePristineCorrectCount(correctCountInBindings, qIdx, state);
 
-    // Authoritative Type Resolution
-    const qText = state.currentQuestion?.questionText?.toLowerCase() || '';
-    const isExplicitMulti = qText.includes('select all') || qText.includes('multiple') || qText.includes('apply');
-    const isMultipleMode = state.type === 'multiple' || (state as any).isMultiMode === true ||
-                          isExplicitMulti || correctCountInBindings > 1 || pristineCorrectCount > 1;
+    // Authoritative Type Resolution (extracted to resolveIsMultipleMode).
+    const isMultipleMode = this.resolveIsMultipleMode(state, correctCountInBindings, pristineCorrectCount);
 
     // Guard: prevent deselection of correct answers in multiple
     if (isMultipleMode && binding.isSelected && isPristineCorrect(binding.option)) {
@@ -211,12 +203,7 @@ export class OptionInteractionService {
     const newState = !isCurrentlySelected;
     const mockEvent = isMultipleMode ? { source: null, checked: newState } : { source: null, value: binding.option.optionId ?? index };
 
-    if (newState && !state.selectedOptionHistory.includes(index)) {
-      state.selectedOptionHistory.push(index);
-    } else if (!newState) {
-      const hIdx = state.selectedOptionHistory.indexOf(index);
-      if (hIdx !== -1)  state.selectedOptionHistory.splice(hIdx, 1);
-    }
+    this.updateSelectionHistory(state, newState, index);
 
     const correctIndicesSet = this.resolveCorrectIndicesSet(question, state, questionOptions);
 
@@ -466,6 +453,55 @@ export class OptionInteractionService {
       try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch (e) {
         console.error('OptionInteractionService.stopTimerIfAnswerCorrect timer stop failed:', e);
       }
+    }
+  }
+
+  /**
+   * Count the correct options in the live bindings. state.optionBindings may
+   * arrive as a signal function (-clean) or a plain array (-main); normalize
+   * then count via isOptionCorrect. Pure read; extracted verbatim from
+   * handleOptionClick.
+   */
+  private resolveCorrectCountInBindings(state: OptionInteractionState): number {
+    const _rawBindings = state.optionBindings as any;
+    const bindingsForScore: any[] = typeof _rawBindings === 'function'
+      ? (_rawBindings() ?? [])
+      : (_rawBindings ?? []);
+    return bindingsForScore.filter((b: any) => isOptionCorrect(b.option)).length;
+  }
+
+  /**
+   * Authoritative Type Resolution: a question is multi-answer if the state
+   * says so, the text says "select all"/"multiple"/"apply", or more than one
+   * correct option is detected (in the live bindings OR the pristine quiz
+   * data). Pure read; extracted verbatim from handleOptionClick.
+   */
+  private resolveIsMultipleMode(
+    state: OptionInteractionState,
+    correctCountInBindings: number,
+    pristineCorrectCount: number
+  ): boolean {
+    const qText = state.currentQuestion?.questionText?.toLowerCase() || '';
+    const isExplicitMulti = qText.includes('select all') || qText.includes('multiple') || qText.includes('apply');
+    return state.type === 'multiple' || (state as any).isMultiMode === true ||
+      isExplicitMulti || correctCountInBindings > 1 || pristineCorrectCount > 1;
+  }
+
+  /**
+   * UPDATE UI STATE BASICS (history part): push the clicked index onto
+   * selectedOptionHistory when newly selected, or remove it when deselected.
+   * Terminal side-effect on state; extracted verbatim from handleOptionClick.
+   */
+  private updateSelectionHistory(
+    state: OptionInteractionState,
+    newState: boolean,
+    index: number
+  ): void {
+    if (newState && !state.selectedOptionHistory.includes(index)) {
+      state.selectedOptionHistory.push(index);
+    } else if (!newState) {
+      const hIdx = state.selectedOptionHistory.indexOf(index);
+      if (hIdx !== -1)  state.selectedOptionHistory.splice(hIdx, 1);
     }
   }
 
