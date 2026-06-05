@@ -157,29 +157,11 @@ export class OptionInteractionService {
     const question = getQuestionAtDisplayIndex(qIdx);
     const questionOptions = Array.isArray(question?.options) ? question.options : [];
 
-    const storedSelection = this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
-    // Detect stale pre-refresh selections: if the durable click tracker
-    // for this question is empty but the service has stored selections,
-    // those are remnants from before refresh. Discard them so the user
-    // starts fresh after page reload.
-    const durableClicks = (state as any)._multiSelectByQuestion?.get(qIdx);
-    const isStaleFromRefresh = storedSelection.length > 0
-      && (!durableClicks || durableClicks.size === 0);
-    // Even if the in-memory multi-select tracker is empty post-refresh, the
-    // durable sel_Q* / _selectionHistory entries are legitimate prior clicks
-    // that must be preserved so they rehydrate as prev-clicked (dark gray /
-    // red+X) on the next refresh. Only use isStaleFromRefresh to scope the
-    // LOCAL simulatedSelection shape; do NOT call clearSelectionsForQuestion
-    // here — it wipes _selectionHistory and sel_Q* in sessionStorage.
-    let simulatedSelection = isStaleFromRefresh ? [] : [...storedSelection];
+    let simulatedSelection = this.resolveSimulatedSelection(qIdx, state);
 
     // Check if ALREADY selected using composite (id + displayIndex) matching.
     // See targetCompositeKey comment above — optionId alone can collide.
-    const existingIdx = simulatedSelection.findIndex(o => {
-      const sIdx = o.displayIndex ?? o.index ?? o.idx ?? -1;
-      const sKey = `${getEffectiveId(o, sIdx)}|${sIdx}`;
-      return sKey === targetCompositeKey;
-    });
+    const existingIdx = this.findExistingSelectionIndex(simulatedSelection, targetCompositeKey);
     const isCurrentlySelected = (existingIdx !== -1);
 
     let futureSelection = this.buildFutureSelection(
@@ -201,7 +183,7 @@ export class OptionInteractionService {
 
     // UPDATE UI STATE BASICS
     const newState = !isCurrentlySelected;
-    const mockEvent = isMultipleMode ? { source: null, checked: newState } : { source: null, value: binding.option.optionId ?? index };
+    const mockEvent = this.buildMockEvent(isMultipleMode, newState, binding, index);
 
     this.updateSelectionHistory(state, newState, index);
 
@@ -454,6 +436,60 @@ export class OptionInteractionService {
         console.error('OptionInteractionService.stopTimerIfAnswerCorrect timer stop failed:', e);
       }
     }
+  }
+
+  /**
+   * Resolve the initial simulated selection for the clicked question from the
+   * durable store. Detects stale pre-refresh selections (durable click tracker
+   * empty but the service still has stored selections — remnants from before a
+   * refresh) and discards them so the user starts fresh. Does NOT clear the
+   * sessionStorage/_selectionHistory entries — those are legitimate prior clicks
+   * that must rehydrate as prev-clicked. Extracted verbatim from handleOptionClick.
+   */
+  private resolveSimulatedSelection(
+    qIdx: number,
+    state: OptionInteractionState
+  ): SelectedOption[] {
+    const storedSelection = this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
+    const durableClicks = (state as any)._multiSelectByQuestion?.get(qIdx);
+    const isStaleFromRefresh = storedSelection.length > 0
+      && (!durableClicks || durableClicks.size === 0);
+    return isStaleFromRefresh ? [] : [...storedSelection];
+  }
+
+  /**
+   * Find whether the clicked option is already selected, by composite
+   * (effectiveId|displayIndex) matching — optionId alone can collide when
+   * loader fallbacks produce duplicate ids. Returns the index or -1.
+   * The only closure (getEffectiveId) is capture-free and redefined inline.
+   * Extracted verbatim from handleOptionClick.
+   */
+  private findExistingSelectionIndex(
+    simulatedSelection: SelectedOption[],
+    targetCompositeKey: string
+  ): number {
+    const getEffectiveId = (o: any, i: number) => (o?.optionId != null && o.optionId !== -1) ? o.optionId : i;
+    return simulatedSelection.findIndex(o => {
+      const sIdx = o.displayIndex ?? (o as any).index ?? (o as any).idx ?? -1;
+      const sKey = `${getEffectiveId(o, sIdx)}|${sIdx}`;
+      return sKey === targetCompositeKey;
+    });
+  }
+
+  /**
+   * Build the synthetic change event passed to updateOptionAndUI: a `checked`
+   * shape for multi-answer (radio-group-free), a `value` shape for single.
+   * Extracted verbatim from handleOptionClick.
+   */
+  private buildMockEvent(
+    isMultipleMode: boolean,
+    newState: boolean,
+    binding: OptionBindings,
+    index: number
+  ): { source: null; checked: boolean } | { source: null; value: number } {
+    return isMultipleMode
+      ? { source: null, checked: newState }
+      : { source: null, value: binding.option.optionId ?? index };
   }
 
   /**
