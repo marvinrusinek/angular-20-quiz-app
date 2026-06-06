@@ -82,7 +82,7 @@ export class SharedOptionBindingService {
 
     queueMicrotask(() => {
       // If processOptionBindings already built correct bindings (with
-      // rehydrated state), skip this overwrite â€” the microtask would
+      // rehydrated state), skip this overwrite - the microtask would
       // replace them with stale option.selected data, causing a flash
       // of incorrect highlights before the next CD cycle corrects them.
       if (comp.optionBindingsInitialized() && comp.optionBindings()?.length > 0) {
@@ -155,10 +155,10 @@ export class SharedOptionBindingService {
       const currentIdx = comp.resolveDisplayIndex(comp.currentQuestionIndex);
       if (this.explanationTextService.latestExplanationIndex === currentIdx) {
         // Only re-emit explanation for single-answer questions. For multi-
-        // answer, FET must wait until ALL correct answers are selected â€”
+        // answer, FET must wait until ALL correct answers are selected -
         // emitting here on every binding update causes premature FET display
         // after a partial correct click.
-        // Use authoritative questions array â€” comp.currentQuestion.options
+        // Use authoritative questions array - comp.currentQuestion.options
         // often lack the `correct` flag, making correctCount=0.
         const authQ = this.quizService.questions?.[currentIdx] ?? comp.currentQuestion();
         const correctCount = (authQ?.options ?? []).filter(
@@ -243,9 +243,9 @@ export class SharedOptionBindingService {
 
     // Previous-revisit visual override. After all the standard binding paths
     // have run, force the Previous-revisit semantics:
-    //   • Question was answered correctly (clickConfirmedDotStatus === 'correct'):
+    //   * Question was answered correctly (clickConfirmedDotStatus === 'correct'):
     //       correct options stay highlighted; incorrect options are greyed out.
-    //   • Question was answered incorrectly: clear all marks.
+    //   * Question was answered incorrectly: clear all marks.
     // This runs unconditionally (no hasUserClicked guard) so it survives the
     // standard rehydrate path's early-returns.
     try {
@@ -260,14 +260,14 @@ export class SharedOptionBindingService {
       const dotStatus = _res.dot;
 
       // Decide override mode:
-      //   'correct' → paint correct opts green, others grey
-      //   'wrong'   → clear all marks
-      //   ''        → leave bindings alone (mid-interaction, e.g. partial multi-answer)
+      //   'correct' -> paint correct opts green, others grey
+      //   'wrong'   -> clear all marks
+      //   ''        -> leave bindings alone (mid-interaction, e.g. partial multi-answer)
       let overrideMode: '' | 'correct' | 'wrong' = '';
       // GUARD: only apply revisit-override when the user has actually clicked
       // this question in the CURRENT session. Without this, stale sessionStorage
       // entries (dot/multiPerfect) from a previous shuffle order pre-paint
-      // a fresh-visit question — the option appears already highlighted, so
+      // a fresh-visit question - the option appears already highlighted, so
       // clicking it is a visual no-op and the click never reaches interaction.
       const _hasClickedThis =
         !!comp.quizStateService?.hasClickedInSession?.(qIdx);
@@ -411,7 +411,7 @@ export class SharedOptionBindingService {
       // Only trust highlightSet and savedIds during LIVE interaction
       // (hasUserClicked). On refresh, savedIds may contain stale entries
       // from accumulated selection history, and highlightSet may have
-      // IDs from a previous CD cycle â€” both cause ghost highlights for
+      // IDs from a previous CD cycle - both cause ghost highlights for
       // options the user never selected. rehydrateUiFromState (called
       // immediately after this loop) handles refresh highlighting
       // authoritatively with its own clean-slate + match logic.
@@ -423,7 +423,7 @@ export class SharedOptionBindingService {
       // (hasUserClicked=false) no binding gets isSelected=true from stale
       // savedIds. This prevents _wasSelected from latching in ngOnChanges
       // before rehydrateUiFromState can run its clean-slate reset.
-      // IMPORTANT: only use useSelected, NOT useHighlightSet â€” highlightSet
+      // IMPORTANT: only use useSelected, NOT useHighlightSet - highlightSet
       // can contain IDs for options never clicked (e.g. both correct answers
       // in multi-answer), causing ghost isSelected=true on bindings.
       return getBindings(opt, idx, useSelected);
@@ -487,274 +487,323 @@ export class SharedOptionBindingService {
 
   rehydrateUiFromState(comp: any, _reason: string): void {
     try {
-      // Guard: if the user has already clicked or bindings are frozen,
+      // Guard: skip if the user has already clicked or bindings are frozen.
       if (comp.hasUserClicked() || comp.freezeOptionBindings()) return;
 
-      // Universal clean-slate
-      if (comp.optionBindings()?.length) {
-        for (const b of comp.optionBindings()) {
-          b.isSelected = false;
-          b.checked = false;
-          if (b.option) {
-            b.option.selected = false;
-            b.option.highlight = false;
-            b.option.showIcon = false;
-          }
-        }
-      }
-      if (comp.optionsToDisplay?.length) {
-        for (const opt of comp.optionsToDisplay) {
-          opt.selected = false;
-          opt.highlight = false;
-          opt.showIcon = false;
-        }
-      }
-      comp.cdRef?.markForCheck?.();
+      this.clearAllOptionVisualState(comp);
 
       const qIndex = comp.resolveCurrentQuestionIndex();
-      // Read from durable sel_Q* sessionStorage FIRST â€” the cleanest source.
-      // getSelectedOptionsForQuestion merges from _refreshBackup +
-      // selectedOptionsMap + sel_Q*, and the in-memory maps can be
-      // contaminated by init paths that add entries the user never clicked.
-      // Fall back only if sel_Q* is empty (single-answer wrong-only clicks).
-      let saved: any[] = [];
-      try {
-        const raw = sessionStorage.getItem(SK_SEL_Q + qIndex);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            saved = parsed;
-          }
-        }
-      } catch { /* ignore */ }
-      if (saved.length === 0) {
-        saved = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
-      }
+      const saved = this.loadSavedSelections(qIndex);
       if (!saved.length) return;
 
-      const savedByIndex = new Map<number, any>();
-      for (const s of saved) {
-        const sQIdx = (s as any).questionIndex ?? (s as any).qIdx ?? (s as any).questionIdx;
-        if (sQIdx != null && Number(sQIdx) !== qIndex) continue;
-        if ((s as any)?.selected === false && !(s as any)?.showIcon && !(s as any)?.highlight) continue;
-
-        const sText = norm((s as any).text);
-
-        let pos = -1;
-
-        // TEXT-ONLY PRIMARY MATCH: immune to synthetic ID mismatches and
-        // position shifts from shuffled options. If the saved entry has
-        // text, we MUST match by text — ID/index fallbacks can map the
-        // saved entry to the wrong binding when options shuffle.
-        if (sText && comp.optionBindings()?.length) {
-          pos = comp.optionBindings().findIndex((b: OptionBindings) => {
-            const bText = norm(b?.option?.text);
-            return bText && bText === sText;
-          });
-        }
-
-        // ID/index fallback ONLY when text is empty (legacy data)
-        if (pos === -1 && !sText) {
-          const sId = (s as any).optionId;
-          const sIdIsReal = sId != null && sId !== -1 && String(sId) !== '-1';
-          if (sIdIsReal && comp.optionBindings()?.length) {
-            pos = comp.optionBindings().findIndex((b: OptionBindings) => {
-              const bId = b?.option?.optionId;
-              const bIdIsReal = bId != null && bId !== -1 && String(bId) !== '-1';
-              return bIdIsReal && String(sId) === String(bId);
-            });
-          }
-          if (pos === -1) {
-            const sIdx = (s as any).displayIndex ?? (s as any).index ?? (s as any).idx;
-            if (sIdx != null && Number.isFinite(Number(sIdx))) {
-              pos = Number(sIdx);
-            }
-          }
-        }
-
-        if (pos !== -1) {
-          // Prefer the sel:true entry when multiple saved records resolve to
-          // the same binding position (can happen when prev-click and current-
-          // click for the same option were persisted with differing displayIndex
-          // values). Without this, a prev-click (sel:false) entry found first
-          // wins, and the currently-selected option renders as white/gray.
-          const existing = savedByIndex.get(pos);
-          if (!existing) {
-            savedByIndex.set(pos, s);
-          } else if ((s as any)?.selected === true && (existing as any)?.selected !== true) {
-            savedByIndex.set(pos, s);
-          }
-        }
-      }
+      const savedByIndex = this.buildSavedByIndex(comp, saved, qIndex);
       if (savedByIndex.size === 0) return;
-
-      // Was the question previously answered perfectly? Drives Previous-revisit
-      // visuals:
-      //   • perfect → correct opts keep highlight, others appear disabled (gray)
-      //   • imperfect/none → every option resets clean
-      const isCorrectOpt = (o: any): boolean => isOptionCorrect(o);
 
       const _res = this.questionResolution.resolve(qIndex, { includeSelections: false });
       const wasPerfect = _res.fullyResolvedCorrect;
 
-      // Restored optionsToDisplay loop
-      if (comp.optionsToDisplay?.length) {
-        for (const [idx, opt] of comp.optionsToDisplay.entries()) {
-          const match = savedByIndex.get(idx);
-          if (!opt) continue;
-
-          if (!wasPerfect) {
-            // Imperfect/none → clear every visible mark on this option
-            opt.selected = false;
-            opt.highlight = false;
-            opt.showIcon = false;
-            continue;
-          }
-
-          // Perfect: show full highlight on correct picks, leave others blank
-          // (they'll be greyed via b.disabled below).
-          const isCorrect = isCorrectOpt(opt);
-          if (isCorrect) {
-            const isSelected = !!match?.selected;
-            const isPreviouslyClicked = !isSelected && !!match?.showIcon;
-            opt.selected = isSelected || isPreviouslyClicked;
-            opt.highlight = isSelected || isPreviouslyClicked;
-            opt.showIcon = isSelected || isPreviouslyClicked;
-          } else {
-            opt.selected = false;
-            opt.highlight = false;
-            opt.showIcon = false;
-          }
-        }
-      }
-
-      // For partial multi-answer revisit: explicitly unlock all options for
-      // this question and clear stale lock state, so user can complete the
-      // remaining correct picks. Single-answer or unanswered questions also
-      // benefit (no-op when there are no locks).
-      if (!wasPerfect) {
-        try {
-          this.selectedOptionService.unlockAllOptionsForQuestion?.(qIndex);
-          this.selectedOptionService.unlockQuestion?.(qIndex);
-        } catch { /* ignore */ }
-      }
-
-      if (comp.optionBindings()?.length) {
-        for (const [idx, b] of comp.optionBindings().entries()) {
-          const match = savedByIndex.get(idx);
-          if (b.option) {
-            if (!wasPerfect) {
-              b.isSelected = false;
-              b.option.selected = false;
-              b.option.highlight = false;
-              b.option.showIcon = false;
-              // Clear stale cssClasses (e.g. `disabled-option:true` from
-              // a prior partial state) so visuals match the cleared state.
-              if (b.cssClasses) {
-                b.cssClasses['selected'] = false;
-                b.cssClasses['selected-option'] = false;
-                b.cssClasses['correct-option'] = false;
-                b.cssClasses['incorrect-option'] = false;
-                b.cssClasses['highlighted'] = false;
-                b.cssClasses['disabled-option'] = false;
-                b.cssClasses['locked-option'] = false;
-              }
-              // Restore normal interactivity (not greyed)
-              (b.option as any).active = true;
-              b.disabled = comp.computeDisabledState(b.option, idx);
-            } else {
-              const isCorrect = isCorrectOpt(b.option);
-              if (isCorrect) {
-                const isSelected = !!match?.selected;
-                const isPreviouslyClicked = !isSelected && !!match?.showIcon;
-                b.isSelected = isSelected || isPreviouslyClicked;
-                b.option.selected = isSelected || isPreviouslyClicked;
-                b.option.highlight = isSelected || isPreviouslyClicked;
-                b.option.showIcon = isSelected || isPreviouslyClicked;
-                (b.option as any).active = true;
-              } else {
-                b.isSelected = false;
-                b.option.selected = false;
-                b.option.highlight = false;
-                b.option.showIcon = false;
-                // Mark inactive so the option-row renders as greyed/disabled
-                (b.option as any).active = false;
-              }
-              // Lock the question's options on revisit so the user can't
-              // re-answer — also drives the grey appearance via .disabled.
-              b.disabled = true;
-            }
-          }
-          b.showFeedback = true;
-        }
-      }
-
-      if (saved.length > 0) {
-        // Use reverse() to find the LAST selected option â€” that's where
-        // feedback should appear (the most recently clicked option).
-        // saved.find() returns the first match which is typically the
-        // option with the lowest index, not the last one the user clicked.
-        const activeSelection = [...saved].reverse().find((s: any) => s?.selected === true)
-          ?? [...saved].reverse().find((s: any) => s?.showIcon === true)
-          ?? saved[saved.length - 1];
-
-        const activeIdxRaw = (activeSelection as any).displayIndex ?? (activeSelection as any).index ?? (activeSelection as any).idx;
-        const activeIdx = (activeIdxRaw != null && Number.isFinite(Number(activeIdxRaw))) ? Number(activeIdxRaw) : -1;
-
-        if (activeIdx >= 0) {
-          comp.lastFeedbackOptionId = activeIdx;
-          comp.showFeedback.set(true);
-        }
-
-        if (!comp._feedbackDisplay) {
-          let targetIdx = activeIdx;
-          if (targetIdx < 0) {
-            for (const k of savedByIndex.keys()) {
-              if (k > targetIdx) targetIdx = k;
-            }
-          }
-          const targetBinding = targetIdx >= 0 ? comp.optionBindings()?.[targetIdx] : null;
-          const cqForTarget = comp.currentQuestion();
-          if (targetBinding && cqForTarget) {
-            try {
-              const lastSelectionOnly = [activeSelection] as any[];
-              const feedbackText = this.feedbackService.buildFeedbackMessage(
-                cqForTarget, lastSelectionOnly, false, false, qIndex, comp.optionsToDisplay
-              ) || '';
-              let correctMessage = '';
-              try {
-                correctMessage = this.feedbackService.setCorrectMessage(
-                  (comp.optionsToDisplay ?? []).filter((o: any) => o && typeof o === 'object'),
-                  cqForTarget
-                );
-              } catch (e) {
-                console.error('SharedOptionBindingService.rehydrateUiFromState correctMessage resolution failed:', e);
-              }
-              comp._feedbackDisplay = {
-                idx: targetIdx,
-                config: {
-                  feedback: feedbackText,
-                  showFeedback: true,
-                  correctMessage,
-                  selectedOption: targetBinding.option,
-                  options: comp.optionsToDisplay ?? [],
-                  question: cqForTarget,
-                  idx: targetIdx
-                } as FeedbackProps
-              };
-            } catch (e) { console.error('rehydrateUiFromState feedback-display failed:', e); }
-          }
-        }
-      }
+      this.restoreOptionsToDisplay(comp, savedByIndex, wasPerfect);
+      if (!wasPerfect) this.unlockQuestionOptions(qIndex);
+      this.restoreOptionBindings(comp, savedByIndex, wasPerfect);
+      this.applyFeedbackDisplay(comp, saved, savedByIndex, qIndex);
 
       if (comp.optionBindings()?.length) {
         comp.optionBindings.set(comp.optionBindings().map((b: OptionBindings) => ({ ...b, option: { ...b.option } })));
       }
-
       if (comp.rebuildShowFeedbackMapFromBindings) comp.rebuildShowFeedbackMapFromBindings();
       comp.cdRef?.markForCheck?.();
     } catch (e) {
       console.error('rehydrateUiFromState failed:', e);
+    }
+  }
+
+  /** Clear all visual selection state on bindings and optionsToDisplay (clean slate). Extracted verbatim. */
+  private clearAllOptionVisualState(comp: any): void {
+    if (comp.optionBindings()?.length) {
+      for (const b of comp.optionBindings()) {
+        b.isSelected = false;
+        b.checked = false;
+        if (b.option) {
+          b.option.selected = false;
+          b.option.highlight = false;
+          b.option.showIcon = false;
+        }
+      }
+    }
+    if (comp.optionsToDisplay?.length) {
+      for (const opt of comp.optionsToDisplay) {
+        opt.selected = false;
+        opt.highlight = false;
+        opt.showIcon = false;
+      }
+    }
+    comp.cdRef?.markForCheck?.();
+  }
+
+  /**
+   * Load the saved selections for a question: durable sel_Q* sessionStorage
+   * first (cleanest source), falling back to the merged selection service only
+   * when sel_Q* is empty (single-answer wrong-only clicks). Extracted verbatim.
+   */
+  private loadSavedSelections(qIndex: number): any[] {
+    let saved: any[] = [];
+    try {
+      const raw = sessionStorage.getItem(SK_SEL_Q + qIndex);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          saved = parsed;
+        }
+      }
+    } catch { /* ignore */ }
+    if (saved.length === 0) {
+      saved = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
+    }
+    return saved;
+  }
+
+  /**
+   * Map saved selection records to binding positions (text-primary match, ID/
+   * index fallback), keeping the sel:true entry when several records resolve to
+   * the same position. Extracted verbatim.
+   */
+  private buildSavedByIndex(comp: any, saved: any[], qIndex: number): Map<number, any> {
+    const savedByIndex = new Map<number, any>();
+    for (const s of saved) {
+      const sQIdx = (s as any).questionIndex ?? (s as any).qIdx ?? (s as any).questionIdx;
+      if (sQIdx != null && Number(sQIdx) !== qIndex) continue;
+      if ((s as any)?.selected === false && !(s as any)?.showIcon && !(s as any)?.highlight) continue;
+
+      const sText = norm((s as any).text);
+      const pos = this.resolveSavedBindingPosition(comp, s, sText);
+
+      if (pos !== -1) {
+        // Prefer the sel:true entry when multiple saved records resolve to the
+        // same binding position (prev-click vs current-click with differing
+        // displayIndex). Otherwise a prev-click (sel:false) found first wins.
+        const existing = savedByIndex.get(pos);
+        if (!existing) {
+          savedByIndex.set(pos, s);
+        } else if ((s as any)?.selected === true && (existing as any)?.selected !== true) {
+          savedByIndex.set(pos, s);
+        }
+      }
+    }
+    return savedByIndex;
+  }
+
+  /**
+   * Resolve a saved selection to a binding index: text match first (immune to
+   * shuffled-ID/position drift), then real-ID, then displayIndex when the entry
+   * has no text (legacy data). Extracted verbatim.
+   */
+  private resolveSavedBindingPosition(comp: any, s: any, sText: string): number {
+    let pos = -1;
+    if (sText && comp.optionBindings()?.length) {
+      pos = comp.optionBindings().findIndex((b: OptionBindings) => {
+        const bText = norm(b?.option?.text);
+        return bText && bText === sText;
+      });
+    }
+
+    if (pos === -1 && !sText) {
+      const sId = (s as any).optionId;
+      const sIdIsReal = sId != null && sId !== -1 && String(sId) !== '-1';
+      if (sIdIsReal && comp.optionBindings()?.length) {
+        pos = comp.optionBindings().findIndex((b: OptionBindings) => {
+          const bId = b?.option?.optionId;
+          const bIdIsReal = bId != null && bId !== -1 && String(bId) !== '-1';
+          return bIdIsReal && String(sId) === String(bId);
+        });
+      }
+      if (pos === -1) {
+        const sIdx = (s as any).displayIndex ?? (s as any).index ?? (s as any).idx;
+        if (sIdx != null && Number.isFinite(Number(sIdx))) {
+          pos = Number(sIdx);
+        }
+      }
+    }
+    return pos;
+  }
+
+  /**
+   * Restore optionsToDisplay visuals for a revisit: perfect -> highlight the
+   * correct picks (others blank); imperfect -> clear every mark. Extracted verbatim.
+   */
+  private restoreOptionsToDisplay(comp: any, savedByIndex: Map<number, any>, wasPerfect: boolean): void {
+    if (!comp.optionsToDisplay?.length) return;
+    for (const [idx, opt] of comp.optionsToDisplay.entries()) {
+      const match = savedByIndex.get(idx);
+      if (!opt) continue;
+
+      if (!wasPerfect) {
+        opt.selected = false;
+        opt.highlight = false;
+        opt.showIcon = false;
+        continue;
+      }
+
+      const isCorrect = isOptionCorrect(opt);
+      if (isCorrect) {
+        const isSelected = !!match?.selected;
+        const isPreviouslyClicked = !isSelected && !!match?.showIcon;
+        opt.selected = isSelected || isPreviouslyClicked;
+        opt.highlight = isSelected || isPreviouslyClicked;
+        opt.showIcon = isSelected || isPreviouslyClicked;
+      } else {
+        opt.selected = false;
+        opt.highlight = false;
+        opt.showIcon = false;
+      }
+    }
+  }
+
+  /**
+   * Unlock all options for a question on partial/unanswered revisit so the user
+   * can complete the remaining correct picks. Extracted verbatim.
+   */
+  private unlockQuestionOptions(qIndex: number): void {
+    try {
+      this.selectedOptionService.unlockAllOptionsForQuestion?.(qIndex);
+      this.selectedOptionService.unlockQuestion?.(qIndex);
+    } catch { /* ignore */ }
+  }
+
+  /**
+   * Restore optionBindings for a revisit: imperfect -> reset to interactive;
+   * perfect -> highlight correct picks, grey the rest, and lock. Extracted verbatim.
+   */
+  private restoreOptionBindings(comp: any, savedByIndex: Map<number, any>, wasPerfect: boolean): void {
+    if (!comp.optionBindings()?.length) return;
+    for (const [idx, b] of comp.optionBindings().entries()) {
+      const match = savedByIndex.get(idx);
+      if (b.option) {
+        if (!wasPerfect) {
+          this.resetBindingToInteractive(comp, b, idx);
+        } else {
+          this.applyResolvedBindingState(b, match);
+        }
+      }
+      b.showFeedback = true;
+    }
+  }
+
+  /**
+   * Imperfect-revisit binding reset: clear selection flags + stale cssClasses,
+   * restore interactivity, recompute disabled. Extracted verbatim.
+   */
+  private resetBindingToInteractive(comp: any, b: OptionBindings, idx: number): void {
+    b.isSelected = false;
+    b.option.selected = false;
+    b.option.highlight = false;
+    b.option.showIcon = false;
+    // Clear stale cssClasses (e.g. `disabled-option:true` from a prior partial
+    // state) so visuals match the cleared state.
+    if (b.cssClasses) {
+      b.cssClasses['selected'] = false;
+      b.cssClasses['selected-option'] = false;
+      b.cssClasses['correct-option'] = false;
+      b.cssClasses['incorrect-option'] = false;
+      b.cssClasses['highlighted'] = false;
+      b.cssClasses['disabled-option'] = false;
+      b.cssClasses['locked-option'] = false;
+    }
+    (b.option as any).active = true;
+    b.disabled = comp.computeDisabledState(b.option, idx);
+  }
+
+  /**
+   * Perfect-revisit binding state: highlight correct picks (active), grey the
+   * incorrect (inactive), and lock the option. Extracted verbatim.
+   */
+  private applyResolvedBindingState(b: OptionBindings, match: any): void {
+    const isCorrect = isOptionCorrect(b.option);
+    if (isCorrect) {
+      const isSelected = !!match?.selected;
+      const isPreviouslyClicked = !isSelected && !!match?.showIcon;
+      b.isSelected = isSelected || isPreviouslyClicked;
+      b.option.selected = isSelected || isPreviouslyClicked;
+      b.option.highlight = isSelected || isPreviouslyClicked;
+      b.option.showIcon = isSelected || isPreviouslyClicked;
+      (b.option as any).active = true;
+    } else {
+      b.isSelected = false;
+      b.option.selected = false;
+      b.option.highlight = false;
+      b.option.showIcon = false;
+      (b.option as any).active = false;
+    }
+    // Lock on revisit so the user can't re-answer; also drives the grey look.
+    b.disabled = true;
+  }
+
+  /**
+   * Set the feedback anchor for the restored selection (the LAST clicked option)
+   * and build the feedback-display config when absent. Extracted verbatim.
+   */
+  private applyFeedbackDisplay(comp: any, saved: any[], savedByIndex: Map<number, any>, qIndex: number): void {
+    if (saved.length === 0) return;
+    // reverse() finds the LAST selected option - where feedback should appear
+    // (find() would return the lowest-index match, not the last clicked).
+    const activeSelection = [...saved].reverse().find((s: any) => s?.selected === true)
+      ?? [...saved].reverse().find((s: any) => s?.showIcon === true)
+      ?? saved[saved.length - 1];
+
+    const activeIdxRaw = (activeSelection as any).displayIndex ?? (activeSelection as any).index ?? (activeSelection as any).idx;
+    const activeIdx = (activeIdxRaw != null && Number.isFinite(Number(activeIdxRaw))) ? Number(activeIdxRaw) : -1;
+
+    if (activeIdx >= 0) {
+      comp.lastFeedbackOptionId = activeIdx;
+      comp.showFeedback.set(true);
+    }
+
+    if (!comp._feedbackDisplay) {
+      this.buildFeedbackDisplay(comp, activeSelection, activeIdx, savedByIndex, qIndex);
+    }
+  }
+
+  /**
+   * Build comp._feedbackDisplay for the restored selection: resolve the target
+   * binding, compute the feedback + correct messages, and assemble the config.
+   * Extracted verbatim.
+   */
+  private buildFeedbackDisplay(comp: any, activeSelection: any, activeIdx: number, savedByIndex: Map<number, any>, qIndex: number): void {
+    let targetIdx = activeIdx;
+    if (targetIdx < 0) {
+      for (const k of savedByIndex.keys()) {
+        if (k > targetIdx) targetIdx = k;
+      }
+    }
+    const targetBinding = targetIdx >= 0 ? comp.optionBindings()?.[targetIdx] : null;
+    const cqForTarget = comp.currentQuestion();
+    if (targetBinding && cqForTarget) {
+      try {
+        const lastSelectionOnly = [activeSelection] as any[];
+        const feedbackText = this.feedbackService.buildFeedbackMessage(
+          cqForTarget, lastSelectionOnly, false, false, qIndex, comp.optionsToDisplay
+        ) || '';
+        let correctMessage = '';
+        try {
+          correctMessage = this.feedbackService.setCorrectMessage(
+            (comp.optionsToDisplay ?? []).filter((o: any) => o && typeof o === 'object'),
+            cqForTarget
+          );
+        } catch (e) {
+          console.error('SharedOptionBindingService.rehydrateUiFromState correctMessage resolution failed:', e);
+        }
+        comp._feedbackDisplay = {
+          idx: targetIdx,
+          config: {
+            feedback: feedbackText,
+            showFeedback: true,
+            correctMessage,
+            selectedOption: targetBinding.option,
+            options: comp.optionsToDisplay ?? [],
+            question: cqForTarget,
+            idx: targetIdx
+          } as FeedbackProps
+        };
+      } catch (e) { console.error('rehydrateUiFromState feedback-display failed:', e); }
     }
   }
 
@@ -788,7 +837,7 @@ export class SharedOptionBindingService {
       // because multiple init paths (generateOptionBindings, initializeFromConfig,
       // setOptionBindingsIfChanged) overwrite each other. Query the persisted
       // sel_Q* data directly from the service as the single source of truth.
-      // Read from durable sel_Q* sessionStorage FIRST â€” the cleanest source.
+      // Read from durable sel_Q* sessionStorage FIRST - the cleanest source.
       // Fall back to getSelectedOptionsForQuestion only if sel_Q* is empty
       // (e.g. single-answer wrong-only clicks where sel_Q* isn't written
       // until the correct answer is clicked).
@@ -956,7 +1005,7 @@ export class SharedOptionBindingService {
   syncSelectedFlags(comp: any): void {
     // Collision guard: when a binding has no real optionId, the fallback (array
     // index) can collide with another binding's real optionId (e.g. binding[0]
-    // has optionId=1, binding[1] has no id so falls back to index 1 â†’ collision).
+    // has optionId=1, binding[1] has no id so falls back to index 1 -> collision).
     const realIdOwner = new Map<number, number>();
     for (let i = 0; i < (comp.optionBindings()?.length ?? 0); i++) {
       const id = comp.optionBindings()[i].option.optionId;
@@ -1030,7 +1079,7 @@ export class SharedOptionBindingService {
     }
   }
 
-  // â”€â”€ Inlined from OptionHydrationService â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // -- Inlined from OptionHydrationService --------------------------
 
   private toIdSet(
     saved: Array<{ optionId?: number | string; selected?: boolean }> | null | undefined
