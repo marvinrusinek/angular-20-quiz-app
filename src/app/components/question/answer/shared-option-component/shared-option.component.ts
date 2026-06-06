@@ -18,6 +18,7 @@ import { SelectedOption } from '../../../../shared/models/SelectedOption.model';
 import { SharedOptionConfig } from '../../../../shared/models/SharedOptionConfig.model';
 
 import { OptionClickHandlerService } from '../../../../shared/services/options/engine/option-click-handler.service';
+import { OptionFeedbackDisplayService } from '../../../../shared/services/features/shared-option/option-feedback-display.service';
 import { OptionFeedbackEffectsService } from '../../../../shared/services/features/shared-option/option-feedback-effects.service';
 import { OptionInteractionEffectsService } from '../../../../shared/services/features/shared-option/option-interaction-effects.service';
 import { OptionLockService } from '../../../../shared/services/options/policy/option-lock.service';
@@ -80,6 +81,7 @@ export class SharedOptionComponent
   public readonly explanationHandler = inject(SharedOptionExplanationService);
   public readonly feedbackManager = inject(SharedOptionFeedbackService);
   private readonly initService = inject(SharedOptionInitService);
+  private readonly optionFeedbackDisplay = inject(OptionFeedbackDisplayService);
   private readonly optionFeedbackEffects = inject(OptionFeedbackEffectsService);
   private readonly optionInteractionEffects = inject(OptionInteractionEffectsService);
   private readonly optionLockService = inject(OptionLockService);
@@ -510,11 +512,7 @@ export class SharedOptionComponent
   }
 
   shouldShowFeedbackFor(b: OptionBindings): boolean {
-    const id = b.option.optionId;
-    return (
-      id === this.lastFeedbackOptionId &&
-      !!this.feedbackConfigs[id]?.showFeedback
-    );
+    return this.optionFeedbackDisplay.shouldShowFeedbackFor(this, b);
   }
 
   public canDisplayOptions(): boolean {
@@ -564,28 +562,11 @@ export class SharedOptionComponent
   }
 
   public shouldShowFeedbackAfter(b: OptionBindings, i: number): boolean {
-    const fbIdx = this._feedbackDisplay?.idx;
-    const ok = this._feedbackDisplay !== null && fbIdx === i;
-    if (ok || (this._feedbackDisplay !== null && i === 0)) {
-      // Only log once per render cycle for idx 0 to confirm template re-eval
-      console.log('[FB-SHOW]', 'i:', i, 'fbDisplay.idx:', fbIdx, 'returns:', ok);
-    }
-    if (this._feedbackDisplay !== null && this._feedbackDisplay.idx === i) {
-      return true;
-    }
-    if (this.timerExpiredForQuestion()) {
-      const key = this.keyOf(b.option, i);
-      return !!this.feedbackConfigs[key]?.showFeedback;
-    }
-    return false;
+    return this.optionFeedbackDisplay.shouldShowFeedbackAfter(this, b, i);
   }
 
   public getInlineFeedbackConfig(b: OptionBindings, i: number): FeedbackProps | null {
-    const cfg = this.bindingService.getInlineFeedbackConfig(this, b, i);
-    if (this._feedbackDisplay !== null && this._feedbackDisplay.idx === i) {
-      console.log('[FB-CFG]', 'i:', i, 'returned cfg:', !!cfg, 'showFeedback:', cfg?.showFeedback);
-    }
-    return cfg;
+    return this.optionFeedbackDisplay.getInlineFeedbackConfig(this, b, i);
   }
 
   public resolveCurrentQuestionIndex(): number {
