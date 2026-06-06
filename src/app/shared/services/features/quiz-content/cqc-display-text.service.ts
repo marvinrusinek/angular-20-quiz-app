@@ -9,6 +9,22 @@ import { norm } from '../../../utils/text-norm';
 
 type Host = CodelabQuizContentComponent;
 
+/** Derived flags for one displayText emission, threaded across the gate phases. */
+interface DisplayTextCtx {
+  currentIdx: number;
+  lowerText: string;
+  isQuestionText: boolean;
+  isTimedOutForIdx: boolean;
+  latestExpIdx: number;
+  fetBypass: boolean;
+  hasRealInteraction: boolean;
+  isResolvedForGuard: boolean;
+  qForMultiCheck: any;
+  multiAnswerBlocked: boolean;
+  fetBypassActive: boolean;
+  fetConfirmed: boolean;
+}
+
 /**
  * Manages the displayText$ subscription for CodelabQuizContentComponent.
  * Extracted from CqcOrchestratorService.
@@ -30,289 +46,376 @@ export class CqcDisplayTextService {
     host.combinedSub = host.combinedText$
       .pipe(takeUntilDestroyed(host.destroyRef))
       .subscribe({
-        next: (text: string) => {
-          let finalText = text;
-          const lowerText = (text ?? '').toLowerCase();
-          // Read currentIdx from the input signal — host.currentIndex is a
-          // plain field updated asynchronously by an effect, so it lags
-          // questionIndex() by a microtask. Without this, after timer
-          // expiry on Q(N), a Next click to Q(N+1) hits the FAST-PATH
-          // branches below with stale currentIdx === N, re-writing Q(N)'s
-          // FET into qText. That's the FET->q-txt flash.
-          const liveIdx = host.questionIndex?.() ?? host.currentIndex ?? 0;
-          const currentQ = host.quizService.getQuestionsInDisplayOrder()?.[liveIdx];
-          const qTextRaw = (currentQ?.questionText ?? '').trim();
-          const isQuestionText = qTextRaw.length > 0 && (text ?? '').trim().startsWith(qTextRaw);
-
-          const currentIdx = liveIdx;
-
-          // Timer-expiry detection: bypasses all FET guards below
-          const isTimedOutForIdx = host.timedOutIdxSubject?.getValue?.() === currentIdx && currentIdx >= 0;
-
-          // FAST-PATH FET BYPASS: if SOC has confirmed this question correct
-          // via fetBypassForQuestion or _multiAnswerPerfect AND the incoming
-          // text contains FET, write it directly — skip all downstream gates.
-          // Also accept latestExplanationIndex match to handle shuffled mode
-          // where the shared-option's display index can differ from CQC's.
-          // Check at currentIdx first; also check at latestExplanationIndex
-          // in case host.questionIndex() is stale (lags a microtask behind SOC).
-          const _latestExpIdx = host.explanationTextService?.latestExplanationIndex ?? -1;
-          // PIPELINE-TRUST (TIGHTENED): only accept incoming FET when there
-          // is concrete evidence the user actually got this question
-          // correct. The pipeline may emit FET on timer expiry too — we
-          // must NOT show FET on timer expiry without a correct selection,
-          // per requirement "only show FET for correct answers".
-          //
-          // Race fallback: pipeline can emit FET (because isResolved=true)
-          // BEFORE SOC sets fetBypassForQuestion. To catch this case
-          // without leaking timer-expiry FETs, also accept when at least
-          // one selected option for this idx is a correct answer.
-          const _cachedFetForCurr = (
-            host.explanationTextService?.formattedExplanations?.[currentIdx]?.explanation
-            ?? host.explanationTextService?.fetByIndex?.get?.(currentIdx)
-            ?? ''
-          ).toString().trim();
-          const _incomingMatchesCachedFet =
-            !!_cachedFetForCurr && (text ?? '').trim() === _cachedFetForCurr;
-          let _hasCorrectSelected = false;
-          try {
-            const _selOpts = host.selectedOptionService?.getSelectedOptionsForQuestion?.(currentIdx) ?? [];
-            _hasCorrectSelected = Array.isArray(_selOpts) && _selOpts.some(
-              (s: any) => isOptionCorrect(s) && s?.selected !== false
-            );
-          } catch { /* ignore */ }
-          const _latestExpMatchesCurr = _latestExpIdx === currentIdx;
-          const _fetBypass = host.explanationTextService?.fetBypassForQuestion?.get(currentIdx) === true
-            || host.quizService?._multiAnswerPerfect?.get(currentIdx) === true
-            || (_latestExpMatchesCurr && (
-                host.explanationTextService?.fetBypassForQuestion?.get(_latestExpIdx) === true
-                || host.quizService?._multiAnswerPerfect?.get(_latestExpIdx) === true
-            ))
-            // Race fallback: cached-FET match AND user has a correct
-            // option selected. Required-AND prevents timer-expiry leak
-            // (no correct selection → no bypass).
-            || (_incomingMatchesCachedFet && _hasCorrectSelected);
-          if (!isQuestionText && lowerText.includes('correct because') && _fetBypass) {
-            host.qTextHtmlSig?.set(text);
-            host._lastDisplayedText = text;
-            host._fetLockedForIndex = currentIdx;
-            return;
-          }
-
-          // TIMER-EXPIRY FET FAST PATH: when timed out and incoming text
-          // contains actual FET content, write it directly.
-          if (isTimedOutForIdx && !isQuestionText && (text ?? '').trim().length > 0) {
-            host.qTextHtmlSig?.set(text);
-            host._lastDisplayedText = text;
-            host._fetLockedForIndex = currentIdx;
-            return;
-          }
-
-          const hasRealInteraction = this.fetGuard.hasInteractionEvidence(host, currentIdx);
-          const isResolvedForGuard = hasRealInteraction
-            ? this.fetGuard.isQuestionResolvedFromStorage(host, currentIdx)
-            : false;
-
-          // CENTRAL MULTI-ANSWER FET GUARD
-          const qForMultiCheck = host.quizService.getQuestionsInDisplayOrder()?.[currentIdx]
-            ?? host.quizService.questions?.[currentIdx];
-          let multiCorrectCount = (qForMultiCheck?.options ?? []).filter(
-            (o: any) => isOptionCorrect(o)
-          ).length;
-          try {
-            const _pq = host.quizService?.getPristineQuestionByText(qForMultiCheck?.questionText);
-            if (_pq) {
-              const pristineCount = (_pq.options ?? []).filter(
-                (o: any) => isOptionCorrect(o)
-              ).length;
-              if (pristineCount > multiCorrectCount) {
-                multiCorrectCount = pristineCount;
-              }
-            }
-          } catch { /* ignore */ }
-          const isMultiAnswer = multiCorrectCount > 1;
-          // AUTO-REVEAL BYPASS: when soc-answer-processing's auto-reveal sets
-          // fetBypassForQuestion, treat multi-answer FET writes as allowed —
-          // otherwise the FET LOCK below skips, and subsequent question-text
-          // emissions overwrite the auto-revealed FET back to the question.
-          const fetBypassActive =
-            host.explanationTextService?.fetBypassForQuestion?.get(currentIdx) === true;
-          const multiAnswerBlocked = isMultiAnswer && hasRealInteraction && !isResolvedForGuard && !isTimedOutForIdx && !fetBypassActive;
-
-          const isExplanation = lowerText.length > 0
-            && !isQuestionText
-            && !lowerText.includes('correct because')
-            && host.explanationTextService.latestExplanationIndex === currentIdx
-            && host.explanationTextService.latestExplanationIndex >= 0
-            && (hasRealInteraction || isTimedOutForIdx)
-            && !multiAnswerBlocked;
-          if (isExplanation) {
-            const idx = currentIdx;
-            const cached = (host.explanationTextService.formattedExplanations[idx]?.explanation ?? '').trim()
-              || (host.explanationTextService.fetByIndex?.get(idx) ?? '').trim();
-            if (cached && cached.toLowerCase().includes('correct because')) {
-              finalText = cached;
-            } else {
-              try {
-                const questions = host.quizService.getQuestionsInDisplayOrder();
-                const q = questions?.[idx];
-                if (q?.options?.length > 0 && q.explanation) {
-                  const correctIndices = host.explanationTextService.getCorrectOptionIndices(q, q.options, idx);
-                  if (correctIndices.length > 0) {
-                    finalText = host.explanationTextService.formatExplanation(q, correctIndices, q.explanation);
-                  }
-                }
-              } catch { /* ignore */ }
-            }
-          } else if (!isQuestionText && !lowerText.includes('correct because')
-                     && host.explanationTextService.latestExplanationIndex === currentIdx
-                     && !hasRealInteraction && !isTimedOutForIdx) {
-            // Substitution suppressed — no interaction evidence
-          }
-
-          const el = host.qText?.()?.nativeElement;
-          if (el) {
-            const incoming = (finalText ?? '').trim();
-            const cached = (host._lastDisplayedText ?? '').trim();
-            if (!incoming) {
-              if (host._fetLockedForIndex === currentIdx && !multiAnswerBlocked) {
-                return;
-              }
-              if (cached) {
-                this.fetGuard.writeQText(host, cached);
-                return;
-              }
-              try {
-                const rebuilt = this.fetGuard.buildQuestionDisplayHTML(host, currentIdx);
-                if (rebuilt) {
-                  this.fetGuard.writeQText(host, rebuilt);
-                  return;
-                }
-              } catch { /* ignore */ }
-              return;
-            }
-
-            // UNIVERSAL QUESTION-FIRST GUARD (skip when timed out or FET confirmed)
-            const _incomingIsFet = lowerText.includes('correct because');
-            const _fetConfirmed = _incomingIsFet && (
-              host.explanationTextService?.fetBypassForQuestion?.get(currentIdx) === true
-              || host.quizService?._multiAnswerPerfect?.get(currentIdx) === true
-              || (_latestExpIdx >= 0 && (
-                  host.explanationTextService?.fetBypassForQuestion?.get(_latestExpIdx) === true
-                  || host.quizService?._multiAnswerPerfect?.get(_latestExpIdx) === true
-              ))
-            );
-            if (!hasRealInteraction && !isTimedOutForIdx && !_fetConfirmed) {
-              try {
-                const forcedQText = this.fetGuard.buildQuestionDisplayHTML(host, currentIdx);
-                if (forcedQText) {
-                  const isShuffled = host.quizService.isShuffleEnabled?.()
-                    && Array.isArray(host.quizService.shuffledQuestions)
-                    && host.quizService.shuffledQuestions.length > 0;
-                  const qForCurrent = isShuffled
-                    ? host.quizService.shuffledQuestions[currentIdx]
-                    : host.quizService.questions?.[currentIdx];
-                  const rawQ = (qForCurrent?.questionText ?? '').trim();
-                  const incomingStartsWithQ = incoming.length > 0 && incoming.startsWith(rawQ);
-                  if (!incomingStartsWithQ) {
-                    this.fetGuard.writeQText(host, forcedQText);
-                    return;
-                  }
-                }
-              } catch { /* ignore */ }
-            }
-
-            // FET-OVER-QUESTION-TEXT GUARD
-            if (hasRealInteraction && isQuestionText && (isResolvedForGuard || _fetBypass)) {
-              const fetCached =
-                (host.explanationTextService.formattedExplanations[currentIdx]?.explanation ?? '').trim()
-                || (host.explanationTextService.fetByIndex?.get(currentIdx) ?? '').trim();
-              if (fetCached && fetCached.toLowerCase().includes('correct because')) {
-                this.fetGuard.writeQText(host, fetCached);
-                return;
-              }
-              const lastText = (host._lastDisplayedText ?? '').trim();
-              if (lastText && lastText.toLowerCase().includes('correct because')) {
-                return;
-              }
-              const domNow = (el.innerHTML ?? '').trim();
-              if (domNow && domNow.toLowerCase().includes('correct because')) {
-                return;
-              }
-            }
-
-            // FET LOCK
-            if (host._fetLockedForIndex === currentIdx && 
-              isQuestionText && 
-              !multiAnswerBlocked
-            ) return;
-
-            // MULTI-ANSWER / SINGLE-ANSWER FET BLOCK (skip when timed out)
-            if (!isTimedOutForIdx) {
-              const finalNorm = norm(finalText);
-              const qTextNormForFet = norm(qForMultiCheck?.questionText);
-              const rawExplanation = norm(
-                host.quizService?.questions?.[currentIdx]?.explanation
-                  ?? qForMultiCheck?.explanation
-              );
-              const isFetText = !!finalNorm && (
-                finalNorm.includes('correct because')
-                || (!!rawExplanation && finalNorm.includes(rawExplanation))
-                || (!!qTextNormForFet && !finalNorm.includes(qTextNormForFet))
-              );
-              const rawQForBlock: any = 
-                host.quizService?.questions?.[currentIdx] ?? qForMultiCheck;
-              const rawOptsForBlock: any[] = rawQForBlock?.options ?? [];
-              let rawCorrectCountBlock = rawOptsForBlock.filter(
-                (o: any) => isOptionCorrect(o)
-              ).length;
-              try {
-                const _qText2 = norm(rawQForBlock?.questionText ?? qForMultiCheck?.questionText);
-                const _bundle2 = host.quizService?.quizInitialState ?? [];
-                for (const _quiz2 of _bundle2) {
-                  for (const _pq2 of (_quiz2?.questions ?? [])) {
-                    if (norm(_pq2?.questionText) !== _qText2) continue;
-                    const pc2 = (_pq2?.options ?? []).filter(
-                      (o: any) => isOptionCorrect(o)
-                    ).length;
-                    if (pc2 > rawCorrectCountBlock) rawCorrectCountBlock = pc2;
-                    break;
-                  }
-                }
-              } catch { /* ignore */ }
-              const isMultiQ = host.quizService.multipleAnswer || rawCorrectCountBlock > 1;
-
-              if (isFetText && isMultiQ) {
-                if (!this.fetGuard.isScoredCorrectAtDisplay(host, currentIdx) && !fetBypassActive && !_fetConfirmed) {
-                  const qText = this.fetGuard.buildQuestionDisplayHTML(host, currentIdx);
-                  if (qText) {
-                    this.fetGuard.writeQText(host, qText);
-                    return;
-                  }
-                }
-              }
-
-              if (isFetText && !isMultiQ) {
-                if (!this.fetGuard.isScoredCorrectAtDisplay(host, currentIdx) && !fetBypassActive && !_fetConfirmed) {
-                  const qText = this.fetGuard.buildQuestionDisplayHTML(host, currentIdx);
-                  if (qText) {
-                    this.fetGuard.writeQText(host, qText);
-                    return;
-                  }
-                }
-              }
-            }
-
-            // BANNER PRESERVATION
-            if (isQuestionText) {
-              const enriched = this.fetGuard.buildQuestionDisplayHTML(host, currentIdx);
-              if (enriched) finalText = enriched;
-            }
-
-            this.fetGuard.writeQText(host, finalText);
-          }
-        },
+        next: (text: string) => this.handleDisplayText(host, text),
         error: () => { }
       });
+  }
+
+  /**
+   * Decide what text (question or FET) to write into qText for one pipeline
+   * emission: derive the context flags, run the fast-path FET writes, apply
+   * explanation substitution, then run the DOM-write guards. Extracted verbatim.
+   */
+  private handleDisplayText(host: Host, text: string): void {
+    let finalText = text;
+    const lowerText = (text ?? '').toLowerCase();
+    // Read currentIdx from the input signal — host.currentIndex is a plain
+    // field updated asynchronously by an effect, so it lags questionIndex() by
+    // a microtask. Without this, after timer expiry on Q(N), a Next click to
+    // Q(N+1) hits the FAST-PATH branches with stale currentIdx === N. (FET flash)
+    const liveIdx = host.questionIndex?.() ?? host.currentIndex ?? 0;
+    const currentQ = host.quizService.getQuestionsInDisplayOrder()?.[liveIdx];
+    const qTextRaw = (currentQ?.questionText ?? '').trim();
+    const isQuestionText = qTextRaw.length > 0 && (text ?? '').trim().startsWith(qTextRaw);
+    const currentIdx = liveIdx;
+    const isTimedOutForIdx = host.timedOutIdxSubject?.getValue?.() === currentIdx && currentIdx >= 0;
+    const latestExpIdx = host.explanationTextService?.latestExplanationIndex ?? -1;
+
+    // FAST-PATH FET writes (SOC-confirmed or timer-expiry) skip all gates.
+    const fetBypass = this.computeFetBypass(host, currentIdx, text, latestExpIdx);
+    if (this.tryFastPathWrites(host, text, currentIdx, isQuestionText, lowerText, isTimedOutForIdx, fetBypass)) {
+      return;
+    }
+
+    const hasRealInteraction = this.fetGuard.hasInteractionEvidence(host, currentIdx);
+    const isResolvedForGuard = hasRealInteraction
+      ? this.fetGuard.isQuestionResolvedFromStorage(host, currentIdx)
+      : false;
+
+    const qForMultiCheck = host.quizService.getQuestionsInDisplayOrder()?.[currentIdx]
+      ?? host.quizService.questions?.[currentIdx];
+    const isMultiAnswer = this.computeIsMultiAnswer(host, qForMultiCheck);
+    // AUTO-REVEAL BYPASS: soc-answer-processing's auto-reveal sets
+    // fetBypassForQuestion, which must allow multi-answer FET writes.
+    const fetBypassActive =
+      host.explanationTextService?.fetBypassForQuestion?.get(currentIdx) === true;
+    const multiAnswerBlocked = isMultiAnswer && hasRealInteraction && !isResolvedForGuard && !isTimedOutForIdx && !fetBypassActive;
+    const fetConfirmed = this.computeFetConfirmed(host, currentIdx, latestExpIdx, lowerText);
+
+    const ctx: DisplayTextCtx = {
+      currentIdx, lowerText, isQuestionText, isTimedOutForIdx, latestExpIdx,
+      fetBypass, hasRealInteraction, isResolvedForGuard, qForMultiCheck,
+      multiAnswerBlocked, fetBypassActive, fetConfirmed
+    };
+
+    finalText = this.applyExplanationSubstitution(host, finalText, ctx);
+
+    const el = host.qText?.()?.nativeElement;
+    if (!el) return;
+    this.writeWithDomGuards(host, el, finalText, ctx);
+  }
+
+  /**
+   * Run the two fast-path FET writes: SOC-confirmed FET (incoming FET + bypass),
+   * and timer-expiry FET (timed out + non-question content). Returns true when a
+   * write happened. Extracted verbatim.
+   */
+  private tryFastPathWrites(host: Host, text: string, currentIdx: number, isQuestionText: boolean, lowerText: string, isTimedOutForIdx: boolean, fetBypass: boolean): boolean {
+    if (!isQuestionText && lowerText.includes('correct because') && fetBypass) {
+      this.stampFastPathFet(host, text, currentIdx);
+      return true;
+    }
+    if (isTimedOutForIdx && !isQuestionText && (text ?? '').trim().length > 0) {
+      this.stampFastPathFet(host, text, currentIdx);
+      return true;
+    }
+    return false;
+  }
+
+  /** Write text directly into qText and lock the FET for this index. */
+  private stampFastPathFet(host: Host, text: string, currentIdx: number): void {
+    host.qTextHtmlSig?.set(text);
+    host._lastDisplayedText = text;
+    host._fetLockedForIndex = currentIdx;
+  }
+
+  /**
+   * FAST-PATH FET BYPASS predicate: accept incoming FET when SOC has confirmed
+   * the question correct (fetBypassForQuestion / _multiAnswerPerfect, at
+   * currentIdx or latestExpIdx), or as a race fallback when the incoming text
+   * matches the cached FET AND a correct option is selected (the required-AND
+   * prevents a timer-expiry leak). Extracted verbatim.
+   */
+  private computeFetBypass(host: Host, currentIdx: number, text: string, latestExpIdx: number): boolean {
+    const _cachedFetForCurr = (
+      host.explanationTextService?.formattedExplanations?.[currentIdx]?.explanation
+      ?? host.explanationTextService?.fetByIndex?.get?.(currentIdx)
+      ?? ''
+    ).toString().trim();
+    const _incomingMatchesCachedFet =
+      !!_cachedFetForCurr && (text ?? '').trim() === _cachedFetForCurr;
+    let _hasCorrectSelected = false;
+    try {
+      const _selOpts = host.selectedOptionService?.getSelectedOptionsForQuestion?.(currentIdx) ?? [];
+      _hasCorrectSelected = Array.isArray(_selOpts) && _selOpts.some(
+        (s: any) => isOptionCorrect(s) && s?.selected !== false
+      );
+    } catch { /* ignore */ }
+    const _latestExpMatchesCurr = latestExpIdx === currentIdx;
+    return host.explanationTextService?.fetBypassForQuestion?.get(currentIdx) === true
+      || host.quizService?._multiAnswerPerfect?.get(currentIdx) === true
+      || (_latestExpMatchesCurr && (
+          host.explanationTextService?.fetBypassForQuestion?.get(latestExpIdx) === true
+          || host.quizService?._multiAnswerPerfect?.get(latestExpIdx) === true
+      ))
+      || (_incomingMatchesCachedFet && _hasCorrectSelected);
+  }
+
+  /**
+   * Resolve the effective multi-answer flag for the question: the higher of the
+   * live correct-option count and the pristine count. Extracted verbatim.
+   */
+  private computeIsMultiAnswer(host: Host, qForMultiCheck: any): boolean {
+    let multiCorrectCount = (qForMultiCheck?.options ?? []).filter(
+      (o: any) => isOptionCorrect(o)
+    ).length;
+    try {
+      const _pq = host.quizService?.getPristineQuestionByText(qForMultiCheck?.questionText);
+      if (_pq) {
+        const pristineCount = (_pq.options ?? []).filter(
+          (o: any) => isOptionCorrect(o)
+        ).length;
+        if (pristineCount > multiCorrectCount) {
+          multiCorrectCount = pristineCount;
+        }
+      }
+    } catch { /* ignore */ }
+    return multiCorrectCount > 1;
+  }
+
+  /**
+   * Whether the incoming FET is SOC-confirmed (used by the question-first and
+   * FET-block guards): incoming-is-FET AND confirmed at currentIdx or
+   * latestExpIdx. Extracted verbatim.
+   */
+  private computeFetConfirmed(host: Host, currentIdx: number, latestExpIdx: number, lowerText: string): boolean {
+    const _incomingIsFet = lowerText.includes('correct because');
+    return _incomingIsFet && (
+      host.explanationTextService?.fetBypassForQuestion?.get(currentIdx) === true
+      || host.quizService?._multiAnswerPerfect?.get(currentIdx) === true
+      || (latestExpIdx >= 0 && (
+          host.explanationTextService?.fetBypassForQuestion?.get(latestExpIdx) === true
+          || host.quizService?._multiAnswerPerfect?.get(latestExpIdx) === true
+      ))
+    );
+  }
+
+  /**
+   * EXPLANATION SUBSTITUTION: when the emission is a genuine (non-FET, non-
+   * question) explanation for this index with interaction/timeout evidence,
+   * substitute the cached or freshly-formatted FET. Extracted verbatim.
+   */
+  private applyExplanationSubstitution(host: Host, finalText: string, ctx: DisplayTextCtx): string {
+    const isExplanation = ctx.lowerText.length > 0
+      && !ctx.isQuestionText
+      && !ctx.lowerText.includes('correct because')
+      && host.explanationTextService.latestExplanationIndex === ctx.currentIdx
+      && host.explanationTextService.latestExplanationIndex >= 0
+      && (ctx.hasRealInteraction || ctx.isTimedOutForIdx)
+      && !ctx.multiAnswerBlocked;
+    if (isExplanation) {
+      const idx = ctx.currentIdx;
+      const cached = (host.explanationTextService.formattedExplanations[idx]?.explanation ?? '').trim()
+        || (host.explanationTextService.fetByIndex?.get(idx) ?? '').trim();
+      if (cached && cached.toLowerCase().includes('correct because')) {
+        finalText = cached;
+      } else {
+        try {
+          const questions = host.quizService.getQuestionsInDisplayOrder();
+          const q = questions?.[idx];
+          if (q?.options?.length > 0 && q.explanation) {
+            const correctIndices = host.explanationTextService.getCorrectOptionIndices(q, q.options, idx);
+            if (correctIndices.length > 0) {
+              finalText = host.explanationTextService.formatExplanation(q, correctIndices, q.explanation);
+            }
+          }
+        } catch { /* ignore */ }
+      }
+    }
+    return finalText;
+  }
+
+  /**
+   * Run the ordered DOM-write guards for a non-fast-path emission: empty-incoming
+   * handling, question-first guard, FET-over-question guard, FET lock, the
+   * multi/single FET block, then banner preservation and the final write.
+   * Extracted verbatim.
+   */
+  private writeWithDomGuards(host: Host, el: any, finalText: string, ctx: DisplayTextCtx): void {
+    const incoming = (finalText ?? '').trim();
+    const cached = (host._lastDisplayedText ?? '').trim();
+    if (!incoming) {
+      this.handleEmptyIncoming(host, ctx, cached);
+      return;
+    }
+
+    if (this.tryQuestionFirstGuard(host, ctx, incoming)) return;
+    if (this.tryFetOverQuestionGuard(host, el, ctx)) return;
+
+    // FET LOCK
+    if (host._fetLockedForIndex === ctx.currentIdx &&
+      ctx.isQuestionText &&
+      !ctx.multiAnswerBlocked
+    ) return;
+
+    if (this.tryMultiSingleFetBlock(host, ctx, finalText)) return;
+
+    // BANNER PRESERVATION
+    if (ctx.isQuestionText) {
+      const enriched = this.fetGuard.buildQuestionDisplayHTML(host, ctx.currentIdx);
+      if (enriched) finalText = enriched;
+    }
+
+    this.fetGuard.writeQText(host, finalText);
+  }
+
+  /**
+   * Empty-incoming handling: honor the FET lock, else re-write the last cached
+   * text, else rebuild the question display. Extracted verbatim.
+   */
+  private handleEmptyIncoming(host: Host, ctx: DisplayTextCtx, cached: string): void {
+    if (host._fetLockedForIndex === ctx.currentIdx && !ctx.multiAnswerBlocked) {
+      return;
+    }
+    if (cached) {
+      this.fetGuard.writeQText(host, cached);
+      return;
+    }
+    try {
+      const rebuilt = this.fetGuard.buildQuestionDisplayHTML(host, ctx.currentIdx);
+      if (rebuilt) {
+        this.fetGuard.writeQText(host, rebuilt);
+        return;
+      }
+    } catch { /* ignore */ }
+  }
+
+  /**
+   * UNIVERSAL QUESTION-FIRST GUARD: with no interaction/timeout/FET-confirmed
+   * evidence, force the question display text unless the incoming already
+   * starts with the raw question text. Returns true when handled. Extracted verbatim.
+   */
+  private tryQuestionFirstGuard(host: Host, ctx: DisplayTextCtx, incoming: string): boolean {
+    if (!ctx.hasRealInteraction && !ctx.isTimedOutForIdx && !ctx.fetConfirmed) {
+      try {
+        const forcedQText = this.fetGuard.buildQuestionDisplayHTML(host, ctx.currentIdx);
+        if (forcedQText) {
+          const isShuffled = host.quizService.isShuffleEnabled?.()
+            && Array.isArray(host.quizService.shuffledQuestions)
+            && host.quizService.shuffledQuestions.length > 0;
+          const qForCurrent = isShuffled
+            ? host.quizService.shuffledQuestions[ctx.currentIdx]
+            : host.quizService.questions?.[ctx.currentIdx];
+          const rawQ = (qForCurrent?.questionText ?? '').trim();
+          const incomingStartsWithQ = incoming.length > 0 && incoming.startsWith(rawQ);
+          if (!incomingStartsWithQ) {
+            this.fetGuard.writeQText(host, forcedQText);
+            return true;
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    return false;
+  }
+
+  /**
+   * FET-OVER-QUESTION-TEXT GUARD: when the user has interacted and the incoming
+   * is question text but the question is resolved/bypassed, keep/restore the
+   * cached FET instead. Returns true when handled. Extracted verbatim.
+   */
+  private tryFetOverQuestionGuard(host: Host, el: any, ctx: DisplayTextCtx): boolean {
+    if (ctx.hasRealInteraction && ctx.isQuestionText && (ctx.isResolvedForGuard || ctx.fetBypass)) {
+      const fetCached =
+        (host.explanationTextService.formattedExplanations[ctx.currentIdx]?.explanation ?? '').trim()
+        || (host.explanationTextService.fetByIndex?.get(ctx.currentIdx) ?? '').trim();
+      if (fetCached && fetCached.toLowerCase().includes('correct because')) {
+        this.fetGuard.writeQText(host, fetCached);
+        return true;
+      }
+      const lastText = (host._lastDisplayedText ?? '').trim();
+      if (lastText && lastText.toLowerCase().includes('correct because')) {
+        return true;
+      }
+      const domNow = (el.innerHTML ?? '').trim();
+      if (domNow && domNow.toLowerCase().includes('correct because')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * MULTI-ANSWER / SINGLE-ANSWER FET BLOCK (skipped when timed out): when the
+   * outgoing text is FET for an unresolved question, rebuild it back to the
+   * question display text. Returns true when handled. Extracted verbatim.
+   */
+  private tryMultiSingleFetBlock(host: Host, ctx: DisplayTextCtx, finalText: string): boolean {
+    if (ctx.isTimedOutForIdx) return false;
+    const finalNorm = norm(finalText);
+    const qTextNormForFet = norm(ctx.qForMultiCheck?.questionText);
+    const rawExplanation = norm(
+      host.quizService?.questions?.[ctx.currentIdx]?.explanation
+        ?? ctx.qForMultiCheck?.explanation
+    );
+    const isFetText = !!finalNorm && (
+      finalNorm.includes('correct because')
+      || (!!rawExplanation && finalNorm.includes(rawExplanation))
+      || (!!qTextNormForFet && !finalNorm.includes(qTextNormForFet))
+    );
+    const rawQForBlock: any =
+      host.quizService?.questions?.[ctx.currentIdx] ?? ctx.qForMultiCheck;
+    const rawCorrectCountBlock = this.resolveBlockCorrectCount(host, rawQForBlock, ctx.qForMultiCheck);
+    const isMultiQ = host.quizService.multipleAnswer || rawCorrectCountBlock > 1;
+
+    if (isFetText && isMultiQ) {
+      if (this.tryRebuildUnresolvedFet(host, ctx)) return true;
+    }
+
+    if (isFetText && !isMultiQ) {
+      if (this.tryRebuildUnresolvedFet(host, ctx)) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Effective correct-option count for the FET block: the higher of the live
+   * count and the pristine quizInitialState count. Extracted verbatim.
+   */
+  private resolveBlockCorrectCount(host: Host, rawQForBlock: any, qForMultiCheck: any): number {
+    const rawOptsForBlock: any[] = rawQForBlock?.options ?? [];
+    let rawCorrectCountBlock = rawOptsForBlock.filter(
+      (o: any) => isOptionCorrect(o)
+    ).length;
+    try {
+      const _qText2 = norm(rawQForBlock?.questionText ?? qForMultiCheck?.questionText);
+      const _bundle2 = host.quizService?.quizInitialState ?? [];
+      for (const _quiz2 of _bundle2) {
+        for (const _pq2 of (_quiz2?.questions ?? [])) {
+          if (norm(_pq2?.questionText) !== _qText2) continue;
+          const pc2 = (_pq2?.options ?? []).filter(
+            (o: any) => isOptionCorrect(o)
+          ).length;
+          if (pc2 > rawCorrectCountBlock) rawCorrectCountBlock = pc2;
+          break;
+        }
+      }
+    } catch { /* ignore */ }
+    return rawCorrectCountBlock;
+  }
+
+  /**
+   * When the question isn't scored correct / bypassed / FET-confirmed, rebuild
+   * the heading back to the question display text. Returns true when written.
+   * Extracted verbatim (shared by the multi- and single-answer FET branches).
+   */
+  private tryRebuildUnresolvedFet(host: Host, ctx: DisplayTextCtx): boolean {
+    if (!this.fetGuard.isScoredCorrectAtDisplay(host, ctx.currentIdx) && !ctx.fetBypassActive && !ctx.fetConfirmed) {
+      const qText = this.fetGuard.buildQuestionDisplayHTML(host, ctx.currentIdx);
+      if (qText) {
+        this.fetGuard.writeQText(host, qText);
+        return true;
+      }
+    }
+    return false;
   }
 }
