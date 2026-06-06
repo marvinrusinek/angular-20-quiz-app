@@ -72,11 +72,36 @@ export class OptionUiSyncService {
     ctx: OptionUiSyncContext
   ): void {
     const currentIndex = ctx.getActiveQuestionIndex() ?? 0;
-    const isCorrectHelper = isOptionCorrect;
 
     this.resetFeedbackAnchorIfQuestionChanged(currentIndex, ctx);
 
     const checked = 'checked' in event ? (event as MatCheckboxChange).checked : true;
+    const isTrulyMulti = this.computeIsTrulyMulti(ctx);
+
+    // UI-LEVEL RESET for single-answer mode (Visuals only, OIS handles service state)
+    // ONLY run if it's definitely NOT a multi-answer scenario.
+    if (!isTrulyMulti && checked) {
+      this.applySingleAnswerUiReset(index, currentIndex, ctx);
+    }
+
+    if (this.isRapidDuplicateUnselect(optionBinding?.option?.optionId, checked, Date.now(), ctx)) {
+      return;
+    }
+
+    this.applySelectionAndFeedback(optionBinding, index, currentIndex, checked, isTrulyMulti, ctx);
+
+    this.runMultiScoringAndCallbacks(optionBinding, index, currentIndex, checked, isTrulyMulti, ctx);
+
+    this.applyLockingAndFinalize(optionBinding, currentIndex, isTrulyMulti, ctx);
+  }
+
+  /**
+   * Authoritative single-vs-multi resolution: combines binding correct-flag
+   * counts, the canonical pristine count, the context type/flags, and question
+   * wording ("select all", "multiple", "apply"). Extracted verbatim.
+   */
+  private computeIsTrulyMulti(ctx: OptionUiSyncContext): boolean {
+    const isCorrectHelper = isOptionCorrect;
     // RESOLVE: ctx.optionBindings may be a signal (-clean) or plain array (-main).
     // Use _cob locally; do NOT reassign ctx.optionBindings — that overwrote
     // the signal property and triggered infinite error spam in StackBlitz.
@@ -92,12 +117,17 @@ export class OptionUiSyncService {
     // Authoritative Type Resolution
     const qText = (ctx as any).currentQuestion?.questionText?.toLowerCase() || '';
     const isExplicitMulti = qText.includes('select all') || qText.includes('multiple') || qText.includes('apply');
-    const isTrulyMulti = ctx.type === 'multiple' || (ctx as any).isMultiMode === true ||
+    return ctx.type === 'multiple' || (ctx as any).isMultiMode === true ||
                         isExplicitMulti || effectiveCorrectCount > 1;
+  }
 
-    // UI-LEVEL RESET for single-answer mode (Visuals only, OIS handles service state)
-    // ONLY run if it's definitely NOT a multi-answer scenario.
-    if (!isTrulyMulti && checked) {
+  /**
+   * Single-answer visual reset: seeds selection history (component-local +
+   * durable sel_Q*), rebuilds binding refs so OnPush children re-render with
+   * only the current option selected, and clears the feedback map. Extracted
+   * verbatim. Caller gates on (!isTrulyMulti && checked).
+   */
+  private applySingleAnswerUiReset(index: number, currentIndex: number, ctx: OptionUiSyncContext): void {
       // Accumulate history for previous-selection highlighting
       if (!ctx.selectedOptionHistory.includes(index)) {
         ctx.selectedOptionHistory.push(index);
@@ -161,12 +191,15 @@ export class OptionUiSyncService {
       });
       ctx.selectedOptionMap.clear();
       ctx.feedbackConfigs = {};
-    }
+  }
 
-    if (this.isRapidDuplicateUnselect(optionBinding?.option?.optionId, checked, Date.now(), ctx)) {
-      return;
-    }
-
+  /**
+   * Apply the click's selection state: history, single-answer painting,
+   * feedback anchors, per-click multi correctness, and the service sync +
+   * feedback-config refresh. Extracted verbatim.
+   */
+  private applySelectionAndFeedback(optionBinding: OptionBindings, index: number, currentIndex: number, checked: boolean, isTrulyMulti: boolean, ctx: OptionUiSyncContext): void {
+    const isCorrectHelper = isOptionCorrect;
     const effectiveId = (optionBinding?.option?.optionId != null && optionBinding.option.optionId !== -1)
       ? optionBinding.option.optionId : index;
 
@@ -207,7 +240,14 @@ export class OptionUiSyncService {
 
     this.toggleSelectedOption(optionBinding.option, index, checked, ctx);
     this.refreshFeedbackConfigForClicked(optionBinding, index, effectiveId, ctx);
+  }
 
+  /**
+   * Multi-answer scoring (skipped in shuffle, where SOC owns scoring/FET) plus
+   * the component callbacks: onSelect, visited tracking, and highlight refresh.
+   * Extracted verbatim.
+   */
+  private runMultiScoringAndCallbacks(optionBinding: OptionBindings, index: number, currentIndex: number, checked: boolean, isTrulyMulti: boolean, ctx: OptionUiSyncContext): void {
     // Scoring and FET triggering for Multi-answer
     // In shuffled mode, SOC handles all scoring/FET.
     const isShufSkipScore = this.quizService?.isShuffleEnabled?.()
@@ -227,7 +267,15 @@ export class OptionUiSyncService {
 
     // optional: refresh directive highlighting after state changes
     this.refreshHighlights(ctx.optionBindings);
+  }
 
+  /**
+   * Lock policy + final state sync: resolve the question type, lock incorrect
+   * options, mirror lock state into SelectedOptionService, enforce single
+   * selection, re-sync flags, run the bypass-path scoring, and push the
+   * selection message. Extracted verbatim.
+   */
+  private applyLockingAndFinalize(optionBinding: OptionBindings, currentIndex: number, isTrulyMulti: boolean, ctx: OptionUiSyncContext): void {
     // AUTHORITATIVE TYPE INFERENCE: Rely on data, not just metadata
     const resolvedType = (isTrulyMulti)
       ? QuestionType.MultipleAnswer : QuestionType.SingleAnswer;
