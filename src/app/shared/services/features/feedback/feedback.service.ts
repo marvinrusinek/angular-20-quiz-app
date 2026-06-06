@@ -61,6 +61,74 @@ export class FeedbackService {
     //   selections â†’ "You're right!"; otherwise fall through to the
     //   count logic below which produces "Select N more correct
     //   answer(s)" or "Not this one" as appropriate.
+    const _urlShortCircuit = this.tryUrlAuthoritativeShortCircuit(selected, targetOption);
+    if (_urlShortCircuit !== null) return _urlShortCircuit;
+
+    const quizSvc = this.injector.get(QuizService, null);
+    const currentIndex = quizSvc?.currentQuestionIndex;
+
+    // Resolve the canonical question the user is actually on (callers may pass a
+    // stale `question` object) so feedback option numbers reflect it.
+    const { resolvedQuestion, resolvedIdx } = this.resolveCanonicalQuestion(question, optionsToDisplay, quizSvc);
+
+    const idxForLookup = resolvedIdx >= 0
+      ? resolvedIdx
+      : (typeof displayIndex === 'number' && displayIndex >= 0
+        ? displayIndex
+        : (typeof currentIndex === 'number' ? currentIndex : undefined));
+
+    let correctIndices = this.computeCorrectIndices(question, resolvedQuestion, idxForLookup, quizSvc);
+
+    const optionsRaw = optionsToDisplay || (question.options || []);
+
+    // Prefer the RAW source-of-truth options from quizService for correctness
+    // checks â€” optionsToDisplay can carry stale/polluted `correct` flags from
+    // prior question rendering, which yields wrong feedback option numbers.
+    // Use the resolvedQuestion's options as the truth source â€” these come
+    // from quizService.questions[resolvedIdx] (located above by text match).
+    let truthOptions: Option[] = (resolvedQuestion?.options?.length
+      ? resolvedQuestion.options
+      : optionsRaw) as Option[];
+
+    // â”€â”€ GUARDRAIL: Cross-validate correctIndices against visual correct flags â”€â”€
+    correctIndices = this.crossValidateCorrectIndices(correctIndices, truthOptions);
+
+    // Multi-Answer detection: trust multiple indices OR multiple database flags
+    const isMultiMode =
+      correctIndices.length > 1 ||
+      question.type === QuestionType.MultipleAnswer ||
+      (question as any).multipleAnswer === true;
+
+    const { numCorrectSelected, numIncorrectSelected, dedupedSelected } =
+      this.countSelectedCorrectness(selected, optionsRaw, correctIndices, resolvedQuestion, quizSvc, isMultiMode, targetOption);
+
+    const totalCorrectRequired = correctIndices.length > 0 ? correctIndices.length : 1;
+    // Resolved if the correct counts are met (even if incorrects are present).
+    const isMultiResolved = isMultiMode && numCorrectSelected >= totalCorrectRequired;
+    if (isMultiResolved) return this.buildCorrectFeedback(correctIndices);
+
+    if (!selected || dedupedSelected.length === 0) return '';
+
+    if (isMultiMode) {
+      return this.buildMultipleAnswerFeedback(
+        targetOption, optionsRaw, correctIndices,
+        numCorrectSelected, numIncorrectSelected, totalCorrectRequired
+      );
+    }
+    return this.buildSingleAnswerFeedback(numCorrectSelected, numIncorrectSelected, correctIndices);
+  }
+
+  /**
+   * URL-AUTHORITATIVE EARLY-EXIT: on /question/{quizId}/{N}, reconcile every
+   * recorded click (targetOption, the selected array, the selection service)
+   * against the URL question's correct options. Single-answer: any one correct
+   * match wins. Multi-answer: all correct selected with zero incorrect. Returns
+   * the "You're right!" message, or null to fall through. Extracted verbatim.
+   */
+  private tryUrlAuthoritativeShortCircuit(
+    selected: Array<SelectedOption | Option> | null,
+    targetOption?: Option
+  ): string | null {
     try {
       const m = window.location.pathname.match(QUESTION_ROUTE_REGEX);
       if (m) {
@@ -69,34 +137,10 @@ export class FeedbackService {
         const urlQ: any = (quizSvcEarly?.questions ?? [])[urlIdx];
         const urlOpts: any[] = urlQ?.options ?? [];
         if (urlOpts.length > 0) {
-          const correctIdxsURL: number[] = [];
-          const correctTextsURL = new Set<string>();
-          const allTextsURL = new Set<string>();
-          for (const [i, o] of urlOpts.entries()) {
-            const text = norm(o?.text);
-            if (text) allTextsURL.add(text);
-            if (isOptionCorrect(o)) {
-              correctIdxsURL.push(i + 1);
-              if (text) correctTextsURL.add(text);
-            }
-          }
+          const { correctIdxsURL, correctTextsURL, allTextsURL } = this.buildUrlCorrectSets(urlOpts);
 
           if (correctTextsURL.size > 0) {
-            const candidateTexts = new Set<string>();
-            if (targetOption?.text) {
-              candidateTexts.add(norm(targetOption.text));
-            }
-            for (const s of (selected ?? []) as any[]) {
-              if (s?.text) candidateTexts.add(norm(s.text));
-            }
-            try {
-              const liveSelections =
-                quizSvcEarly?.selectedOptionService?.getSelectedOptionsForQuestion?.(urlIdx) ??
-                this.selectedOptionService?.getSelectedOptionsForQuestion?.(urlIdx) ?? [];
-              for (const s of liveSelections) {
-                if (s?.text) candidateTexts.add(norm(s.text));
-              }
-            } catch { /* ignore */ }
+            const candidateTexts = this.gatherUrlCandidateTexts(selected, targetOption, urlIdx, quizSvcEarly);
 
             const isMultiURL = correctTextsURL.size > 1;
             let candidateCorrect = 0;
@@ -109,43 +153,75 @@ export class FeedbackService {
             const allCorrectChosen = candidateCorrect >= correctTextsURL.size;
             const noIncorrectChosen = candidateIncorrect === 0;
 
-            // Single-answer: one correct match is sufficient.
-            // Multi-answer: require all correct selected with no incorrect.
             const shouldShortCircuit = isMultiURL
               ? (allCorrectChosen && noIncorrectChosen)
               : (candidateCorrect >= 1);
 
             if (shouldShortCircuit) {
-              const dedupedC = Array.from(new Set(correctIdxsURL)).sort((a, b) => a - b);
-              if (dedupedC.length === 1) {
-                return `You're right! The correct answer is Option ${dedupedC[0]}.`;
-              }
-              if (dedupedC.length > 1) {
-                const listC = `${dedupedC.slice(0, -1).join(', ')} and ${dedupedC[dedupedC.length - 1]}`;
-                return `You're right! The correct answers are Options ${listC}.`;
-              }
-              return `You're right!`;
+              return this.buildCorrectFeedback(correctIdxsURL);
             }
           }
         }
       }
     } catch { /* non-browser env */ }
+    return null;
+  }
 
-    /* const quizSvc = this.injector.get(QuizService, null);
-    const qIdx = displayIndex ?? (question as any).questionIndex ?? quizSvc?.currentQuestionIndex ?? 0;
-    let correctIndices = this.explanationTextService.getCorrectOptionIndices(question, optionsToDisplay ?? question.options ?? [], qIdx); */
-    const quizSvc = this.injector.get(QuizService, null);
-    const currentIndex = quizSvc?.currentQuestionIndex;
+  /** Build the URL question's correct-index set, correct-text set, and all-text set. Extracted verbatim. */
+  private buildUrlCorrectSets(urlOpts: any[]): { correctIdxsURL: number[]; correctTextsURL: Set<string>; allTextsURL: Set<string> } {
+    const correctIdxsURL: number[] = [];
+    const correctTextsURL = new Set<string>();
+    const allTextsURL = new Set<string>();
+    for (const [i, o] of urlOpts.entries()) {
+      const text = norm(o?.text);
+      if (text) allTextsURL.add(text);
+      if (isOptionCorrect(o)) {
+        correctIdxsURL.push(i + 1);
+        if (text) correctTextsURL.add(text);
+      }
+    }
+    return { correctIdxsURL, correctTextsURL, allTextsURL };
+  }
 
-    // CRITICAL: when the caller passes a stale `question` object (e.g. Q1
-    // while the user is on Q3), resolve to the canonical question at the
-    // current index from quizService so feedback option numbers reflect
-    // the question the user is actually looking at.
-    // SIMPLIFIED: Resolve canonical question by matching passed question's
-    // TEXT against quizService.questions[]. The passed `question` object is
-    // the source of truth for "which question the user is looking at".
-    // We then read the canonical options (with correct flags) from
-    // quizService.questions[] for that same text.
+  /**
+   * Gather every candidate selected text for the URL question: the clicked
+   * target, the passed selected array, and the live selection service.
+   * Extracted verbatim.
+   */
+  private gatherUrlCandidateTexts(
+    selected: Array<SelectedOption | Option> | null,
+    targetOption: Option | undefined,
+    urlIdx: number,
+    quizSvcEarly: any
+  ): Set<string> {
+    const candidateTexts = new Set<string>();
+    if (targetOption?.text) {
+      candidateTexts.add(norm(targetOption.text));
+    }
+    for (const s of (selected ?? []) as any[]) {
+      if (s?.text) candidateTexts.add(norm(s.text));
+    }
+    try {
+      const liveSelections =
+        quizSvcEarly?.selectedOptionService?.getSelectedOptionsForQuestion?.(urlIdx) ??
+        this.selectedOptionService?.getSelectedOptionsForQuestion?.(urlIdx) ?? [];
+      for (const s of liveSelections) {
+        if (s?.text) candidateTexts.add(norm(s.text));
+      }
+    } catch { /* ignore */ }
+    return candidateTexts;
+  }
+
+  /**
+   * Resolve the canonical question the user is actually looking at: parse the
+   * URL first (most reliable), then text-match the passed question against
+   * quizService.questions[]. Extracted verbatim.
+   */
+  private resolveCanonicalQuestion(
+    question: QuizQuestion,
+    optionsToDisplay: Option[] | undefined,
+    quizSvc: any
+  ): { resolvedQuestion: QuizQuestion; resolvedIdx: number } {
     let resolvedQuestion: QuizQuestion = question ?? {
       questionText: '', options: optionsToDisplay ?? [], explanation: '',
       type: QuestionType.SingleAnswer
@@ -154,11 +230,6 @@ export class FeedbackService {
     try {
       const allQs: QuizQuestion[] = quizSvc?.questions ?? [];
 
-      // FIRST: parse the URL directly. The URL is the only truly reliable
-      // source â€” signals/services can lag during rapid navigation, and
-      // upstream callers can pass stale `question` references (e.g. Q1's
-      // object while the user is actually on Q3). The route is structured
-      // /question/{quizId}/{1-based-index}.
       try {
         const m = window.location.pathname.match(QUESTION_ROUTE_REGEX);
         if (m) {
@@ -170,9 +241,7 @@ export class FeedbackService {
         }
       } catch { /* non-browser env */ }
 
-      // FALLBACK: text-match the passed question (legacy behaviour). Used
-      // when the URL parse fails (e.g., during early bootstrap or in a
-      // non-browser environment).
+      // Fallback: text-match the passed question (legacy behaviour).
       if (resolvedIdx < 0) {
         const passedText = norm(question?.questionText);
         if (passedText && allQs.length) {
@@ -185,14 +254,20 @@ export class FeedbackService {
         }
       }
     } catch {}
+    return { resolvedQuestion, resolvedIdx };
+  }
 
-    const idxForLookup = resolvedIdx >= 0
-      ? resolvedIdx
-      : (typeof displayIndex === 'number' && displayIndex >= 0
-        ? displayIndex
-        : (typeof currentIndex === 'number' ? currentIndex : undefined));
-
-    // Compute correctIndices DIRECTLY from canonical question's correct flags.
+  /**
+   * Compute the 1-based correct option indices: prefer the canonical question's
+   * own correct flags, then ExplanationTextService, then a text-match against
+   * quizService questions. Extracted verbatim.
+   */
+  private computeCorrectIndices(
+    question: QuizQuestion,
+    resolvedQuestion: QuizQuestion,
+    idxForLookup: number | undefined,
+    quizSvc: any
+  ): number[] {
     let correctIndices: number[] = [];
     const canonicalOpts: Option[] = (resolvedQuestion?.options ?? []) as Option[];
     for (const [i, o] of canonicalOpts.entries()) {
@@ -223,19 +298,15 @@ export class FeedbackService {
         }
       }
     }
+    return correctIndices;
+  }
 
-    const optionsRaw = optionsToDisplay || (question.options || []);
-
-    // Prefer the RAW source-of-truth options from quizService for correctness
-    // checks â€” optionsToDisplay can carry stale/polluted `correct` flags from
-    // prior question rendering, which yields wrong feedback option numbers.
-    // Use the resolvedQuestion's options as the truth source â€” these come
-    // from quizService.questions[resolvedIdx] (located above by text match).
-    let truthOptions: Option[] = (resolvedQuestion?.options?.length
-      ? resolvedQuestion.options
-      : optionsRaw) as Option[];
-
-    // â”€â”€ GUARDRAIL: Cross-validate correctIndices against visual correct flags â”€â”€
+  /**
+   * GUARDRAIL: cross-validate the computed correct indices against the visual
+   * correct flags of the truth options; on mismatch trust the visual flags.
+   * Extracted verbatim.
+   */
+  private crossValidateCorrectIndices(correctIndices: number[], truthOptions: Option[]): number[] {
     if (truthOptions.length > 0) {
       const visualCorrect = truthOptions
         .map((o: Option, i: number) => isOptionCorrect(o) ? i + 1 : null)
@@ -247,33 +318,54 @@ export class FeedbackService {
         const match = sortedCalc.length === sortedVisual.length &&
           sortedCalc.every((n, i) => n === sortedVisual[i]);
 
-        if (!match) correctIndices = visualCorrect;
+        if (!match) return visualCorrect;
       }
     }
+    return correctIndices;
+  }
 
-    // Multi-Answer detection: trust multiple indices OR multiple database flags
-    const isMultiMode =
-      correctIndices.length > 1 ||
-      question.type === QuestionType.MultipleAnswer ||
-      (question as any).multipleAnswer === true;
+  /**
+   * Count the user's correct/incorrect selections (deduped, canonical-text
+   * matched) and, for multi-answer, cross-check against the raw options.
+   * Returns the counts plus the deduped selection list. Extracted verbatim.
+   */
+  private countSelectedCorrectness(
+    selected: Array<SelectedOption | Option> | null,
+    optionsRaw: Option[],
+    correctIndices: number[],
+    resolvedQuestion: QuizQuestion,
+    quizSvc: any,
+    isMultiMode: boolean,
+    targetOption?: Option
+  ): { numCorrectSelected: number; numIncorrectSelected: number; dedupedSelected: any[] } {
+    const dedupedSelected = this.dedupeSelected(selected);
+    const canonicalOptionsForMatch = this.resolveCanonicalOptionsForMatch(quizSvc, resolvedQuestion);
+    let { numCorrectSelected, numIncorrectSelected } =
+      this.evaluateSelectionCounts(dedupedSelected, optionsRaw, correctIndices, canonicalOptionsForMatch);
+    if (isMultiMode && optionsRaw.length > 0) {
+      ({ numCorrectSelected, numIncorrectSelected } =
+        this.crossCheckMultiCounts(optionsRaw, targetOption, numCorrectSelected, numIncorrectSelected));
+    }
+    return { numCorrectSelected, numIncorrectSelected, dedupedSelected };
+  }
 
+  /** Deduplicate the selected options by optionId (or text). Extracted verbatim. */
+  private dedupeSelected(selected: Array<SelectedOption | Option> | null): any[] {
     const selectedArr = (selected ?? []) as any[];
-    let numCorrectSelected = 0;
-    let numIncorrectSelected = 0;
-
     const normalizedSelected = new Map<string, any>();
     for (const sel of selectedArr) {
       const id = sel.optionId != null ? String(sel.optionId) : sel.text;
       if (id) normalizedSelected.set(id, sel);
     }
-    const dedupedSelected = Array.from(normalizedSelected.values());
+    return Array.from(normalizedSelected.values());
+  }
 
-    // Canonical options for text-match. Build from the URL question
-    // directly (most authoritative; never mutated by gameplay) and fall
-    // back to resolvedQuestion only when the URL parse is unavailable.
-    // This catches the intermittent "Not this one" on Q3 Option 4
-    // where the click handler hands us a `sel` with `correct: false`
-    // and optionsRaw / resolvedQuestion are also stale.
+  /**
+   * Canonical options to text-match selections against: the URL question's
+   * options (never mutated by gameplay), falling back to the resolved question.
+   * Extracted verbatim.
+   */
+  private resolveCanonicalOptionsForMatch(quizSvc: any, resolvedQuestion: QuizQuestion): Option[] {
     let canonicalOptionsForMatch: Option[] = [];
     try {
       const m = window.location.pathname.match(QUESTION_ROUTE_REGEX);
@@ -288,7 +380,22 @@ export class FeedbackService {
     if (canonicalOptionsForMatch.length === 0) {
       canonicalOptionsForMatch = (resolvedQuestion?.options ?? []) as Option[];
     }
+    return canonicalOptionsForMatch;
+  }
 
+  /**
+   * Per-selection correctness tally: an option counts as correct via its own
+   * flag, its visual position matching a correct index, or the canonical-by-text
+   * lookup. Extracted verbatim.
+   */
+  private evaluateSelectionCounts(
+    dedupedSelected: any[],
+    optionsRaw: Option[],
+    correctIndices: number[],
+    canonicalOptionsForMatch: Option[]
+  ): { numCorrectSelected: number; numIncorrectSelected: number } {
+    let numCorrectSelected = 0;
+    let numIncorrectSelected = 0;
     for (const sel of dedupedSelected) {
       let visualIdx = sel.displayIndex;
       if (visualIdx === undefined || visualIdx < 0) {
@@ -299,9 +406,8 @@ export class FeedbackService {
         );
       }
 
-      // CANONICAL TEXT MATCH: lookup the selected option in the URL-resolved
-      // question's options by text and read THAT correct flag. Survives
-      // bindings whose `correct: true` was wiped after Qâ†’Qâ†’Q navigation.
+      // Canonical-by-text lookup survives bindings whose `correct: true` was
+      // wiped after Q->Q->Q navigation.
       let canonicalCorrect = false;
       if (sel?.text && canonicalOptionsForMatch.length) {
         const selText = String(sel.text).trim();
@@ -311,10 +417,6 @@ export class FeedbackService {
         if (match) canonicalCorrect = isOptionCorrect(match);
       }
 
-      // ROBUST EVALUATION:
-      // An option is correct if its `correct` flag is true OR its visual
-      // position matches a correct index OR the canonical-by-text lookup
-      // says it's correct.
       const isCorrect = isOptionCorrect(sel) ||
         (visualIdx >= 0 && correctIndices.includes(visualIdx + 1)) ||
         canonicalCorrect;
@@ -325,121 +427,119 @@ export class FeedbackService {
         numIncorrectSelected++;
       }
     }
+    return { numCorrectSelected, numIncorrectSelected };
+  }
 
-    // CROSS-CHECK: Count correct/incorrect selections directly from optionsRaw (optionsToDisplay).
-    // This handles cases where the `selected` parameter is incomplete due to timing/ID issues.
-    if (isMultiMode && optionsRaw.length > 0) {
-      let rawCorrectSelected = 0;
-      let rawIncorrectSelected = 0;
-      for (const o of optionsRaw) {
-        if (o.selected) {
-          if (isOptionCorrect(o)) {
-            rawCorrectSelected++;
-          } else {
-            rawIncorrectSelected++;
-          }
-        }
-      }
-      // Also count targetOption if it's correct and selected (just clicked)
-      if (targetOption && targetOption.selected && isOptionCorrect(targetOption)) {
-        // Check if targetOption is already counted in rawCorrectSelected
-        const alreadyCounted = optionsRaw.some(o =>
-          o.selected && isOptionCorrect(o) &&
-          ((o.text && targetOption.text && String(o.text).trim() === String(targetOption.text).trim()) ||
-            (o.optionId != null && targetOption.optionId != null && String(o.optionId) === String(targetOption.optionId)))
-        );
-        if (!alreadyCounted) rawCorrectSelected++;
-      }
-      // Use whichever source found MORE correct selections (more complete picture)
-      if (rawCorrectSelected > numCorrectSelected) {
-        numCorrectSelected = rawCorrectSelected;
-        numIncorrectSelected = rawIncorrectSelected;
-      }
-    }
-
-    const totalCorrectRequired = correctIndices.length > 0 ? correctIndices.length : 1;
-
-    // Multi-Answer detection consistency: Resolved if counts match (even if incorrects are present)
-    const isMultiResolved = isMultiMode && numCorrectSelected >= totalCorrectRequired;
-
-    // Special safeguard: if it was truly perfectly resolved by our counts, override text right here.
-    if (isMultiResolved) {
-      const formatReveal = (indices: number[]) => {
-        const deduped = Array.from(new Set(indices)).sort((a, b) => a - b);
-        if (deduped.length === 0) return '';
-        if (deduped.length === 1) return `The correct answer is Option ${deduped[0]}.`;
-        const list = deduped.length > 1
-          ? `${deduped.slice(0, -1).join(', ')} and ${deduped[deduped.length - 1]}`
-          : `${deduped[0]}`;
-        return `The correct answers are Options ${list}.`;
-      };
-      return `You're right! ${formatReveal(correctIndices)}`;
-    }
-
-    const formatReveal = (indices: number[]) => {
-      const deduped = Array.from(new Set(indices)).sort((a, b) => a - b);
-      if (deduped.length === 0) return '';
-      if (deduped.length === 1) return `The correct answer is Option ${deduped[0]}.`;
-      const list = `${deduped.slice(0, -1).join(', ')} and ${deduped[deduped.length - 1]}`;
-      return `The correct answers are Options ${list}.`;
-    };
-
-    const finalRevealMessage = formatReveal(correctIndices);
-
-    if (!selected || dedupedSelected.length === 0) return '';
-
-    if (isMultiMode) {
-      // If a specific option was clicked, prioritize its individual feedback
-      if (targetOption) {
-        // Robustly determine if the target option is correct
-        const isTargetCorrect = isOptionCorrect(targetOption) ||
-          (optionsRaw.findIndex(o =>
-            o === targetOption ||
-            (o.optionId != null && targetOption.optionId != null && String(o.optionId) === String(targetOption.optionId)) ||
-            (o.text && targetOption.text && String(o.text).trim() === String(targetOption.text).trim())
-          ) >= 0 &&
-            correctIndices.includes(optionsRaw.findIndex(o =>
-              o === targetOption ||
-              (o.optionId != null && targetOption.optionId != null && String(o.optionId) === String(targetOption.optionId)) ||
-              (o.text && targetOption.text && String(o.text).trim() === String(targetOption.text).trim())
-            ) + 1));
-
-        if (isTargetCorrect) {
-          if (numCorrectSelected >= totalCorrectRequired && numIncorrectSelected === 0) {
-            return `You're right! ${finalRevealMessage}`;
-          }
-          const remainingTotal = Math.max(totalCorrectRequired - numCorrectSelected, 0);
-          const remainingText = remainingTotal === 1
-            ? '1 more correct answer'
-            : `${remainingTotal} more correct answers`;
-          return `That's correct! Please select ${remainingText}.`;
+  /**
+   * Multi-answer cross-check: recount correct/incorrect directly from the raw
+   * options (plus the just-clicked target), and adopt those counts when they
+   * find MORE correct selections than the selection-array tally. Extracted verbatim.
+   */
+  private crossCheckMultiCounts(
+    optionsRaw: Option[],
+    targetOption: Option | undefined,
+    numCorrectSelected: number,
+    numIncorrectSelected: number
+  ): { numCorrectSelected: number; numIncorrectSelected: number } {
+    let rawCorrectSelected = 0;
+    let rawIncorrectSelected = 0;
+    for (const o of optionsRaw) {
+      if (o.selected) {
+        if (isOptionCorrect(o)) {
+          rawCorrectSelected++;
         } else {
-          return 'Not this one, try again!';
+          rawIncorrectSelected++;
         }
       }
+    }
+    if (targetOption && targetOption.selected && isOptionCorrect(targetOption)) {
+      const alreadyCounted = optionsRaw.some(o =>
+        o.selected && isOptionCorrect(o) &&
+        ((o.text && targetOption.text && String(o.text).trim() === String(targetOption.text).trim()) ||
+          (o.optionId != null && targetOption.optionId != null && String(o.optionId) === String(targetOption.optionId)))
+      );
+      if (!alreadyCounted) rawCorrectSelected++;
+    }
+    if (rawCorrectSelected > numCorrectSelected) {
+      return { numCorrectSelected: rawCorrectSelected, numIncorrectSelected: rawIncorrectSelected };
+    }
+    return { numCorrectSelected, numIncorrectSelected };
+  }
 
-      // Fallback/Legacy logic for when targetOption isn't provided
-      if (numIncorrectSelected > 0) return 'Not this one, try again!';
+  /** Format the "The correct answer(s) is/are Option(s) …" reveal clause. Extracted verbatim. */
+  private formatRevealMessage(indices: number[]): string {
+    const deduped = Array.from(new Set(indices)).sort((a, b) => a - b);
+    if (deduped.length === 0) return '';
+    if (deduped.length === 1) return `The correct answer is Option ${deduped[0]}.`;
+    const list = `${deduped.slice(0, -1).join(', ')} and ${deduped[deduped.length - 1]}`;
+    return `The correct answers are Options ${list}.`;
+  }
 
-      if (numCorrectSelected >= totalCorrectRequired) {
-        return `You're right! ${finalRevealMessage}`;
-      }
+  /** "You're right!" plus the reveal clause. Extracted verbatim (shared by every correct path). */
+  private buildCorrectFeedback(correctIndices: number[]): string {
+    return `You're right! ${this.formatRevealMessage(correctIndices)}`;
+  }
 
-      if (numCorrectSelected > 0) {
-        const remainingTotal = Math.max(totalCorrectRequired - numCorrectSelected, 0);
-        const remainingText = remainingTotal === 1
-          ? '1 more correct answer'
-          : `${remainingTotal} more correct answers`;
-        return `That's correct! Please select ${remainingText}.`;
-      }
-      return 'Please select the correct answers to continue.';
-    } else {
-      // SINGLE-ANSWER LOGIC
-      if (numCorrectSelected >= 1 && numIncorrectSelected === 0) {
-        return `You're right! ${finalRevealMessage}`;
+  /** "That's correct! Please select N more correct answer(s)." Extracted verbatim. */
+  private buildPartialFeedback(totalCorrectRequired: number, numCorrectSelected: number): string {
+    const remainingTotal = Math.max(totalCorrectRequired - numCorrectSelected, 0);
+    const remainingText = remainingTotal === 1
+      ? '1 more correct answer'
+      : `${remainingTotal} more correct answers`;
+    return `That's correct! Please select ${remainingText}.`;
+  }
+
+  /** Is the just-clicked target option correct (by flag or by matched position)? Extracted verbatim. */
+  private isTargetOptionCorrect(targetOption: Option, optionsRaw: Option[], correctIndices: number[]): boolean {
+    const matchIdx = optionsRaw.findIndex(o =>
+      o === targetOption ||
+      (o.optionId != null && targetOption.optionId != null && String(o.optionId) === String(targetOption.optionId)) ||
+      (o.text && targetOption.text && String(o.text).trim() === String(targetOption.text).trim())
+    );
+    return isOptionCorrect(targetOption) ||
+      (matchIdx >= 0 && correctIndices.includes(matchIdx + 1));
+  }
+
+  /**
+   * Multi-answer message: a clicked target option drives individual feedback
+   * (correct → all-selected vs partial, else "not this one"); without a target
+   * option fall back to the aggregate counts. Extracted verbatim.
+   */
+  private buildMultipleAnswerFeedback(
+    targetOption: Option | undefined,
+    optionsRaw: Option[],
+    correctIndices: number[],
+    numCorrectSelected: number,
+    numIncorrectSelected: number,
+    totalCorrectRequired: number
+  ): string {
+    if (targetOption) {
+      if (this.isTargetOptionCorrect(targetOption, optionsRaw, correctIndices)) {
+        if (numCorrectSelected >= totalCorrectRequired && numIncorrectSelected === 0) {
+          return this.buildCorrectFeedback(correctIndices);
+        }
+        return this.buildPartialFeedback(totalCorrectRequired, numCorrectSelected);
       }
       return 'Not this one, try again!';
     }
+
+    // Fallback/Legacy logic for when targetOption isn't provided
+    if (numIncorrectSelected > 0) return 'Not this one, try again!';
+    if (numCorrectSelected >= totalCorrectRequired) {
+      return this.buildCorrectFeedback(correctIndices);
+    }
+    if (numCorrectSelected > 0) {
+      return this.buildPartialFeedback(totalCorrectRequired, numCorrectSelected);
+    }
+    return 'Please select the correct answers to continue.';
+  }
+
+  /** Single-answer message: one correct with no incorrect → correct, else "not this one". Extracted verbatim. */
+  private buildSingleAnswerFeedback(numCorrectSelected: number, numIncorrectSelected: number, correctIndices: number[]): string {
+    if (numCorrectSelected >= 1 && numIncorrectSelected === 0) {
+      return this.buildCorrectFeedback(correctIndices);
+    }
+    return 'Not this one, try again!';
   }
 
   public setCorrectMessage(
