@@ -561,6 +561,40 @@ export class SocAnswerProcessingService {
 
     effectiveCorrectIndices = this.recomputeEffectiveCorrectIndices(comp, qIdx, effectiveCorrectIndices);
 
+    const { clickState, bindingUpdates } =
+      this.applyMultiAnswerDisableState(comp, index, qIdx, displayIdx, durableSet, effectiveCorrectIndices);
+
+    const suppressDisableForUnselected = this.computeSuppressDisableForUnselected(comp, qIdx, displayIdx, durableSet);
+    this.applyMultiAnswerBindingUpdates(comp, bindingUpdates, suppressDisableForUnselected, durableSet);
+
+    const feedbackText = this.clickHandler.generateMultiAnswerFeedbackText(clickState);
+    this.buildMultiAnswerFeedbackDisplay(comp, index, binding, effectiveCorrectIndices, feedbackText);
+    this.pushMultiAnswerSelectionMessage(comp, qIdx, effectiveCorrectIndices, durableSet);
+
+    // All correct selected? (pristine TEXT-match count, not index-based.)
+    const allCorrectInDurable = this.computeAllCorrectInDurable(comp, qIdx, displayIdx, durableSet, effectiveCorrectIndices);
+    if (allCorrectInDurable) {
+      this.emitMultiAnswerFetOnAllCorrect(comp, qIdx, displayIdx, effectiveCorrectIndices, isShuffled);
+    }
+
+    this.restoreFeedbackDisplayAfterCD(comp);
+    comp.showFeedback.set(true);
+    comp.cdRef.detectChanges();
+
+    if (allCorrectInDurable) {
+      this.respreadBindingsOnAllCorrect(comp, effectiveCorrectIndices);
+    }
+
+    this.triggerAllIncorrectsExhaustedAutoReveal(comp, index, qIdx, displayIdx);
+  }
+
+  /**
+   * Compute the multi-answer click state, update the durable disabled set, mark
+   * the question perfect when all correct are now selected (before bindings, so
+   * isDisabled() sees it), and compute the binding updates. Returns both the
+   * click state and the binding updates. Verbatim.
+   */
+  private applyMultiAnswerDisableState(comp: any, index: number, qIdx: number, displayIdx: number, durableSet: Set<number>, effectiveCorrectIndices: number[]): { clickState: any; bindingUpdates: any[] } {
     const clickState = this.clickHandler.computeMultiAnswerClickState(
       index, durableSet, effectiveCorrectIndices
     );
@@ -571,8 +605,6 @@ export class SocAnswerProcessingService {
       clickState.remaining, comp.optionBindings().length, effectiveCorrectIndices
     );
 
-    // Set _multiAnswerPerfect BEFORE applying bindings so that
-    // isDisabled() sees it when Angular re-renders the option items.
     if (clickState.remaining === 0) {
       this.quizService._multiAnswerPerfect.set(displayIdx, true);
       writeSessionString(SK_MULTI_PERFECT + displayIdx, 'true');
@@ -581,48 +613,16 @@ export class SocAnswerProcessingService {
     const bindingUpdates = this.clickHandler.computeMultiAnswerBindingUpdates(
       comp.optionBindings().length, durableSet, effectiveCorrectIndices, disabledSetRef
     );
+    return { clickState, bindingUpdates };
+  }
 
-    const suppressDisableForUnselected = this.computeSuppressDisableForUnselected(comp, qIdx, displayIdx, durableSet);
-    this.applyMultiAnswerBindingUpdates(comp, bindingUpdates, suppressDisableForUnselected, durableSet);
-
-    const feedbackText = this.clickHandler.generateMultiAnswerFeedbackText(clickState);
-
-    this.buildMultiAnswerFeedbackDisplay(comp, index, binding, effectiveCorrectIndices, feedbackText);
-    this.pushMultiAnswerSelectionMessage(comp, qIdx, effectiveCorrectIndices, durableSet);
-
-    // CHECK: all correct options selected?
-    // PRISTINE-AUTHORITATIVE: count how many selected options' texts
-    // match a pristine correct option text. allCorrectInDurable only
-    // when count === pristine correct count. This bypasses any index-
-    // mismatch issues between effectiveCorrectIndices and the actual
-    // multi-answer count from quizInitialState.
-    const allCorrectInDurable = this.computeAllCorrectInDurable(comp, qIdx, displayIdx, durableSet, effectiveCorrectIndices);
-
-    if (allCorrectInDurable) {
-      this.emitMultiAnswerFetOnAllCorrect(comp, qIdx, displayIdx, effectiveCorrectIndices, isShuffled);
-    }
-
+  /** Restore _feedbackDisplay after the synchronous CD pass clears it (microtask). */
+  private restoreFeedbackDisplayAfterCD(comp: any): void {
     const savedFeedback = comp._feedbackDisplay;
     queueMicrotask(() => {
       comp._feedbackDisplay = savedFeedback;
       comp.cdRef.detectChanges();
     });
-
-    comp.showFeedback.set(true);
-    comp.cdRef.detectChanges();
-
-    // Multi-answer: when all correct options are selected, also
-    // re-spread bindings AND fall back to a DOM stamp. The Angular
-    // binding rebuild SHOULD make the OnPush option-items re-render,
-    // but the click-flow CD timing in this codebase doesn't always
-    // propagate cleanly to siblings. The DOM stamp guarantees the
-    // visual lock as a belt-and-suspenders fallback.
-    if (allCorrectInDurable) {
-      this.respreadBindingsOnAllCorrect(comp, effectiveCorrectIndices);
-    }
-
-    // All-incorrects-exhausted auto-reveal (shared helper).
-    this.triggerAllIncorrectsExhaustedAutoReveal(comp, index, qIdx, displayIdx);
   }
 
   /**
@@ -638,14 +638,33 @@ export class SocAnswerProcessingService {
     effectiveCorrectIndices: number[];
     isShuffled: boolean;
   }): void {
-    const { comp, index, qIdx, displayIdx, durableSet, effectiveCorrectIndices, isShuffled } = params;
+    const { comp, index, qIdx, displayIdx, isShuffled, effectiveCorrectIndices } = params;
 
-    // GUARD: If pristine data says this is actually a multi-answer
-    // question, abort the single-answer path. Otherwise selecting one
-    // correct option (or one incorrect + one correct) would lock the
-    // remaining options before the user has answered the second correct.
-    // Routes back through processMultiAnswerClick which only locks
-    // incorrects after all correct answers are selected.
+    // If pristine data says this is multi-answer, route there instead (avoids
+    // locking the remaining options before the 2nd correct is picked).
+    if (this.routeToMultiIfPristineMulti(params)) return;
+
+    const correctSet = this.resolveSingleAnswerCorrectSet(comp, qIdx, effectiveCorrectIndices);
+
+    if (this.isPristineSingleCorrect(comp, index, qIdx, displayIdx, isShuffled)) {
+      this.handleSingleAnswerCorrect(comp, index, qIdx, displayIdx, correctSet);
+      return;
+    }
+
+    // All-incorrects-exhausted auto-reveal (shared helper).
+    this.triggerAllIncorrectsExhaustedAutoReveal(comp, index, qIdx, displayIdx);
+  }
+
+  /**
+   * If pristine data says the question is actually multi-answer, route the click
+   * through processMultiAnswerClick (which only locks incorrects after all
+   * correct are selected) and return true. Verbatim from the single-answer guard.
+   */
+  private routeToMultiIfPristineMulti(params: {
+    comp: any; index: number; qIdx: number; displayIdx: number;
+    durableSet: Set<number>; effectiveCorrectIndices: number[]; isShuffled: boolean;
+  }): boolean {
+    const { comp, index, qIdx, displayIdx, durableSet, effectiveCorrectIndices, isShuffled } = params;
     try {
       const liveQText = comp.currentQuestion()?.questionText
         ?? this.quizService?.getQuestionsInDisplayOrder?.()?.[displayIdx]?.questionText
@@ -674,29 +693,26 @@ export class SocAnswerProcessingService {
           effectiveCorrectCount: correctIndicesByText.length || pristineCorrectCount,
           isShuffled
         });
-        return;
+        return true;
       }
     } catch (e) { console.error('processSingleAnswerClick multi-answer guard failed:', e); }
+    return false;
+  }
 
-    const correctSet = this.resolveSingleAnswerCorrectSet(comp, qIdx, effectiveCorrectIndices);
+  /**
+   * Single-answer correct click: score + open FET gates, resolve the question,
+   * emit the FET, apply the correct-bindings, and run CD. Extracted verbatim.
+   */
+  private handleSingleAnswerCorrect(comp: any, index: number, qIdx: number, displayIdx: number, correctSet: Set<number>): void {
+    this.scoreAndOpenFet(comp, qIdx, displayIdx, false);
 
-    if (this.isPristineSingleCorrect(comp, index, qIdx, displayIdx, isShuffled)) {
-      this.scoreAndOpenFet(comp, qIdx, displayIdx, false);
+    const singleFetQuestion = comp.currentQuestion()
+      ?? comp.getQuestionAtDisplayIndex?.(displayIdx)
+      ?? this.quizService?.getQuestionsInDisplayOrder?.()?.[displayIdx];
 
-      const singleFetQuestion = comp.currentQuestion()
-        ?? comp.getQuestionAtDisplayIndex?.(displayIdx)
-        ?? this.quizService?.getQuestionsInDisplayOrder?.()?.[displayIdx];
-
-      this.emitSingleAnswerFet(comp, displayIdx, singleFetQuestion);
-
-      this.applySingleAnswerCorrectBindings(comp, index, qIdx, correctSet);
-
-      comp.cdRef?.detectChanges?.();
-      return;
-    }
-
-    // All-incorrects-exhausted auto-reveal (shared helper).
-    this.triggerAllIncorrectsExhaustedAutoReveal(comp, index, qIdx, displayIdx);
+    this.emitSingleAnswerFet(comp, displayIdx, singleFetQuestion);
+    this.applySingleAnswerCorrectBindings(comp, index, qIdx, correctSet);
+    comp.cdRef?.detectChanges?.();
   }
 
   /**
