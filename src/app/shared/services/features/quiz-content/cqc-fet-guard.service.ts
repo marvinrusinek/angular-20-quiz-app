@@ -44,634 +44,742 @@ export class CqcFetGuardService {
     try {
       let safe = html ?? '';
 
-      // URL-AUTHORITATIVE GUARD: when on a /question/{quizId}/{N} URL,
-      // ALWAYS overwrite non-FET writes with the URL question's text.
-      // Many call sites still pass stale Q1 text through writeQText on
-      // direct/multi-step URL nav; rather than chase each, the central
-      // DOM writer now imposes the URL as the source of truth for any
-      // non-FET content.
-      try {
-        const m = window.location.pathname.match(QUESTION_ROUTE_REGEX);
-        if (m) {
-          const urlIdx = Number(m[1]) - 1;
-          const allQs: any[] = host.quizService?.questions ?? [];
-          const urlQ = allQs[urlIdx];
-          const safeText = norm(safe);
-          const safeIsFet = safeText.includes('correct because') ||
-                            safeText.includes('correct answer is option') ||
-                            safeText.includes('correct answers are options');
-          if (!safeIsFet) {
-            if (urlQ?.questionText) {
-              // Use pristine quizInitialState for correct count — live
-              // options can be mutated by option-lock-policy.
-              let correctCount = 0;
-              let totalOpts = (urlQ?.options ?? []).length;
-              try {
-                const _pq = host.quizService?.getPristineQuestionByText(urlQ.questionText);
-                if (_pq) {
-                  correctCount = (_pq.options ?? []).filter((o: any) => isOptionCorrect(o)).length;
-                  totalOpts = (_pq.options ?? []).length;
-                }
-              } catch { /* ignore */ }
-              if (correctCount === 0) {
-                correctCount = (urlQ?.options ?? []).filter((o: any) => isOptionCorrect(o)).length;
-              }
-              if (correctCount > 1 && totalOpts > 0) {
-                try {
-                  const banner = host.quizQuestionManagerService.getNumberOfCorrectAnswersText(
-                    correctCount, totalOpts
-                  );
-                  safe = `${urlQ.questionText} <span class="correct-count">${banner}</span>`;
-                } catch {
-                  safe = `${urlQ.questionText} <span class="correct-count">(${correctCount} answers are correct)</span>`;
-                }
-              } else {
-                safe = urlQ.questionText;
-              }
-            } else if (urlIdx >= 0 && safeText) {
-              // URL question hasn't loaded yet — drop the stale write so
-              // the heading doesn't show whatever Q1-ish text was passed.
-              return;
-            }
-          }
-        }
-      } catch { /* non-browser env */ }
+      // URL-AUTHORITATIVE GUARD — impose the URL question as the source of
+      // truth for any non-FET content (returns null to drop a stale write).
+      const _urlGuarded = this.applyUrlAuthoritativeGuard(host, safe);
+      if (_urlGuarded === null) return;
+      safe = _urlGuarded;
 
-
-      // Live index — prefer the URL pathname, then the input signal,
-      // then host.currentIndex. The URL is the ONLY source that's
-      // sync-correct on multi-step URL navigation (Q4 -> URL-bar Q6);
-      // host.questionIndex() is a signal input that lags one microtask
-      // behind the route change, so the NUCLEAR GATE below was using
-      // stale idx=0 (Q1) to rebuild the heading and re-overwrite the
-      // URL-correct text my guard at the top had set.
-      let _liveIdx = -1;
-      try {
-        const m = window.location.pathname.match(QUESTION_ROUTE_REGEX);
-        if (m) {
-          const urlIdx = Number(m[1]) - 1;
-          if (urlIdx >= 0) _liveIdx = urlIdx;
-        }
-      } catch { /* non-browser env */ }
-      if (_liveIdx < 0) {
-        const _liveIdxRaw = host.questionIndex?.();
-        _liveIdx = (typeof _liveIdxRaw === 'number' && _liveIdxRaw >= 0)
-          ? _liveIdxRaw
-          : (host.currentIndex ?? -1);
-      }
+      // Live index — prefer the URL pathname, then the input signal, then
+      // host.currentIndex (the URL is the only sync-correct source on
+      // multi-step URL navigation).
+      const _liveIdx = this.resolveLiveIdx(host);
 
       // TIMER-EXPIRY BYPASS: when the timer has expired for this question,
       // skip ALL FET gates — the explanation must display regardless of
       // whether the question is "scored correct" or "resolved".
-      const _timedOutIdx = host.timedOutIdxSubject?.getValue?.() ?? -1;
-      const _curIdx = _liveIdx;
-      if (_timedOutIdx >= 0 && _timedOutIdx === _curIdx && safe.trim().length > 0) {
-        const _qNorm = String(
-          (host.quizService?.getQuestionsInDisplayOrder?.()?.[ _curIdx]?.questionText ?? '').trim()
-        );
-        const _safeNorm = safe.trim();
-        const _isJustQuestionText = _qNorm.length > 0 && _safeNorm.startsWith(_qNorm) && !_safeNorm.toLowerCase().includes('correct because');
-        if (!_isJustQuestionText) {
-          host.qTextHtmlSig?.set(safe);
-          host._lastDisplayedText = safe;
-          return;
-        }
-      }
+      if (this.applyTimerExpiryBypass(host, safe, _liveIdx)) return;
 
-      // SOC-CONFIRMED FET PRESERVATION: when incoming is QUESTION TEXT
-      // but SOC has confirmed the question correct AND a cached FET exists,
-      // write the cached FET instead. Prevents question-text writes (from
-      // stale pipeline emissions, stampQuestionTextNow retries, etc.) from
-      // overwriting a legitimate FET after the user has answered correctly.
+      // SOC-CONFIRMED phases: preserve a cached FET when SOC has confirmed
+      // the question correct, or bypass all gates when the incoming text is
+      // itself a FET and SOC has confirmed it.
       const _safeIsFetEarly = (safe ?? '').toLowerCase().includes('correct because');
-      if (!_safeIsFetEarly && _liveIdx >= 0) {
-        const _socConfirmedNow =
-          host.explanationTextService?.fetBypassForQuestion?.get(_liveIdx) === true
-          || host.quizService?._multiAnswerPerfect?.get(_liveIdx) === true;
-        if (_socConfirmedNow) {
-          const _cachedFet = (
-            host.explanationTextService?.formattedExplanations?.[_liveIdx]?.explanation ?? ''
-          ).toString().trim() || (
-            host.explanationTextService?.fetByIndex?.get?.(_liveIdx) ?? ''
-          ).toString().trim();
-          if (_cachedFet && _cachedFet.toLowerCase().includes('correct because')) {
-            host.qTextHtmlSig?.set(_cachedFet);
-            host._lastDisplayedText = _cachedFet;
-            host._fetLockedForIndex = _liveIdx;
-            return;
-          }
-        }
-      }
-
-      // SOC-CONFIRMED FET BYPASS: when SOC has explicitly confirmed this
-      // question correct (fetBypassForQuestion or _multiAnswerPerfect),
-      // skip ALL downstream gates and write FET directly. This prevents
-      // the many selection-checking gates from blocking legitimate FET
-      // due to timing/index issues in shuffled mode.
-      if (_safeIsFetEarly) {
-        const _expIdx = host.explanationTextService?.latestExplanationIndex ?? -1;
-        const _checkIdx = _liveIdx >= 0 ? _liveIdx : (_expIdx >= 0 ? _expIdx : -1);
-        const _fetBypassEarly = _checkIdx >= 0 && (
-          host.explanationTextService?.fetBypassForQuestion?.get(_checkIdx) === true
-          || host.quizService?._multiAnswerPerfect?.get(_checkIdx) === true
-          || (_expIdx >= 0 && _expIdx !== _checkIdx && (
-            host.explanationTextService?.fetBypassForQuestion?.get(_expIdx) === true
-            || host.quizService?._multiAnswerPerfect?.get(_expIdx) === true
-          ))
-        );
-        if (_fetBypassEarly) {
-          host.qTextHtmlSig?.set(safe);
-          host._lastDisplayedText = safe;
-          return;
-        }
-      }
+      if (this.applySocConfirmedFetPreservation(host, safe, _liveIdx, _safeIsFetEarly)) return;
+      if (this.applySocConfirmedFetBypass(host, safe, _liveIdx, _safeIsFetEarly)) return;
 
       const rawQs: any[] = host.quizService?.questions ?? [];
       const safeNorm = norm(safe);
 
-      // ════════════════════════════════════════════════════════════════
-      // NUCLEAR GATE — runs before anything else. If the outgoing HTML
-      // looks like ANY Formatted Explanation Text (FET), consult the
-      // live optionBindings for the currently displayed question and
-      // refuse to write unless every correct option there is selected.
-      // This doesn't depend on pristine source lookups, sessionStorage,
-      // or text matching against explanations — it trusts only what
-      // the UI itself shows the user right now.
-      // ════════════════════════════════════════════════════════════════
-      try {
-        const qsEarly: any = host.quizService;
-        const activeIdxEarly: number = (_liveIdx >= 0)
-          ? _liveIdx
-          : (Number.isFinite(qsEarly?.currentQuestionIndex)
-            ? qsEarly.currentQuestionIndex
-            : (qsEarly?.getCurrentQuestionIndex?.() ?? 0));
-        const isShuffledEarly = qsEarly?.isShuffleEnabled?.()
-          && Array.isArray(qsEarly?.shuffledQuestions)
-          && qsEarly.shuffledQuestions.length > 0;
-        const liveQEarly: any = isShuffledEarly
-          ? qsEarly?.shuffledQuestions?.[activeIdxEarly]
-          : qsEarly?.questions?.[activeIdxEarly];
+      // NUCLEAR GATE — if the outgoing HTML looks like FET, refuse to write
+      // unless the live UI shows every correct option selected (returns null
+      // to short-circuit after writing the rebuilt question text).
+      const _nuclear = this.applyNuclearGate(host, safe, _liveIdx, safeNorm);
+      if (_nuclear === null) return;
+      safe = _nuclear;
 
-        let pristineExplanation = '';
-        try {
-          const pq = host.quizService?.getPristineQuestionByText(liveQEarly?.questionText);
-          if (pq) pristineExplanation = norm(pq.explanation ?? '');
-        } catch { /* ignore */ }
+      // HARD FINAL GATE — across every pristine source, if the outgoing text
+      // signals a multi-answer FET that isn't fully resolved, rebuild it back
+      // to the question display text.
+      safe = this.applyHardFinalGate(host, safe, safeNorm, rawQs);
 
-        const rawExplNorm = norm(liveQEarly?.explanation ?? '');
-        const containsRawExpl =
-          (!!rawExplNorm && safeNorm.includes(rawExplNorm))
-          || (!!pristineExplanation && safeNorm.includes(pristineExplanation));
-        const looksLikeFet = safeNorm.includes('are correct because')
-          || safeNorm.includes('is correct because')
-          || containsRawExpl;
+      // ABSOLUTE LAST-LINE GUARD — for a multi-answer question whose outgoing
+      // text isn't the question text and isn't fully resolved, rebuild it.
+      safe = this.applyAbsoluteLastLineGuard(host, safe);
 
-        if (!looksLikeFet) {
-          const displayedQTextEarly = norm(liveQEarly?.questionText ?? '');
-          if (displayedQTextEarly && safeNorm !== displayedQTextEarly && !safeNorm.startsWith(displayedQTextEarly)) {
-            if (!this.isScoredCorrectAtDisplay(host, activeIdxEarly)) {
-              const rebuilt = this.buildQuestionDisplayHTML(host, activeIdxEarly);
-              safe = rebuilt || (liveQEarly?.questionText ?? '').trim() || '';
-              host.qTextHtmlSig?.set(safe);
-              host._lastDisplayedText = safe;
-              return;
-            }
-          }
-        }
+      // FINAL PRISTINE GATE (cannot fail silently) — same resolved-check
+      // against quizInitialState, no outer try/catch.
+      safe = this.applyFinalPristineGate(host, safe);
 
-        if (looksLikeFet) {
-          const qs: any = host.quizService;
-          const activeIdx: number = (_liveIdx >= 0)
-            ? _liveIdx
-            : (Number.isFinite(qs?.currentQuestionIndex)
-              ? qs.currentQuestionIndex
-              : (qs?.getCurrentQuestionIndex?.() ?? 0));
-          const isShuffled = qs?.isShuffleEnabled?.()
-            && Array.isArray(qs?.shuffledQuestions)
-            && qs.shuffledQuestions.length > 0;
-          const liveQ: any = isShuffled
-            ? qs?.shuffledQuestions?.[activeIdx]
-            : qs?.questions?.[activeIdx];
-          let pristineCorrectTexts = new Set<string>();
-          try {
-            pristineCorrectTexts = new Set(
-              host.quizService?.getPristineCorrectTextsForQuestion(liveQ?.questionText) ?? []
-            );
-          } catch { /* ignore */ }
+      // UNIVERSAL BACKSTOP — if the outgoing text matches the pristine
+      // explanation or otherwise mismatches the expected question display
+      // (with interaction evidence) and isn't scored correct, restore it.
+      safe = this.applyUniversalBackstop(host, safe);
 
-          const correctTotal = pristineCorrectTexts.size;
-          const selectedTexts = new Set<string>();
-
-          const liveOpts: any[] = Array.isArray(liveQ?.options) ? liveQ.options : [];
-          for (const o of liveOpts) {
-            const isSel = o?.selected === true
-              || o?.highlight === true
-              || o?.showIcon === true;
-            if (!isSel) continue;
-            const t = norm(o?.text);
-            if (t) selectedTexts.add(t);
-          }
-
-          try {
-            const rawMap = host.selectedOptionService?.selectedOptionsMap;
-            if (rawMap && typeof rawMap.get === 'function') {
-              const mapSel: any[] = rawMap.get(activeIdx) ?? [];
-              for (const o of mapSel) {
-                if (o?.selected === false) continue;
-                const t = norm(o?.text);
-                if (t) selectedTexts.add(t);
-              }
-            }
-          } catch { /* ignore */ }
-
-          try {
-            const raw = sessionStorage.getItem(SK_SEL_Q + activeIdx);
-            if (raw) {
-              const parsed = JSON.parse(raw);
-              if (Array.isArray(parsed)) {
-                for (const o of parsed) {
-                  if (o?.selected !== true) continue;
-                  const t = norm(o?.text);
-                  if (t) selectedTexts.add(t);
-                }
-              }
-            }
-          } catch { /* ignore */ }
-
-          try {
-            const rows: NodeListOf<Element> | Element[] = typeof document !== 'undefined'
-              ? document.querySelectorAll(
-                'codelab-option-item, .option-row, [data-option-text], .option-item'
-              )
-              : [];
-            for (const row of Array.from(rows)) {
-              const cls = String(row?.className ?? '');
-              const isHighlighted = cls.includes('selected')
-                || cls.includes('highlight')
-                || row?.querySelector?.('.selected, .highlight, mat-icon') != null;
-              if (!isHighlighted) continue;
-              const txt = norm(
-                row?.getAttribute?.('data-option-text')
-                ?? row?.textContent
-                ?? ''
-              );
-              for (const pt of pristineCorrectTexts) {
-                if (txt.includes(pt)) selectedTexts.add(pt);
-              }
-            }
-          } catch { /* ignore */ }
-
-          let correctSelected = 0;
-          for (const t of pristineCorrectTexts) {
-            if (selectedTexts.has(t)) correctSelected++;
-          }
-          const isMulti = correctTotal >= 2;
-
-          // AUTO-REVEAL BYPASS: when fetBypassForQuestion is set for this idx,
-          // the all-incorrects-exhausted auto-reveal explicitly wants the FET
-          // to display even though scoring marks the question as not correct.
-          // Without this carve-out, the NUCLEAR GATE below rewrites the FET
-          // back to question text and the auto-revealed FET never appears.
-          const fetBypassActive =
-            host.explanationTextService?.fetBypassForQuestion?.get(activeIdx) === true
-            || host.quizService?._multiAnswerPerfect?.get(activeIdx) === true;
-
-          if (!isMulti) {
-            if (!this.isScoredCorrectAtDisplay(host, activeIdx) && !fetBypassActive) {
-              const rebuilt = this.buildQuestionDisplayHTML(host, activeIdx);
-              safe = rebuilt || (liveQ?.questionText ?? '').trim() || '';
-              host.qTextHtmlSig?.set(safe);
-              host._lastDisplayedText = safe;
-              return;
-            }
-          }
-          if (isMulti) {
-            if (!this.isScoredCorrectAtDisplay(host, activeIdx) && !fetBypassActive) {
-              const rebuilt = this.buildQuestionDisplayHTML(host, activeIdx);
-              safe = rebuilt || (liveQ?.questionText ?? '').trim() || '';
-              host.qTextHtmlSig?.set(safe);
-              host._lastDisplayedText = safe;
-              return;
-            }
-          }
-        }
-      } catch (e) {
-        console.error('CqcFetGuardService.writeQText NUCLEAR GATE failed:', e);
-      }
-
-      // HARD FINAL GATE.
-      try {
-        const qs = host.quizService;
-        const hasCorrectFlag = (opts: any[] = []) =>
-          opts.some((o: any) => isOptionCorrect(o));
-        const pristineByText = new Map<string, any>();
-        const addSource = (arr: any[] | undefined) => {
-          if (!Array.isArray(arr)) return;
-          for (const q of arr) {
-            if (!q?.questionText) continue;
-            if (!hasCorrectFlag(q.options ?? [])) continue;
-            const k = norm(q.questionText);
-            if (k && !pristineByText.has(k)) pristineByText.set(k, q);
-          }
-        };
-        addSource(qs?.questions);
-        addSource(qs?.dataLoader?.currentQuizSig?.()?.questions);
-        const quizData = qs?.quizData;
-        if (Array.isArray(quizData)) {
-          for (const quiz of quizData) addSource(quiz?.questions);
-        }
-        try {
-          for (const quiz of host.quizService?.quizInitialState ?? []) {
-            addSource(quiz?.questions);
-          }
-        } catch { /* ignore */ }
-        const hasBanner = !!safe && safe.includes('correct-count');
-        if (!hasBanner && !!safeNorm) {
-          for (const [, pristineQ] of pristineByText) {
-            const rawOpts: any[] = pristineQ?.options ?? [];
-            const correctOpts = rawOpts.filter(
-              (o: any) => isOptionCorrect(o)
-            );
-            if (correctOpts.length < 2) continue;
-            const explNorm = norm(pristineQ?.explanation);
-            const correctTextsForSignal = correctOpts
-              .map((o: any) => norm(o?.text))
-              .filter((t: string) => !!t);
-            const containsAnyCorrectText = correctTextsForSignal.some(
-              (t: string) => !!t && safeNorm.includes(t)
-            );
-            const containsExpl = !!explNorm && safeNorm.includes(explNorm);
-            const looksLikeFetLocal = safeNorm.includes('are correct because')
-              || safeNorm.includes('is correct because');
-            const fetSignal = containsExpl
-              || (looksLikeFetLocal && containsAnyCorrectText);
-            if (!fetSignal) continue;
-            const rawCorrectTexts = correctOpts
-              .map((o: any) => norm(o?.text))
-              .filter((t: string) => !!t);
-            const rawCorrectSet = new Set(rawCorrectTexts);
-            let qIdx = -1;
-            if (Array.isArray(rawQs)) {
-              qIdx = rawQs.findIndex(
-                (q: any) => norm(q?.questionText) === norm(pristineQ.questionText)
-              );
-            }
-            let storedSelections: any[] = [];
-            try {
-              if (qIdx >= 0) {
-                const raw = sessionStorage.getItem(SK_SEL_Q + qIdx);
-                if (raw) {
-                  const parsed = JSON.parse(raw);
-                  if (Array.isArray(parsed)) storedSelections = parsed;
-                }
-              }
-            } catch { /* ignore */ }
-            const rawMap = host.selectedOptionService?.selectedOptionsMap;
-            const mapSel: any[] = (rawMap && typeof rawMap.get === 'function' && qIdx >= 0)
-              ? (rawMap.get(qIdx) ?? [])
-              : [];
-            const selectedCorrectTexts = new Set<string>();
-            const collect = (arr: any[]) => {
-              for (const o of arr) {
-                if (o?.selected !== true) continue;
-                const t = norm(o?.text);
-                if (!t) continue;
-                if (rawCorrectSet.has(t)) selectedCorrectTexts.add(t);
-              }
-            };
-            collect(storedSelections);
-            collect(mapSel);
-            const liveQQC: any = host.quizQuestionComponent?.();
-            const liveBindings: any[] = Array.isArray(liveQQC?.optionBindings)
-              ? liveQQC.optionBindings
-              : [];
-            for (const b of liveBindings) {
-              const opt = b?.option;
-              const isSel = b?.isSelected === true || opt?.selected === true;
-              if (!isSel) continue;
-              const t = norm(opt?.text);
-              if (!t) continue;
-              if (rawCorrectSet.has(t)) selectedCorrectTexts.add(t);
-            }
-            const resolved =
-              rawCorrectTexts.length > 0
-              && selectedCorrectTexts.size === rawCorrectTexts.length;
-            if (!resolved) {
-              let hardGateOverride = false;
-              try {
-                const qs2 = host.quizService;
-                const displayIdx = host.currentIndex ?? (
-                  Number.isFinite(qs2?.currentQuestionIndex)
-                    ? qs2.currentQuestionIndex
-                    : (qs2?.getCurrentQuestionIndex?.() ?? -1)
-                );
-                hardGateOverride = this.isScoredCorrectAtDisplay(host, displayIdx);
-              } catch { /* ignore */ }
-              if (hardGateOverride) {
-                // overridden by questionCorrectness
-              } else {
-                const replacement = qIdx >= 0
-                  ? this.buildQuestionDisplayHTML(host, qIdx)
-                  : '';
-                const fallback = pristineQ?.questionText ?? '';
-                safe = replacement || fallback || '';
-              }
-            }
-            break;
-          }
-        }
-      } catch { /* ignore */ }
-
-      // ════════════════════════════════════════════════════════════════
-      // ABSOLUTE LAST-LINE GUARD
-      // ════════════════════════════════════════════════════════════════
-      try {
-        const qs_ll: any = host.quizService;
-        const idx_ll: number = host.currentIndex ?? (
-          Number.isFinite(qs_ll?.currentQuestionIndex)
-            ? qs_ll.currentQuestionIndex
-            : (qs_ll?.getCurrentQuestionIndex?.() ?? 0)
-        );
-        const isShuf_ll = qs_ll?.isShuffleEnabled?.()
-          && Array.isArray(qs_ll?.shuffledQuestions)
-          && qs_ll.shuffledQuestions.length > 0;
-        const liveQ_ll: any = isShuf_ll
-          ? qs_ll?.shuffledQuestions?.[idx_ll]
-          : qs_ll?.questions?.[idx_ll];
-        const qTextNorm_ll = norm(liveQ_ll?.questionText);
-        const safeTextOnly_ll = norm(safe.replace(/<[^>]*>/g, ''));
-        const isNotQuestionText = !!qTextNorm_ll
-          && !safeTextOnly_ll.startsWith(qTextNorm_ll)
-          && safeTextOnly_ll !== qTextNorm_ll;
-        if (isNotQuestionText) {
-          const pristineCorrect_ll = Array.from(
-            host.quizService?.getPristineCorrectTextsForQuestion(liveQ_ll?.questionText) ?? []
-          );
-          if (pristineCorrect_ll.length >= 2) {
-            const selNow_ll = new Set<string>();
-            try {
-              const rawMap_ll = host.selectedOptionService?.selectedOptionsMap;
-              if (rawMap_ll && typeof rawMap_ll.get === 'function') {
-                for (const o of (rawMap_ll.get(idx_ll) ?? [])) {
-                  if (o?.selected === false) continue;
-                  const t = norm(o?.text);
-                  if (t) selNow_ll.add(t);
-                }
-              }
-            } catch { /* ignore */ }
-            try {
-              const stored_ll = sessionStorage.getItem(SK_SEL_Q + idx_ll);
-              if (stored_ll) {
-                for (const o of JSON.parse(stored_ll)) {
-                  if (o?.selected !== true) continue;
-                  const t = norm(o?.text);
-                  if (t) selNow_ll.add(t);
-                }
-              }
-            } catch { /* ignore */ }
-            const allResolved_ll = pristineCorrect_ll.every(t => selNow_ll.has(t));
-            if (!allResolved_ll) {
-              const llOverride = this.isScoredCorrectAtDisplay(host, idx_ll);
-              if (llOverride) {
-                // overridden by questionCorrectness
-              } else {
-                safe = this.buildQuestionDisplayHTML(host, idx_ll) || (liveQ_ll?.questionText ?? '').trim() || '';
-              }
-            }
-          }
-        }
-      } catch { /* ignore */ }
-
-      // ── FINAL PRISTINE GATE (cannot fail silently) ──────────────
-      const _safeStripped = norm(safe.replace(/<[^>]*>/g, ''));
-      const _qs: any = host.quizService;
-      const _idx: number = host.currentIndex ?? (_qs?.currentQuestionIndex ?? 0);
-      const _isShuf = _qs?.isShuffleEnabled?.() && Array.isArray(_qs?.shuffledQuestions) && _qs.shuffledQuestions.length > 0;
-      const _liveQ: any = _isShuf ? _qs?.shuffledQuestions?.[_idx] : _qs?.questions?.[_idx];
-      const _qTextNorm = norm(_liveQ?.questionText);
-      if (_qTextNorm && _safeStripped !== _qTextNorm && !_safeStripped.startsWith(_qTextNorm)) {
-        let _pCorrect: string[] = [];
-        const _bundle: any[] = _qs?.quizInitialState ?? [];
-        for (let qi = 0; qi < _bundle.length; qi++) {
-          const _questions = _bundle[qi]?.questions ?? [];
-          for (let pi = 0; pi < _questions.length; pi++) {
-            if (norm(_questions[pi]?.questionText) === _qTextNorm) {
-              _pCorrect = (_questions[pi]?.options ?? [])
-                .filter((o: any) => isOptionCorrect(o))
-                .map((o: any) => norm(o?.text))
-                .filter((t: string) => !!t);
-              break;
-            }
-          }
-          if (_pCorrect.length > 0) break;
-        }
-        if (_pCorrect.length >= 2) {
-          const _selNow = new Set<string>();
-          try {
-            const _map = host.selectedOptionService?.selectedOptionsMap;
-            if (_map && typeof _map.get === 'function') {
-              for (const _o of (_map.get(_idx) ?? [])) {
-                if (_o?.selected === false) continue;
-                const _t = norm(_o?.text);
-                if (_t) _selNow.add(_t);
-              }
-            }
-          } catch { }
-          try {
-            const _stored = sessionStorage.getItem(SK_SEL_Q + _idx);
-            if (_stored) {
-              for (const _o of JSON.parse(_stored)) {
-                if (_o?.selected !== true) continue;
-                const _t = norm(_o?.text);
-                if (_t) _selNow.add(_t);
-              }
-            }
-          } catch { }
-          const _allOk = _pCorrect.every(t => _selNow.has(t));
-          if (!_allOk) {
-            const _fgOverride = this.isScoredCorrectAtDisplay(host, _idx);
-            if (_fgOverride) {
-              // overridden by questionCorrectness
-            } else {
-              safe = this.buildQuestionDisplayHTML(host, _idx) || (_liveQ?.questionText ?? '').trim() || '';
-            }
-          }
-        }
-      }
-
-      // ════════════════════════════════════════════════════════════════
-      // UNIVERSAL BACKSTOP
-      // ════════════════════════════════════════════════════════════════
-      try {
-        const qsBs: any = host.quizService;
-        const bsIdx: number = host.currentIndex ?? (
-          Number.isFinite(qsBs?.currentQuestionIndex)
-            ? qsBs.currentQuestionIndex
-            : (qsBs?.getCurrentQuestionIndex?.() ?? 0)
-        );
-        const normBs = (t: any) => String(t ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
-        const safeNormBs = normBs(safe);
-        let pristineExplBs = '';
-        try {
-          const isShufBs = qsBs?.isShuffleEnabled?.() && qsBs?.shuffledQuestions?.length > 0;
-          const qObjBs = isShufBs
-            ? qsBs?.shuffledQuestions?.[bsIdx]
-            : qsBs?.questions?.[bsIdx];
-          const qTextBs = normBs(qObjBs?.questionText ?? '');
-          if (qTextBs) {
-            for (const quiz of qsBs?.quizInitialState ?? []) {
-              for (const pq of quiz?.questions ?? []) {
-                if (normBs(pq?.questionText) !== qTextBs) continue;
-                pristineExplBs = normBs(pq?.explanation ?? '');
-                break;
-              }
-              if (pristineExplBs) break;
-            }
-          }
-          if (!pristineExplBs) {
-            pristineExplBs = normBs(qObjBs?.explanation ?? '');
-          }
-        } catch { /* ignore */ }
-        const explMatch = pristineExplBs && pristineExplBs.length > 5 && safeNormBs.includes(pristineExplBs);
-        const expectedQBs = this.buildQuestionDisplayHTML(host, bsIdx);
-        const expectedNormBs = expectedQBs ? normBs(expectedQBs) : '';
-        const textMismatch = expectedNormBs && safeNormBs.length > 0
-          && safeNormBs !== expectedNormBs
-          && this.hasInteractionEvidence(host, bsIdx);
-        if (explMatch || textMismatch) {
-          if (!this.isScoredCorrectAtDisplay(host, bsIdx)) {
-            if (expectedQBs) safe = expectedQBs;
-          }
-        }
-      } catch { /* ignore */ }
-
-      // BANNER PRESERVATION — use URL-first index (same as URL-AUTHORITATIVE GUARD)
-      try {
-        const qsBnr: any = host.quizService;
-        let bnrIdx: number = _liveIdx >= 0 ? _liveIdx : (host.currentIndex ?? (
-          Number.isFinite(qsBnr?.currentQuestionIndex)
-            ? qsBnr.currentQuestionIndex : (qsBnr?.getCurrentQuestionIndex?.() ?? 0)
-        ));
-        const expectedWithBanner = this.buildQuestionDisplayHTML(host, bnrIdx);
-        if (expectedWithBanner && expectedWithBanner.includes('correct-count')) {
-          const normBnr = (t: any) => String(t ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
-          const safeNormBnr = normBnr(safe);
-          const isShufBnr = qsBnr?.isShuffleEnabled?.() && qsBnr?.shuffledQuestions?.length > 0;
-          const qObjBnr = isShufBnr
-            ? qsBnr?.shuffledQuestions?.[bnrIdx]
-            : qsBnr?.questions?.[bnrIdx];
-          const rawQTextBnr = normBnr(qObjBnr?.questionText ?? '');
-          // Add banner if safe is plain question text (exact match or starts with it without existing banner)
-          const safeHasBanner = safe.includes('correct-count');
-          if (rawQTextBnr && !safeHasBanner && safeNormBnr.startsWith(rawQTextBnr)) {
-            safe = expectedWithBanner;
-          }
-        }
-      } catch { /* ignore */ }
+      // BANNER PRESERVATION — re-attach the "N answers are correct" banner
+      // when the outgoing text is plain question text (URL-first index).
+      safe = this.applyBannerPreservation(host, safe, _liveIdx);
 
       host.qTextHtmlSig?.set(safe);
       host._lastDisplayedText = safe;
     } catch { /* ignore */ }
+  }
+
+  /**
+   * URL-AUTHORITATIVE GUARD: when on a /question/{quizId}/{N} URL,
+   * ALWAYS overwrite non-FET writes with the URL question's text.
+   * Many call sites still pass stale Q1 text through writeQText on
+   * direct/multi-step URL nav; rather than chase each, the central
+   * DOM writer now imposes the URL as the source of truth for any
+   * non-FET content. Returns null to drop a stale write. Extracted verbatim.
+   */
+  private applyUrlAuthoritativeGuard(host: Host, safe: string): string | null {
+    try {
+      const m = window.location.pathname.match(QUESTION_ROUTE_REGEX);
+      if (m) {
+        const urlIdx = Number(m[1]) - 1;
+        const allQs: any[] = host.quizService?.questions ?? [];
+        const urlQ = allQs[urlIdx];
+        const safeText = norm(safe);
+        const safeIsFet = safeText.includes('correct because') ||
+                          safeText.includes('correct answer is option') ||
+                          safeText.includes('correct answers are options');
+        if (!safeIsFet) {
+          if (urlQ?.questionText) {
+            // Use pristine quizInitialState for correct count — live
+            // options can be mutated by option-lock-policy.
+            let correctCount = 0;
+            let totalOpts = (urlQ?.options ?? []).length;
+            try {
+              const _pq = host.quizService?.getPristineQuestionByText(urlQ.questionText);
+              if (_pq) {
+                correctCount = (_pq.options ?? []).filter((o: any) => isOptionCorrect(o)).length;
+                totalOpts = (_pq.options ?? []).length;
+              }
+            } catch { /* ignore */ }
+            if (correctCount === 0) {
+              correctCount = (urlQ?.options ?? []).filter((o: any) => isOptionCorrect(o)).length;
+            }
+            if (correctCount > 1 && totalOpts > 0) {
+              try {
+                const banner = host.quizQuestionManagerService.getNumberOfCorrectAnswersText(
+                  correctCount, totalOpts
+                );
+                safe = `${urlQ.questionText} <span class="correct-count">${banner}</span>`;
+              } catch {
+                safe = `${urlQ.questionText} <span class="correct-count">(${correctCount} answers are correct)</span>`;
+              }
+            } else {
+              safe = urlQ.questionText;
+            }
+          } else if (urlIdx >= 0 && safeText) {
+            // URL question hasn't loaded yet — drop the stale write so
+            // the heading doesn't show whatever Q1-ish text was passed.
+            return null;
+          }
+        }
+      }
+    } catch { /* non-browser env */ }
+    return safe;
+  }
+
+  /**
+   * Live index — prefer the URL pathname, then the input signal, then
+   * host.currentIndex. The URL is the ONLY source that's sync-correct on
+   * multi-step URL navigation (Q4 -> URL-bar Q6); host.questionIndex() is a
+   * signal input that lags one microtask behind the route change. Extracted
+   * verbatim.
+   */
+  private resolveLiveIdx(host: Host): number {
+    let _liveIdx = -1;
+    try {
+      const m = window.location.pathname.match(QUESTION_ROUTE_REGEX);
+      if (m) {
+        const urlIdx = Number(m[1]) - 1;
+        if (urlIdx >= 0) _liveIdx = urlIdx;
+      }
+    } catch { /* non-browser env */ }
+    if (_liveIdx < 0) {
+      const _liveIdxRaw = host.questionIndex?.();
+      _liveIdx = (typeof _liveIdxRaw === 'number' && _liveIdxRaw >= 0)
+        ? _liveIdxRaw
+        : (host.currentIndex ?? -1);
+    }
+    return _liveIdx;
+  }
+
+  /**
+   * TIMER-EXPIRY BYPASS: when the timer has expired for this question, skip
+   * ALL FET gates — the explanation must display regardless of whether the
+   * question is "scored correct" or "resolved". Returns true when handled
+   * (already wrote the signal). Extracted verbatim.
+   */
+  private applyTimerExpiryBypass(host: Host, safe: string, _liveIdx: number): boolean {
+    const _timedOutIdx = host.timedOutIdxSubject?.getValue?.() ?? -1;
+    const _curIdx = _liveIdx;
+    if (_timedOutIdx >= 0 && _timedOutIdx === _curIdx && safe.trim().length > 0) {
+      const _qNorm = String(
+        (host.quizService?.getQuestionsInDisplayOrder?.()?.[ _curIdx]?.questionText ?? '').trim()
+      );
+      const _safeNorm = safe.trim();
+      const _isJustQuestionText = _qNorm.length > 0 && _safeNorm.startsWith(_qNorm) && !_safeNorm.toLowerCase().includes('correct because');
+      if (!_isJustQuestionText) {
+        host.qTextHtmlSig?.set(safe);
+        host._lastDisplayedText = safe;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * SOC-CONFIRMED FET PRESERVATION: when incoming is QUESTION TEXT but SOC has
+   * confirmed the question correct AND a cached FET exists, write the cached
+   * FET instead. Prevents question-text writes (from stale pipeline emissions,
+   * stampQuestionTextNow retries, etc.) from overwriting a legitimate FET after
+   * the user has answered correctly. Returns true when handled. Extracted verbatim.
+   */
+  private applySocConfirmedFetPreservation(host: Host, safe: string, _liveIdx: number, _safeIsFetEarly: boolean): boolean {
+    if (!_safeIsFetEarly && _liveIdx >= 0) {
+      const _socConfirmedNow =
+        host.explanationTextService?.fetBypassForQuestion?.get(_liveIdx) === true
+        || host.quizService?._multiAnswerPerfect?.get(_liveIdx) === true;
+      if (_socConfirmedNow) {
+        const _cachedFet = (
+          host.explanationTextService?.formattedExplanations?.[_liveIdx]?.explanation ?? ''
+        ).toString().trim() || (
+          host.explanationTextService?.fetByIndex?.get?.(_liveIdx) ?? ''
+        ).toString().trim();
+        if (_cachedFet && _cachedFet.toLowerCase().includes('correct because')) {
+          host.qTextHtmlSig?.set(_cachedFet);
+          host._lastDisplayedText = _cachedFet;
+          host._fetLockedForIndex = _liveIdx;
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * SOC-CONFIRMED FET BYPASS: when SOC has explicitly confirmed this question
+   * correct (fetBypassForQuestion or _multiAnswerPerfect), skip ALL downstream
+   * gates and write FET directly. Prevents the many selection-checking gates
+   * from blocking legitimate FET due to timing/index issues in shuffled mode.
+   * Returns true when handled. Extracted verbatim.
+   */
+  private applySocConfirmedFetBypass(host: Host, safe: string, _liveIdx: number, _safeIsFetEarly: boolean): boolean {
+    if (_safeIsFetEarly) {
+      const _expIdx = host.explanationTextService?.latestExplanationIndex ?? -1;
+      const _checkIdx = _liveIdx >= 0 ? _liveIdx : (_expIdx >= 0 ? _expIdx : -1);
+      const _fetBypassEarly = _checkIdx >= 0 && (
+        host.explanationTextService?.fetBypassForQuestion?.get(_checkIdx) === true
+        || host.quizService?._multiAnswerPerfect?.get(_checkIdx) === true
+        || (_expIdx >= 0 && _expIdx !== _checkIdx && (
+          host.explanationTextService?.fetBypassForQuestion?.get(_expIdx) === true
+          || host.quizService?._multiAnswerPerfect?.get(_expIdx) === true
+        ))
+      );
+      if (_fetBypassEarly) {
+        host.qTextHtmlSig?.set(safe);
+        host._lastDisplayedText = safe;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * NUCLEAR GATE — runs before anything else. If the outgoing HTML looks like
+   * ANY Formatted Explanation Text (FET), consult the live optionBindings for
+   * the currently displayed question and refuse to write unless every correct
+   * option there is selected. Trusts only what the UI itself shows the user
+   * right now. Returns null when handled (already wrote the rebuilt text),
+   * otherwise the (unchanged) safe. Extracted verbatim.
+   */
+  private applyNuclearGate(host: Host, safe: string, _liveIdx: number, safeNorm: string): string | null {
+    try {
+      const qsEarly: any = host.quizService;
+      const activeIdxEarly: number = (_liveIdx >= 0)
+        ? _liveIdx
+        : (Number.isFinite(qsEarly?.currentQuestionIndex)
+          ? qsEarly.currentQuestionIndex
+          : (qsEarly?.getCurrentQuestionIndex?.() ?? 0));
+      const isShuffledEarly = qsEarly?.isShuffleEnabled?.()
+        && Array.isArray(qsEarly?.shuffledQuestions)
+        && qsEarly.shuffledQuestions.length > 0;
+      const liveQEarly: any = isShuffledEarly
+        ? qsEarly?.shuffledQuestions?.[activeIdxEarly]
+        : qsEarly?.questions?.[activeIdxEarly];
+
+      let pristineExplanation = '';
+      try {
+        const pq = host.quizService?.getPristineQuestionByText(liveQEarly?.questionText);
+        if (pq) pristineExplanation = norm(pq.explanation ?? '');
+      } catch { /* ignore */ }
+
+      const rawExplNorm = norm(liveQEarly?.explanation ?? '');
+      const containsRawExpl =
+        (!!rawExplNorm && safeNorm.includes(rawExplNorm))
+        || (!!pristineExplanation && safeNorm.includes(pristineExplanation));
+      const looksLikeFet = safeNorm.includes('are correct because')
+        || safeNorm.includes('is correct because')
+        || containsRawExpl;
+
+      if (!looksLikeFet) {
+        const displayedQTextEarly = norm(liveQEarly?.questionText ?? '');
+        if (displayedQTextEarly && safeNorm !== displayedQTextEarly && !safeNorm.startsWith(displayedQTextEarly)) {
+          if (!this.isScoredCorrectAtDisplay(host, activeIdxEarly)) {
+            const rebuilt = this.buildQuestionDisplayHTML(host, activeIdxEarly);
+            safe = rebuilt || (liveQEarly?.questionText ?? '').trim() || '';
+            host.qTextHtmlSig?.set(safe);
+            host._lastDisplayedText = safe;
+            return null;
+          }
+        }
+      }
+
+      if (looksLikeFet) {
+        const qs: any = host.quizService;
+        const activeIdx: number = (_liveIdx >= 0)
+          ? _liveIdx
+          : (Number.isFinite(qs?.currentQuestionIndex)
+            ? qs.currentQuestionIndex
+            : (qs?.getCurrentQuestionIndex?.() ?? 0));
+        const isShuffled = qs?.isShuffleEnabled?.()
+          && Array.isArray(qs?.shuffledQuestions)
+          && qs.shuffledQuestions.length > 0;
+        const liveQ: any = isShuffled
+          ? qs?.shuffledQuestions?.[activeIdx]
+          : qs?.questions?.[activeIdx];
+        let pristineCorrectTexts = new Set<string>();
+        try {
+          pristineCorrectTexts = new Set(
+            host.quizService?.getPristineCorrectTextsForQuestion(liveQ?.questionText) ?? []
+          );
+        } catch { /* ignore */ }
+
+        const correctTotal = pristineCorrectTexts.size;
+        const selectedTexts = new Set<string>();
+
+        const liveOpts: any[] = Array.isArray(liveQ?.options) ? liveQ.options : [];
+        for (const o of liveOpts) {
+          const isSel = o?.selected === true
+            || o?.highlight === true
+            || o?.showIcon === true;
+          if (!isSel) continue;
+          const t = norm(o?.text);
+          if (t) selectedTexts.add(t);
+        }
+
+        try {
+          const rawMap = host.selectedOptionService?.selectedOptionsMap;
+          if (rawMap && typeof rawMap.get === 'function') {
+            const mapSel: any[] = rawMap.get(activeIdx) ?? [];
+            for (const o of mapSel) {
+              if (o?.selected === false) continue;
+              const t = norm(o?.text);
+              if (t) selectedTexts.add(t);
+            }
+          }
+        } catch { /* ignore */ }
+
+        try {
+          const raw = sessionStorage.getItem(SK_SEL_Q + activeIdx);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              for (const o of parsed) {
+                if (o?.selected !== true) continue;
+                const t = norm(o?.text);
+                if (t) selectedTexts.add(t);
+              }
+            }
+          }
+        } catch { /* ignore */ }
+
+        try {
+          const rows: NodeListOf<Element> | Element[] = typeof document !== 'undefined'
+            ? document.querySelectorAll(
+              'codelab-option-item, .option-row, [data-option-text], .option-item'
+            )
+            : [];
+          for (const row of Array.from(rows)) {
+            const cls = String(row?.className ?? '');
+            const isHighlighted = cls.includes('selected')
+              || cls.includes('highlight')
+              || row?.querySelector?.('.selected, .highlight, mat-icon') != null;
+            if (!isHighlighted) continue;
+            const txt = norm(
+              row?.getAttribute?.('data-option-text')
+              ?? row?.textContent
+              ?? ''
+            );
+            for (const pt of pristineCorrectTexts) {
+              if (txt.includes(pt)) selectedTexts.add(pt);
+            }
+          }
+        } catch { /* ignore */ }
+
+        let correctSelected = 0;
+        for (const t of pristineCorrectTexts) {
+          if (selectedTexts.has(t)) correctSelected++;
+        }
+        const isMulti = correctTotal >= 2;
+
+        // AUTO-REVEAL BYPASS: when fetBypassForQuestion is set for this idx,
+        // the all-incorrects-exhausted auto-reveal explicitly wants the FET
+        // to display even though scoring marks the question as not correct.
+        // Without this carve-out, the NUCLEAR GATE below rewrites the FET
+        // back to question text and the auto-revealed FET never appears.
+        const fetBypassActive =
+          host.explanationTextService?.fetBypassForQuestion?.get(activeIdx) === true
+          || host.quizService?._multiAnswerPerfect?.get(activeIdx) === true;
+
+        if (!isMulti) {
+          if (!this.isScoredCorrectAtDisplay(host, activeIdx) && !fetBypassActive) {
+            const rebuilt = this.buildQuestionDisplayHTML(host, activeIdx);
+            safe = rebuilt || (liveQ?.questionText ?? '').trim() || '';
+            host.qTextHtmlSig?.set(safe);
+            host._lastDisplayedText = safe;
+            return null;
+          }
+        }
+        if (isMulti) {
+          if (!this.isScoredCorrectAtDisplay(host, activeIdx) && !fetBypassActive) {
+            const rebuilt = this.buildQuestionDisplayHTML(host, activeIdx);
+            safe = rebuilt || (liveQ?.questionText ?? '').trim() || '';
+            host.qTextHtmlSig?.set(safe);
+            host._lastDisplayedText = safe;
+            return null;
+          }
+        }
+      }
+    } catch (e) {
+      console.error('CqcFetGuardService.writeQText NUCLEAR GATE failed:', e);
+    }
+    return safe;
+  }
+
+  /**
+   * HARD FINAL GATE — across every pristine source, if the outgoing text
+   * signals a multi-answer FET that isn't fully resolved (and isn't scored
+   * correct), rebuild it back to the question display text. Extracted verbatim.
+   */
+  private applyHardFinalGate(host: Host, safe: string, safeNorm: string, rawQs: any[]): string {
+    try {
+      const qs = host.quizService;
+      const hasCorrectFlag = (opts: any[] = []) =>
+        opts.some((o: any) => isOptionCorrect(o));
+      const pristineByText = new Map<string, any>();
+      const addSource = (arr: any[] | undefined) => {
+        if (!Array.isArray(arr)) return;
+        for (const q of arr) {
+          if (!q?.questionText) continue;
+          if (!hasCorrectFlag(q.options ?? [])) continue;
+          const k = norm(q.questionText);
+          if (k && !pristineByText.has(k)) pristineByText.set(k, q);
+        }
+      };
+      addSource(qs?.questions);
+      addSource(qs?.dataLoader?.currentQuizSig?.()?.questions);
+      const quizData = qs?.quizData;
+      if (Array.isArray(quizData)) {
+        for (const quiz of quizData) addSource(quiz?.questions);
+      }
+      try {
+        for (const quiz of host.quizService?.quizInitialState ?? []) {
+          addSource(quiz?.questions);
+        }
+      } catch { /* ignore */ }
+      const hasBanner = !!safe && safe.includes('correct-count');
+      if (!hasBanner && !!safeNorm) {
+        for (const [, pristineQ] of pristineByText) {
+          const rawOpts: any[] = pristineQ?.options ?? [];
+          const correctOpts = rawOpts.filter(
+            (o: any) => isOptionCorrect(o)
+          );
+          if (correctOpts.length < 2) continue;
+          const explNorm = norm(pristineQ?.explanation);
+          const correctTextsForSignal = correctOpts
+            .map((o: any) => norm(o?.text))
+            .filter((t: string) => !!t);
+          const containsAnyCorrectText = correctTextsForSignal.some(
+            (t: string) => !!t && safeNorm.includes(t)
+          );
+          const containsExpl = !!explNorm && safeNorm.includes(explNorm);
+          const looksLikeFetLocal = safeNorm.includes('are correct because')
+            || safeNorm.includes('is correct because');
+          const fetSignal = containsExpl
+            || (looksLikeFetLocal && containsAnyCorrectText);
+          if (!fetSignal) continue;
+          const rawCorrectTexts = correctOpts
+            .map((o: any) => norm(o?.text))
+            .filter((t: string) => !!t);
+          const rawCorrectSet = new Set(rawCorrectTexts);
+          let qIdx = -1;
+          if (Array.isArray(rawQs)) {
+            qIdx = rawQs.findIndex(
+              (q: any) => norm(q?.questionText) === norm(pristineQ.questionText)
+            );
+          }
+          let storedSelections: any[] = [];
+          try {
+            if (qIdx >= 0) {
+              const raw = sessionStorage.getItem(SK_SEL_Q + qIdx);
+              if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) storedSelections = parsed;
+              }
+            }
+          } catch { /* ignore */ }
+          const rawMap = host.selectedOptionService?.selectedOptionsMap;
+          const mapSel: any[] = (rawMap && typeof rawMap.get === 'function' && qIdx >= 0)
+            ? (rawMap.get(qIdx) ?? [])
+            : [];
+          const selectedCorrectTexts = new Set<string>();
+          const collect = (arr: any[]) => {
+            for (const o of arr) {
+              if (o?.selected !== true) continue;
+              const t = norm(o?.text);
+              if (!t) continue;
+              if (rawCorrectSet.has(t)) selectedCorrectTexts.add(t);
+            }
+          };
+          collect(storedSelections);
+          collect(mapSel);
+          const liveQQC: any = host.quizQuestionComponent?.();
+          const liveBindings: any[] = Array.isArray(liveQQC?.optionBindings)
+            ? liveQQC.optionBindings
+            : [];
+          for (const b of liveBindings) {
+            const opt = b?.option;
+            const isSel = b?.isSelected === true || opt?.selected === true;
+            if (!isSel) continue;
+            const t = norm(opt?.text);
+            if (!t) continue;
+            if (rawCorrectSet.has(t)) selectedCorrectTexts.add(t);
+          }
+          const resolved =
+            rawCorrectTexts.length > 0
+            && selectedCorrectTexts.size === rawCorrectTexts.length;
+          if (!resolved) {
+            let hardGateOverride = false;
+            try {
+              const qs2 = host.quizService;
+              const displayIdx = host.currentIndex ?? (
+                Number.isFinite(qs2?.currentQuestionIndex)
+                  ? qs2.currentQuestionIndex
+                  : (qs2?.getCurrentQuestionIndex?.() ?? -1)
+              );
+              hardGateOverride = this.isScoredCorrectAtDisplay(host, displayIdx);
+            } catch { /* ignore */ }
+            if (hardGateOverride) {
+              // overridden by questionCorrectness
+            } else {
+              const replacement = qIdx >= 0
+                ? this.buildQuestionDisplayHTML(host, qIdx)
+                : '';
+              const fallback = pristineQ?.questionText ?? '';
+              safe = replacement || fallback || '';
+            }
+          }
+          break;
+        }
+      }
+    } catch { /* ignore */ }
+    return safe;
+  }
+
+  /**
+   * ABSOLUTE LAST-LINE GUARD — for a multi-answer question whose outgoing text
+   * isn't the question text and isn't fully resolved (and isn't scored
+   * correct), rebuild it to the question display text. Extracted verbatim.
+   */
+  private applyAbsoluteLastLineGuard(host: Host, safe: string): string {
+    try {
+      const qs_ll: any = host.quizService;
+      const idx_ll: number = host.currentIndex ?? (
+        Number.isFinite(qs_ll?.currentQuestionIndex)
+          ? qs_ll.currentQuestionIndex
+          : (qs_ll?.getCurrentQuestionIndex?.() ?? 0)
+      );
+      const isShuf_ll = qs_ll?.isShuffleEnabled?.()
+        && Array.isArray(qs_ll?.shuffledQuestions)
+        && qs_ll.shuffledQuestions.length > 0;
+      const liveQ_ll: any = isShuf_ll
+        ? qs_ll?.shuffledQuestions?.[idx_ll]
+        : qs_ll?.questions?.[idx_ll];
+      const qTextNorm_ll = norm(liveQ_ll?.questionText);
+      const safeTextOnly_ll = norm(safe.replace(/<[^>]*>/g, ''));
+      const isNotQuestionText = !!qTextNorm_ll
+        && !safeTextOnly_ll.startsWith(qTextNorm_ll)
+        && safeTextOnly_ll !== qTextNorm_ll;
+      if (isNotQuestionText) {
+        const pristineCorrect_ll = Array.from(
+          host.quizService?.getPristineCorrectTextsForQuestion(liveQ_ll?.questionText) ?? []
+        );
+        if (pristineCorrect_ll.length >= 2) {
+          const selNow_ll = new Set<string>();
+          try {
+            const rawMap_ll = host.selectedOptionService?.selectedOptionsMap;
+            if (rawMap_ll && typeof rawMap_ll.get === 'function') {
+              for (const o of (rawMap_ll.get(idx_ll) ?? [])) {
+                if (o?.selected === false) continue;
+                const t = norm(o?.text);
+                if (t) selNow_ll.add(t);
+              }
+            }
+          } catch { /* ignore */ }
+          try {
+            const stored_ll = sessionStorage.getItem(SK_SEL_Q + idx_ll);
+            if (stored_ll) {
+              for (const o of JSON.parse(stored_ll)) {
+                if (o?.selected !== true) continue;
+                const t = norm(o?.text);
+                if (t) selNow_ll.add(t);
+              }
+            }
+          } catch { /* ignore */ }
+          const allResolved_ll = pristineCorrect_ll.every(t => selNow_ll.has(t));
+          if (!allResolved_ll) {
+            const llOverride = this.isScoredCorrectAtDisplay(host, idx_ll);
+            if (llOverride) {
+              // overridden by questionCorrectness
+            } else {
+              safe = this.buildQuestionDisplayHTML(host, idx_ll) || (liveQ_ll?.questionText ?? '').trim() || '';
+            }
+          }
+        }
+      }
+    } catch { /* ignore */ }
+    return safe;
+  }
+
+  /**
+   * FINAL PRISTINE GATE (cannot fail silently) — same resolved-check against
+   * quizInitialState as the last-line guard, without an outer try/catch so a
+   * thrown error surfaces. Extracted verbatim.
+   */
+  private applyFinalPristineGate(host: Host, safe: string): string {
+    const _safeStripped = norm(safe.replace(/<[^>]*>/g, ''));
+    const _qs: any = host.quizService;
+    const _idx: number = host.currentIndex ?? (_qs?.currentQuestionIndex ?? 0);
+    const _isShuf = _qs?.isShuffleEnabled?.() && Array.isArray(_qs?.shuffledQuestions) && _qs.shuffledQuestions.length > 0;
+    const _liveQ: any = _isShuf ? _qs?.shuffledQuestions?.[_idx] : _qs?.questions?.[_idx];
+    const _qTextNorm = norm(_liveQ?.questionText);
+    if (_qTextNorm && _safeStripped !== _qTextNorm && !_safeStripped.startsWith(_qTextNorm)) {
+      let _pCorrect: string[] = [];
+      const _bundle: any[] = _qs?.quizInitialState ?? [];
+      for (let qi = 0; qi < _bundle.length; qi++) {
+        const _questions = _bundle[qi]?.questions ?? [];
+        for (let pi = 0; pi < _questions.length; pi++) {
+          if (norm(_questions[pi]?.questionText) === _qTextNorm) {
+            _pCorrect = (_questions[pi]?.options ?? [])
+              .filter((o: any) => isOptionCorrect(o))
+              .map((o: any) => norm(o?.text))
+              .filter((t: string) => !!t);
+            break;
+          }
+        }
+        if (_pCorrect.length > 0) break;
+      }
+      if (_pCorrect.length >= 2) {
+        const _selNow = new Set<string>();
+        try {
+          const _map = host.selectedOptionService?.selectedOptionsMap;
+          if (_map && typeof _map.get === 'function') {
+            for (const _o of (_map.get(_idx) ?? [])) {
+              if (_o?.selected === false) continue;
+              const _t = norm(_o?.text);
+              if (_t) _selNow.add(_t);
+            }
+          }
+        } catch { }
+        try {
+          const _stored = sessionStorage.getItem(SK_SEL_Q + _idx);
+          if (_stored) {
+            for (const _o of JSON.parse(_stored)) {
+              if (_o?.selected !== true) continue;
+              const _t = norm(_o?.text);
+              if (_t) _selNow.add(_t);
+            }
+          }
+        } catch { }
+        const _allOk = _pCorrect.every(t => _selNow.has(t));
+        if (!_allOk) {
+          const _fgOverride = this.isScoredCorrectAtDisplay(host, _idx);
+          if (_fgOverride) {
+            // overridden by questionCorrectness
+          } else {
+            safe = this.buildQuestionDisplayHTML(host, _idx) || (_liveQ?.questionText ?? '').trim() || '';
+          }
+        }
+      }
+    }
+    return safe;
+  }
+
+  /**
+   * UNIVERSAL BACKSTOP — if the outgoing text matches the pristine explanation,
+   * or otherwise mismatches the expected question display while there's
+   * interaction evidence, and the question isn't scored correct, restore the
+   * expected question display HTML. Extracted verbatim.
+   */
+  private applyUniversalBackstop(host: Host, safe: string): string {
+    try {
+      const qsBs: any = host.quizService;
+      const bsIdx: number = host.currentIndex ?? (
+        Number.isFinite(qsBs?.currentQuestionIndex)
+          ? qsBs.currentQuestionIndex
+          : (qsBs?.getCurrentQuestionIndex?.() ?? 0)
+      );
+      const normBs = (t: any) => String(t ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+      const safeNormBs = normBs(safe);
+      let pristineExplBs = '';
+      try {
+        const isShufBs = qsBs?.isShuffleEnabled?.() && qsBs?.shuffledQuestions?.length > 0;
+        const qObjBs = isShufBs
+          ? qsBs?.shuffledQuestions?.[bsIdx]
+          : qsBs?.questions?.[bsIdx];
+        const qTextBs = normBs(qObjBs?.questionText ?? '');
+        if (qTextBs) {
+          for (const quiz of qsBs?.quizInitialState ?? []) {
+            for (const pq of quiz?.questions ?? []) {
+              if (normBs(pq?.questionText) !== qTextBs) continue;
+              pristineExplBs = normBs(pq?.explanation ?? '');
+              break;
+            }
+            if (pristineExplBs) break;
+          }
+        }
+        if (!pristineExplBs) {
+          pristineExplBs = normBs(qObjBs?.explanation ?? '');
+        }
+      } catch { /* ignore */ }
+      const explMatch = pristineExplBs && pristineExplBs.length > 5 && safeNormBs.includes(pristineExplBs);
+      const expectedQBs = this.buildQuestionDisplayHTML(host, bsIdx);
+      const expectedNormBs = expectedQBs ? normBs(expectedQBs) : '';
+      const textMismatch = expectedNormBs && safeNormBs.length > 0
+        && safeNormBs !== expectedNormBs
+        && this.hasInteractionEvidence(host, bsIdx);
+      if (explMatch || textMismatch) {
+        if (!this.isScoredCorrectAtDisplay(host, bsIdx)) {
+          if (expectedQBs) safe = expectedQBs;
+        }
+      }
+    } catch { /* ignore */ }
+    return safe;
+  }
+
+  /**
+   * BANNER PRESERVATION — re-attach the "N answers are correct" banner when the
+   * outgoing text is plain question text (uses the URL-first index, same as the
+   * URL-AUTHORITATIVE GUARD). Extracted verbatim.
+   */
+  private applyBannerPreservation(host: Host, safe: string, _liveIdx: number): string {
+    try {
+      const qsBnr: any = host.quizService;
+      let bnrIdx: number = _liveIdx >= 0 ? _liveIdx : (host.currentIndex ?? (
+        Number.isFinite(qsBnr?.currentQuestionIndex)
+          ? qsBnr.currentQuestionIndex : (qsBnr?.getCurrentQuestionIndex?.() ?? 0)
+      ));
+      const expectedWithBanner = this.buildQuestionDisplayHTML(host, bnrIdx);
+      if (expectedWithBanner && expectedWithBanner.includes('correct-count')) {
+        const normBnr = (t: any) => String(t ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+        const safeNormBnr = normBnr(safe);
+        const isShufBnr = qsBnr?.isShuffleEnabled?.() && qsBnr?.shuffledQuestions?.length > 0;
+        const qObjBnr = isShufBnr
+          ? qsBnr?.shuffledQuestions?.[bnrIdx]
+          : qsBnr?.questions?.[bnrIdx];
+        const rawQTextBnr = normBnr(qObjBnr?.questionText ?? '');
+        // Add banner if safe is plain question text (exact match or starts with it without existing banner)
+        const safeHasBanner = safe.includes('correct-count');
+        if (rawQTextBnr && !safeHasBanner && safeNormBnr.startsWith(rawQTextBnr)) {
+          safe = expectedWithBanner;
+        }
+      }
+    } catch { /* ignore */ }
+    return safe;
   }
 
   /**
