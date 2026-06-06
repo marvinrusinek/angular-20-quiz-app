@@ -1,4 +1,4 @@
-﻿import { inject, Injectable } from '@angular/core';
+﻿﻿import { inject, Injectable } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ParamMap } from '@angular/router';
 import {
@@ -237,6 +237,17 @@ export class CqcOrchestratorService {
     };
     document.addEventListener('visibilitychange', host._cqcVisibilityHandler);
 
+    this.subscribeToTimerExpiryFetWrite(host);
+  }
+
+  /**
+   * On timer expiry, resolve the LIVE question index (signal-first to avoid
+   * stale Q(N) leaking into Q(N+1)), store the formatted explanation, and write
+   * the FET directly to the qText DOM (bypassing the service/guard layers) with
+   * navigation-guarded delayed retries. Extracted verbatim from runOnInit; this
+   * is FET-display pipeline code — keep it byte-for-byte.
+   */
+  private subscribeToTimerExpiryFetWrite(host: Host): void {
     host.timerService.expired$
       .pipe(takeUntilDestroyed(host.destroyRef))
       .subscribe(() => {
