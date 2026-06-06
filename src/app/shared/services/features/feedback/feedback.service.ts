@@ -51,16 +51,8 @@ export class FeedbackService {
   ): string {
     if (timedOut) return 'Time\'s up. Review the explanation above.';
 
-    // URL-AUTHORITATIVE EARLY-EXIT: when on /question/{quizId}/{N},
-    // collect every recorded click (targetOption, the `selected` array,
-    // and the selectedOptionService) and reconcile it against the URL
-    // question's correct options.
-    //
-    // Single-answer: any one correct match â†’ "You're right!".
-    // Multi-answer: ALL correct options selected AND zero incorrect
-    //   selections â†’ "You're right!"; otherwise fall through to the
-    //   count logic below which produces "Select N more correct
-    //   answer(s)" or "Not this one" as appropriate.
+    // URL-authoritative early exit: reconcile recorded clicks against the URL
+    // question's correct options; a clean win returns "You're right!" directly.
     const _urlShortCircuit = this.tryUrlAuthoritativeShortCircuit(selected, targetOption);
     if (_urlShortCircuit !== null) return _urlShortCircuit;
 
@@ -81,19 +73,13 @@ export class FeedbackService {
 
     const optionsRaw = optionsToDisplay || (question.options || []);
 
-    // Prefer the RAW source-of-truth options from quizService for correctness
-    // checks â€” optionsToDisplay can carry stale/polluted `correct` flags from
-    // prior question rendering, which yields wrong feedback option numbers.
-    // Use the resolvedQuestion's options as the truth source â€” these come
-    // from quizService.questions[resolvedIdx] (located above by text match).
-    let truthOptions: Option[] = (resolvedQuestion?.options?.length
+    // Prefer the resolved question's options as the truth source (optionsToDisplay
+    // can carry stale `correct` flags from a prior render), then cross-validate.
+    const truthOptions: Option[] = (resolvedQuestion?.options?.length
       ? resolvedQuestion.options
       : optionsRaw) as Option[];
-
-    // â”€â”€ GUARDRAIL: Cross-validate correctIndices against visual correct flags â”€â”€
     correctIndices = this.crossValidateCorrectIndices(correctIndices, truthOptions);
 
-    // Multi-Answer detection: trust multiple indices OR multiple database flags
     const isMultiMode =
       correctIndices.length > 1 ||
       question.type === QuestionType.MultipleAnswer ||
