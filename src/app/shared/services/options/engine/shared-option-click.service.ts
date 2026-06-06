@@ -323,34 +323,15 @@ export class SharedOptionClickService {
     return { qIdx, displayIdx, durableSet };
   }
 
-  runOptionContentClick(comp: any, binding: any, index: number, event: any): void {
-    const now = Date.now();
-    if (comp._lastRunClickIndex === index && comp._lastRunClickTime && (now - comp._lastRunClickTime) < 200) {
-      return;
-    }
-    comp._lastRunClickIndex = index;
-    comp._lastRunClickTime = now;
-
-    this.quizStateService.markUserInteracted(comp.getActiveQuestionIndex());
-
-    const state: any = this.buildClickState(comp);
-    this.delegateToHandleOptionClick(comp, binding, index, event, state);
-    this.syncClickStateToComp(comp, state);
-
-    const { qIdx, displayIdx, durableSet } = this.resolveScoringContext(comp, index);
-
-    // If auto-reveal already stamped the live bindings with
-    // _autoRevealedCorrect (all-incorrects-exhausted scenario), use
-    // the live bindings — state.optionBindings is a stale snapshot
-    // captured before auto-reveal ran and would wipe the green
-    // highlight, disabled state, and correct-option CSS class.
-    const liveBindings = comp.optionBindings();
-    const autoRevealed = liveBindings?.some((b: any) => b?._autoRevealedCorrect);
-    comp.optionBindings.set(autoRevealed ? liveBindings : state.optionBindings);
-
-    this.nextButtonStateService.forceEnable(2000);
-    this.selectedOptionService.setAnswered(true, true);
-
+  /**
+   * Resolve the effective correct-option indices for scoring: start from the
+   * cached resolveCorrectIndices result, then (when pristine quizInitialState
+   * has them) rebuild the indices by matching binding texts against the pristine
+   * correct texts — bindings can have mutated `correct` flags. Returns the
+   * effective indices/count, the shuffle flag, and the resolved single/multi
+   * mode. Extracted verbatim from runOptionContentClick.
+   */
+  private resolveEffectiveCorrectIndices(comp: any, qIdx: number) {
     if (!comp._correctIndicesByQuestion.has(qIdx)) {
       const question = comp.currentQuestion() ?? comp.getQuestionAtDisplayIndex(qIdx);
       const result = this.clickHandler.resolveCorrectIndices(
@@ -395,6 +376,40 @@ export class SharedOptionClickService {
     }
     const effectiveCorrectCount = effectiveCorrectIndices.length;
     const isMultiFromQ = comp.isMultiMode || comp.type === 'multiple' || effectiveCorrectCount > 1 || pristineCorrectCount > 1;
+
+    return { effectiveCorrectIndices, effectiveCorrectCount, isShuffled, isMultiFromQ };
+  }
+
+  runOptionContentClick(comp: any, binding: any, index: number, event: any): void {
+    const now = Date.now();
+    if (comp._lastRunClickIndex === index && comp._lastRunClickTime && (now - comp._lastRunClickTime) < 200) {
+      return;
+    }
+    comp._lastRunClickIndex = index;
+    comp._lastRunClickTime = now;
+
+    this.quizStateService.markUserInteracted(comp.getActiveQuestionIndex());
+
+    const state: any = this.buildClickState(comp);
+    this.delegateToHandleOptionClick(comp, binding, index, event, state);
+    this.syncClickStateToComp(comp, state);
+
+    const { qIdx, displayIdx, durableSet } = this.resolveScoringContext(comp, index);
+
+    // If auto-reveal already stamped the live bindings with
+    // _autoRevealedCorrect (all-incorrects-exhausted scenario), use
+    // the live bindings — state.optionBindings is a stale snapshot
+    // captured before auto-reveal ran and would wipe the green
+    // highlight, disabled state, and correct-option CSS class.
+    const liveBindings = comp.optionBindings();
+    const autoRevealed = liveBindings?.some((b: any) => b?._autoRevealedCorrect);
+    comp.optionBindings.set(autoRevealed ? liveBindings : state.optionBindings);
+
+    this.nextButtonStateService.forceEnable(2000);
+    this.selectedOptionService.setAnswered(true, true);
+
+    const { effectiveCorrectIndices, effectiveCorrectCount, isShuffled, isMultiFromQ } =
+      this.resolveEffectiveCorrectIndices(comp, qIdx);
 
     this.maybeStopTimerWhenAllCorrect(comp, qIdx, effectiveCorrectIndices, durableSet);
 
