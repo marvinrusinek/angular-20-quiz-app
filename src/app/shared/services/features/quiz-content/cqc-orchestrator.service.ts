@@ -77,113 +77,12 @@ export class CqcOrchestratorService {
 
     // Build the intended qText HTML for the current index. Centralised so
     // the visibility handler, replay retries, and the MutationObserver
-    // safety net all derive the same value.
-    const computeIntendedQText = (): string => {
-      // Read from the input signal â€” host.currentIndex lags by a microtask
-      // because it's a plain field updated by an effect. Using the signal
-      // means the MutationObserver and visibility-restore replays compute
-      // the intended HTML for the LIVE question, never the prior one.
-      const sigIdx = host.questionIndex?.();
-      const idx = (typeof sigIdx === 'number' && sigIdx >= 0)
-        ? sigIdx
-        : (host.currentIndex >= 0
-          ? host.currentIndex
-          : (host.quizService.getCurrentQuestionIndex?.() ?? 0));
-      let intended = '';
-      const hasInteracted = this.fetGuard.hasInteractionEvidence(host, idx);
-      if (hasInteracted) {
-        // Check FET caches first â€” but only if the question is resolved.
-        // For multi-answer questions, the cache may have been populated by
-        // an upstream path before all correct answers were selected.
-        const isResolvedForCache = this.fetGuard.isQuestionResolvedFromStorage(host, idx);
-
-        // Validate the cached FET against the LIVE display-order question.
-        // In shuffled mode, the cache may have been populated with an earlier
-        // (unshuffled) question's FET at this same numeric index, which would
-        // surface as the FET reverting to "Q1 unshuffled" on a visibility
-        // restamp. If the cached explanation text doesn't match the display-
-        // order question's raw explanation, treat the cache as stale and
-        // re-compute below.
-        let cachedFet = isResolvedForCache
-          ? ((host.explanationTextService.formattedExplanations?.[idx]?.explanation ?? '').trim()
-            || (host.explanationTextService.fetByIndex?.get(idx) ?? '').trim())
-          : '';
-        if (cachedFet) {
-          try {
-            const displayQs = host.quizService.getQuestionsInDisplayOrder?.()
-              ?? host.quizService.questions;
-            const liveQ = displayQs?.[idx];
-            const liveExpl = (liveQ?.explanation ?? '').toString().trim();
-            if (liveExpl) {
-              const cachedLower = cachedFet.toLowerCase();
-              const liveLower = liveExpl.toLowerCase();
-              // Cached FET should include the live explanation as substring.
-              // If not, it's a stale cache from a different question at this
-              // index (likely a shuffle mismatch).
-              if (cachedLower.indexOf(liveLower) === -1) {
-                cachedFet = '';
-              }
-            }
-          } catch { /* ignore */ }
-        }
-        if (cachedFet) intended = cachedFet;
-        
-        // No cached FET â€” try on-the-fly if quiz data is available
-        if (!intended) {
-          try {
-            const questions = host.quizService.getQuestionsInDisplayOrder?.()
-              ?? host.quizService.questions;
-            const q = questions?.[idx];
-            if (q?.explanation && q?.options?.length > 0) {
-              // Check resolution to decide FET vs question text
-              const isResolved = this.fetGuard.isQuestionResolvedFromStorage(host, idx);
-              if (isResolved) {
-                const correctIndices = host.explanationTextService.getCorrectOptionIndices(q, q.options, idx);
-                if (correctIndices.length > 0) {
-                  intended = host.explanationTextService.formatExplanation(q, correctIndices, q.explanation);
-                }
-              } else {
-                // Unresolved (partial multi-answer) â€” show question text
-                intended = this.fetGuard.buildQuestionDisplayHTML(host, idx);
-              }
-            }
-          } catch { /* ignore */ }
-          // If no FET was resolved, fall through to question text below
-          // instead of returning '' â€” that would leave the heading blank.
-        }
-      }
-      if (!intended) {
-        intended = this.fetGuard.buildQuestionDisplayHTML(host, idx);
-      }
-      if (!intended) {
-        intended = (host._lastDisplayedText ?? '').trim();
-      }
-      if (!intended) {
-        try {
-          const q = host.quizService.questions?.[idx];
-          intended = (q?.questionText ?? '').trim();
-        } catch {}
-      }
-      return intended;
-    };
+    // safety net all derive the same value. Body extracted to
+    // computeIntendedQText(host); thin delegate keeps the host field + callers.
+    const computeIntendedQText = (): string => this.computeIntendedQText(host);
     host._cqcComputeIntendedQText = computeIntendedQText;
 
-    const forceStampIfBlank = (_reason: string): void => {
-      const el = host.qText?.()?.nativeElement;
-      if (!el) return;
-      const current = (el.innerHTML ?? '').trim();
-      const intended = computeIntendedQText();
-      if (!intended) return;
-      if (!current || current !== intended) {
-        // If the h3 already has the multi-answer banner but the computed
-        // intended text does not, preserve the current content — the banner
-        // was correctly set by the navigation lock and should not be stripped.
-        if (current && current.includes('correct-count') && !intended.includes('correct-count')) {
-          return;
-        }
-        this.fetGuard.writeQText(host, intended);
-      }
-    };
+    const forceStampIfBlank = (_reason: string): void => this.forceStampIfBlank(host);
 
     // Persistent MutationObserver safety net. The SCSS rule
     // `h3:empty { display: none }` means any transient blank collapses
@@ -311,6 +210,126 @@ export class CqcOrchestratorService {
 
         host.cdRef.markForCheck();
       });
+  }
+
+  /**
+   * Build the intended qText HTML for the LIVE question index (signal-first, so
+   * replays compute for the current question, never the prior one): prefer a
+   * validated cached FET, else compute on-the-fly (FET if resolved, else the
+   * question text), with fallbacks to the builder / last-displayed / raw
+   * question text. Extracted verbatim from runOnInit's closure — FET-display
+   * pipeline, keep byte-for-byte.
+   */
+  private computeIntendedQText(host: Host): string {
+    // Read from the input signal — host.currentIndex lags by a microtask
+    // because it's a plain field updated by an effect. Using the signal
+    // means the MutationObserver and visibility-restore replays compute
+    // the intended HTML for the LIVE question, never the prior one.
+    const sigIdx = host.questionIndex?.();
+    const idx = (typeof sigIdx === 'number' && sigIdx >= 0)
+      ? sigIdx
+      : (host.currentIndex >= 0
+        ? host.currentIndex
+        : (host.quizService.getCurrentQuestionIndex?.() ?? 0));
+    let intended = '';
+    const hasInteracted = this.fetGuard.hasInteractionEvidence(host, idx);
+    if (hasInteracted) {
+      // Check FET caches first — but only if the question is resolved.
+      // For multi-answer questions, the cache may have been populated by
+      // an upstream path before all correct answers were selected.
+      const isResolvedForCache = this.fetGuard.isQuestionResolvedFromStorage(host, idx);
+
+      // Validate the cached FET against the LIVE display-order question.
+      // In shuffled mode, the cache may have been populated with an earlier
+      // (unshuffled) question's FET at this same numeric index, which would
+      // surface as the FET reverting to "Q1 unshuffled" on a visibility
+      // restamp. If the cached explanation text doesn't match the display-
+      // order question's raw explanation, treat the cache as stale and
+      // re-compute below.
+      let cachedFet = isResolvedForCache
+        ? ((host.explanationTextService.formattedExplanations?.[idx]?.explanation ?? '').trim()
+          || (host.explanationTextService.fetByIndex?.get(idx) ?? '').trim())
+        : '';
+      if (cachedFet) {
+        try {
+          const displayQs = host.quizService.getQuestionsInDisplayOrder?.()
+            ?? host.quizService.questions;
+          const liveQ = displayQs?.[idx];
+          const liveExpl = (liveQ?.explanation ?? '').toString().trim();
+          if (liveExpl) {
+            const cachedLower = cachedFet.toLowerCase();
+            const liveLower = liveExpl.toLowerCase();
+            // Cached FET should include the live explanation as substring.
+            // If not, it's a stale cache from a different question at this
+            // index (likely a shuffle mismatch).
+            if (cachedLower.indexOf(liveLower) === -1) {
+              cachedFet = '';
+            }
+          }
+        } catch { /* ignore */ }
+      }
+      if (cachedFet) intended = cachedFet;
+
+      // No cached FET — try on-the-fly if quiz data is available
+      if (!intended) {
+        try {
+          const questions = host.quizService.getQuestionsInDisplayOrder?.()
+            ?? host.quizService.questions;
+          const q = questions?.[idx];
+          if (q?.explanation && q?.options?.length > 0) {
+            // Check resolution to decide FET vs question text
+            const isResolved = this.fetGuard.isQuestionResolvedFromStorage(host, idx);
+            if (isResolved) {
+              const correctIndices = host.explanationTextService.getCorrectOptionIndices(q, q.options, idx);
+              if (correctIndices.length > 0) {
+                intended = host.explanationTextService.formatExplanation(q, correctIndices, q.explanation);
+              }
+            } else {
+              // Unresolved (partial multi-answer) — show question text
+              intended = this.fetGuard.buildQuestionDisplayHTML(host, idx);
+            }
+          }
+        } catch { /* ignore */ }
+        // If no FET was resolved, fall through to question text below
+        // instead of returning '' — that would leave the heading blank.
+      }
+    }
+    if (!intended) {
+      intended = this.fetGuard.buildQuestionDisplayHTML(host, idx);
+    }
+    if (!intended) {
+      intended = (host._lastDisplayedText ?? '').trim();
+    }
+    if (!intended) {
+      try {
+        const q = host.quizService.questions?.[idx];
+        intended = (q?.questionText ?? '').trim();
+      } catch {}
+    }
+    return intended;
+  }
+
+  /**
+   * If the qText heading is blank (or differs from the intended HTML), restamp
+   * it via the FET guard — unless the current content has the multi-answer
+   * banner and the intended doesn't (preserve the nav-lock banner). Extracted
+   * verbatim from runOnInit's closure.
+   */
+  private forceStampIfBlank(host: Host): void {
+    const el = host.qText?.()?.nativeElement;
+    if (!el) return;
+    const current = (el.innerHTML ?? '').trim();
+    const intended = this.computeIntendedQText(host);
+    if (!intended) return;
+    if (!current || current !== intended) {
+      // If the h3 already has the multi-answer banner but the computed
+      // intended text does not, preserve the current content — the banner
+      // was correctly set by the navigation lock and should not be stripped.
+      if (current && current.includes('correct-count') && !intended.includes('correct-count')) {
+        return;
+      }
+      this.fetGuard.writeQText(host, intended);
+    }
   }
 
   runOnDestroy(host: Host): void {
