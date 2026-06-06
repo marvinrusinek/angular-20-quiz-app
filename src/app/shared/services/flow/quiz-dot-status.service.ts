@@ -17,6 +17,30 @@ import { SelectedOptionService } from '../state/selectedoption.service';
 import { isOptionCorrect } from '../../utils/is-option-correct';
 import { norm } from '../../utils/text-norm';
 
+type DotStatus = 'correct' | 'wrong' | 'pending';
+type DotResolved = 'correct' | 'wrong';
+
+/** Threaded context for the scored-status decision branches of getQuestionStatus. */
+interface ScoredDotCtx {
+  index: number;
+  quizId: string;
+  currentQuestionIndex: number;
+  dotStatusCache: Map<number, DotStatus>;
+  pendingDotStatusOverrides: Map<number, DotResolved>;
+  pendingOverrideStatus: DotResolved | undefined;
+  previousCached: DotStatus | undefined;
+  selections: Array<SelectedOption | Option>;
+  questionHasLiveSessionState: boolean;
+  scoringKey: any;
+  hasScoredState: boolean;
+  hasAuthoritativeCorrectState: boolean;
+  evaluatedStatus: boolean | null;
+  hasOptimisticCorrectSelection: boolean;
+  localStatus: DotResolved | null;
+  isLiveMultiAnswerQuestion: boolean;
+  activeClickStatus: DotResolved | undefined;
+}
+
 /**
  * Manages dot status computation, selection evaluation, and question
  * status determination for the quiz pagination dots.
@@ -528,17 +552,11 @@ export class QuizDotStatusService {
       index, quizId, currentQuestionIndex, optionsToDisplay, currentQuestion,
       questionsArray, dotStatusCache, pendingDotStatusOverrides, activeDotClickStatus,
     } = params;
+    const forceRecompute = !!params.options?.forceRecompute;
 
-    // On refresh, restore dot color from clickConfirmedDotStatus (backed by sessionStorage)
-    const confirmedForIndex = this.selectedOptionService.clickConfirmedDotStatus.get(index);
-    if (
-      (confirmedForIndex === 'correct' || confirmedForIndex === 'wrong') &&
-      !pendingDotStatusOverrides.has(index) &&
-      !activeDotClickStatus.has(index)
-    ) {
-      dotStatusCache.set(index, confirmedForIndex);
-      return confirmedForIndex;
-    }
+    // On refresh, restore dot color from clickConfirmedDotStatus (sessionStorage-backed).
+    const r1 = this.tryConfirmedOnRefresh(index, pendingDotStatusOverrides, activeDotClickStatus, dotStatusCache);
+    if (r1) return r1;
 
     if (this.isQuizFreshAtQuestionOne(currentQuestionIndex)) {
       dotStatusCache.set(index, 'pending');
@@ -553,29 +571,84 @@ export class QuizDotStatusService {
     const selections = this.getSelectionsForQuestion(selectionParams);
     const questionHasLiveSessionState = this.hasLiveSessionStateForQuestion(quizId, index);
 
-    if (hasCachedStatus) {
-      const cached = dotStatusCache.get(index)!;
-      const isCurrentQuestion = index === currentQuestionIndex;
+    const r2 = this.tryCachedShortCircuit({
+      index, currentQuestionIndex, forceRecompute, dotStatusCache,
+      hasCachedStatus, questionHasLiveSessionState, selections,
+    });
+    if (r2) return r2;
 
-      if (!params.options?.forceRecompute && !isCurrentQuestion && cached === 'correct') {
-        return cached;
-      }
+    const r3 = this.tryEarlyAuthoritativeNonCurrent(index, quizId, currentQuestionIndex, dotStatusCache);
+    if (r3) return r3;
 
-      if (
-        !params.options?.forceRecompute &&
-        !isCurrentQuestion &&
-        cached === 'pending' &&
-        !questionHasLiveSessionState &&
-        selections.length === 0
-      ) {
-        return cached;
-      }
-      if (!params.options?.forceRecompute && isCurrentQuestion && cached === 'pending') {
-        return cached;
-      }
+    if (index === currentQuestionIndex && !questionHasLiveSessionState && selections.length === 0) {
+      return this.resolveCurrentNoSelection(index, quizId, previousCached, dotStatusCache);
     }
 
-    // Early authoritative check for NON-CURRENT questions.
+    return this.resolveScoredDotStatus({
+      index, quizId, currentQuestionIndex, optionsToDisplay, currentQuestion, questionsArray,
+      selections, questionHasLiveSessionState, pendingOverrideStatus, previousCached,
+      dotStatusCache, pendingDotStatusOverrides, activeDotClickStatus,
+    });
+  }
+
+  /** Refresh-restore: confirmed dot color when no pending/active override exists. Extracted verbatim. */
+  private tryConfirmedOnRefresh(
+    index: number,
+    pendingDotStatusOverrides: Map<number, DotResolved>,
+    activeDotClickStatus: Map<number, DotResolved>,
+    dotStatusCache: Map<number, DotStatus>
+  ): DotStatus | null {
+    const confirmedForIndex = this.selectedOptionService.clickConfirmedDotStatus.get(index);
+    if (
+      (confirmedForIndex === 'correct' || confirmedForIndex === 'wrong') &&
+      !pendingDotStatusOverrides.has(index) &&
+      !activeDotClickStatus.has(index)
+    ) {
+      dotStatusCache.set(index, confirmedForIndex);
+      return confirmedForIndex;
+    }
+    return null;
+  }
+
+  /** Short-circuit on a usable cached status (unless forceRecompute). Extracted verbatim. */
+  private tryCachedShortCircuit(p: {
+    index: number;
+    currentQuestionIndex: number;
+    forceRecompute: boolean;
+    dotStatusCache: Map<number, DotStatus>;
+    hasCachedStatus: boolean;
+    questionHasLiveSessionState: boolean;
+    selections: Array<SelectedOption | Option>;
+  }): DotStatus | null {
+    if (!p.hasCachedStatus) return null;
+    const cached = p.dotStatusCache.get(p.index)!;
+    const isCurrentQuestion = p.index === p.currentQuestionIndex;
+
+    if (!p.forceRecompute && !isCurrentQuestion && cached === 'correct') {
+      return cached;
+    }
+    if (
+      !p.forceRecompute &&
+      !isCurrentQuestion &&
+      cached === 'pending' &&
+      !p.questionHasLiveSessionState &&
+      p.selections.length === 0
+    ) {
+      return cached;
+    }
+    if (!p.forceRecompute && isCurrentQuestion && cached === 'pending') {
+      return cached;
+    }
+    return null;
+  }
+
+  /** Early authoritative-correct check for non-current questions. Extracted verbatim. */
+  private tryEarlyAuthoritativeNonCurrent(
+    index: number,
+    quizId: string,
+    currentQuestionIndex: number,
+    dotStatusCache: Map<number, DotStatus>
+  ): DotStatus | null {
     if (index !== currentQuestionIndex) {
       const earlyScoringKey = this.getScoringKey(quizId, index);
       const earlyScored = this.quizService.questionCorrectness.get(earlyScoringKey);
@@ -584,44 +657,101 @@ export class QuizDotStatusService {
         return 'correct';
       }
     }
+    return null;
+  }
 
-    if (
-      index === currentQuestionIndex &&
-      !questionHasLiveSessionState &&
-      selections.length === 0
-    ) {
-      if (previousCached === 'correct' || previousCached === 'wrong') {
-        dotStatusCache.set(index, previousCached);
-        return previousCached;
-      }
-
-      const localStatus = this.persistence.getPersistedDotStatus(quizId, index);
-      if (localStatus === 'correct' || localStatus === 'wrong') {
-        dotStatusCache.set(index, localStatus);
-        return localStatus;
-      }
-
-      // Fallback: check clickConfirmedDotStatus (restored from sessionStorage on refresh)
-      const confirmedStatus = this.selectedOptionService.clickConfirmedDotStatus.get(index);
-      if (confirmedStatus === 'correct' || confirmedStatus === 'wrong') {
-        dotStatusCache.set(index, confirmedStatus);
-        this.persistence.setPersistedDotStatus(quizId, index, confirmedStatus);
-        return confirmedStatus;
-      }
-
-      // Last resort: check sessionStorage directly
-      try {
-        const sessionVal = sessionStorage.getItem(SK_DOT_CONFIRMED + index);
-        if (sessionVal === 'correct' || sessionVal === 'wrong') {
-          dotStatusCache.set(index, sessionVal);
-          this.persistence.setPersistedDotStatus(quizId, index, sessionVal);
-          return sessionVal;
-        }
-      } catch { }
-
-      dotStatusCache.set(index, 'pending');
-      return 'pending';
+  /**
+   * Current question with no live state and no selections: restore from cache,
+   * persisted dot status, confirmed status, then sessionStorage; else pending.
+   * Extracted verbatim.
+   */
+  private resolveCurrentNoSelection(
+    index: number,
+    quizId: string,
+    previousCached: DotStatus | undefined,
+    dotStatusCache: Map<number, DotStatus>
+  ): DotStatus {
+    if (previousCached === 'correct' || previousCached === 'wrong') {
+      dotStatusCache.set(index, previousCached);
+      return previousCached;
     }
+
+    const localStatus = this.persistence.getPersistedDotStatus(quizId, index);
+    if (localStatus === 'correct' || localStatus === 'wrong') {
+      dotStatusCache.set(index, localStatus);
+      return localStatus;
+    }
+
+    // Fallback: clickConfirmedDotStatus (restored from sessionStorage on refresh).
+    const confirmedStatus = this.selectedOptionService.clickConfirmedDotStatus.get(index);
+    if (confirmedStatus === 'correct' || confirmedStatus === 'wrong') {
+      dotStatusCache.set(index, confirmedStatus);
+      this.persistence.setPersistedDotStatus(quizId, index, confirmedStatus);
+      return confirmedStatus;
+    }
+
+    // Last resort: sessionStorage directly.
+    try {
+      const sessionVal = sessionStorage.getItem(SK_DOT_CONFIRMED + index);
+      if (sessionVal === 'correct' || sessionVal === 'wrong') {
+        dotStatusCache.set(index, sessionVal);
+        this.persistence.setPersistedDotStatus(quizId, index, sessionVal);
+        return sessionVal;
+      }
+    } catch { }
+
+    dotStatusCache.set(index, 'pending');
+    return 'pending';
+  }
+
+  /**
+   * Build the scoring/evaluation context, then run the decision branches in
+   * order: overrides -> selection-based -> authoritative/eval fallbacks.
+   * Extracted verbatim.
+   */
+  private resolveScoredDotStatus(p: {
+    index: number;
+    quizId: string;
+    currentQuestionIndex: number;
+    optionsToDisplay: Option[];
+    currentQuestion: QuizQuestion | null;
+    questionsArray: QuizQuestion[];
+    selections: Array<SelectedOption | Option>;
+    questionHasLiveSessionState: boolean;
+    pendingOverrideStatus: DotResolved | undefined;
+    previousCached: DotStatus | undefined;
+    dotStatusCache: Map<number, DotStatus>;
+    pendingDotStatusOverrides: Map<number, DotResolved>;
+    activeDotClickStatus: Map<number, DotResolved>;
+  }): DotStatus {
+    const ctx = this.buildScoredDotCtx(p);
+    return this.resolveOverrideDotStatus(ctx)
+      ?? this.resolveSelectionDotStatus(ctx)
+      ?? this.resolveAuthoritativeDotStatus(ctx)
+      ?? this.resolveUnscoredFallbackDotStatus(ctx);
+  }
+
+  /** Compute the scoring/evaluation context for the decision branches. Extracted verbatim. */
+  private buildScoredDotCtx(p: {
+    index: number;
+    quizId: string;
+    currentQuestionIndex: number;
+    optionsToDisplay: Option[];
+    currentQuestion: QuizQuestion | null;
+    questionsArray: QuizQuestion[];
+    selections: Array<SelectedOption | Option>;
+    questionHasLiveSessionState: boolean;
+    pendingOverrideStatus: DotResolved | undefined;
+    previousCached: DotStatus | undefined;
+    dotStatusCache: Map<number, DotStatus>;
+    pendingDotStatusOverrides: Map<number, DotResolved>;
+    activeDotClickStatus: Map<number, DotResolved>;
+  }): ScoredDotCtx {
+    const {
+      index, quizId, currentQuestionIndex, optionsToDisplay, currentQuestion, questionsArray,
+      selections, questionHasLiveSessionState, pendingOverrideStatus, previousCached,
+      dotStatusCache, pendingDotStatusOverrides, activeDotClickStatus,
+    } = p;
 
     const scoringKey = this.getScoringKey(quizId, index);
     const persistedScoredValues = [this.quizService.questionCorrectness.get(scoringKey)]
@@ -650,161 +780,178 @@ export class QuizDotStatusService {
 
     const activeClickStatus = activeDotClickStatus.get(index);
 
-    if (isLiveMultiAnswerQuestion && activeClickStatus) {
-      this.persistence.setPersistedDotStatus(quizId, index, activeClickStatus);
-      pendingDotStatusOverrides.set(index, activeClickStatus);
-      dotStatusCache.set(index, activeClickStatus);
-      return activeClickStatus;
+    return {
+      index, quizId, currentQuestionIndex, dotStatusCache, pendingDotStatusOverrides,
+      pendingOverrideStatus, previousCached, selections, questionHasLiveSessionState,
+      scoringKey, hasScoredState, hasAuthoritativeCorrectState, evaluatedStatus,
+      hasOptimisticCorrectSelection, localStatus, isLiveMultiAnswerQuestion, activeClickStatus,
+    };
+  }
+
+  /** Live-multi active/pending and current-question pending overrides. Extracted verbatim. */
+  private resolveOverrideDotStatus(c: ScoredDotCtx): DotStatus | null {
+    if (c.isLiveMultiAnswerQuestion && c.activeClickStatus) {
+      this.persistence.setPersistedDotStatus(c.quizId, c.index, c.activeClickStatus);
+      c.pendingDotStatusOverrides.set(c.index, c.activeClickStatus);
+      c.dotStatusCache.set(c.index, c.activeClickStatus);
+      return c.activeClickStatus;
     }
 
-    if (isLiveMultiAnswerQuestion && pendingOverrideStatus) {
-      this.persistence.setPersistedDotStatus(quizId, index, pendingOverrideStatus);
-      dotStatusCache.set(index, pendingOverrideStatus);
-      return pendingOverrideStatus;
+    if (c.isLiveMultiAnswerQuestion && c.pendingOverrideStatus) {
+      this.persistence.setPersistedDotStatus(c.quizId, c.index, c.pendingOverrideStatus);
+      c.dotStatusCache.set(c.index, c.pendingOverrideStatus);
+      return c.pendingOverrideStatus;
     }
 
-    if (
-      pendingOverrideStatus &&
-      index === currentQuestionIndex
-    ) {
-      this.persistence.setPersistedDotStatus(quizId, index, pendingOverrideStatus);
-      dotStatusCache.set(index, pendingOverrideStatus);
-      return pendingOverrideStatus;
+    if (c.pendingOverrideStatus && c.index === c.currentQuestionIndex) {
+      this.persistence.setPersistedDotStatus(c.quizId, c.index, c.pendingOverrideStatus);
+      c.dotStatusCache.set(c.index, c.pendingOverrideStatus);
+      return c.pendingOverrideStatus;
     }
+    return null;
+  }
 
-    if (hasOptimisticCorrectSelection) {
-      this.persistence.setPersistedDotStatus(quizId, index, 'correct');
-      dotStatusCache.set(index, 'correct');
+  /** Selection-driven branches: optimistic-correct, local-wrong, live-multi/non-current correct, eval-false. Extracted verbatim. */
+  private resolveSelectionDotStatus(c: ScoredDotCtx): DotStatus | null {
+    if (c.hasOptimisticCorrectSelection) {
+      this.persistence.setPersistedDotStatus(c.quizId, c.index, 'correct');
+      c.dotStatusCache.set(c.index, 'correct');
       return 'correct';
     }
 
-    if (
-      localStatus === 'wrong' &&
-      evaluatedStatus !== true &&
-      !hasAuthoritativeCorrectState
-    ) {
-      // Don't return 'wrong' if the most recent click was correct
-      const clickConfirmedHere = this.selectedOptionService.clickConfirmedDotStatus.get(index);
+    if (c.localStatus === 'wrong' && c.evaluatedStatus !== true && !c.hasAuthoritativeCorrectState) {
+      // Don't return 'wrong' if the most recent click was correct.
+      const clickConfirmedHere = this.selectedOptionService.clickConfirmedDotStatus.get(c.index);
       if (clickConfirmedHere === 'correct') {
-        this.persistence.setPersistedDotStatus(quizId, index, 'correct');
-        dotStatusCache.set(index, 'correct');
+        this.persistence.setPersistedDotStatus(c.quizId, c.index, 'correct');
+        c.dotStatusCache.set(c.index, 'correct');
         return 'correct';
       }
-      dotStatusCache.set(index, 'wrong');
+      c.dotStatusCache.set(c.index, 'wrong');
       return 'wrong';
     }
 
-    if (
-      index === currentQuestionIndex &&
-      isLiveMultiAnswerQuestion &&
-      localStatus === 'correct'
-    ) {
-      dotStatusCache.set(index, 'correct');
+    if (c.index === c.currentQuestionIndex && c.isLiveMultiAnswerQuestion && c.localStatus === 'correct') {
+      c.dotStatusCache.set(c.index, 'correct');
       return 'correct';
     }
 
     if (
-      index !== currentQuestionIndex &&
-      localStatus === 'correct' &&
-      (questionHasLiveSessionState || selections.length > 0)
+      c.index !== c.currentQuestionIndex &&
+      c.localStatus === 'correct' &&
+      (c.questionHasLiveSessionState || c.selections.length > 0)
     ) {
-      dotStatusCache.set(index, 'correct');
+      c.dotStatusCache.set(c.index, 'correct');
       return 'correct';
     }
 
     if (
-      index === currentQuestionIndex &&
-      evaluatedStatus === false &&
-      (questionHasLiveSessionState || selections.length > 0)
+      c.index === c.currentQuestionIndex &&
+      c.evaluatedStatus === false &&
+      (c.questionHasLiveSessionState || c.selections.length > 0)
     ) {
       // The most recent click may be correct even though evaluateSelectionCorrectness
-      // returns false (stale wrong selections still in the array).
-      // Trust the per-click confirmed status over the aggregate evaluation.
-      const clickConfirmed = this.selectedOptionService.clickConfirmedDotStatus.get(index);
+      // returns false (stale wrong selections). Trust the per-click confirmed status.
+      const clickConfirmed = this.selectedOptionService.clickConfirmedDotStatus.get(c.index);
       if (clickConfirmed === 'correct') {
-        this.persistence.setPersistedDotStatus(quizId, index, 'correct');
-        dotStatusCache.set(index, 'correct');
+        this.persistence.setPersistedDotStatus(c.quizId, c.index, 'correct');
+        c.dotStatusCache.set(c.index, 'correct');
         return 'correct';
       }
-      const lastClickedCorrect = this.selectedOptionService.lastClickedCorrectByQuestion.get(index);
+      const lastClickedCorrect = this.selectedOptionService.lastClickedCorrectByQuestion.get(c.index);
       if (lastClickedCorrect === true) {
-        this.persistence.setPersistedDotStatus(quizId, index, 'correct');
-        dotStatusCache.set(index, 'correct');
+        this.persistence.setPersistedDotStatus(c.quizId, c.index, 'correct');
+        c.dotStatusCache.set(c.index, 'correct');
         return 'correct';
       }
-      this.persistence.setPersistedDotStatus(quizId, index, 'wrong');
-      dotStatusCache.set(index, 'wrong');
+      this.persistence.setPersistedDotStatus(c.quizId, c.index, 'wrong');
+      c.dotStatusCache.set(c.index, 'wrong');
       return 'wrong';
     }
+    return null;
+  }
 
-    if (hasAuthoritativeCorrectState) {
-      this.persistence.setPersistedDotStatus(quizId, index, 'correct');
-      dotStatusCache.set(index, 'correct');
+  /**
+   * Authoritative-correct, evaluated, and non-current persisted branches; returns
+   * null to fall through to the unscored fallbacks. Extracted verbatim.
+   */
+  private resolveAuthoritativeDotStatus(c: ScoredDotCtx): DotStatus | null {
+    if (c.hasAuthoritativeCorrectState) {
+      this.persistence.setPersistedDotStatus(c.quizId, c.index, 'correct');
+      c.dotStatusCache.set(c.index, 'correct');
       return 'correct';
     }
 
-    if (evaluatedStatus === true || evaluatedStatus === false) {
-      const status: 'correct' | 'wrong' = evaluatedStatus ? 'correct' : 'wrong';
-      this.persistence.setPersistedDotStatus(quizId, index, status);
-      dotStatusCache.set(index, status);
+    if (c.evaluatedStatus === true || c.evaluatedStatus === false) {
+      const status: DotResolved = c.evaluatedStatus ? 'correct' : 'wrong';
+      this.persistence.setPersistedDotStatus(c.quizId, c.index, status);
+      c.dotStatusCache.set(c.index, status);
       return status;
     }
 
-    if (index !== currentQuestionIndex && localStatus === 'correct') {
-      dotStatusCache.set(index, localStatus);
-      return localStatus;
+    if (c.index !== c.currentQuestionIndex && c.localStatus === 'correct') {
+      c.dotStatusCache.set(c.index, c.localStatus);
+      return c.localStatus;
     }
 
-    if (index !== currentQuestionIndex) {
-      const persisted = this.quizService.questionCorrectness.get(scoringKey);
+    if (c.index !== c.currentQuestionIndex) {
+      const persisted = this.quizService.questionCorrectness.get(c.scoringKey);
       if (persisted === true || persisted === false) {
-        const status: 'correct' | 'wrong' = persisted ? 'correct' : 'wrong';
-        this.persistence.setPersistedDotStatus(quizId, index, status);
-        dotStatusCache.set(index, status);
+        const status: DotResolved = persisted ? 'correct' : 'wrong';
+        this.persistence.setPersistedDotStatus(c.quizId, c.index, status);
+        c.dotStatusCache.set(c.index, status);
         return status;
       }
     }
+    return null;
+  }
 
-    if (!hasScoredState && evaluatedStatus === null) {
-      if (previousCached === 'correct' || previousCached === 'wrong') {
-        dotStatusCache.set(index, previousCached);
-        return previousCached;
+  /**
+   * Unscored fallbacks: previously-cached/persisted/confirmed status, a final
+   * eval pass, then clickConfirmedDotStatus / sessionStorage, then 'pending'.
+   * Always returns. Extracted verbatim.
+   */
+  private resolveUnscoredFallbackDotStatus(c: ScoredDotCtx): DotStatus {
+    if (!c.hasScoredState && c.evaluatedStatus === null) {
+      if (c.previousCached === 'correct' || c.previousCached === 'wrong') {
+        c.dotStatusCache.set(c.index, c.previousCached);
+        return c.previousCached;
       }
-      if (localStatus === 'correct' || localStatus === 'wrong') {
-        dotStatusCache.set(index, localStatus);
-        return localStatus;
+      if (c.localStatus === 'correct' || c.localStatus === 'wrong') {
+        c.dotStatusCache.set(c.index, c.localStatus);
+        return c.localStatus;
       }
-      const confirmed2 = this.selectedOptionService.clickConfirmedDotStatus.get(index);
+      const confirmed2 = this.selectedOptionService.clickConfirmedDotStatus.get(c.index);
       if (confirmed2 === 'correct' || confirmed2 === 'wrong') {
-        dotStatusCache.set(index, confirmed2);
+        c.dotStatusCache.set(c.index, confirmed2);
         return confirmed2;
       }
-      dotStatusCache.set(index, 'pending');
+      c.dotStatusCache.set(c.index, 'pending');
       return 'pending';
     }
 
-    if (localStatus === 'correct' && index !== currentQuestionIndex) {
-      dotStatusCache.set(index, localStatus);
-      return localStatus;
+    if (c.localStatus === 'correct' && c.index !== c.currentQuestionIndex) {
+      c.dotStatusCache.set(c.index, c.localStatus);
+      return c.localStatus;
     }
 
-    if (evaluatedStatus === true || evaluatedStatus === false) {
-      const status: 'correct' | 'wrong' = evaluatedStatus ? 'correct' : 'wrong';
-      this.persistence.setPersistedDotStatus(quizId, index, status);
-      dotStatusCache.set(index, status);
+    if (c.evaluatedStatus === true || c.evaluatedStatus === false) {
+      const status: DotResolved = c.evaluatedStatus ? 'correct' : 'wrong';
+      this.persistence.setPersistedDotStatus(c.quizId, c.index, status);
+      c.dotStatusCache.set(c.index, status);
       return status;
     }
 
-    // Final fallback: check clickConfirmedDotStatus / sessionStorage
-    const finalConfirmed = this.selectedOptionService.clickConfirmedDotStatus.get(index);
+    // Final fallback: clickConfirmedDotStatus / sessionStorage.
+    const finalConfirmed = this.selectedOptionService.clickConfirmedDotStatus.get(c.index);
     if (finalConfirmed === 'correct' || finalConfirmed === 'wrong') {
-      dotStatusCache.set(index, finalConfirmed);
+      c.dotStatusCache.set(c.index, finalConfirmed);
       return finalConfirmed;
     }
     try {
-      const sessionVal = sessionStorage.getItem(SK_DOT_CONFIRMED + index);
+      const sessionVal = sessionStorage.getItem(SK_DOT_CONFIRMED + c.index);
       if (sessionVal === 'correct' || sessionVal === 'wrong') {
-        dotStatusCache.set(index, sessionVal);
+        c.dotStatusCache.set(c.index, sessionVal);
         return sessionVal;
       }
     } catch {}
