@@ -43,6 +43,33 @@ export interface OptionInteractionState {
   explanationToDisplayChange: any;
 }
 
+/**
+ * Values resolved by the first phase of a click (resolveClickContext) and
+ * threaded through the remaining phases. Splitting handleOptionClick into
+ * phases keeps the public method tiny while preserving the exact original
+ * order of operations.
+ */
+interface ClickContextBase {
+  qIdx: number;
+  isPristineCorrect: (o: any) => boolean;
+  targetKey: number;
+  targetCompositeKey: string;
+  clickedIsCorrectEarly: boolean;
+  dotStatusEarly: string;
+  isMultipleMode: boolean;
+}
+
+/** ClickContextBase plus the selection-update values from the second phase. */
+interface ClickContext extends ClickContextBase {
+  question: QuizQuestion | null;
+  questionOptions: any[];
+  isCurrentlySelected: boolean;
+  futureSelection: SelectedOption[];
+  futureKeys: Set<number>;
+  newState: boolean;
+  mockEvent: any;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -68,85 +95,96 @@ export class OptionInteractionService {
     emitExplanation: (idx: number, skipGuard?: boolean) => void,
     updateOptionAndUI: (b: OptionBindings, i: number, ev: any, ctx?: any) => void
   ): void {
-    // RESOLVE: state.optionBindings may arrive as a signal function (-clean)
-    // or plain array (-main). Normalize to array on the state object so ALL
-    // downstream code (.entries, .findIndex, .map, .filter, .[idx]) works.
-    // Extracted to normalizeStateOptionBindings; body unchanged.
-    this.normalizeStateOptionBindings(state);
-    // INDEX-MODEL REWRITE (Phase 1): resolve the active DISPLAY index from the
-    // caller-seeded, URL-authoritative state.currentQuestionIndex (extracted to
-    // resolveActiveDisplayIndex). `let` because the isPristineCorrect delegate
-    // below captures it by reference; it is no longer reassigned (the old
-    // self-heal that did so was removed).
-    let qIdx = this.resolveActiveDisplayIndex(state);
+    // Three phases, exact original order preserved: resolve the click context
+    // (index, correctness, type — may early-return on the multi-deselect guard),
+    // compute the selection update (future selection/keys, mock event), then
+    // apply all effects (persist, commit, highlight, timer, scoring, feedback,
+    // UI update, message).
+    const base = this.resolveClickContext(binding, index, event, state);
+    if (!base) return;
+    const ctx = this.computeSelectionUpdate(base, binding, index, state, getQuestionAtDisplayIndex);
+    this.applyClickEffects(ctx, binding, index, state, emitExplanation, updateOptionAndUI);
+  }
 
-    // PRISTINE CORRECTNESS RESOLVER: Resolve whether the clicked option is
-    // truly correct from quizInitialState, not from potentially-mutated binding data.
-    // Uses question TEXT matching (not index) to handle shuffled mode correctly.
-    // Thin delegate: forwards to isPristineCorrectFor, capturing `qIdx` and
-    // `state` by reference so late reassignments of `qIdx` are still honored
-    // at call-time (identical to the original inline closure semantics).
+  // ── click phases ────────────────────────────────────────────────
+
+  /**
+   * Phase 1 — resolve the click context: normalize bindings, resolve the active
+   * display index, build the pristine-correctness delegate, mark interaction,
+   * stop propagation, derive the target keys + early dot status, and resolve the
+   * single/multi type. Returns null to abort when the multi-answer guard fires
+   * (preventing deselection of a correct answer). Order is identical to the
+   * original inline head of handleOptionClick.
+   */
+  private resolveClickContext(
+    binding: OptionBindings,
+    index: number,
+    event: any,
+    state: OptionInteractionState
+  ): ClickContextBase | null {
+    // state.optionBindings may arrive as a signal function (-clean) or plain
+    // array (-main); normalize to an array on the state object.
+    this.normalizeStateOptionBindings(state);
+
+    // The caller seeds state.currentQuestionIndex from the URL-authoritative
+    // getActiveQuestionIndex(); resolve the active DISPLAY index from it.
+    const qIdx = this.resolveActiveDisplayIndex(state);
+
+    // Thin delegate: resolve pristine correctness from quizInitialState (TEXT
+    // matching, shuffle-safe), capturing qIdx + state.
     const isPristineCorrect = (o: any): boolean =>
       this.isPristineCorrectFor(o, qIdx, state);
 
-    // Mark interaction immediately
     this.quizStateService.markUserInteracted(qIdx);
-
-    // Prevent propagation
     if (event && event.stopPropagation) event.stopPropagation();
 
     const getEffectiveId = (o: any, i: number) => (o?.optionId != null && o.optionId !== -1) ? o.optionId : i;
     const targetKey = getEffectiveId(binding.option, index);
-    // Composite identity: optionId alone can collide when loader fallbacks
-    // produce duplicate ids (e.g. `optionId ?? i+1` gives position 0 an id
-    // that already exists at position 1). Use `id|displayIndex` for
-    // deselection matching so each position is distinct.
+    // Composite identity (id|displayIndex): optionId alone can collide when
+    // loader fallbacks produce duplicate ids; keep each position distinct.
     const targetCompositeKey = `${targetKey}|${index}`;
 
-    // NOTE: binding.disabled guard REMOVED. The option-item's isDisabled()
-    // already gates clicks at the template level. If a click reaches here,
-    // the user was able to interact with the option. Processing it is correct.
-    // The old guard caused false early-returns because binding.disabled was
-    // set by computeDisabledState using stale isMultiMode during initialization.
-
-    // SET DOT STATUS EARLY — before any subscription-triggering code runs,
-    // so updateDotStatus sees the correct confirmed status immediately.
+    // SET DOT STATUS EARLY — before any subscription-triggering code runs.
     const clickedIsCorrectEarly = isPristineCorrect(binding.option);
     const dotStatusEarly = clickedIsCorrectEarly ? 'correct' : 'wrong';
-
     this.recordEarlyDotStatus(qIdx, binding, clickedIsCorrectEarly, dotStatusEarly, isPristineCorrect);
-    // NOTE: sessionStorage persist of dot_confirmed is deferred to AFTER we
-    // know the question type. For multi-answer, a single correct click must
-    // NOT persist 'correct' — only full resolution should. The in-memory
-    // map is fine for live dot rendering; the sessionStorage value drives
-    // the DOT-CONFIRMED FALLBACK LOCK on refresh.
 
-    // Count the correct options in the live bindings (extracted to
-    // resolveCorrectCountInBindings; handles signal-or-array bindings).
     const correctCountInBindings = this.resolveCorrectCountInBindings(state);
-
-    // PRISTINE correct-count: bindings can have mutated correct flags (e.g.
-    // only 1 of 2 shown as correct). Cross-check against quizInitialState
-    // so multi-answer questions are never misidentified as single-answer.
     const pristineCorrectCount = this.resolvePristineCorrectCount(correctCountInBindings, qIdx, state);
-
-    // Authoritative Type Resolution (extracted to resolveIsMultipleMode).
     const isMultipleMode = this.resolveIsMultipleMode(state, correctCountInBindings, pristineCorrectCount);
 
-    // Guard: prevent deselection of correct answers in multiple
+    // Guard: prevent deselection of correct answers in multiple.
     if (isMultipleMode && binding.isSelected && isPristineCorrect(binding.option)) {
       if (event && event.preventDefault) event.preventDefault();
-      return;
+      return null;
     }
 
-    // STATE SETUP
+    return {
+      qIdx, isPristineCorrect, targetKey, targetCompositeKey,
+      clickedIsCorrectEarly, dotStatusEarly, isMultipleMode
+    };
+  }
+
+  /**
+   * Phase 2 — compute the selection update: resolve the simulated selection,
+   * detect already-selected, build the future selection + keys, normalize
+   * displayIndex, and derive the new UI-state basics (newState, mockEvent).
+   * Returns the full ClickContext for the effects phase. Order is identical to
+   * the original inline STATE SETUP / UPDATE UI STATE BASICS sections.
+   */
+  private computeSelectionUpdate(
+    base: ClickContextBase,
+    binding: OptionBindings,
+    index: number,
+    state: OptionInteractionState,
+    getQuestionAtDisplayIndex: (idx: number) => QuizQuestion | null
+  ): ClickContext {
+    const { qIdx, targetKey, targetCompositeKey, isMultipleMode } = base;
+
     const question = getQuestionAtDisplayIndex(qIdx);
     const questionOptions = Array.isArray(question?.options) ? question.options : [];
 
     let simulatedSelection = this.resolveSimulatedSelection(qIdx, state);
-
-    // Check if ALREADY selected using composite (id + displayIndex) matching.
-    // See targetCompositeKey comment above — optionId alone can collide.
     const existingIdx = this.findExistingSelectionIndex(simulatedSelection, targetCompositeKey);
     const isCurrentlySelected = (existingIdx !== -1);
 
@@ -155,89 +193,75 @@ export class OptionInteractionService {
     );
     const futureKeys = this.buildFutureKeysAndSyncMap(futureSelection, state);
 
-    // Normalize displayIndex on EVERY futureSelection entry (not just the
-    // freshly-clicked one). Pre-existing entries in simulatedSelection can
-    // come from persisted state with a missing displayIndex, and rehydrate
-    // keys strictly on displayIndex — so entries without it silently fail
-    // to restore on refresh. Resolve by matching optionId/text against the
-    // current bindings or optionsToDisplay to stamp the correct position.
+    // Back-fill displayIndex on every entry so persisted entries rehydrate.
     futureSelection = this.normalizeSelectionDisplayIndices(futureSelection, state);
-
-    // Re-sync simulatedSelection with the normalized futureSelection so the
-    // subsequent syncSelectionState call below persists the corrected data.
     simulatedSelection = [...futureSelection];
 
-    // UPDATE UI STATE BASICS
     const newState = !isCurrentlySelected;
     const mockEvent = this.buildMockEvent(isMultipleMode, newState, binding, index);
+
+    return {
+      ...base, question, questionOptions, isCurrentlySelected,
+      futureSelection, futureKeys, newState, mockEvent
+    };
+  }
+
+  /**
+   * Phase 3 — apply all click effects in the original order: selection history,
+   * dot-persist, durable commit + answered flag, highlight sync, timer stop,
+   * scoring/FET (unshuffled), feedback anchoring, the final state flags, the UI
+   * update callback, and the selection message.
+   */
+  private applyClickEffects(
+    ctx: ClickContext,
+    binding: OptionBindings,
+    index: number,
+    state: OptionInteractionState,
+    emitExplanation: (idx: number, skipGuard?: boolean) => void,
+    updateOptionAndUI: (b: OptionBindings, i: number, ev: any, ctx?: any) => void
+  ): void {
+    const {
+      qIdx, isPristineCorrect, targetKey, clickedIsCorrectEarly, dotStatusEarly,
+      isMultipleMode, question, questionOptions, isCurrentlySelected,
+      futureSelection, futureKeys, newState, mockEvent
+    } = ctx;
 
     this.updateSelectionHistory(state, newState, index);
 
     const correctIndicesSet = this.resolveCorrectIndicesSet(question, state, questionOptions);
-
     const allCorrectFound = correctIndicesSet.size > 0 && [...correctIndicesSet].every(i => futureKeys.has(i));
 
-    // DEFERRED DOT PERSIST: For single-answer, persist immediately.
-    // For multi-answer, only persist 'correct' when ALL correct answers
-    // are selected. A partial 'correct' causes the DOT-CONFIRMED FALLBACK
-    // LOCK to treat the question as fully resolved on refresh, which
-    // auto-highlights the 2nd correct answer the user never selected.
+    // DEFERRED DOT PERSIST: single-answer persists immediately; multi-answer
+    // persists 'correct' only when ALL correct are selected (a partial 'correct'
+    // makes the refresh fallback lock auto-highlight an unselected answer).
     this.persistDotConfirmedStatus(isMultipleMode, allCorrectFound, clickedIsCorrectEarly, dotStatusEarly, qIdx);
 
-    // COMMIT STATE (extracted to commitSelectionState; body unchanged).
     this.commitSelectionState(qIdx, futureSelection, futureKeys, state);
 
-    // INDEX-MODEL REWRITE (Phase 2): record a DURABLE per-display-index answered
-    // flag the moment the question is complete (single-answer = any click;
-    // multi-answer = all correct selected). Navigation clears the selection
-    // stores on revisit ("clean on revisit"), so they can't tell the Next
-    // button a revisited question was already answered — leaving it to a racy
-    // re-derivation stream. This durable flag (not cleared on plain bounce
-    // navigation) is what the post-nav re-derivation reads to re-enable Next
-    // deterministically.
+    // INDEX-MODEL REWRITE (Phase 2): record the durable per-display-index
+    // answered flag on completion so the post-nav re-derivation can re-enable
+    // Next on revisit (the selection stores are cleared on revisit).
     if (!isMultipleMode || allCorrectFound) {
       this.quizStateService.markQuestionAnswered(qIdx);
     }
 
-    // UPDATE UI
-
-    // AUTHORITATIVE HIGHLIGHT SYNC (single- vs multi-answer). Extracted to
-    // applyHighlightSync; body is unchanged.
     this.applyHighlightSync(state, index, qIdx, targetKey, isMultipleMode, futureKeys);
 
-    // Detect shuffle mode early — needed for timer and scoring gates
     const isShuffleActive = (this.quizService as any)?.isShuffleEnabled?.() &&
       (this.quizService as any)?.shuffledQuestions?.length > 0;
 
-    // Stop timer when correct answer(s) selected.
     this.stopTimerIfAnswerCorrect(isShuffleActive, isMultipleMode, isPristineCorrect, binding.option, allCorrectFound);
 
-    // FET & Explanation & Scoring
-    // For MULTI-ANSWER, defer FET/scoring to runOptionContentClick which uses
-    // the authoritative correctIndicesFromQ (resolved by resolveCorrectIndices).
-    // correctIndicesSet here is built from questionOptions which may have
-    // incomplete correct flags — causing allCorrectFound to fire prematurely
-    // (e.g. 1 of 2 correct answers found). runOptionContentClick checks
-    // clickState.remaining === 0 against the canonical correct count.
-    // PRISTINE MULTI-ANSWER GUARD: correctCountInBindings can be wrong
-    // (bindings may show only 1 correct due to mutation). Cross-check
-    // against quizInitialState to detect true multi-answer questions.
+    // In shuffled mode scoring/FET is handled by the SOC, so OIS must not score
+    // or emit there. The pristine multi-answer probe guards against bindings
+    // showing only 1 correct due to mutation.
     const pristineIsMultiAnswer = this.resolvePristineIsMultiAnswer(question, qIdx, state);
-
-    // ─── SCORING ─── (extracted to scoreAndEmitIfUnshuffledPerfect; body
-    // unchanged). In shuffled mode scoring/FET is handled by the SOC, so OIS
-    // must not score or emit there.
     this.scoreAndEmitIfUnshuffledPerfect(
       isShuffleActive, allCorrectFound, isMultipleMode, pristineIsMultiAnswer,
       qIdx, state, emitExplanation
     );
 
-    // UPDATE ANCHOR (extracted to updateFeedbackAnchor; body unchanged).
     this.updateFeedbackAnchor(state, isCurrentlySelected, index, futureKeys);
-
-    // AUTHORITATIVE FEEDBACK ANCHORING (extracted to applyFeedbackAnchoring;
-    // body unchanged). Retried in Phase 3 — previously worsened the shuffle
-    // revisit Next-button race, which Phases 1+2 fixed deterministically.
     this.applyFeedbackAnchoring(state, targetKey, index, binding);
 
     state.lastClickedOptionId = index;
@@ -247,8 +271,6 @@ export class OptionInteractionService {
     // CALL UPDATE with THE AUTHORITATIVE CONTEXT (state)
     (updateOptionAndUI as any)(binding, index, mockEvent, state);
 
-
-    // MESSAGE UPDATE
     this.syncMessageAfterClick(state, qIdx, isMultipleMode, futureKeys);
   }
 
