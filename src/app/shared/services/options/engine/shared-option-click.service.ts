@@ -55,74 +55,92 @@ export class SharedOptionClickService {
       (now - comp._lastHandledTime < 100);
 
     if (ev.kind === 'change') {
-      const native = ev.nativeEvent;
-
-      if (isRapidDuplicate) return;
-
-      comp._lastHandledIndex = index;
-      comp._lastHandledTime = now;
-
-      this.quizStateService.markUserInteracted(comp.getActiveQuestionIndex());
-
-      this.runOptionContentClick(comp, binding, index, native as any);
+      this.handleChangeEvent(comp, binding, index, ev, now, isRapidDuplicate);
       return;
     }
 
     if (ev.kind === 'interaction' || ev.kind === 'contentClick') {
-      const event = ev.nativeEvent as MouseEvent;
-
-      if (comp.isDisabled(binding, index)) {
-        if (event) {
-          event.preventDefault();
-          event.stopPropagation();
-        }
-        return;
-      }
-
-      const target = event?.target as HTMLElement;
-      const isInsideMaterialControl =
-        target?.tagName === 'INPUT' ||
-        target?.closest('.mat-mdc-radio-button') ||
-        target?.closest('.mat-mdc-checkbox');
-
-      if (isInsideMaterialControl) {
-        const isCorrectOpt = isOptionCorrect(binding?.option);
-        const isSingleMode = comp.type === 'single' && !comp.isMultiMode;
-        // Defer to the radio's (change) event ONLY when the option is already
-        // selected (change handled it). Otherwise contentClick must process as
-        // a backstop: when the inner wrapper swallows the click via
-        // stopPropagation, the radio's (change) never fires and the click is
-        // silently dropped — the cause of the shuffle "lost answer" bug (a new
-        // question's correct option whose index didn't trigger change). The
-        // rapid-duplicate guards below dedup if (change) does also fire. The
-        // single-correct-disabled exception is preserved.
-        const alreadySelected = !!(binding?.option?.selected || binding?.isSelected);
-        if (alreadySelected && !(isSingleMode && isCorrectOpt && binding.disabled)) return;
-      }
-
-      if (isRapidDuplicate) return;
-
-      if (comp.type === 'single' && !comp.isMultiMode && binding.option.selected && comp.showFeedback()) {
-        return;
-      }
-
-      comp._lastHandledIndex = index;
-      comp._lastHandledTime = now;
-
-      if (comp.type === 'single') {
-        if (comp.form.get('selectedOptionId')?.value !== index) {
-          comp.form.get('selectedOptionId')?.setValue(index, { emitEvent: false });
-        }
-      } else {
-        const ctrl = comp.form.get(String(index));
-        if (ctrl) {
-          ctrl.setValue(!binding.option.selected, { emitEvent: false });
-        }
-      }
-
-      this.runOptionContentClick(comp, binding, index, event);
+      this.handleContentClick(comp, binding, index, ev, now, isRapidDuplicate);
       return;
     }
+  }
+
+  /**
+   * The mat-radio/checkbox (change) branch of onOptionUI: dedup rapid
+   * duplicates, mark interaction, and run the click. Extracted verbatim.
+   */
+  private handleChangeEvent(comp: any, binding: any, index: number, ev: any, now: number, isRapidDuplicate: any): void {
+    const native = ev.nativeEvent;
+
+    if (isRapidDuplicate) return;
+
+    comp._lastHandledIndex = index;
+    comp._lastHandledTime = now;
+
+    this.quizStateService.markUserInteracted(comp.getActiveQuestionIndex());
+
+    this.runOptionContentClick(comp, binding, index, native as any);
+  }
+
+  /**
+   * The interaction/contentClick branch of onOptionUI: disabled guard, the
+   * material-control backstop (the shuffle "lost answer" fix), rapid-duplicate
+   * and already-selected guards, form-value sync, then run the click. Extracted
+   * verbatim — do not alter the backstop logic.
+   */
+  private handleContentClick(comp: any, binding: any, index: number, ev: any, now: number, isRapidDuplicate: any): void {
+    const event = ev.nativeEvent as MouseEvent;
+
+    if (comp.isDisabled(binding, index)) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      return;
+    }
+
+    const target = event?.target as HTMLElement;
+    const isInsideMaterialControl =
+      target?.tagName === 'INPUT' ||
+      target?.closest('.mat-mdc-radio-button') ||
+      target?.closest('.mat-mdc-checkbox');
+
+    if (isInsideMaterialControl) {
+      const isCorrectOpt = isOptionCorrect(binding?.option);
+      const isSingleMode = comp.type === 'single' && !comp.isMultiMode;
+      // Defer to the radio's (change) event ONLY when the option is already
+      // selected (change handled it). Otherwise contentClick must process as
+      // a backstop: when the inner wrapper swallows the click via
+      // stopPropagation, the radio's (change) never fires and the click is
+      // silently dropped — the cause of the shuffle "lost answer" bug (a new
+      // question's correct option whose index didn't trigger change). The
+      // rapid-duplicate guards below dedup if (change) does also fire. The
+      // single-correct-disabled exception is preserved.
+      const alreadySelected = !!(binding?.option?.selected || binding?.isSelected);
+      if (alreadySelected && !(isSingleMode && isCorrectOpt && binding.disabled)) return;
+    }
+
+    if (isRapidDuplicate) return;
+
+    if (comp.type === 'single' && !comp.isMultiMode && binding.option.selected && comp.showFeedback()) {
+      return;
+    }
+
+    comp._lastHandledIndex = index;
+    comp._lastHandledTime = now;
+
+    if (comp.type === 'single') {
+      if (comp.form.get('selectedOptionId')?.value !== index) {
+        comp.form.get('selectedOptionId')?.setValue(index, { emitEvent: false });
+      }
+    } else {
+      const ctrl = comp.form.get(String(index));
+      if (ctrl) {
+        ctrl.setValue(!binding.option.selected, { emitEvent: false });
+      }
+    }
+
+    this.runOptionContentClick(comp, binding, index, event);
   }
 
   /**
@@ -491,6 +509,22 @@ export class SharedOptionClickService {
 
     this.optionUiSyncService.updateOptionAndUI(optionBinding, index, event, ctx);
 
+    this.applyFeedbackStateFromCtx(comp, ctx, optionBinding, index, event);
+    this.syncSelectedOptionsFromCtx(comp, ctx);
+    this.rebuildBindingsFromCtx(comp, ctx);
+    this.applySingleAnswerSelectionGuard(comp, ctx, index, event);
+
+    this.updateBindingSnapshots(comp);
+    comp.cdRef.detectChanges();
+  }
+
+  /**
+   * Copy the feedback state resolved by optionUiSyncService from the ctx onto
+   * the component (feedbackConfigs, showFeedback(For), last-feedback/selected
+   * fields) and, when the clicked option's config is showing feedback, set it
+   * as the active config + last-click feedback. Extracted verbatim.
+   */
+  private applyFeedbackStateFromCtx(comp: any, ctx: any, optionBinding: any, index: number, event: any): void {
     comp.feedbackConfigs = { ...ctx.feedbackConfigs };
     comp.showFeedbackForOption = { ...ctx.showFeedbackForOption };
     comp.showFeedback.set(ctx.showFeedback);
@@ -511,12 +545,22 @@ export class SharedOptionClickService {
         questionIdx: comp.resolveCurrentQuestionIndex()
       };
     }
+  }
 
+  /** Rebuild comp.selectedOptions from the ctx selection map. Extracted verbatim. */
+  private syncSelectedOptionsFromCtx(comp: any, ctx: any): void {
     comp.selectedOptions.clear();
     for (const id of ctx.selectedOptionMap.keys()) {
       comp.selectedOptions.add(Number(id));
     }
+  }
 
+  /**
+   * Reset optionBindings from the ctx bindings if present, otherwise re-spread
+   * the live bindings applying the synced feedback/disabled state. Extracted
+   * verbatim.
+   */
+  private rebuildBindingsFromCtx(comp: any, ctx: any): void {
     if (ctx.optionBindings) {
       comp.optionBindings.set([...ctx.optionBindings]);
     } else {
@@ -527,8 +571,14 @@ export class SharedOptionClickService {
         disabled: comp.computeDisabledState(b.option, b.index)
       })));
     }
+  }
 
-    // SINGLE-ANSWER GUARD
+  /**
+   * SINGLE-ANSWER GUARD: on a checked single-answer click with ≤1 correct
+   * option, force exactly the clicked index selected across all bindings.
+   * Extracted verbatim.
+   */
+  private applySingleAnswerSelectionGuard(comp: any, ctx: any, index: number, event: any): void {
     const isCheckedForGuard = 'checked' in event ? event.checked : true;
     if (isCheckedForGuard && ctx.type === 'single') {
       const correctCount = (ctx.optionBindings ?? []).filter((b: any) =>
@@ -545,8 +595,5 @@ export class SharedOptionClickService {
         }
       }
     }
-
-    this.updateBindingSnapshots(comp);
-    comp.cdRef.detectChanges();
   }
 }
