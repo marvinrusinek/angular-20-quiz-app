@@ -61,6 +61,21 @@ export class SocAnswerProcessingService {
    * display-pipeline calls. FET-pipeline code — keep byte-for-byte.
    */
   /**
+   * Shared score + FET-gate prologue for a correctly-answered question: stop the
+   * timer, open the FET bypass (display-index keyed — CQC/navigation read by
+   * display index), score (qIdx is canonical; scoreDirectly maps shuffle
+   * internally; isMulti distinguishes the two callers), enable Next, and run the
+   * post-score tail. Used by both process*AnswerClick correct paths.
+   */
+  private scoreAndOpenFet(comp: any, qIdx: number, displayIdx: number, isMulti: boolean): void {
+    try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
+    this.explanationTextService.fetBypassForQuestion.set(displayIdx, true);
+    this.quizService.scoreDirectly(qIdx, true, isMulti);
+    this.nextButtonStateService.setNextButtonState(true);
+    this.markPerfectAndUnlockFet(comp, displayIdx);
+  }
+
+  /**
    * Shared post-score tail: mark the question perfect (display-index keyed +
    * sessionStorage), clear the FET lock and unlock the explanation, then emit
    * the show-explanation change. Identical in both process*AnswerClick paths.
@@ -290,19 +305,7 @@ export class SocAnswerProcessingService {
     } catch (e) { console.error('processMultiAnswerClick allCorrectInDurable check failed:', e); }
 
     if (allCorrectInDurable) {
-      try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
-      this.nextButtonStateService.setNextButtonState(true);
-
-      // Set FET bypass BEFORE scoring so all downstream gates are open.
-      // Use displayIdx for all display-pipeline keys (FET, multiPerfect,
-      // sessionStorage) because CQC/navigation read by display index.
-      // Keep qIdx (original/canonical) for scoreDirectly — scoring
-      // handles shuffle mapping internally.
-      this.explanationTextService.fetBypassForQuestion.set(displayIdx, true);
-
-      this.quizService.scoreDirectly(qIdx, true, true);
-
-      this.markPerfectAndUnlockFet(comp, displayIdx);
+      this.scoreAndOpenFet(comp, qIdx, displayIdx, true);
 
       // Resolve explanation text from pristine data and write directly
       let fetText = '';
@@ -519,17 +522,8 @@ export class SocAnswerProcessingService {
     } catch (e) { console.error('processSingleAnswerClick pristine-correct check failed:', e); }
 
     if (pristineSingleCorrect) {
-      try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
+      this.scoreAndOpenFet(comp, qIdx, displayIdx, false);
 
-      // Score and emit FET for single-answer correct click.
-      // Use displayIdx for all display-pipeline keys (FET bypass,
-      // multiPerfect, sessionStorage, latestExplanationIndex) because
-      // CQC/navigation read by display index. Keep qIdx for
-      // scoreDirectly — scoring handles shuffle mapping internally.
-      this.explanationTextService.fetBypassForQuestion.set(displayIdx, true);
-      this.quizService.scoreDirectly(qIdx, true, false);
-      this.nextButtonStateService.setNextButtonState(true);
-      this.markPerfectAndUnlockFet(comp, displayIdx);
       const singleFetQuestion = comp.currentQuestion()
         ?? comp.getQuestionAtDisplayIndex?.(displayIdx)
         ?? this.quizService?.getQuestionsInDisplayOrder?.()?.[displayIdx];
