@@ -127,6 +127,71 @@ export class SocAnswerProcessingService {
   }
 
   /**
+   * Resolve the single-answer correct-index set: match comp.currentQuestion text
+   * against quizService.questions[] for authoritative correct flags (fall back
+   * to qIdx / effectiveCorrectIndices). Extracted verbatim.
+   */
+  private resolveSingleAnswerCorrectSet(comp: any, qIdx: number, effectiveCorrectIndices: number[]): Set<number> {
+    let correctIdxs: number[] = [];
+    try {
+      const allQs: any[] = this.quizService?.questions ?? [];
+      const passedText = norm(comp.currentQuestion()?.questionText);
+      let canonicalQ: any = null;
+      if (passedText && allQs.length) {
+        const idx = allQs.findIndex((q: any) => norm(q?.questionText) === passedText);
+        if (idx >= 0) canonicalQ = allQs[idx];
+      }
+      if (!canonicalQ) canonicalQ = allQs[qIdx] ?? comp.currentQuestion();
+      const rawOpts = canonicalQ?.options ?? [];
+      correctIdxs = rawOpts
+        .map((o: any, i: number) => isOptionCorrect(o) ? i : -1)
+        .filter((n: number) => n >= 0);
+    } catch (e) { console.error('processSingleAnswerClick canonical-resolution failed:', e); }
+    if (correctIdxs.length === 0 && effectiveCorrectIndices?.length) {
+      correctIdxs = effectiveCorrectIndices;
+    }
+    return new Set(correctIdxs);
+  }
+
+  /**
+   * Pristine cross-check that the clicked single-answer option is correct: trust
+   * its own correct flag first, else match its text against the pristine correct
+   * texts via several question-text sources (handling a stale currentQuestion
+   * after navigation, and shuffle ordering). Extracted verbatim.
+   */
+  private isPristineSingleCorrect(comp: any, index: number, qIdx: number, displayIdx: number, isShuffled: boolean): boolean {
+    try {
+      const clickedBinding = comp.optionBindings()?.[index];
+      const clickedText = norm(clickedBinding?.option?.text);
+      if (isOptionCorrect(clickedBinding?.option)) {
+        return true;
+      } else if (clickedText) {
+        const candidates = isShuffled
+          ? [
+              comp.currentQuestion()?.questionText,
+              this.quizService?.getQuestionsInDisplayOrder?.()?.[displayIdx]?.questionText,
+              this.quizService?.shuffledQuestions?.[displayIdx]?.questionText,
+              this.quizService?.questions?.[qIdx]?.questionText,
+            ]
+          : [
+              this.quizService?.questions?.[qIdx]?.questionText,
+              this.quizService?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText,
+              comp.currentQuestion()?.questionText
+            ];
+        for (const qText of candidates) {
+          if (!qText) continue;
+          const pristineCorrectTextsSA =
+            this.quizService.getPristineCorrectTextsForQuestion(qText);
+          if (pristineCorrectTextsSA.has(clickedText)) {
+            return true;
+          }
+        }
+      }
+    } catch (e) { console.error('processSingleAnswerClick pristine-correct check failed:', e); }
+    return false;
+  }
+
+  /**
    * Single-answer FET emit: synchronous write of the resolved explanation
    * (via writeResolvedFet) plus a backup emit through the shared-option
    * explanation service (falling back to the component path). Extracted verbatim.
@@ -298,6 +363,72 @@ export class SocAnswerProcessingService {
   }
 
   /**
+   * Apply the computed multi-answer binding updates: stamp isSelected/isCorrect/
+   * disabled onto fresh binding refs, suppressing disabled on unselected options
+   * when the question isn't fully answered yet (Q2/Q4 guard). Verbatim.
+   */
+  private applyMultiAnswerBindingUpdates(comp: any, bindingUpdates: any[], suppressDisableForUnselected: boolean, durableSet: Set<number>): void {
+    comp.optionBindings.set(comp.optionBindings().map((ob: OptionBindings, bi: number) => {
+      let disabledFinal = bindingUpdates[bi].disabled;
+      if (suppressDisableForUnselected && disabledFinal && !durableSet.has(bi)) {
+        disabledFinal = false;
+      }
+      return {
+        ...ob,
+        isSelected: bindingUpdates[bi].isSelected,
+        isCorrect: bindingUpdates[bi].isCorrect,
+        disabled: disabledFinal,
+        option: ob.option ? {
+          ...ob.option,
+          ...bindingUpdates[bi].optionOverrides
+        } : ob.option
+      };
+    }));
+  }
+
+  /**
+   * Build the multi-answer feedback display from pristine indices (the clicked
+   * binding's option can be stale on the 2nd correct click; pristine indices are
+   * the source of truth). Sets comp._feedbackDisplay. Verbatim.
+   */
+  private buildMultiAnswerFeedbackDisplay(comp: any, index: number, binding: any, effectiveCorrectIndices: number[], feedbackText: string): void {
+    const correctMessage = this.feedbackService.setCorrectMessage(
+      (comp.optionsToDisplay ?? []).filter((o: Option) => o && typeof o === 'object'),
+      comp.currentQuestion()!
+    );
+    const freshOption = comp.optionBindings()?.[index]?.option ?? binding.option;
+    const isClickedCorrect = new Set(effectiveCorrectIndices).has(index);
+    comp._feedbackDisplay = {
+      idx: index,
+      config: {
+        feedback: feedbackText,
+        showFeedback: true,
+        correctMessage,
+        selectedOption: { ...freshOption, correct: isClickedCorrect },
+        options: comp.optionsToDisplay ?? [],
+        question: comp.currentQuestion() ?? null,
+        idx: index
+      } as FeedbackProps
+    };
+  }
+
+  /** Push the multi-answer selection message (built from pristine correctness). Verbatim. */
+  private pushMultiAnswerSelectionMessage(comp: any, qIdx: number, effectiveCorrectIndices: number[], durableSet: Set<number>): void {
+    const optsForMsg: Option[] = comp.optionBindings().map((ob: OptionBindings, bi: number) => ({
+      ...ob.option,
+      correct: new Set(effectiveCorrectIndices).has(bi),
+      selected: durableSet.has(bi),
+    })) as Option[];
+    const selMsg = this.selectionMessageService.computeFinalMessage({
+      index: qIdx,
+      total: this.quizService?.totalQuestions() ?? 0,
+      qType: QuestionType.MultipleAnswer,
+      opts: optsForMsg
+    });
+    this.selectionMessageService.pushMessage(selMsg, qIdx);
+  }
+
+  /**
    * Resolve the live question for an index: prefer the component's current
    * question, then the display-order question at primaryIdx, then the canonical
    * question at qIdx. Shared by the multi-answer pristine helpers.
@@ -452,66 +583,12 @@ export class SocAnswerProcessingService {
     );
 
     const suppressDisableForUnselected = this.computeSuppressDisableForUnselected(comp, qIdx, displayIdx, durableSet);
-
-    comp.optionBindings.set(comp.optionBindings().map((ob: OptionBindings, bi: number) => {
-      let disabledFinal = bindingUpdates[bi].disabled;
-      // Only allow `disabled` for clicked-incorrect options before the
-      // question is fully answered. Everything else stays enabled so the
-      // user can still pick the second correct answer.
-      if (suppressDisableForUnselected && disabledFinal && !durableSet.has(bi)) {
-        disabledFinal = false;
-      }
-      return {
-        ...ob,
-        isSelected: bindingUpdates[bi].isSelected,
-        isCorrect: bindingUpdates[bi].isCorrect,
-        disabled: disabledFinal,
-        option: ob.option ? {
-          ...ob.option,
-          ...bindingUpdates[bi].optionOverrides
-        } : ob.option
-      };
-    }));
+    this.applyMultiAnswerBindingUpdates(comp, bindingUpdates, suppressDisableForUnselected, durableSet);
 
     const feedbackText = this.clickHandler.generateMultiAnswerFeedbackText(clickState);
 
-    const correctMessage = this.feedbackService.setCorrectMessage(
-      (comp.optionsToDisplay ?? []).filter((o: Option) => o && typeof o === 'object'),
-      comp.currentQuestion()!
-    );
-    // Build selectedOption.correct from effectiveCorrectIndices (which is
-    // recomputed from pristine quizInitialState above). The `binding.option`
-    // and even comp.optionBindings()[index].option can be stale relative to
-    // the latest pristine rebuild on multi-answer questions, leading to
-    // sad-face feedback on the 2nd correct click while the option visuals
-    // correctly show green. Pristine indices are the immutable source of truth.
-    const freshOption = comp.optionBindings()?.[index]?.option ?? binding.option;
-    const isClickedCorrect = new Set(effectiveCorrectIndices).has(index);
-    comp._feedbackDisplay = {
-      idx: index,
-      config: {
-        feedback: feedbackText,
-        showFeedback: true,
-        correctMessage,
-        selectedOption: { ...freshOption, correct: isClickedCorrect },
-        options: comp.optionsToDisplay ?? [],
-        question: comp.currentQuestion() ?? null,
-        idx: index
-      } as FeedbackProps
-    };
-
-    const optsForMsg: Option[] = comp.optionBindings().map((ob: OptionBindings, bi: number) => ({
-      ...ob.option,
-      correct: new Set(effectiveCorrectIndices).has(bi),
-      selected: durableSet.has(bi),
-    })) as Option[];
-    const selMsg = this.selectionMessageService.computeFinalMessage({
-      index: qIdx,
-      total: this.quizService?.totalQuestions() ?? 0,
-      qType: QuestionType.MultipleAnswer,
-      opts: optsForMsg
-    });
-    this.selectionMessageService.pushMessage(selMsg, qIdx);
+    this.buildMultiAnswerFeedbackDisplay(comp, index, binding, effectiveCorrectIndices, feedbackText);
+    this.pushMultiAnswerSelectionMessage(comp, qIdx, effectiveCorrectIndices, durableSet);
 
     // CHECK: all correct options selected?
     // PRISTINE-AUTHORITATIVE: count how many selected options' texts
@@ -601,71 +678,9 @@ export class SocAnswerProcessingService {
       }
     } catch (e) { console.error('processSingleAnswerClick multi-answer guard failed:', e); }
 
-    // CANONICAL resolution: match comp.currentQuestion text against
-    // quizService.questions[] to get authoritative correct flags.
-    let correctIdxs: number[] = [];
-    try {
-      const allQs: any[] = this.quizService?.questions ?? [];
-      const passedText = norm(comp.currentQuestion()?.questionText);
-      let canonicalQ: any = null;
-      if (passedText && allQs.length) {
-        const idx = allQs.findIndex((q: any) => norm(q?.questionText) === passedText);
-        if (idx >= 0) canonicalQ = allQs[idx];
-      }
-      if (!canonicalQ) canonicalQ = allQs[qIdx] ?? comp.currentQuestion();
-      const rawOpts = canonicalQ?.options ?? [];
-      correctIdxs = rawOpts
-        .map((o: any, i: number) => isOptionCorrect(o) ? i : -1)
-        .filter((n: number) => n >= 0);
-    } catch (e) { console.error('processSingleAnswerClick canonical-resolution failed:', e); }
-    if (correctIdxs.length === 0 && effectiveCorrectIndices?.length) {
-      correctIdxs = effectiveCorrectIndices;
-    }
-    const correctSet = new Set(correctIdxs);
+    const correctSet = this.resolveSingleAnswerCorrectSet(comp, qIdx, effectiveCorrectIndices);
 
-    // Pristine cross-check for single-answer. Tries several sources in
-    // order of reliability so a stale `comp.currentQuestion` (which can
-    // still point to Q1's text right after navigating to Q3+) doesn't
-    // miss a real correct click and skip the post-correct disable block:
-    //   1. The clicked binding's own `option.correct` flag (set at
-    //      binding generation from the pristine JSON, so it's authoritative
-    //      unless something downstream mutates it).
-    //   2. Cache lookup by quizService.questions[qIdx].questionText.
-    //   3. Cache lookup by getQuestionsInDisplayOrder()[qIdx] (shuffled).
-    //   4. Cache lookup by comp.currentQuestion.questionText (last
-    //      resort because of the staleness risk).
-    let pristineSingleCorrect = false;
-    try {
-      const clickedBinding = comp.optionBindings()?.[index];
-      const clickedText = norm(clickedBinding?.option?.text);
-      if (isOptionCorrect(clickedBinding?.option)) {
-        pristineSingleCorrect = true;
-      } else if (clickedText) {
-        const candidates = isShuffled
-          ? [
-              comp.currentQuestion()?.questionText,
-              this.quizService?.getQuestionsInDisplayOrder?.()?.[displayIdx]?.questionText,
-              this.quizService?.shuffledQuestions?.[displayIdx]?.questionText,
-              this.quizService?.questions?.[qIdx]?.questionText,
-            ]
-          : [
-              this.quizService?.questions?.[qIdx]?.questionText,
-              this.quizService?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText,
-              comp.currentQuestion()?.questionText
-            ];
-        for (const qText of candidates) {
-          if (!qText) continue;
-          const pristineCorrectTextsSA =
-            this.quizService.getPristineCorrectTextsForQuestion(qText);
-          if (pristineCorrectTextsSA.has(clickedText)) {
-            pristineSingleCorrect = true;
-            break;
-          }
-        }
-      }
-    } catch (e) { console.error('processSingleAnswerClick pristine-correct check failed:', e); }
-
-    if (pristineSingleCorrect) {
+    if (this.isPristineSingleCorrect(comp, index, qIdx, displayIdx, isShuffled)) {
       this.scoreAndOpenFet(comp, qIdx, displayIdx, false);
 
       const singleFetQuestion = comp.currentQuestion()
