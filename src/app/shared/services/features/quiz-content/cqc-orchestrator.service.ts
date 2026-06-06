@@ -39,11 +39,22 @@ export class CqcOrchestratorService {
   private readonly questionNav = inject(CqcQuestionNavService);
 
   async runOnInit(host: Host): Promise<void> {
+    await this.runInitialSetup(host);
+    this.setupFetSafetyNets(host);
+    this.subscribeToTimerExpiryFetWrite(host);
+  }
+
+  /**
+   * Initial setup: reset state (preserving F5-restored interaction evidence),
+   * wire the reset/explanation/FET/display-text pipelines, load quiz data, and
+   * await component init. Extracted verbatim from runOnInit's head.
+   */
+  private async runInitialSetup(host: Host): Promise<void> {
     host.resetInitialState();
 
     // Preserve sessionStorage-restored interaction state across F5 refresh.
     // `_hasUserInteracted` is restored by quizStateService.restoreInteractionState()
-    // when performance.navigation.type === 'reload' â€” wiping it here would undo
+    // when performance.navigation.type === 'reload' — wiping it here would undo
     // that and break FET display after refresh.
     let isPageRefresh = false;
     try {
@@ -74,26 +85,30 @@ export class CqcOrchestratorService {
         filter((qs: any) => Array.isArray(qs) && qs.length > 0)
       )
       .subscribe(() => {});
+  }
 
-    // Build the intended qText HTML for the current index. Centralised so
-    // the visibility handler, replay retries, and the MutationObserver
-    // safety net all derive the same value. Body extracted to
-    // computeIntendedQText(host); thin delegate keeps the host field + callers.
+  /**
+   * Wire the FET-display safety nets: the intended-qText/forceStamp delegates
+   * (kept as closures so host._cqcComputeIntendedQText + the callers below stay
+   * intact), the qText MutationObserver, and the visibility-replay handler.
+   */
+  private setupFetSafetyNets(host: Host): void {
     const computeIntendedQText = (): string => this.computeIntendedQText(host);
     host._cqcComputeIntendedQText = computeIntendedQText;
-
     const forceStampIfBlank = (_reason: string): void => this.forceStampIfBlank(host);
 
-    // Persistent MutationObserver safety net. The SCSS rule
-    // `h3:empty { display: none }` means any transient blank collapses
-    // the heading, and some restore paths (tab visibility, async
-    // emissions) clear qText without routing through a path we control.
-    // Watch qText forever and debounced-restore when it goes empty:
-    //   - 80ms debounce lets intentional navigation blanks (runQuestionIndexSet)
-    //     be overwritten by stampQuestionTextNow's own retry array before
-    //     we try to intervene.
-    //   - If it's STILL empty after the debounce, restore `_lastDisplayedText`
-    //     (or recompute via the builder) so the user never sees a collapsed heading.
+    this.setupQTextObserver(host, computeIntendedQText);
+    this.setupVisibilityReplayHandler(host, forceStampIfBlank);
+  }
+
+  /**
+   * Persistent MutationObserver safety net. The SCSS rule `h3:empty { display:
+   * none }` means any transient blank collapses the heading; some restore paths
+   * clear qText without routing through a controlled path. Watch qText and,
+   * after an 80ms debounce, restore the intended HTML if it's still empty.
+   * Extracted verbatim from runOnInit.
+   */
+  private setupQTextObserver(host: Host, computeIntendedQText: () => string): void {
     try {
       const el = host.qText?.()?.nativeElement;
       if (el && typeof MutationObserver !== 'undefined') {
@@ -114,7 +129,7 @@ export class CqcOrchestratorService {
             // live index from the input signal). Using the cached
             // _lastDisplayedText was unsafe across navigation: after Next
             // from Q(N), if qText briefly emptied, this branch would
-            // restore Q(N)'s FET â€” exactly the FET->q-txt flash bug.
+            // restore Q(N)'s FET — exactly the FET->q-txt flash bug.
             const restore = computeIntendedQText();
             if (restore) this.fetGuard.writeQText(host, restore);
           }, 80);
@@ -123,7 +138,14 @@ export class CqcOrchestratorService {
         host._qTextObserver = observer;
       }
     } catch { /* ignore */ }
+  }
 
+  /**
+   * Register the visibilitychange handler that replays forceStampIfBlank at a
+   * cascade of delays to win races with the QQC visibility-restore flow.
+   * Extracted verbatim from runOnInit.
+   */
+  private setupVisibilityReplayHandler(host: Host, forceStampIfBlank: (reason: string) => void): void {
     host._cqcVisibilityHandler = () => {
       if (document.visibilityState !== 'visible') return;
       // Replay at several points to win races with the QQC visibility-restore
@@ -135,8 +157,6 @@ export class CqcOrchestratorService {
       }
     };
     document.addEventListener('visibilitychange', host._cqcVisibilityHandler);
-
-    this.subscribeToTimerExpiryFetWrite(host);
   }
 
   /**
