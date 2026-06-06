@@ -252,67 +252,10 @@ export class CqcOrchestratorService {
         ? host.currentIndex
         : (host.quizService.getCurrentQuestionIndex?.() ?? 0));
     let intended = '';
-    const hasInteracted = this.fetGuard.hasInteractionEvidence(host, idx);
-    if (hasInteracted) {
-      // Check FET caches first — but only if the question is resolved.
-      // For multi-answer questions, the cache may have been populated by
-      // an upstream path before all correct answers were selected.
-      const isResolvedForCache = this.fetGuard.isQuestionResolvedFromStorage(host, idx);
-
-      // Validate the cached FET against the LIVE display-order question.
-      // In shuffled mode, the cache may have been populated with an earlier
-      // (unshuffled) question's FET at this same numeric index, which would
-      // surface as the FET reverting to "Q1 unshuffled" on a visibility
-      // restamp. If the cached explanation text doesn't match the display-
-      // order question's raw explanation, treat the cache as stale and
-      // re-compute below.
-      let cachedFet = isResolvedForCache
-        ? ((host.explanationTextService.formattedExplanations?.[idx]?.explanation ?? '').trim()
-          || (host.explanationTextService.fetByIndex?.get(idx) ?? '').trim())
-        : '';
-      if (cachedFet) {
-        try {
-          const displayQs = host.quizService.getQuestionsInDisplayOrder?.()
-            ?? host.quizService.questions;
-          const liveQ = displayQs?.[idx];
-          const liveExpl = (liveQ?.explanation ?? '').toString().trim();
-          if (liveExpl) {
-            const cachedLower = cachedFet.toLowerCase();
-            const liveLower = liveExpl.toLowerCase();
-            // Cached FET should include the live explanation as substring.
-            // If not, it's a stale cache from a different question at this
-            // index (likely a shuffle mismatch).
-            if (cachedLower.indexOf(liveLower) === -1) {
-              cachedFet = '';
-            }
-          }
-        } catch { /* ignore */ }
-      }
-      if (cachedFet) intended = cachedFet;
-
-      // No cached FET — try on-the-fly if quiz data is available
-      if (!intended) {
-        try {
-          const questions = host.quizService.getQuestionsInDisplayOrder?.()
-            ?? host.quizService.questions;
-          const q = questions?.[idx];
-          if (q?.explanation && q?.options?.length > 0) {
-            // Check resolution to decide FET vs question text
-            const isResolved = this.fetGuard.isQuestionResolvedFromStorage(host, idx);
-            if (isResolved) {
-              const correctIndices = host.explanationTextService.getCorrectOptionIndices(q, q.options, idx);
-              if (correctIndices.length > 0) {
-                intended = host.explanationTextService.formatExplanation(q, correctIndices, q.explanation);
-              }
-            } else {
-              // Unresolved (partial multi-answer) — show question text
-              intended = this.fetGuard.buildQuestionDisplayHTML(host, idx);
-            }
-          }
-        } catch { /* ignore */ }
-        // If no FET was resolved, fall through to question text below
-        // instead of returning '' — that would leave the heading blank.
-      }
+    if (this.fetGuard.hasInteractionEvidence(host, idx)) {
+      intended = this.resolveCachedFet(host, idx);
+      // No (valid) cached FET — try on-the-fly if quiz data is available.
+      if (!intended) intended = this.computeOnTheFlyFet(host, idx);
     }
     if (!intended) {
       intended = this.fetGuard.buildQuestionDisplayHTML(host, idx);
@@ -327,6 +270,71 @@ export class CqcOrchestratorService {
       } catch {}
     }
     return intended;
+  }
+
+  /**
+   * Resolve the cached FET for idx (only when the question is resolved in
+   * storage), then validate it against the LIVE display-order question's raw
+   * explanation — a shuffle mismatch (cache from a different question at this
+   * numeric index) is treated as stale and returns ''. Extracted verbatim.
+   */
+  private resolveCachedFet(host: Host, idx: number): string {
+    // Check FET caches first — but only if the question is resolved.
+    // For multi-answer questions, the cache may have been populated by
+    // an upstream path before all correct answers were selected.
+    const isResolvedForCache = this.fetGuard.isQuestionResolvedFromStorage(host, idx);
+    let cachedFet = isResolvedForCache
+      ? ((host.explanationTextService.formattedExplanations?.[idx]?.explanation ?? '').trim()
+        || (host.explanationTextService.fetByIndex?.get(idx) ?? '').trim())
+      : '';
+    if (cachedFet) {
+      try {
+        const displayQs = host.quizService.getQuestionsInDisplayOrder?.()
+          ?? host.quizService.questions;
+        const liveQ = displayQs?.[idx];
+        const liveExpl = (liveQ?.explanation ?? '').toString().trim();
+        if (liveExpl) {
+          const cachedLower = cachedFet.toLowerCase();
+          const liveLower = liveExpl.toLowerCase();
+          // Cached FET should include the live explanation as substring.
+          // If not, it's a stale cache from a different question at this
+          // index (likely a shuffle mismatch).
+          if (cachedLower.indexOf(liveLower) === -1) {
+            cachedFet = '';
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    return cachedFet;
+  }
+
+  /**
+   * Compute the FET on-the-fly from live quiz data: when the question is
+   * resolved, format the explanation from its correct indices; when unresolved
+   * (partial multi-answer), return the question display HTML. Returns '' when
+   * no quiz data / no FET resolved (caller falls through to its fallbacks).
+   * Extracted verbatim.
+   */
+  private computeOnTheFlyFet(host: Host, idx: number): string {
+    try {
+      const questions = host.quizService.getQuestionsInDisplayOrder?.()
+        ?? host.quizService.questions;
+      const q = questions?.[idx];
+      if (q?.explanation && q?.options?.length > 0) {
+        // Check resolution to decide FET vs question text
+        const isResolved = this.fetGuard.isQuestionResolvedFromStorage(host, idx);
+        if (isResolved) {
+          const correctIndices = host.explanationTextService.getCorrectOptionIndices(q, q.options, idx);
+          if (correctIndices.length > 0) {
+            return host.explanationTextService.formatExplanation(q, correctIndices, q.explanation);
+          }
+        } else {
+          // Unresolved (partial multi-answer) — show question text
+          return this.fetGuard.buildQuestionDisplayHTML(host, idx);
+        }
+      }
+    } catch { /* ignore */ }
+    return '';
   }
 
   /**
