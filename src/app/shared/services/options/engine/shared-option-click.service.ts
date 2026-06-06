@@ -290,28 +290,20 @@ export class SharedOptionClickService {
     }
   }
 
-  runOptionContentClick(comp: any, binding: any, index: number, event: any): void {
-    const now = Date.now();
-    if (comp._lastRunClickIndex === index && comp._lastRunClickTime && (now - comp._lastRunClickTime) < 200) {
-      return;
-    }
-    comp._lastRunClickIndex = index;
-    comp._lastRunClickTime = now;
-
-    this.quizStateService.markUserInteracted(comp.getActiveQuestionIndex());
-
-    const state: any = this.buildClickState(comp);
-    this.delegateToHandleOptionClick(comp, binding, index, event, state);
-    this.syncClickStateToComp(comp, state);
-
+  /**
+   * Resolve the scoring question index and its durable selection set for a
+   * click. qIdx starts from getActiveQuestionIndex() but self-heals by text
+   * fingerprint: that signal can stick at 0 while the user is on Q2/Q3, which
+   * would write scoring to the wrong slot and skip increments. displayIdx
+   * preserves the pre-self-heal display index. Also seeds + records the click in
+   * the per-question durable set. Extracted verbatim from runOptionContentClick.
+   */
+  private resolveScoringContext(
+    comp: any,
+    index: number
+  ): { qIdx: number; displayIdx: number; durableSet: Set<number> } {
     let qIdx = comp.getActiveQuestionIndex();
     const displayIdx = qIdx; // Preserve display index before self-heal corrects to original
-    // Self-heal: getActiveQuestionIndex falls back to quizService's signal,
-    // which can be stuck at 0 while the user is actually on Q2/Q3 (observed
-    // via diagnostics). When qIdx and comp.currentQuestion's text don't
-    // match quizService.questions[qIdx], correct qIdx by text fingerprint.
-    // Without this fix, scoring writes to the wrong question's slot and
-    // increments are skipped because that slot is already 'correct'.
     try {
       const liveQText = norm(comp.currentQuestion()?.questionText);
       const allQs: any[] = this.quizService?.questions ?? [];
@@ -328,6 +320,24 @@ export class SharedOptionClickService {
     }
     const durableSet = comp._multiSelectByQuestion.get(qIdx)!;
     durableSet.add(index);
+    return { qIdx, displayIdx, durableSet };
+  }
+
+  runOptionContentClick(comp: any, binding: any, index: number, event: any): void {
+    const now = Date.now();
+    if (comp._lastRunClickIndex === index && comp._lastRunClickTime && (now - comp._lastRunClickTime) < 200) {
+      return;
+    }
+    comp._lastRunClickIndex = index;
+    comp._lastRunClickTime = now;
+
+    this.quizStateService.markUserInteracted(comp.getActiveQuestionIndex());
+
+    const state: any = this.buildClickState(comp);
+    this.delegateToHandleOptionClick(comp, binding, index, event, state);
+    this.syncClickStateToComp(comp, state);
+
+    const { qIdx, displayIdx, durableSet } = this.resolveScoringContext(comp, index);
 
     // If auto-reveal already stamped the live bindings with
     // _autoRevealedCorrect (all-incorrects-exhausted scenario), use
