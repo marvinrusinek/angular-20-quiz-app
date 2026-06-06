@@ -18,6 +18,7 @@ import { SelectedOption } from '../../../../shared/models/SelectedOption.model';
 import { SharedOptionConfig } from '../../../../shared/models/SharedOptionConfig.model';
 
 import { OptionClickHandlerService } from '../../../../shared/services/options/engine/option-click-handler.service';
+import { OptionInteractionEffectsService } from '../../../../shared/services/features/shared-option/option-interaction-effects.service';
 import { OptionLockService } from '../../../../shared/services/options/policy/option-lock.service';
 import { OptionSelectionUiService } from '../../../../shared/services/options/engine/option-selection-ui.service';
 import { OptionService } from '../../../../shared/services/options/view/option.service';
@@ -80,6 +81,7 @@ export class SharedOptionComponent
   public readonly explanationHandler = inject(SharedOptionExplanationService);
   public readonly feedbackManager = inject(SharedOptionFeedbackService);
   private readonly initService = inject(SharedOptionInitService);
+  private readonly optionInteractionEffects = inject(OptionInteractionEffectsService);
   private readonly optionLockService = inject(OptionLockService);
   public readonly optionSelectionUiService = inject(OptionSelectionUiService);
   public readonly optionService = inject(OptionService);
@@ -232,123 +234,9 @@ export class SharedOptionComponent
     // the interaction (Q→Q cleanup) effect below keeps its exact creation
     // position (effect order is load-bearing — see the service docs).
     this.optionUiSyncEffects.registerCurrentQuestionMirror(this);
-    let _lastQIdxForStampCleanup: number | undefined;
-    effect(() => {
-      const v = this.currentQuestionIndexInput();
-      if (v !== undefined) {
-        // Q→Q transition cleanup: strip any timer-expiry stamps left over
-        // from the previous question. Angular reuses .option-row DOM nodes
-        // across the @for binding rebuild, so inline pointer-events:none
-        // and the 'correct-option' class persist into the new question.
-        // Per-binding _timerExpiredStamped flags can also stick when the
-        // binding objects are mutated in place.
-        if (_lastQIdxForStampCleanup !== undefined && _lastQIdxForStampCleanup !== v) {
-          this.timerExpiredForQuestion.set(false);
-          this._timerExpiryHandled = false;
-          for (const b of this.optionBindings() ?? []) {
-            if (!b) continue;
-            delete b._timerExpiredStamped;
-            delete b._timerExpiredStampedForIndex;
-            delete b._autoRevealedCorrect;
-            if (b.cssClasses) {
-              delete b.cssClasses['correct-option'];
-              delete b.cssClasses['incorrect-option'];
-            }
-            b.isSelected = false;
-            b.disabled = false;
-            b.highlight = false;
-            b.showFeedback = false;
-            b.highlightCorrect = false;
-            b.highlightIncorrect = false;
-            if (b.option) {
-              b.option.selected = false;
-              b.option.highlight = false;
-              b.option.showIcon = false;
-              b.option.active = true;
-              delete b.option._autoRevealedCorrect;
-              delete b.option.feedback;
-            }
-          }
-          this.selectedOptionMap.clear();
-          this.perQuestionHistory.clear();
-          // Clear durable per-question click history for the INCOMING
-          // question so a 2nd visit doesn't see "all incorrects already
-          // clicked" and trigger autoreveal on the very first new click.
-          this._multiSelectByQuestion?.delete(v);
-          this.selectedOptionHistory = [];
-          this.lastFeedbackOptionId = -1;
-          this.lastFeedbackQuestionIndex = v;
-          this.feedbackConfigs = {};
-          this.showFeedbackForOption = {};
-          this.showFeedback.set(false);
-          this.highlightedOptionIds.clear();
-          this.flashDisabledSet.clear();
-          this.lockedIncorrectOptionIds.clear();
-          this.forceDisableAll.set(false);
-          this._feedbackDisplay = null;
-          this._lastClickFeedback = null;
-          this.activeFeedbackConfig.set(null);
-          // Reset the radio-group form value so Q3's index-3 click ("All of
-          // the above") doesn't carry over and auto-check Q5's NgModule
-          // (also at displayIndex 3). The pre-checked state suppresses
-          // mat-radio-button's (change) event on subsequent clicks.
-          try {
-            this.form?.get('selectedOptionId')?.setValue(null, { emitEvent: false });
-          } catch { /* ignore */ }
-          // Narrow microtask scrub — ONLY on actual Q→Q transition (inside
-          // this if-block), not on every effect re-fire. Without this gate,
-          // the click pipeline's signal writes re-trigger the effect and
-          // the scrub wipes the just-clicked option.selected back to false.
-          const _res = this.questionResolution.resolve(v, { includeSelections: false });
-          const _confirmedCorrect = this.selectedOptionService.clickConfirmedDotStatus?.get(v) === 'correct';
-          const _isResolved =
-            (_res.scoredCorrect && (!_res.isCanonMulti || _res.multiPerfect)) ||
-            this.selectedOptionService.isQuestionLocked?.(v) === true ||
-            _res.multiPerfect ||
-            (!_res.isCanonMulti && _confirmedCorrect);
-          if (!_isResolved) {
-            queueMicrotask(() => {
-              this._multiSelectByQuestion?.delete(v);
-              const current = this.optionBindings() ?? [];
-              for (const b of current) {
-                if (!b) continue;
-                delete b._timerExpiredStamped;
-                delete b._timerExpiredStampedForIndex;
-                delete b._autoRevealedCorrect;
-                // Also clear binding-level cssClasses that drive
-                // ngClass — without this the `correct-option` / `selected`
-                // classes persist via DOM reuse + OnPush staleness.
-                if (b.cssClasses) {
-                  delete b.cssClasses['correct-option'];
-                  delete b.cssClasses['incorrect-option'];
-                }
-                b.isSelected = false;
-                if (b.option) {
-                  delete b.option._autoRevealedCorrect;
-                  // Reset option-level state that persists on shared refs
-                  // across navigations — without this, prior-visit clicks
-                  // make preserveOptionHighlighting re-render them as
-                  // highlighted on revisit.
-                  b.option.selected = false;
-                  b.option.highlight = false;
-                  b.option.showIcon = false;
-                }
-              }
-              // Replace EACH binding object with a fresh spread (not just
-              // the array reference) so OnPush option-items see their
-              // individual input ref change and re-render. Without this,
-              // in-place mutations are invisible to change detection and
-              // leftover inline styles + cssClasses persist on DOM-reused
-              // elements (mat-checkbox keeps mat-mdc-checkbox-checked, etc.).
-              this.optionBindings.set(current.map((b: OptionBindings) => b ? { ...b } : b));
-              this.cdRef.markForCheck();
-            });
-          }
-        }
-        _lastQIdxForStampCleanup = v;
-        this.currentQuestionIndex = v;
-      }
-    });
+    // Effect #2 (Q→Q transition cleanup), owned by OptionInteractionEffectsService.
+    // Registered at its original position so creation order is preserved.
+    this.optionInteractionEffects.registerQuestionTransitionCleanup(this);
     // Effects #3–#9 (input mirrors + render-sync watchdogs), owned by
     // OptionUiSyncEffectsService. Registered here — immediately after the
     // interaction cleanup effect above — to preserve the original creation order.
