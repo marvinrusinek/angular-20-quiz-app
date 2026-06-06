@@ -169,67 +169,83 @@ export class CqcOrchestratorService {
   private subscribeToTimerExpiryFetWrite(host: Host): void {
     host.timerService.expired$
       .pipe(takeUntilDestroyed(host.destroyRef))
-      .subscribe(() => {
-        // Use signal-first idx resolution. host.currentIndex is a plain field
-        // updated asynchronously by an effect, so it lags the signal by a
-        // microtask. Reading it first prevents stale Q(N) timer expiry from
-        // writing Q(N)'s FET into Q(N+1)'s heading after navigation.
-        const sigIdx = host.questionIndex?.();
-        const idx = (typeof sigIdx === 'number' && sigIdx >= 0)
-          ? sigIdx
-          : (host.currentIndex >= 0
-              ? host.currentIndex
-              : (host.quizService.getCurrentQuestionIndex?.() ?? host.currentQuestionIndexValue ?? 0));
+      .subscribe(() => this.handleTimerExpiry(host));
+  }
 
-        host.timedOutIdxSig.set(idx);
-        host.timedOutIdxSubject.next(idx);
-        (window as any).__quizTimerExpired = true;
+  /**
+   * Timer-expiry handler: resolve the LIVE question index (signal-first to avoid
+   * stale Q(N) leaking into Q(N+1)), mark it timed out, store the formatted
+   * explanation, write the FET to the DOM, and markForCheck. Extracted verbatim.
+   */
+  private handleTimerExpiry(host: Host): void {
+    // Use signal-first idx resolution. host.currentIndex is a plain field
+    // updated asynchronously by an effect, so it lags the signal by a
+    // microtask. Reading it first prevents stale Q(N) timer expiry from
+    // writing Q(N)'s FET into Q(N+1)'s heading after navigation.
+    const sigIdx = host.questionIndex?.();
+    const idx = (typeof sigIdx === 'number' && sigIdx >= 0)
+      ? sigIdx
+      : (host.currentIndex >= 0
+          ? host.currentIndex
+          : (host.quizService.getCurrentQuestionIndex?.() ?? host.currentQuestionIndexValue ?? 0));
 
-        const isShuffled = host.quizService.isShuffleEnabled?.() && Array.isArray(host.quizService.shuffledQuestions) && host.quizService.shuffledQuestions.length > 0;
-        let q = isShuffled
-          ? host.quizService.shuffledQuestions[idx]
-          : host.quizService.questions?.[idx];
+    host.timedOutIdxSig.set(idx);
+    host.timedOutIdxSubject.next(idx);
+    (window as any).__quizTimerExpired = true;
 
-        q = q ?? null;
-        if (q?.explanation) {
-          const visualOpts = host.quizQuestionComponent?.()?.optionsToDisplay ?? q.options;
-          host.explanationTextService.storeFormattedExplanation(idx, q.explanation, q, visualOpts);
+    const isShuffled = host.quizService.isShuffleEnabled?.() && Array.isArray(host.quizService.shuffledQuestions) && host.quizService.shuffledQuestions.length > 0;
+    let q = isShuffled
+      ? host.quizService.shuffledQuestions[idx]
+      : host.quizService.questions?.[idx];
+
+    q = q ?? null;
+    if (q?.explanation) {
+      const visualOpts = host.quizQuestionComponent?.()?.optionsToDisplay ?? q.options;
+      host.explanationTextService.storeFormattedExplanation(idx, q.explanation, q, visualOpts);
+    }
+
+    this.writeTimerExpiryFetToDom(host, q, idx);
+
+    host.cdRef.markForCheck();
+  }
+
+  /**
+   * DIRECT DOM FET write on timer expiry — bypasses all service/guard layers.
+   * Formats the FET (or falls back to the raw explanation) and writes it to the
+   * qText element now plus on a retry cascade, each write guarded against the
+   * user having navigated away (live index must still match). Extracted verbatim.
+   */
+  private writeTimerExpiryFetToDom(host: Host, q: any, idx: number): void {
+    try {
+      const el = host.qText?.()?.nativeElement;
+      if (el && q) {
+        const opts = q.options ?? host.quizQuestionComponent?.()?.optionsToDisplay ?? [];
+        const correctIndices = host.explanationTextService.getCorrectOptionIndices(q, opts, idx);
+        let fetHtml = '';
+        if (correctIndices.length > 0) {
+          fetHtml = host.explanationTextService.formatExplanation(q, correctIndices, q.explanation);
         }
-
-        // DIRECT DOM FET WRITE on timer expiry â€” bypasses all service/guard layers
-        try {
-          const el = host.qText?.()?.nativeElement;
-          if (el && q) {
-            const opts = q.options ?? host.quizQuestionComponent?.()?.optionsToDisplay ?? [];
-            const correctIndices = host.explanationTextService.getCorrectOptionIndices(q, opts, idx);
-            let fetHtml = '';
-            if (correctIndices.length > 0) {
-              fetHtml = host.explanationTextService.formatExplanation(q, correctIndices, q.explanation);
-            }
-            if (!fetHtml) fetHtml = q.explanation || '';
-            if (fetHtml) {
-              // Guard the delayed writes against the user navigating away
-              // before they fire. Read from the input signal directly â€”
-              // host.currentIndex is a plain field updated asynchronously
-              // by an effect, so it lags the signal by a microtask and
-              // would let stale Q(N) writes leak into Q(N+1).
-              const expectedIdx = idx;
-              const write = () => {
-                const liveIdx = host.questionIndex?.() ?? host.currentIndex ?? 0;
-                if (liveIdx !== expectedIdx) return;
-                el.innerHTML = fetHtml;
-                host.qTextHtmlSig?.set(fetHtml);
-                host._lastDisplayedText = fetHtml;
-                host._fetLockedForIndex = idx;
-              };
-              write();
-              for (const delay of FET_WRITE_RETRY_CASCADE_MS) setTimeout(write, delay);
-            }
-          }
-        } catch { /* ignore */ }
-
-        host.cdRef.markForCheck();
-      });
+        if (!fetHtml) fetHtml = q.explanation || '';
+        if (fetHtml) {
+          // Guard the delayed writes against the user navigating away
+          // before they fire. Read from the input signal directly —
+          // host.currentIndex is a plain field updated asynchronously
+          // by an effect, so it lags the signal by a microtask and
+          // would let stale Q(N) writes leak into Q(N+1).
+          const expectedIdx = idx;
+          const write = () => {
+            const liveIdx = host.questionIndex?.() ?? host.currentIndex ?? 0;
+            if (liveIdx !== expectedIdx) return;
+            el.innerHTML = fetHtml;
+            host.qTextHtmlSig?.set(fetHtml);
+            host._lastDisplayedText = fetHtml;
+            host._fetLockedForIndex = idx;
+          };
+          write();
+          for (const delay of FET_WRITE_RETRY_CASCADE_MS) setTimeout(write, delay);
+        }
+      }
+    } catch { /* ignore */ }
   }
 
   /**
