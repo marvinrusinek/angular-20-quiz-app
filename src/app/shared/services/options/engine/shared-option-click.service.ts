@@ -47,25 +47,7 @@ export class SharedOptionClickService {
     if (!binding) return;
 
     comp.cdRef.markForCheck();
-    let pristineCorrect = isOptionCorrect(binding.option);
-    try {
-      const optText = norm(binding.option?.text);
-      if (optText) {
-        const qText = comp.currentQuestion()?.questionText;
-        const pristineTexts = this.quizService.getPristineCorrectTextsForQuestion(qText);
-        if (pristineTexts.size > 0) {
-          pristineCorrect = pristineTexts.has(optText);
-        }
-      }
-    } catch (e) {
-      console.error('SharedOptionClickService.onOptionUI pristine-correct lookup failed:', e);
-    }
-    comp.soundService.playOnceForOption({
-      ...binding.option,
-      correct: pristineCorrect,
-      selected: true,
-      questionIndex: comp.currentQuestionIndex
-    });
+    this.playSelectionSound(comp, binding);
 
     const now = Date.now();
     const isRapidDuplicate = comp._lastHandledIndex === index &&
@@ -143,6 +125,93 @@ export class SharedOptionClickService {
     }
   }
 
+  /**
+   * Play the selection sound for a clicked option, resolving correctness from
+   * pristine quizInitialState (TEXT match) rather than the possibly-mutated
+   * binding flag. Self-contained; extracted verbatim from onOptionUI.
+   */
+  private playSelectionSound(comp: any, binding: any): void {
+    let pristineCorrect = isOptionCorrect(binding.option);
+    try {
+      const optText = norm(binding.option?.text);
+      if (optText) {
+        const qText = comp.currentQuestion()?.questionText;
+        const pristineTexts = this.quizService.getPristineCorrectTextsForQuestion(qText);
+        if (pristineTexts.size > 0) {
+          pristineCorrect = pristineTexts.has(optText);
+        }
+      }
+    } catch (e) {
+      console.error('SharedOptionClickService.onOptionUI pristine-correct lookup failed:', e);
+    }
+    comp.soundService.playOnceForOption({
+      ...binding.option,
+      correct: pristineCorrect,
+      selected: true,
+      questionIndex: comp.currentQuestionIndex
+    });
+  }
+
+  /**
+   * Copy the resolved click state back from the per-call `state` object onto the
+   * component (render trigger, last-clicked/feedback fields, signals), and stamp
+   * showFeedbackForOption onto each state binding. Terminal side-effect;
+   * extracted verbatim from runOptionContentClick.
+   */
+  private syncClickStateToComp(comp: any, state: any): void {
+    comp.disableRenderTrigger = state.disableRenderTrigger;
+    comp.lastClickedOptionId = state.lastClickedOptionId;
+    comp.lastClickTimestamp = state.lastClickTimestamp;
+    comp.hasUserClicked.set(state.hasUserClicked);
+    comp.freezeOptionBindings.set(state.freezeOptionBindings);
+    comp.showFeedback.set(state.showFeedback);
+    comp.showFeedbackForOption = state.showFeedbackForOption;
+    comp.feedbackConfigs = state.feedbackConfigs;
+    comp.lastFeedbackOptionId = state.lastFeedbackOptionId;
+
+    for (const b of state.optionBindings) {
+      if (b) b.showFeedbackForOption = { ...comp.showFeedbackForOption };
+    }
+  }
+
+  /**
+   * Stop the timer if every correct option for the question is now selected.
+   * Resolves the canonical question by text fingerprint (falling back to qIdx /
+   * effectiveCorrectIndices) and checks the durable selection set. Terminal
+   * side-effect; extracted verbatim from runOptionContentClick.
+   */
+  private maybeStopTimerWhenAllCorrect(
+    comp: any,
+    qIdx: number,
+    effectiveCorrectIndices: number[],
+    durableSet: Set<number>
+  ): void {
+    try {
+      let allCorrectIdxs: number[] = [];
+      const allQs: any[] = this.quizService?.questions ?? [];
+      const passedText = norm(comp.currentQuestion()?.questionText);
+      let canonicalQ: any = null;
+      if (passedText && allQs.length) {
+        const cIdx = allQs.findIndex((q: any) => norm(q?.questionText) === passedText);
+        if (cIdx >= 0) canonicalQ = allQs[cIdx];
+      }
+      if (!canonicalQ) canonicalQ = allQs[qIdx] ?? comp.currentQuestion();
+      const rawOpts = canonicalQ?.options ?? [];
+      allCorrectIdxs = rawOpts
+        .map((o: any, i: number) => isOptionCorrect(o) ? i : -1)
+        .filter((n: number) => n >= 0);
+      if (allCorrectIdxs.length === 0 && effectiveCorrectIndices?.length) {
+        allCorrectIdxs = effectiveCorrectIndices;
+      }
+      if (allCorrectIdxs.length > 0) {
+        const allSelected = allCorrectIdxs.every(ci => durableSet.has(ci));
+        if (allSelected) {
+          this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true });
+        }
+      }
+    } catch {}
+  }
+
   runOptionContentClick(comp: any, binding: any, index: number, event: any): void {
     const now = Date.now();
     if (comp._lastRunClickIndex === index && comp._lastRunClickTime && (now - comp._lastRunClickTime) < 200) {
@@ -198,19 +267,8 @@ export class SharedOptionClickService {
       state.freezeOptionBindings = false;
     }
 
-    comp.disableRenderTrigger = state.disableRenderTrigger;
-    comp.lastClickedOptionId = state.lastClickedOptionId;
-    comp.lastClickTimestamp = state.lastClickTimestamp;
-    comp.hasUserClicked.set(state.hasUserClicked);
-    comp.freezeOptionBindings.set(state.freezeOptionBindings);
-    comp.showFeedback.set(state.showFeedback);
-    comp.showFeedbackForOption = state.showFeedbackForOption;
-    comp.feedbackConfigs = state.feedbackConfigs;
-    comp.lastFeedbackOptionId = state.lastFeedbackOptionId;
+    this.syncClickStateToComp(comp, state);
 
-    for (const b of state.optionBindings) {
-      if (b) b.showFeedbackForOption = { ...comp.showFeedbackForOption };
-    }
     let qIdx = comp.getActiveQuestionIndex();
     const displayIdx = qIdx; // Preserve display index before self-heal corrects to original
     // Self-heal: getActiveQuestionIndex falls back to quizService's signal,
@@ -293,31 +351,7 @@ export class SharedOptionClickService {
     const effectiveCorrectCount = effectiveCorrectIndices.length;
     const isMultiFromQ = comp.isMultiMode || comp.type === 'multiple' || effectiveCorrectCount > 1 || pristineCorrectCount > 1;
 
-    // Universal "all correct selected" timer stop
-    try {
-      let allCorrectIdxs: number[] = [];
-      const allQs: any[] = this.quizService?.questions ?? [];
-      const passedText = norm(comp.currentQuestion()?.questionText);
-      let canonicalQ: any = null;
-      if (passedText && allQs.length) {
-        const cIdx = allQs.findIndex((q: any) => norm(q?.questionText) === passedText);
-        if (cIdx >= 0) canonicalQ = allQs[cIdx];
-      }
-      if (!canonicalQ) canonicalQ = allQs[qIdx] ?? comp.currentQuestion();
-      const rawOpts = canonicalQ?.options ?? [];
-      allCorrectIdxs = rawOpts
-        .map((o: any, i: number) => isOptionCorrect(o) ? i : -1)
-        .filter((n: number) => n >= 0);
-      if (allCorrectIdxs.length === 0 && effectiveCorrectIndices?.length) {
-        allCorrectIdxs = effectiveCorrectIndices;
-      }
-      if (allCorrectIdxs.length > 0) {
-        const allSelected = allCorrectIdxs.every(ci => durableSet.has(ci));
-        if (allSelected) {
-          this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true });
-        }
-      }
-    } catch {}
+    this.maybeStopTimerWhenAllCorrect(comp, qIdx, effectiveCorrectIndices, durableSet);
 
     // â”€â”€â”€ Delegate to answer processing sub-services â”€â”€â”€
 
@@ -377,8 +411,24 @@ export class SharedOptionClickService {
       console.log('[FB-DIAG] showFeedback() is false');
     }
 
-    // Create NEW binding object references so OnPush option-item children
-    // detect the input change and re-render.
+    this.rebuildBindingsForRender(comp, index, isMultiFromQ, durableSet);
+
+    comp.cdRef.detectChanges();
+  }
+
+  /**
+   * Create NEW binding object references so OnPush option-item children detect
+   * the input change and re-render. For single-answer, stamp selected/highlight/
+   * showIcon from the clicked index + durable history; for multi-answer, just
+   * fresh-spread each binding. Terminal side-effect; extracted verbatim from
+   * runOptionContentClick.
+   */
+  private rebuildBindingsForRender(
+    comp: any,
+    index: number,
+    isMultiFromQ: boolean,
+    durableSet: Set<number>
+  ): void {
     if (!isMultiFromQ) {
       const histSet = new Set<number>(durableSet ?? []);
       comp.optionBindings.set((comp.optionBindings() ?? []).map((b: any, bi: number) => {
@@ -401,8 +451,6 @@ export class SharedOptionClickService {
         option: b.option ? { ...b.option } : b.option
       })));
     }
-
-    comp.cdRef.detectChanges();
   }
 
   // ── Option UI (delegated) ──────────────────────────────────────
