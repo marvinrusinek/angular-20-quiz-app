@@ -9,14 +9,18 @@ import { norm } from '../../../utils/text-norm';
 
 type Host = CodelabQuizContentComponent;
 
-/** Derived flags for one displayText emission, threaded across the gate phases. */
-interface DisplayTextCtx {
+/** Flags derivable before the fast-path short-circuit (no interaction lookups). */
+interface EarlyDisplayFlags {
   currentIdx: number;
   lowerText: string;
   isQuestionText: boolean;
   isTimedOutForIdx: boolean;
   latestExpIdx: number;
   fetBypass: boolean;
+}
+
+/** Full derived context for one displayText emission, threaded across the gate phases. */
+interface DisplayTextCtx extends EarlyDisplayFlags {
   hasRealInteraction: boolean;
   isResolvedForGuard: boolean;
   qForMultiCheck: any;
@@ -57,7 +61,28 @@ export class CqcDisplayTextService {
    * explanation substitution, then run the DOM-write guards. Extracted verbatim.
    */
   private handleDisplayText(host: Host, text: string): void {
-    let finalText = text;
+    const early = this.computeEarlyFlags(host, text);
+
+    // FAST-PATH FET writes (SOC-confirmed or timer-expiry) skip all gates.
+    if (this.tryFastPathWrites(host, text, early.currentIdx, early.isQuestionText, early.lowerText, early.isTimedOutForIdx, early.fetBypass)) {
+      return;
+    }
+
+    const ctx = this.buildDisplayTextContext(host, early);
+    const finalText = this.applyExplanationSubstitution(host, text, ctx);
+
+    const el = host.qText?.()?.nativeElement;
+    if (!el) return;
+    this.writeWithDomGuards(host, el, finalText, ctx);
+  }
+
+  /**
+   * Compute the flags needed before the fast-path short-circuit: the live index
+   * (read from the input signal, which is sync-correct unlike host.currentIndex),
+   * whether the text is question text, timer-expiry, and the FET bypass.
+   * Extracted verbatim.
+   */
+  private computeEarlyFlags(host: Host, text: string): EarlyDisplayFlags {
     const lowerText = (text ?? '').toLowerCase();
     // Read currentIdx from the input signal — host.currentIndex is a plain
     // field updated asynchronously by an effect, so it lags questionIndex() by
@@ -70,13 +95,17 @@ export class CqcDisplayTextService {
     const currentIdx = liveIdx;
     const isTimedOutForIdx = host.timedOutIdxSubject?.getValue?.() === currentIdx && currentIdx >= 0;
     const latestExpIdx = host.explanationTextService?.latestExplanationIndex ?? -1;
-
-    // FAST-PATH FET writes (SOC-confirmed or timer-expiry) skip all gates.
     const fetBypass = this.computeFetBypass(host, currentIdx, text, latestExpIdx);
-    if (this.tryFastPathWrites(host, text, currentIdx, isQuestionText, lowerText, isTimedOutForIdx, fetBypass)) {
-      return;
-    }
+    return { currentIdx, lowerText, isQuestionText, isTimedOutForIdx, latestExpIdx, fetBypass };
+  }
 
+  /**
+   * Compute the post-fast-path context: interaction/resolution evidence, the
+   * multi-answer block, auto-reveal bypass, and FET-confirmed — merged onto the
+   * early flags. Extracted verbatim.
+   */
+  private buildDisplayTextContext(host: Host, early: EarlyDisplayFlags): DisplayTextCtx {
+    const { currentIdx, isTimedOutForIdx, latestExpIdx, lowerText } = early;
     const hasRealInteraction = this.fetGuard.hasInteractionEvidence(host, currentIdx);
     const isResolvedForGuard = hasRealInteraction
       ? this.fetGuard.isQuestionResolvedFromStorage(host, currentIdx)
@@ -92,17 +121,11 @@ export class CqcDisplayTextService {
     const multiAnswerBlocked = isMultiAnswer && hasRealInteraction && !isResolvedForGuard && !isTimedOutForIdx && !fetBypassActive;
     const fetConfirmed = this.computeFetConfirmed(host, currentIdx, latestExpIdx, lowerText);
 
-    const ctx: DisplayTextCtx = {
-      currentIdx, lowerText, isQuestionText, isTimedOutForIdx, latestExpIdx,
-      fetBypass, hasRealInteraction, isResolvedForGuard, qForMultiCheck,
+    return {
+      ...early,
+      hasRealInteraction, isResolvedForGuard, qForMultiCheck,
       multiAnswerBlocked, fetBypassActive, fetConfirmed
     };
-
-    finalText = this.applyExplanationSubstitution(host, finalText, ctx);
-
-    const el = host.qText?.()?.nativeElement;
-    if (!el) return;
-    this.writeWithDomGuards(host, el, finalText, ctx);
   }
 
   /**
