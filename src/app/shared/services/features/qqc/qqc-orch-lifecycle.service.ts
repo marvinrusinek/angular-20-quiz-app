@@ -30,6 +30,17 @@ export class QqcOrchLifecycleService {
 
     this.wireTimerSubscriptions(host);
 
+    await this.bootstrapAndInitialize(host);
+  }
+
+  /**
+   * The main bootstrap sequence (wrapped in a try so one failing step can't
+   * abort the rest): call the super ngOnInit, populate options, wire the
+   * render-ready stream, kick off the component-state/question-data loads, seed
+   * the first question, run the quiz initializers, then wire the post-load
+   * subscriptions. Order + inline awaits preserved from the original.
+   */
+  private async bootstrapAndInitialize(host: Host): Promise<void> {
     try {
       Object.getPrototypeOf(Object.getPrototypeOf(host)).ngOnInit?.call(host);
 
@@ -187,6 +198,12 @@ export class QqcOrchLifecycleService {
    * currentQuestion/options/explanation), and the shuffle-preference watcher.
    */
   private wireQuestionStateSubscriptions(host: Host): void {
+    this.wireIndexTimerSubscription(host);
+    this.wireCoreStateSubscriptions(host);
+  }
+
+  /** Wire the index/timer subscription (drives per-question reset + FET prewarm). */
+  private wireIndexTimerSubscription(host: Host): void {
     host.lifecycle.createIndexTimerSubscription({
       destroyRef: host.destroyRef,
       currentQuestionIndex$: host.quizService.currentQuestionIndex$,
@@ -203,7 +220,13 @@ export class QqcOrchLifecycleService {
       },
       onTimerExpiredFor: (i0: number) => host.onTimerExpiredFor(i0)
     });
+  }
 
+  /**
+   * Wire the current-index mirror, the question-payload handler (sets
+   * currentQuestion/options/explanation), and the shuffle-preference watcher.
+   */
+  private wireCoreStateSubscriptions(host: Host): void {
     host.subscriptionWiring.createCurrentQuestionIndexSubscription((index: number) => {
       host.currentQuestionIndex.set(index);
     });
@@ -229,6 +252,15 @@ export class QqcOrchLifecycleService {
    * route-param subscription.
    */
   private wireNavigationSubscriptions(host: Host): void {
+    this.wireNavigationEventSubscriptions(host);
+    this.wirePreResetAndRouteSubscriptions(host);
+  }
+
+  /**
+   * Wire the navigation-event subscriptions (success, back, to-question,
+   * explanation/render/UI resets) and push them onto displaySubscriptions.
+   */
+  private wireNavigationEventSubscriptions(host: Host): void {
     const navSubs = host.subscriptionWiring.createNavigationEventSubscriptions({
       onNavigationSuccess: () => host.resetUIForNewQuestion(),
       onNavigatingBack: () => {
@@ -252,7 +284,10 @@ export class QqcOrchLifecycleService {
     for (const sub of navSubs) {
       host.displaySubscriptions.push(sub);
     }
+  }
 
+  /** Wire the pre-reset subscription and the route-param subscription. */
+  private wirePreResetAndRouteSubscriptions(host: Host): void {
     host.subscriptionWiring.createPreResetSubscription({
       destroyRef: host.destroyRef,
       onPreReset: (idx: number) => host.resetPerQuestionState(idx),
