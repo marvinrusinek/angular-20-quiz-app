@@ -574,22 +574,13 @@ export class QuizDotStatusService {
     } = params;
     const forceRecompute = !!params.options?.forceRecompute;
 
-    // On refresh, restore dot color from clickConfirmedDotStatus (sessionStorage-backed).
-    const r1 = this.tryConfirmedOnRefresh(index, pendingDotStatusOverrides, activeDotClickStatus, dotStatusCache);
-    if (r1) return r1;
+    // Refresh-restore short-circuit + fresh-at-Q1 reset.
+    const early = this.tryEarlyDotExits(index, currentQuestionIndex, dotStatusCache, pendingDotStatusOverrides, activeDotClickStatus);
+    if (early) return early;
 
-    if (this.isQuizFreshAtQuestionOne(currentQuestionIndex)) {
-      dotStatusCache.set(index, 'pending');
-      return 'pending';
-    }
-
-    const pendingOverrideStatus = pendingDotStatusOverrides.get(index);
-    const previousCached = dotStatusCache.get(index);
-    const hasCachedStatus = dotStatusCache.has(index);
-
-    const selectionParams = { index, currentQuestionIndex, optionsToDisplay, currentQuestion, questionsArray };
-    const selections = this.getSelectionsForQuestion(selectionParams);
-    const questionHasLiveSessionState = this.hasLiveSessionStateForQuestion(quizId, index);
+    const {
+      pendingOverrideStatus, previousCached, hasCachedStatus, selections, questionHasLiveSessionState,
+    } = this.deriveDotState(params);
 
     const r2 = this.tryCachedShortCircuit({
       index, currentQuestionIndex, forceRecompute, dotStatusCache,
@@ -609,6 +600,43 @@ export class QuizDotStatusService {
       selections, questionHasLiveSessionState, pendingOverrideStatus, previousCached,
       dotStatusCache, pendingDotStatusOverrides, activeDotClickStatus,
     });
+  }
+
+  /** Per-question derived state used by the cached/no-selection/scored phases. Extracted verbatim. */
+  private deriveDotState(p: GetQuestionStatusParams): {
+    pendingOverrideStatus: DotResolved | undefined;
+    previousCached: DotStatus | undefined;
+    hasCachedStatus: boolean;
+    selections: Array<SelectedOption | Option>;
+    questionHasLiveSessionState: boolean;
+  } {
+    const { index, quizId, currentQuestionIndex, optionsToDisplay, currentQuestion, questionsArray, dotStatusCache, pendingDotStatusOverrides } = p;
+    const selectionParams = { index, currentQuestionIndex, optionsToDisplay, currentQuestion, questionsArray };
+    return {
+      pendingOverrideStatus: pendingDotStatusOverrides.get(index),
+      previousCached: dotStatusCache.get(index),
+      hasCachedStatus: dotStatusCache.has(index),
+      selections: this.getSelectionsForQuestion(selectionParams),
+      questionHasLiveSessionState: this.hasLiveSessionStateForQuestion(quizId, index),
+    };
+  }
+
+  /** Pre-derivation early exits: refresh-restore short-circuit, then fresh-at-Q1 -> pending. Extracted verbatim. */
+  private tryEarlyDotExits(
+    index: number,
+    currentQuestionIndex: number,
+    dotStatusCache: Map<number, DotStatus>,
+    pendingDotStatusOverrides: Map<number, DotResolved>,
+    activeDotClickStatus: Map<number, DotResolved>
+  ): DotStatus | null {
+    const r1 = this.tryConfirmedOnRefresh(index, pendingDotStatusOverrides, activeDotClickStatus, dotStatusCache);
+    if (r1) return r1;
+
+    if (this.isQuizFreshAtQuestionOne(currentQuestionIndex)) {
+      dotStatusCache.set(index, 'pending');
+      return 'pending';
+    }
+    return null;
   }
 
   /** Refresh-restore: confirmed dot color when no pending/active override exists. Extracted verbatim. */
@@ -702,7 +730,22 @@ export class QuizDotStatusService {
       return localStatus;
     }
 
-    // Fallback: clickConfirmedDotStatus (restored from sessionStorage on refresh).
+    const restored = this.restoreDotFromConfirmedOrSession(index, quizId, dotStatusCache);
+    if (restored) return restored;
+
+    dotStatusCache.set(index, 'pending');
+    return 'pending';
+  }
+
+  /**
+   * Restore a confirmed dot status (cache + persist) from clickConfirmedDotStatus,
+   * then directly from sessionStorage; null when neither has a value. Extracted verbatim.
+   */
+  private restoreDotFromConfirmedOrSession(
+    index: number,
+    quizId: string,
+    dotStatusCache: Map<number, DotStatus>
+  ): DotResolved | null {
     const confirmedStatus = this.selectedOptionService.clickConfirmedDotStatus.get(index);
     if (confirmedStatus === 'correct' || confirmedStatus === 'wrong') {
       dotStatusCache.set(index, confirmedStatus);
@@ -710,7 +753,6 @@ export class QuizDotStatusService {
       return confirmedStatus;
     }
 
-    // Last resort: sessionStorage directly.
     try {
       const sessionVal = sessionStorage.getItem(SK_DOT_CONFIRMED + index);
       if (sessionVal === 'correct' || sessionVal === 'wrong') {
@@ -719,9 +761,7 @@ export class QuizDotStatusService {
         return sessionVal;
       }
     } catch { }
-
-    dotStatusCache.set(index, 'pending');
-    return 'pending';
+    return null;
   }
 
   /**
@@ -745,11 +785,7 @@ export class QuizDotStatusService {
       dotStatusCache, pendingDotStatusOverrides, activeDotClickStatus,
     } = p;
 
-    const scoringKey = this.getScoringKey(quizId, index);
-    const persistedScoredValues = [this.quizService.questionCorrectness.get(scoringKey)]
-      .filter((value): value is boolean => value === true || value === false);
-    const hasScoredState = persistedScoredValues.length > 0;
-    const hasAuthoritativeCorrectState = persistedScoredValues.includes(true);
+    const { scoringKey, hasScoredState, hasAuthoritativeCorrectState } = this.getScoredStateFlags(quizId, index);
 
     const evalParams = { index, selections, currentQuestionIndex, optionsToDisplay, currentQuestion, questionsArray };
     const evaluatedStatus = selections.length > 0
@@ -759,17 +795,7 @@ export class QuizDotStatusService {
       this.hasOptimisticCorrectSelection({ ...evalParams, selections });
 
     const localStatus = this.persistence.getPersistedDotStatus(quizId, index);
-    const question = this.getQuestionForIndex(index, questionsArray);
-    const fallbackOptions = this.getFallbackOptions(index, currentQuestionIndex, optionsToDisplay, currentQuestion);
-    const resolvedCorrectOptionCount = this.getResolvedCorrectOptionEntries(question, fallbackOptions).length;
-    const isLiveMultiAnswerQuestion =
-      index === currentQuestionIndex &&
-      (questionHasLiveSessionState || selections.length > 0) &&
-      (
-        question?.type === QuestionType.MultipleAnswer ||
-        resolvedCorrectOptionCount > 1
-      );
-
+    const isLiveMultiAnswerQuestion = this.computeIsLiveMultiAnswer(p);
     const activeClickStatus = activeDotClickStatus.get(index);
 
     return {
@@ -778,6 +804,34 @@ export class QuizDotStatusService {
       scoringKey, hasScoredState, hasAuthoritativeCorrectState, evaluatedStatus,
       hasOptimisticCorrectSelection, localStatus, isLiveMultiAnswerQuestion, activeClickStatus,
     };
+  }
+
+  /** Scoring flags from questionCorrectness for this index. Extracted verbatim. */
+  private getScoredStateFlags(quizId: string, index: number): {
+    scoringKey: any; hasScoredState: boolean; hasAuthoritativeCorrectState: boolean;
+  } {
+    const scoringKey = this.getScoringKey(quizId, index);
+    const persistedScoredValues = [this.quizService.questionCorrectness.get(scoringKey)]
+      .filter((value): value is boolean => value === true || value === false);
+    return {
+      scoringKey,
+      hasScoredState: persistedScoredValues.length > 0,
+      hasAuthoritativeCorrectState: persistedScoredValues.includes(true),
+    };
+  }
+
+  /** Is this the live (current, interacted) multi-answer question? Extracted verbatim. */
+  private computeIsLiveMultiAnswer(p: ScoredDotParams): boolean {
+    const { index, currentQuestionIndex, optionsToDisplay, currentQuestion, questionsArray, selections, questionHasLiveSessionState } = p;
+    const question = this.getQuestionForIndex(index, questionsArray);
+    const fallbackOptions = this.getFallbackOptions(index, currentQuestionIndex, optionsToDisplay, currentQuestion);
+    const resolvedCorrectOptionCount = this.getResolvedCorrectOptionEntries(question, fallbackOptions).length;
+    return index === currentQuestionIndex &&
+      (questionHasLiveSessionState || selections.length > 0) &&
+      (
+        question?.type === QuestionType.MultipleAnswer ||
+        resolvedCorrectOptionCount > 1
+      );
   }
 
   /** setPersistedDotStatus + cache + return. Extracted (common to the scored branches). */
