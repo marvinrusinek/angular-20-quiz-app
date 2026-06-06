@@ -23,6 +23,7 @@ import { OptionSelectionUiService } from '../../../../shared/services/options/en
 import { OptionService } from '../../../../shared/services/options/view/option.service';
 import { OptionUiContextBuilderService } from '../../../../shared/services/options/engine/option-ui-context-builder.service';
 import { OptionUiSyncContext } from '../../../../shared/services/options/engine/option-ui-sync.service';
+import { OptionUiSyncEffectsService } from '../../../../shared/services/features/shared-option/option-ui-sync-effects.service';
 import { QuestionResolutionService } from '../../../../shared/services/options/engine/question-resolution.service';
 import { QuizService } from '../../../../shared/services/data/quiz.service';
 import { SelectedOptionService } from '../../../../shared/services/state/selectedoption.service';
@@ -83,6 +84,7 @@ export class SharedOptionComponent
   public readonly optionSelectionUiService = inject(OptionSelectionUiService);
   public readonly optionService = inject(OptionService);
   private readonly optionUiContextBuilder = inject(OptionUiContextBuilderService);
+  private readonly optionUiSyncEffects = inject(OptionUiSyncEffectsService);
   private readonly orchestrator = inject(SharedOptionOrchestratorService);
   private readonly questionResolution = inject(QuestionResolutionService);
   public readonly quizService = inject(QuizService);
@@ -225,11 +227,11 @@ export class SharedOptionComponent
 
     // Mirror signal inputs into mutable backing fields. Services elsewhere
     // freely reassign these fields via `host as any`, so we cannot expose
-    // the readonly signals directly under those names.
-    effect(() => {
-      const v = this.currentQuestionInput();
-      if (v !== undefined) this.currentQuestion.set(v);
-    });
+    // the readonly signals directly under those names. The UI-sync effects
+    // are owned by OptionUiSyncEffectsService; registered here in two parts so
+    // the interaction (Q→Q cleanup) effect below keeps its exact creation
+    // position (effect order is load-bearing — see the service docs).
+    this.optionUiSyncEffects.registerCurrentQuestionMirror(this);
     let _lastQIdxForStampCleanup: number | undefined;
     effect(() => {
       const v = this.currentQuestionIndexInput();
@@ -347,78 +349,10 @@ export class SharedOptionComponent
         this.currentQuestionIndex = v;
       }
     });
-    effect(() => {
-      let v = this.optionsToDisplayInput();
-      if (v !== undefined) {
-        // SHUFFLE GUARD: ensure options belong to the shuffled question for this index.
-        // Compare the SET of option texts — if the incoming options have texts that
-        // don't match the shuffled question's options, replace them.
-        const qs = this.quizService;
-        if (qs.isShuffleEnabled() && qs.shuffledQuestions?.length > 0) {
-          const idx = this.currentQuestionIndex ?? qs.currentQuestionIndex ?? 0;
-          const correctQ = qs.shuffledQuestions[idx];
-          if (correctQ?.options?.length > 0 && v.length > 0) {
-            const correctTexts = new Set(correctQ.options.map((o: Option) => norm(o?.text)));
-            const actualTexts = new Set(v.map((o: Option) => norm(o?.text)));
-            const match = correctTexts.size === actualTexts.size && [...correctTexts].every(t => actualTexts.has(t));
-            if (!match) {
-              v = correctQ.options.map((o: Option) => ({ ...o }));
-            }
-          }
-        }
-        this.optionsToDisplay = v;
-      }
-    });
-    effect(() => {
-      const v = this.typeInput();
-      if (v !== undefined) this.type = v;
-    });
-    effect(() => {
-      const v = this.optionBindingsInput();
-      if (v !== undefined) {
-        // Don't let a stale parent push overwrite auto-reveal bindings.
-        // The parent's optionBindings() doesn't carry _autoRevealedCorrect,
-        // so a zone.js tick re-evaluating the parent template would wipe
-        // the green highlight set by triggerAllIncorrectsExhaustedAutoReveal.
-        if (this.optionBindings().some((b: OptionBindings) => b?._autoRevealedCorrect)) return;
-        this.optionBindings.set(v);
-      }
-    });
-    // Auto-show options when bindings are populated. Without this, paths
-    // that populate optionBindings without explicitly calling
-    // showOptions.set(true) (e.g. dynamic component creation) leave the
-    // template gated and options never render.
-    effect(() => {
-      if (this.optionBindings().length > 0) this.showOptions.set(true);
-    });
-
-    // SELF-HEAL WATCHDOG: when optionsToDisplay has items but
-    // optionBindings is empty, the binding generation race lost — options
-    // never render. This watchdog forces generation. Runs only when the
-    // mismatch persists (no infinite loop because once bindings exist
-    // the condition stops firing).
-    effect(() => {
-      const opts = this.optionsToDisplay;
-      const bindings = this.optionBindings();
-      if (Array.isArray(opts) && opts.length > 0 && (!bindings || bindings.length === 0)) {
-        // Reset the early-return guard in generateOptionBindings
-        this.optionBindingsInitialized.set(false);
-        // Defer one microtask so we don't recurse inside the current effect
-        queueMicrotask(() => {
-          try {
-            this.bindingService.generateOptionBindings(this);
-          } catch (e) {
-            console.error('SharedOptionComponent self-heal generateOptionBindings failed', e);
-          }
-        });
-      }
-    });
-    effect(() => {
-      this.isNavigatingBackwards.set(this.isNavigatingBackwardsInput());
-    });
-    effect(() => {
-      this.renderReady.set(this.renderReadyInput());
-    });
+    // Effects #3–#9 (input mirrors + render-sync watchdogs), owned by
+    // OptionUiSyncEffectsService. Registered here — immediately after the
+    // interaction cleanup effect above — to preserve the original creation order.
+    this.optionUiSyncEffects.registerInputAndRenderSync(this);
 
     // Multi-answer auto-disable. Reactively watches the selections signal
     // and rebuilds optionBindings with fresh refs the moment every pristine-
