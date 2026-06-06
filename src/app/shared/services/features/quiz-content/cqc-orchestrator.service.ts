@@ -575,67 +575,73 @@ export class CqcOrchestratorService {
       host.isExplanationTextDisplayed$.pipe(startWith(false)),
       host.activeFetText$.pipe(startWith(''))
     ]).pipe(
-      map(
-        (arr: any): CombinedQuestionDataType => {
-          const quiz: { currentQuestion: QuizQuestion | null; currentOptions: Option[]; explanation: string; currentIndex: number; } | null = arr[0];
-          const numberOfCorrectAnswers: number | string = arr[1];
-          const isExplanationDisplayed: boolean = arr[2];
-          const formattedExplanation: string = arr[3];
-          const safeQuizData = quiz?.currentQuestion
-            ? quiz
-            : { currentQuestion: null, currentOptions: [], explanation: '', currentIndex: 0 };
-
-          const selectionMessage =
-            'selectionMessage' in safeQuizData
-              ? (safeQuizData as any).selectionMessage || ''
-              : '';
-
-          const currentQuizData: CombinedQuestionDataType = {
-            currentQuestion: safeQuizData.currentQuestion,
-            currentOptions: safeQuizData.currentOptions ?? [],
-            options: safeQuizData.currentOptions ?? [],
-            questionText: safeQuizData.currentQuestion?.questionText || 'No question available',
-            explanation: safeQuizData.explanation ?? '',
-            correctAnswersText: '',
-            isExplanationDisplayed: !!isExplanationDisplayed,
-            isNavigatingToPrevious: false,
-            selectionMessage
-          };
-
-          return host.calculateCombinedQuestionData(
-            currentQuizData,
-            +(numberOfCorrectAnswers ?? 0),
-            !!isExplanationDisplayed,
-            formattedExplanation ?? ''
-          );
-        }
-      ),
+      map((arr: any): CombinedQuestionDataType => this.mapToCombinedQuestionData(host, arr)),
       filter((data: CombinedQuestionDataType | null): data is CombinedQuestionDataType => data !== null),
-      catchError((_error: Error) => {
-        const fallback: CombinedQuestionDataType = {
-          currentQuestion: {
-            questionText: 'Error loading question',
-            options: [],
-            explanation: '',
-            selectedOptions: [],
-            answer: [],
-            selectedOptionIds: [],
-            type: undefined as any,
-            maxSelections: 0
-          },
-          currentOptions: [],
-          options: [],
-          questionText: 'Error loading question',
-          explanation: '',
-          correctAnswersText: '',
-          isExplanationDisplayed: false,
-          isNavigatingToPrevious: false,
-          selectionMessage: ''
-        };
-
-        return of<CombinedQuestionDataType>(fallback);
-      }),
+      catchError((_error: Error) => of<CombinedQuestionDataType>(this.buildCombinedQuestionDataFallback())),
     ));
+  }
+
+  /** Project the combineLatest tuple into combined question data. Extracted verbatim. */
+  private mapToCombinedQuestionData(host: Host, arr: any): CombinedQuestionDataType {
+    const quiz: { currentQuestion: QuizQuestion | null; currentOptions: Option[]; explanation: string; currentIndex: number; } | null = arr[0];
+    const numberOfCorrectAnswers: number | string = arr[1];
+    const isExplanationDisplayed: boolean = arr[2];
+    const formattedExplanation: string = arr[3];
+    const safeQuizData = quiz?.currentQuestion
+      ? quiz
+      : { currentQuestion: null, currentOptions: [], explanation: '', currentIndex: 0 };
+
+    const currentQuizData = this.buildCurrentQuizData(safeQuizData, !!isExplanationDisplayed);
+
+    return host.calculateCombinedQuestionData(
+      currentQuizData,
+      +(numberOfCorrectAnswers ?? 0),
+      !!isExplanationDisplayed,
+      formattedExplanation ?? ''
+    );
+  }
+
+  /** Build the pre-calculation combined-question-data shape from the safe quiz data. */
+  private buildCurrentQuizData(safeQuizData: any, isExplanationDisplayed: boolean): CombinedQuestionDataType {
+    const selectionMessage =
+      'selectionMessage' in safeQuizData
+        ? (safeQuizData as any).selectionMessage || ''
+        : '';
+    return {
+      currentQuestion: safeQuizData.currentQuestion,
+      currentOptions: safeQuizData.currentOptions ?? [],
+      options: safeQuizData.currentOptions ?? [],
+      questionText: safeQuizData.currentQuestion?.questionText || 'No question available',
+      explanation: safeQuizData.explanation ?? '',
+      correctAnswersText: '',
+      isExplanationDisplayed,
+      isNavigatingToPrevious: false,
+      selectionMessage
+    };
+  }
+
+  /** The error fallback for the combined-question-data stream. Extracted verbatim. */
+  private buildCombinedQuestionDataFallback(): CombinedQuestionDataType {
+    return {
+      currentQuestion: {
+        questionText: 'Error loading question',
+        options: [],
+        explanation: '',
+        selectedOptions: [],
+        answer: [],
+        selectedOptionIds: [],
+        type: undefined as any,
+        maxSelections: 0
+      },
+      currentOptions: [],
+      options: [],
+      questionText: 'Error loading question',
+      explanation: '',
+      correctAnswersText: '',
+      isExplanationDisplayed: false,
+      isNavigatingToPrevious: false,
+      selectionMessage: ''
+    };
   }
 
   runCombineCurrentQuestionAndOptions(host: Host): Observable<{
@@ -726,6 +732,21 @@ export class CqcOrchestratorService {
     );
   }
 
+  /** The "no question available" combined-question-data shape. Extracted verbatim. */
+  private emptyCombinedQuestionData(): CombinedQuestionDataType {
+    return {
+      currentQuestion: null,
+      currentOptions: [],
+      options: [],
+      questionText: 'No question available',
+      explanation: '',
+      correctAnswersText: '',
+      isExplanationDisplayed: false,
+      isNavigatingToPrevious: false,
+      selectionMessage: ''
+    };
+  }
+
   runCalculateCombinedQuestionData(
     host: Host,
     currentQuizData: CombinedQuestionDataType,
@@ -736,17 +757,7 @@ export class CqcOrchestratorService {
     const { currentQuestion, currentOptions } = currentQuizData;
 
     if (!currentQuestion) {
-      return {
-        currentQuestion: null,
-        currentOptions: [],
-        options: [],
-        questionText: 'No question available',
-        explanation: '',
-        correctAnswersText: '',
-        isExplanationDisplayed: false,
-        isNavigatingToPrevious: false,
-        selectionMessage: ''
-      };
+      return this.emptyCombinedQuestionData();
     }
 
     const normalizedCorrectCount = Number.isFinite(numberOfCorrectAnswers) ? numberOfCorrectAnswers : 0;
