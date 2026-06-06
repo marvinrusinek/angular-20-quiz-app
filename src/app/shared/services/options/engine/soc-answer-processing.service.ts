@@ -298,6 +298,68 @@ export class SocAnswerProcessingService {
   }
 
   /**
+   * Resolve the live question for an index: prefer the component's current
+   * question, then the display-order question at primaryIdx, then the canonical
+   * question at qIdx. Shared by the multi-answer pristine helpers.
+   */
+  private resolveLiveQuestion(comp: any, primaryIdx: number, qIdx: number): any {
+    return comp.currentQuestion()
+      ?? this.quizService?.getQuestionsInDisplayOrder?.()?.[primaryIdx]
+      ?? this.quizService?.questions?.[qIdx];
+  }
+
+  /**
+   * Whether every pristine-correct option for the question is in the durable
+   * selection set — counted by TEXT match against quizInitialState (bypasses
+   * index mismatches between effectiveCorrectIndices and the real count). Verbatim.
+   */
+  private computeAllCorrectInDurable(comp: any, qIdx: number, displayIdx: number, durableSet: Set<number>, effectiveCorrectIndices: number[]): boolean {
+    let allCorrectInDurable = effectiveCorrectIndices.length > 0 &&
+      effectiveCorrectIndices.every((ci: number) => durableSet.has(ci));
+    try {
+      const liveQAC: any = this.resolveLiveQuestion(comp, displayIdx, qIdx);
+      const bindingsAC: any[] = comp.optionBindings() ?? [];
+      if (bindingsAC.length) {
+        const pristineCorrectTextsAC =
+          this.quizService.getPristineCorrectTextsForQuestion(liveQAC?.questionText);
+        if (pristineCorrectTextsAC.size > 0) {
+          let selectedCorrectCount = 0;
+          for (const selIdx of durableSet) {
+            const txt = norm(bindingsAC[selIdx]?.option?.text);
+            if (pristineCorrectTextsAC.has(txt)) selectedCorrectCount++;
+          }
+          allCorrectInDurable = selectedCorrectCount >= pristineCorrectTextsAC.size;
+        }
+      }
+    } catch (e) { console.error('processMultiAnswerClick allCorrectInDurable check failed:', e); }
+    return allCorrectInDurable;
+  }
+
+  /**
+   * On all-correct, re-spread every binding with fresh refs (correct options
+   * enabled+active, others disabled) on a microtask so OnPush option-items
+   * re-render. Belt-and-suspenders for click-flow CD timing. Verbatim.
+   */
+  private respreadBindingsOnAllCorrect(comp: any, effectiveCorrectIndices: number[]): void {
+    queueMicrotask(() => {
+      const correctSet = new Set(effectiveCorrectIndices);
+      comp.optionBindings.set((comp.optionBindings() ?? []).map((b: OptionBindings, bi: number) => {
+        const isCorrectIdx = correctSet.has(bi);
+        return {
+          ...b,
+          disabled: !isCorrectIdx,
+          isCorrect: isCorrectIdx,
+          option: b.option ? {
+            ...b.option,
+            active: isCorrectIdx
+          } : b.option
+        };
+      }));
+      comp.cdRef.detectChanges();
+    });
+  }
+
+  /**
    * PRISTINE-AUTHORITATIVE recompute of the correct-option indices from
    * quizInitialState (upstream bindings can have mutated/missing correct flags).
    * Returns the rebuilt indices only when they cover at least as many as we
@@ -305,9 +367,7 @@ export class SocAnswerProcessingService {
    */
   private recomputeEffectiveCorrectIndices(comp: any, qIdx: number, effectiveCorrectIndices: number[]): number[] {
     try {
-      const liveQ: any = comp.currentQuestion()
-        ?? this.quizService?.getQuestionsInDisplayOrder?.()?.[qIdx]
-        ?? this.quizService?.questions?.[qIdx];
+      const liveQ: any = this.resolveLiveQuestion(comp, qIdx, qIdx);
       const bindings: any[] = comp.optionBindings() ?? [];
       if (bindings.length) {
         const pristineCorrectTexts =
@@ -335,9 +395,7 @@ export class SocAnswerProcessingService {
    */
   private computeSuppressDisableForUnselected(comp: any, qIdx: number, displayIdx: number, durableSet: Set<number>): boolean {
     try {
-      const liveQS: any = comp.currentQuestion()
-        ?? this.quizService?.getQuestionsInDisplayOrder?.()?.[displayIdx]
-        ?? this.quizService?.questions?.[qIdx];
+      const liveQS: any = this.resolveLiveQuestion(comp, displayIdx, qIdx);
       const pristineCorrectTextsS =
         this.quizService.getPristineCorrectTextsForQuestion(liveQS?.questionText);
       if (pristineCorrectTextsS.size > 1) {
@@ -461,26 +519,7 @@ export class SocAnswerProcessingService {
     // when count === pristine correct count. This bypasses any index-
     // mismatch issues between effectiveCorrectIndices and the actual
     // multi-answer count from quizInitialState.
-    let allCorrectInDurable = effectiveCorrectIndices.length > 0 &&
-      effectiveCorrectIndices.every((ci: number) => durableSet.has(ci));
-    try {
-      const liveQAC: any = comp.currentQuestion()
-        ?? this.quizService?.getQuestionsInDisplayOrder?.()?.[displayIdx]
-        ?? this.quizService?.questions?.[qIdx];
-      const bindingsAC: any[] = comp.optionBindings() ?? [];
-      if (bindingsAC.length) {
-        const pristineCorrectTextsAC =
-          this.quizService.getPristineCorrectTextsForQuestion(liveQAC?.questionText);
-        if (pristineCorrectTextsAC.size > 0) {
-          let selectedCorrectCount = 0;
-          for (const selIdx of durableSet) {
-            const txt = norm(bindingsAC[selIdx]?.option?.text);
-            if (pristineCorrectTextsAC.has(txt)) selectedCorrectCount++;
-          }
-          allCorrectInDurable = selectedCorrectCount >= pristineCorrectTextsAC.size;
-        }
-      }
-    } catch (e) { console.error('processMultiAnswerClick allCorrectInDurable check failed:', e); }
+    const allCorrectInDurable = this.computeAllCorrectInDurable(comp, qIdx, displayIdx, durableSet, effectiveCorrectIndices);
 
     if (allCorrectInDurable) {
       this.emitMultiAnswerFetOnAllCorrect(comp, qIdx, displayIdx, effectiveCorrectIndices, isShuffled);
@@ -502,23 +541,7 @@ export class SocAnswerProcessingService {
     // propagate cleanly to siblings. The DOM stamp guarantees the
     // visual lock as a belt-and-suspenders fallback.
     if (allCorrectInDurable) {
-      queueMicrotask(() => {
-        const correctSet = new Set(effectiveCorrectIndices);
-        comp.optionBindings.set((comp.optionBindings() ?? []).map((b: OptionBindings, bi: number) => {
-          const isCorrectIdx = correctSet.has(bi);
-          return {
-            ...b,
-            disabled: !isCorrectIdx,
-            isCorrect: isCorrectIdx,
-            option: b.option ? {
-              ...b.option,
-              active: isCorrectIdx
-            } : b.option
-          };
-        }));
-        comp.cdRef.detectChanges();
-      });
-
+      this.respreadBindingsOnAllCorrect(comp, effectiveCorrectIndices);
     }
 
     // All-incorrects-exhausted auto-reveal (shared helper).
