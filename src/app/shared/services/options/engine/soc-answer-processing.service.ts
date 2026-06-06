@@ -67,6 +67,179 @@ export class SocAnswerProcessingService {
    * internally; isMulti distinguishes the two callers), enable Next, and run the
    * post-score tail. Used by both process*AnswerClick correct paths.
    */
+  /**
+   * Multi-answer all-correct FET: score+open gates, resolve the explanation
+   * (pristine question by text, else live question), format it as the
+   * multi-answer "Options X and Y..." form via writeResolvedFet, and schedule a
+   * component-path backup emit. Extracted verbatim from processMultiAnswerClick.
+   */
+  private emitMultiAnswerFetOnAllCorrect(comp: any, qIdx: number, displayIdx: number, effectiveCorrectIndices: number[], isShuffled: boolean): void {
+    this.scoreAndOpenFet(comp, qIdx, displayIdx, true);
+
+    // Resolve explanation text from pristine data and write directly
+    let fetText = '';
+    try {
+      const fetQText = isShuffled
+        ? (this.quizService?.getQuestionsInDisplayOrder?.()?.[displayIdx]?.questionText
+          ?? this.quizService?.shuffledQuestions?.[displayIdx]?.questionText)
+        : (comp.currentQuestion()?.questionText
+          ?? this.quizService?.questions?.[qIdx]?.questionText);
+      const pristineFETQ = this.quizService.getPristineQuestionByText(fetQText);
+      fetText = ((pristineFETQ as any)?.explanation ?? '').trim();
+      // Also try live question objects
+      if (!fetText) {
+        const liveQ = comp.currentQuestion()
+          ?? comp.getQuestionAtDisplayIndex?.(displayIdx)
+          ?? this.quizService?.getQuestionsInDisplayOrder?.()?.[displayIdx];
+        fetText = (liveQ?.explanation ?? '').trim();
+      }
+    } catch (e) { console.error('processMultiAnswerClick FET-text resolution failed:', e); }
+
+    if (fetText) {
+      // Format as "Options X and Y are correct because ..." using 1-based
+      // option numbers (matches the multi-answer FET formatter elsewhere).
+      let formattedFET = fetText;
+      try {
+        const oneBasedIndices = effectiveCorrectIndices
+          .map((ci: number) => ci + 1)
+          .filter((n: number) => Number.isFinite(n) && n > 0);
+        const qForFormat = comp.currentQuestion()
+          ?? comp.getQuestionAtDisplayIndex?.(displayIdx)
+          ?? this.quizService?.getQuestionsInDisplayOrder?.()?.[displayIdx]
+          ?? this.quizService?.questions?.[qIdx];
+        if (qForFormat && oneBasedIndices.length > 0) {
+          formattedFET = this.explanationTextService.formatExplanation(qForFormat, oneBasedIndices, fetText);
+        }
+      } catch (e) { console.error('processMultiAnswerClick FET formatting failed:', e); }
+
+      const qForStore = comp.currentQuestion()
+        ?? comp.getQuestionAtDisplayIndex?.(displayIdx)
+        ?? this.quizService?.getQuestionsInDisplayOrder?.()?.[displayIdx];
+      this.writeResolvedFet(displayIdx, formattedFET, qForStore);
+    }
+
+    // Also try the component path as backup
+    setTimeout(() => {
+      try {
+        comp.emitExplanation(displayIdx, true);
+      } catch { /* ignore */ }
+    }, MULTI_ANSWER_BACKUP_FET_DELAY_MS);
+  }
+
+  /**
+   * Single-answer FET emit: synchronous write of the resolved explanation
+   * (via writeResolvedFet) plus a backup emit through the shared-option
+   * explanation service (falling back to the component path). Extracted verbatim.
+   */
+  private emitSingleAnswerFet(comp: any, displayIdx: number, singleFetQuestion: any): void {
+    // Synchronous FET write
+    try {
+      const singleFetCtxSync = {
+        resolvedIndex: displayIdx,
+        question: singleFetQuestion,
+        currentQuestion: comp.currentQuestion(),
+        quizId: comp.quizId?.() ?? comp.quizId ?? '',
+        optionBindings: comp.optionBindings() ?? [],
+        optionsToDisplay: comp.optionsToDisplay ?? [],
+        isMultiMode: false
+      };
+      const fetText = this.sharedOptionExplanationService.resolveExplanationText(singleFetCtxSync as any)?.trim()
+        || singleFetQuestion?.explanation || '';
+      if (fetText) {
+        // Shared FET write (same sequence as the multi-answer path).
+        this.writeResolvedFet(displayIdx, fetText, singleFetQuestion);
+      }
+    } catch (e) { console.error('processSingleAnswerClick FET-sync write failed:', e); }
+
+    const singleFetCtx = {
+      resolvedIndex: displayIdx,
+      question: singleFetQuestion,
+      currentQuestion: comp.currentQuestion(),
+      quizId: comp.quizId?.() ?? comp.quizId ?? '',
+      optionBindings: comp.optionBindings() ?? [],
+      optionsToDisplay: comp.optionsToDisplay ?? [],
+      isMultiMode: false
+    };
+    setTimeout(() => {
+      try {
+        this.sharedOptionExplanationService.emitExplanation(singleFetCtx as any, true);
+      } catch (e) {
+        console.error('SocAnswerProcessingService.processSingleAnswerClick FET-backup emission failed:', e);
+        comp.emitExplanation(displayIdx, true);
+      }
+    }, 0);
+  }
+
+  /**
+   * Single-answer correct-click binding update: disable all non-correct options,
+   * rebuild every binding with fresh refs (selected/highlight from click +
+   * history), and persist the selections. Extracted verbatim.
+   */
+  private applySingleAnswerCorrectBindings(comp: any, index: number, qIdx: number, correctSet: Set<number>): void {
+    const disabledSetRef = this.ensureDisabledSet(comp, qIdx);
+    disabledSetRef.clear();
+    const currentBindings: any[] = Array.isArray(comp.optionBindings())
+      ? comp.optionBindings()
+      : (typeof comp.optionBindings() === 'function' ? comp.optionBindings() : []);
+    for (let i = 0; i < currentBindings.length; i++) {
+      if (!correctSet.has(i)) disabledSetRef.add(i);
+    }
+
+    const durableClicks = comp._multiSelectByQuestion?.get(qIdx);
+    const historySet = new Set<number>(durableClicks ?? []);
+
+    // Replace with NEW array of NEW binding objects so OnPush children re-render.
+    const newBindings = currentBindings.map((ob: any, bi: number) => {
+      const isCorrectBinding = correctSet.has(bi);
+      const isClicked = bi === index;
+      const wasPreviouslyClicked = historySet.has(bi) && !isClicked && !isCorrectBinding;
+      return {
+        ...ob,
+        disabled: !isCorrectBinding,
+        isSelected: isClicked,
+        option: ob?.option ? {
+          ...ob.option,
+          selected: isClicked,
+          highlight: isClicked || wasPreviouslyClicked,
+          showIcon: isClicked || wasPreviouslyClicked
+        } : ob?.option
+      };
+    });
+    comp.optionBindings.set(newBindings);
+
+    this.persistSingleAnswerSelections(qIdx, index, newBindings, historySet, correctSet);
+  }
+
+  /** Persist the single-answer correct selections to sessionStorage + history. */
+  private persistSingleAnswerSelections(qIdx: number, index: number, newBindings: any[], historySet: Set<number>, correctSet: Set<number>): void {
+    try {
+      const toSave: any[] = [];
+      for (let bi = 0; bi < newBindings.length; bi++) {
+        const nb = newBindings[bi];
+        if (!nb?.option) continue;
+        const isCorrectBinding = correctSet.has(bi);
+        const isClicked = bi === index;
+        const wasPreviouslyClicked = historySet.has(bi) && !isClicked && !isCorrectBinding;
+        if (isClicked || wasPreviouslyClicked) {
+          toSave.push({
+            optionId: nb.option.optionId,
+            text: nb.option.text,
+            displayIndex: bi,
+            questionIndex: qIdx,
+            selected: isClicked,
+            highlight: true,
+            showIcon: true,
+            correct: isCorrectBinding
+          });
+        }
+      }
+      if (toSave.length > 0) {
+        sessionStorage.setItem(SK_SEL_Q + qIdx, JSON.stringify(toSave));
+        this.selectedOptionService.addToSelectionHistory(qIdx, toSave as any[]);
+      }
+    } catch (e) { console.error('processSingleAnswerClick selection-persist failed:', e); }
+  }
+
   private scoreAndOpenFet(comp: any, qIdx: number, displayIdx: number, isMulti: boolean): void {
     try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
     this.explanationTextService.fetBypassForQuestion.set(displayIdx, true);
@@ -124,26 +297,13 @@ export class SocAnswerProcessingService {
     }
   }
 
-  processMultiAnswerClick(params: {
-    comp: any;
-    index: number;
-    binding: any;
-    qIdx: number;
-    displayIdx: number;
-    durableSet: Set<number>;
-    effectiveCorrectIndices: number[];
-    effectiveCorrectCount: number;
-    isShuffled: boolean;
-  }): void {
-    const { comp, index, binding, qIdx, displayIdx, durableSet, isShuffled } = params;
-    let { effectiveCorrectIndices } = params;
-
-    // PRISTINE-AUTHORITATIVE: always recompute correctIndices from
-    // quizInitialState. Upstream bindings can have mutated/missing
-    // correct flags so passed-in values aren't reliable. Pristine is
-    // the immutable source of truth and the ONLY way to guarantee
-    // correctIndices.length matches what the user actually expects
-    // for multi-answer questions.
+  /**
+   * PRISTINE-AUTHORITATIVE recompute of the correct-option indices from
+   * quizInitialState (upstream bindings can have mutated/missing correct flags).
+   * Returns the rebuilt indices only when they cover at least as many as we
+   * had (avoid pathological text-match failures), else the input. Verbatim.
+   */
+  private recomputeEffectiveCorrectIndices(comp: any, qIdx: number, effectiveCorrectIndices: number[]): number[] {
     try {
       const liveQ: any = comp.currentQuestion()
         ?? this.quizService?.getQuestionsInDisplayOrder?.()?.[qIdx]
@@ -159,16 +319,58 @@ export class SocAnswerProcessingService {
               rebuilt.push(i);
             }
           }
-          // Authoritative override (pristine wins) — but only when the
-          // rebuild identifies AT LEAST as many correct bindings as we
-          // already had, to avoid pathological cases where text matching
-          // fails completely.
           if (rebuilt.length >= effectiveCorrectIndices.length && rebuilt.length > 0) {
-            effectiveCorrectIndices = rebuilt;
+            return rebuilt;
           }
         }
       }
     } catch (e) { console.error('processMultiAnswerClick pristine-recompute failed:', e); }
+    return effectiveCorrectIndices;
+  }
+
+  /**
+   * Q2/Q4 GUARD: when pristine has more correct than the user has selected,
+   * suppress disabled=true on bindings other than the clicked-incorrect one(s)
+   * so they can still pick the remaining correct answer. Verbatim.
+   */
+  private computeSuppressDisableForUnselected(comp: any, qIdx: number, displayIdx: number, durableSet: Set<number>): boolean {
+    try {
+      const liveQS: any = comp.currentQuestion()
+        ?? this.quizService?.getQuestionsInDisplayOrder?.()?.[displayIdx]
+        ?? this.quizService?.questions?.[qIdx];
+      const pristineCorrectTextsS =
+        this.quizService.getPristineCorrectTextsForQuestion(liveQS?.questionText);
+      if (pristineCorrectTextsS.size > 1) {
+        const bindingsS: any[] = comp.optionBindings() ?? [];
+        let selectedCorrectS = 0;
+        for (const sIdx of durableSet) {
+          if (pristineCorrectTextsS.has(norm(bindingsS[sIdx]?.option?.text))) {
+            selectedCorrectS++;
+          }
+        }
+        if (selectedCorrectS < pristineCorrectTextsS.size) {
+          return true;
+        }
+      }
+    } catch (e) { console.error('processMultiAnswerClick suppressDisable-guard failed:', e); }
+    return false;
+  }
+
+  processMultiAnswerClick(params: {
+    comp: any;
+    index: number;
+    binding: any;
+    qIdx: number;
+    displayIdx: number;
+    durableSet: Set<number>;
+    effectiveCorrectIndices: number[];
+    effectiveCorrectCount: number;
+    isShuffled: boolean;
+  }): void {
+    const { comp, index, binding, qIdx, displayIdx, durableSet, isShuffled } = params;
+    let { effectiveCorrectIndices } = params;
+
+    effectiveCorrectIndices = this.recomputeEffectiveCorrectIndices(comp, qIdx, effectiveCorrectIndices);
 
     const clickState = this.clickHandler.computeMultiAnswerClickState(
       index, durableSet, effectiveCorrectIndices
@@ -191,31 +393,7 @@ export class SocAnswerProcessingService {
       comp.optionBindings().length, durableSet, effectiveCorrectIndices, disabledSetRef
     );
 
-    // Q2/Q4 GUARD: when pristine has more correct than we've selected,
-    // suppress disabled=true on every binding except the previously-
-    // clicked incorrect option(s). This blocks both the binding flag
-    // AND the .disabled-option CSS class that getOptionClasses derives
-    // from !!binding.disabled.
-    let suppressDisableForUnselected = false;
-    try {
-      const liveQS: any = comp.currentQuestion()
-        ?? this.quizService?.getQuestionsInDisplayOrder?.()?.[displayIdx]
-        ?? this.quizService?.questions?.[qIdx];
-      const pristineCorrectTextsS =
-        this.quizService.getPristineCorrectTextsForQuestion(liveQS?.questionText);
-      if (pristineCorrectTextsS.size > 1) {
-        const bindingsS: any[] = comp.optionBindings() ?? [];
-        let selectedCorrectS = 0;
-        for (const sIdx of durableSet) {
-          if (pristineCorrectTextsS.has(norm(bindingsS[sIdx]?.option?.text))) {
-            selectedCorrectS++;
-          }
-        }
-        if (selectedCorrectS < pristineCorrectTextsS.size) {
-          suppressDisableForUnselected = true;
-        }
-      }
-    } catch (e) { console.error('processMultiAnswerClick suppressDisable-guard failed:', e); }
+    const suppressDisableForUnselected = this.computeSuppressDisableForUnselected(comp, qIdx, displayIdx, durableSet);
 
     comp.optionBindings.set(comp.optionBindings().map((ob: OptionBindings, bi: number) => {
       let disabledFinal = bindingUpdates[bi].disabled;
@@ -305,64 +483,7 @@ export class SocAnswerProcessingService {
     } catch (e) { console.error('processMultiAnswerClick allCorrectInDurable check failed:', e); }
 
     if (allCorrectInDurable) {
-      this.scoreAndOpenFet(comp, qIdx, displayIdx, true);
-
-      // Resolve explanation text from pristine data and write directly
-      let fetText = '';
-      try {
-        const fetQText = isShuffled
-          ? (this.quizService?.getQuestionsInDisplayOrder?.()?.[displayIdx]?.questionText
-            ?? this.quizService?.shuffledQuestions?.[displayIdx]?.questionText)
-          : (comp.currentQuestion()?.questionText
-            ?? this.quizService?.questions?.[qIdx]?.questionText);
-        const pristineFETQ = this.quizService.getPristineQuestionByText(fetQText);
-        fetText = ((pristineFETQ as any)?.explanation ?? '').trim();
-        // Also try live question objects
-        if (!fetText) {
-          const liveQ = comp.currentQuestion()
-            ?? comp.getQuestionAtDisplayIndex?.(displayIdx)
-            ?? this.quizService?.getQuestionsInDisplayOrder?.()?.[displayIdx];
-          fetText = (liveQ?.explanation ?? '').trim();
-        }
-      } catch (e) { console.error('processMultiAnswerClick FET-text resolution failed:', e); }
-
-      if (fetText) {
-        // Format as "Options X and Y are correct because ..." using
-        // 1-based option numbers (matches the formatter used everywhere
-        // else for multi-answer FET).
-        let formattedFET = fetText;
-        try {
-          const oneBasedIndices = effectiveCorrectIndices
-            .map((ci: number) => ci + 1)
-            .filter((n: number) => Number.isFinite(n) && n > 0);
-          const qForFormat = comp.currentQuestion()
-            ?? comp.getQuestionAtDisplayIndex?.(displayIdx)
-            ?? this.quizService?.getQuestionsInDisplayOrder?.()?.[displayIdx]
-            ?? this.quizService?.questions?.[qIdx];
-          if (qForFormat && oneBasedIndices.length > 0) {
-            formattedFET = this.explanationTextService.formatExplanation(
-              qForFormat,
-              oneBasedIndices,
-              fetText
-            );
-          }
-        } catch (e) { console.error('processMultiAnswerClick FET formatting failed:', e); }
-
-        // Write directly via explanationTextService — use displayIdx so the
-        // CQC display pipeline (which reads by display index) finds it. Shared
-        // with the single-answer path via writeResolvedFet.
-        const qForStore = comp.currentQuestion()
-          ?? comp.getQuestionAtDisplayIndex?.(displayIdx)
-          ?? this.quizService?.getQuestionsInDisplayOrder?.()?.[displayIdx];
-        this.writeResolvedFet(displayIdx, formattedFET, qForStore);
-      }
-
-      // Also try the component path as backup
-      setTimeout(() => {
-        try {
-          comp.emitExplanation(displayIdx, true);
-        } catch { /* ignore */ }
-      }, MULTI_ANSWER_BACKUP_FET_DELAY_MS);
+      this.emitMultiAnswerFetOnAllCorrect(comp, qIdx, displayIdx, effectiveCorrectIndices, isShuffled);
     }
 
     const savedFeedback = comp._feedbackDisplay;
@@ -528,102 +649,9 @@ export class SocAnswerProcessingService {
         ?? comp.getQuestionAtDisplayIndex?.(displayIdx)
         ?? this.quizService?.getQuestionsInDisplayOrder?.()?.[displayIdx];
 
-      // Synchronous FET write
-      try {
-        const singleFetCtxSync = {
-          resolvedIndex: displayIdx,
-          question: singleFetQuestion,
-          currentQuestion: comp.currentQuestion(),
-          quizId: comp.quizId?.() ?? comp.quizId ?? '',
-          optionBindings: comp.optionBindings() ?? [],
-          optionsToDisplay: comp.optionsToDisplay ?? [],
-          isMultiMode: false
-        };
-        const fetText = this.sharedOptionExplanationService.resolveExplanationText(singleFetCtxSync as any)?.trim()
-          || singleFetQuestion?.explanation || '';
-        if (fetText) {
-          // Shared FET write (same sequence as the multi-answer path).
-          this.writeResolvedFet(displayIdx, fetText, singleFetQuestion);
-        }
-      } catch (e) { console.error('processSingleAnswerClick FET-sync write failed:', e); }
+      this.emitSingleAnswerFet(comp, displayIdx, singleFetQuestion);
 
-      const singleFetCtx = {
-        resolvedIndex: displayIdx,
-        question: singleFetQuestion,
-        currentQuestion: comp.currentQuestion(),
-        quizId: comp.quizId?.() ?? comp.quizId ?? '',
-        optionBindings: comp.optionBindings() ?? [],
-        optionsToDisplay: comp.optionsToDisplay ?? [],
-        isMultiMode: false
-      };
-      setTimeout(() => {
-        try {
-          this.sharedOptionExplanationService.emitExplanation(singleFetCtx as any, true);
-        } catch (e) {
-          console.error('SocAnswerProcessingService.processSingleAnswerClick FET-backup emission failed:', e);
-          comp.emitExplanation(displayIdx, true);
-        }
-      }, 0);
-
-
-      const disabledSetRef = this.ensureDisabledSet(comp, qIdx);
-      disabledSetRef.clear();
-      const currentBindings: any[] = Array.isArray(comp.optionBindings())
-        ? comp.optionBindings()
-        : (typeof comp.optionBindings() === 'function' ? comp.optionBindings() : []);
-      for (let i = 0; i < currentBindings.length; i++) {
-        if (!correctSet.has(i)) disabledSetRef.add(i);
-      }
-
-      const durableClicks = comp._multiSelectByQuestion?.get(qIdx);
-      const historySet = new Set<number>(durableClicks ?? []);
-
-      // Replace with NEW array of NEW binding objects so OnPush children re-render.
-      const newBindings = currentBindings.map((ob: any, bi: number) => {
-        const isCorrectBinding = correctSet.has(bi);
-        const isClicked = bi === index;
-        const wasPreviouslyClicked = historySet.has(bi) && !isClicked && !isCorrectBinding;
-        return {
-          ...ob,
-          disabled: !isCorrectBinding,
-          isSelected: isClicked,
-          option: ob?.option ? {
-            ...ob.option,
-            selected: isClicked,
-            highlight: isClicked || wasPreviouslyClicked,
-            showIcon: isClicked || wasPreviouslyClicked
-          } : ob?.option
-        };
-      });
-      comp.optionBindings.set(newBindings);
-
-      // Persist selections to session storage
-      try {
-        const toSave: any[] = [];
-        for (let bi = 0; bi < newBindings.length; bi++) {
-          const nb = newBindings[bi];
-          if (!nb?.option) continue;
-          const isCorrectBinding = correctSet.has(bi);
-          const isClicked = bi === index;
-          const wasPreviouslyClicked = historySet.has(bi) && !isClicked && !isCorrectBinding;
-          if (isClicked || wasPreviouslyClicked) {
-            toSave.push({
-              optionId: nb.option.optionId,
-              text: nb.option.text,
-              displayIndex: bi,
-              questionIndex: qIdx,
-              selected: isClicked,
-              highlight: true,
-              showIcon: true,
-              correct: isCorrectBinding
-            });
-          }
-        }
-        if (toSave.length > 0) {
-          sessionStorage.setItem(SK_SEL_Q + qIdx, JSON.stringify(toSave));
-          this.selectedOptionService.addToSelectionHistory(qIdx, toSave as any[]);
-        }
-      } catch (e) { console.error('processSingleAnswerClick selection-persist failed:', e); }
+      this.applySingleAnswerCorrectBindings(comp, index, qIdx, correctSet);
 
       comp.cdRef?.detectChanges?.();
       return;
