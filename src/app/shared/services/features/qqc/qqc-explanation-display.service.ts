@@ -56,26 +56,40 @@ export class QqcExplanationDisplayService {
 
     const baseRaw = (q?.explanation ?? '').toString().trim();
 
+    await this.prepareForFormat(i0);
+
+    const cachedText = await this.resolveAndCacheFormatted(
+      params.optionsToDisplay, params.currentQuestionIndex, params.options, q, baseRaw, i0
+    );
+    const nextText = cachedText.trim();
+    if (!nextText) return cachedText;
+
+    if (i0 === params.currentQuestionIndex) {
+      this.emitExplanationForActiveIndex(q, i0, nextText);
+    }
+    return nextText;
+  }
+
+  /** Purge any stale FET for this index, then wait one frame before formatting. Extracted verbatim. */
+  private async prepareForFormat(i0: number): Promise<void> {
     try {
       this.explanationTextService.purgeAndDefer(i0);
     } catch (e) {
       console.error('QqcExplanationDisplayService.resolveFormatted purgeAndDefer failed:', e);
     }
     await new Promise(res => requestAnimationFrame(res));
+  }
 
-    const visualOpts = await this.resolveVisualOptions(params.optionsToDisplay, params.currentQuestionIndex, params.options, q, i0);
+  /** Resolve visual options, format the explanation, cache it, and return the cached text. Extracted verbatim. */
+  private async resolveAndCacheFormatted(
+    optionsToDisplay: Option[], currentQuestionIndex: number, options: Option[],
+    q: QuizQuestion, baseRaw: string, i0: number
+  ): Promise<string> {
+    const visualOpts = await this.resolveVisualOptions(optionsToDisplay, currentQuestionIndex, options, q, i0);
     const formatted = this.formatExplanationForIndex(q, visualOpts, baseRaw, i0);
     const clean = (formatted ?? '').trim();
-
     this.cacheFormattedExplanation(i0, clean, baseRaw);
-
-    const nextText = (clean || baseRaw).trim();
-    if (!nextText) return clean || baseRaw;
-
-    if (i0 === params.currentQuestionIndex) {
-      this.emitExplanationForActiveIndex(q, i0, nextText);
-    }
-    return nextText;
+    return clean || baseRaw;
   }
 
   /** Resolve the question for an index: input array, then current question, then the service. Extracted verbatim. */
