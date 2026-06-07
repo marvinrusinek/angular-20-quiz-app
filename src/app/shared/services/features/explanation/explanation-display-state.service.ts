@@ -198,34 +198,6 @@ export class ExplanationDisplayStateService {
     this.explanationTextSig.set(finalExplanation);
   }
 
-  // Commit the context map + signature and update latest-explanation tracking.
-  private commitExplanationState(
-    trimmed: string,
-    contextKey: string,
-    signature: string,
-    targetIdx: number | null | undefined
-  ): string {
-    if (trimmed) {
-      this.explanationByContext.set(contextKey, trimmed);
-    } else {
-      this.explanationByContext.delete(contextKey);
-    }
-
-    this.lastExplanationSignature = signature;
-
-    const finalExplanation = trimmed;
-
-    // Clear old explanation when we're NOT setting new text.
-    // This prevents Q1's explanation from showing for Q2.
-    if (!finalExplanation && this.latestExplanation) {
-      this.latestExplanation = '';
-      this.latestExplanationIndex = targetIdx ?? this._activeIndex ?? 0;
-    } else {
-      this.latestExplanation = finalExplanation;
-    }
-    return finalExplanation;
-  }
-
   // CENTRALIZED MULTI-ANSWER GUARD: block non-empty FET text from entering the
   // reactive pipeline for multi-answer questions that are not yet fully resolved
   // (prevents explanation reaching subscribeToDisplayText/writeQText too early).
@@ -294,6 +266,34 @@ export class ExplanationDisplayStateService {
       if (previous === trimmed && signature === this.lastExplanationSignature) return true;
     }
     return false;
+  }
+
+  // Commit the context map + signature and update latest-explanation tracking.
+  private commitExplanationState(
+    trimmed: string,
+    contextKey: string,
+    signature: string,
+    targetIdx: number | null | undefined
+  ): string {
+    if (trimmed) {
+      this.explanationByContext.set(contextKey, trimmed);
+    } else {
+      this.explanationByContext.delete(contextKey);
+    }
+
+    this.lastExplanationSignature = signature;
+
+    const finalExplanation = trimmed;
+
+    // Clear old explanation when we're NOT setting new text.
+    // This prevents Q1's explanation from showing for Q2.
+    if (!finalExplanation && this.latestExplanation) {
+      this.latestExplanation = '';
+      this.latestExplanationIndex = targetIdx ?? this._activeIndex ?? 0;
+    } else {
+      this.latestExplanation = finalExplanation;
+    }
+    return finalExplanation;
   }
 
   // Update the per-index subjects and collections if the index is valid.
