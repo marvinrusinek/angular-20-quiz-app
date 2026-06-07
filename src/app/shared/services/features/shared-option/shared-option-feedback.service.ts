@@ -114,66 +114,11 @@ export class SharedOptionFeedbackService {
       (question as any)?.multipleAnswer ||
       ((question?.options?.filter(o => isOptionCorrect(o)).length ?? 0) > 1);
 
-    // For Multi-Answer: We must consider ALL selected options to return "Select 1 more" etc.
-    // For Single-Answer: Just the current one is fine (since only one can be selected).
-    let optionsToCheck: SelectedOption[] = [option];
-
-    if (isMulti) {
-      // Gather all currently selected options.
-      // Use consistent effectiveId (id || index) for Set lookups to match handleSelection
-      // Also query the service for persisted selections (local state can be stale between clicks)
-      const activeQIdx = ctx.activeQuestionIndex ?? 0;
-      const serviceSelections = this.selectedOptionService.getSelectedOptionsForQuestion(activeQIdx) ?? [];
-      const serviceSelectedIds = new Set<number | string>();
-      for (const sel of serviceSelections) {
-        const sId = (sel as any).optionId ?? (sel as any).index;
-        if (sId != null && sId !== -1) {
-          serviceSelectedIds.add(sId);
-          serviceSelectedIds.add(Number(sId));
-          serviceSelectedIds.add(String(sId));
-        }
-      }
-
-      const selectedModels = (ctx.optionsToDisplay || []).filter((opt, i) => {
-        const id = opt.optionId;
-        const normIdForFilter = (id != null && !isNaN(Number(id))) ? Number(id) : null;
-        const currentEffectiveId = (normIdForFilter !== null && normIdForFilter > -1) ? normIdForFilter : i;
-
-        // Check 1: ID is in local selectedOptions Set
-        if (ctx.selectedOptions.has(currentEffectiveId)) return true;
-
-        // Check 2: Option object itself is marked selected
-        if (opt.selected) return true;
-
-        // Check 3: It is the option currently being processed (fallback)
-        if (i === selectedIndex) return true;
-        if (option && opt === option) return true;
-        if (option && id != null && id === option.optionId) return true;
-
-        // Check 4: Service has this option as selected (handles stale local state)
-        if (serviceSelectedIds.has(currentEffectiveId)) return true;
-        return id != null && serviceSelectedIds.has(id);
-      });
-
-      // Map to include displayIndex for FeedbackService reconciliation
-      optionsToCheck = selectedModels.map(m => {
-        const idx = (ctx.optionsToDisplay || []).findIndex(orig =>
-          orig === m || (m.optionId != null && m.optionId > -1 && orig.optionId === m.optionId)
-        );
-        return {
-          ...m,
-          displayIndex: idx >= 0 ? idx : undefined
-        } as SelectedOption;
-      });
-
-      // Safety: ensure the current option is included if not found above
-      if (!optionsToCheck.find(
-        o => o === option || 
-        (o.optionId != null && o.optionId > -1 && o.optionId === option.optionId))
-      ) {
-        optionsToCheck.push(option);
-      }
-    }
+    // For Multi-Answer: consider ALL selected options to return "Select 1 more" etc.
+    // For Single-Answer: just the current one (only one can be selected).
+    const optionsToCheck: SelectedOption[] = isMulti
+      ? this.gatherMultiOptionsToCheck(ctx, option, selectedIndex)
+      : [option];
 
     // Ensure correct feedback message context
     const feedbackMessage = this.feedbackService.buildFeedbackMessage(
@@ -189,47 +134,9 @@ export class SharedOptionFeedbackService {
     const validOptions = (ctx.optionsToDisplay || []).filter(isValidOption);
     const correctMessage = this.feedbackService.setCorrectMessage(validOptions, ctx.currentQuestion!);
 
-    // Direct Override: Check if all correct options are selected using EVERY available
-    // source of truth (selectedOptions Set, optionBindings, optionsToDisplay, current click).
-    let finalFeedback = feedbackMessage;
-    if (isMulti) {
-      const displayOpts = ctx.optionsToDisplay || [];
-
-      // Count correct options
-      const correctIndices: number[] = [];
-      for (const [i, o] of displayOpts.entries()) {
-        if (isOptionCorrect(o)) correctIndices.push(i);
-      }
-      const correctCount = correctIndices.length;
-
-      // Check selection using MULTIPLE sources: any match = selected
-      const isOptSelected = (opt: Option, idx: number): boolean => {
-        // Source 1: optionsToDisplay item's selected flag
-        if (opt.selected) return true;
-        // Source 2: local selectedOptions Set (maintained by handleSelection)
-        const oid = opt.optionId;
-        const normId = (oid != null && !isNaN(Number(oid))) ? Number(oid) : null;
-        const effId = (normId !== null && normId > -1) ? normId : idx;
-        if (ctx.selectedOptions.has(effId)) return true;
-        // Source 3: optionBindings isSelected
-        if (ctx.optionBindings?.[idx]?.isSelected) return true;
-        if (ctx.optionBindings?.[idx]?.option?.selected) return true;
-        // Source 4: is this the option being clicked right now?
-        return idx === selectedIndex;
-      };
-
-      let correctSelectedCount = 0;
-      let incorrectSelectedCount = 0;
-      for (const [i, o] of displayOpts.entries()) {
-        const selected = isOptSelected(o, i);
-        if (isOptionCorrect(o) && selected) correctSelectedCount++;
-        if (!isOptionCorrect(o) && selected) incorrectSelectedCount++;
-      }
-
-      if (correctCount > 0 && correctSelectedCount >= correctCount && incorrectSelectedCount === 0) {
-        finalFeedback = `You're right! ${correctMessage}`;
-      }
-    }
+    const finalFeedback = isMulti
+      ? this.computeMultiAllCorrectOverride(ctx, selectedIndex, feedbackMessage, correctMessage)
+      : feedbackMessage;
 
     return {
       selectedOption: option,
@@ -240,6 +147,115 @@ export class SharedOptionFeedbackService {
       options: ctx.optionsToDisplay ?? [],
       question: ctx.currentQuestion ?? null
     } as FeedbackProps;
+  }
+
+  // Gather all currently selected options for multi-answer feedback. Uses a
+  // consistent effectiveId (id || index) for Set lookups to match handleSelection,
+  // and also queries the service since local state can be stale between clicks.
+  private gatherMultiOptionsToCheck(
+    ctx: FeedbackContext,
+    option: SelectedOption,
+    selectedIndex: number
+  ): SelectedOption[] {
+    const activeQIdx = ctx.activeQuestionIndex ?? 0;
+    const serviceSelections = this.selectedOptionService.getSelectedOptionsForQuestion(activeQIdx) ?? [];
+    const serviceSelectedIds = new Set<number | string>();
+    for (const sel of serviceSelections) {
+      const sId = (sel as any).optionId ?? (sel as any).index;
+      if (sId != null && sId !== -1) {
+        serviceSelectedIds.add(sId);
+        serviceSelectedIds.add(Number(sId));
+        serviceSelectedIds.add(String(sId));
+      }
+    }
+
+    const selectedModels = (ctx.optionsToDisplay || []).filter((opt, i) => {
+      const id = opt.optionId;
+      const normIdForFilter = (id != null && !isNaN(Number(id))) ? Number(id) : null;
+      const currentEffectiveId = (normIdForFilter !== null && normIdForFilter > -1) ? normIdForFilter : i;
+
+      // Check 1: ID is in local selectedOptions Set
+      if (ctx.selectedOptions.has(currentEffectiveId)) return true;
+
+      // Check 2: Option object itself is marked selected
+      if (opt.selected) return true;
+
+      // Check 3: It is the option currently being processed (fallback)
+      if (i === selectedIndex) return true;
+      if (option && opt === option) return true;
+      if (option && id != null && id === option.optionId) return true;
+
+      // Check 4: Service has this option as selected (handles stale local state)
+      if (serviceSelectedIds.has(currentEffectiveId)) return true;
+      return id != null && serviceSelectedIds.has(id);
+    });
+
+    // Map to include displayIndex for FeedbackService reconciliation
+    const optionsToCheck = selectedModels.map(m => {
+      const idx = (ctx.optionsToDisplay || []).findIndex(orig =>
+        orig === m || (m.optionId != null && m.optionId > -1 && orig.optionId === m.optionId)
+      );
+      return {
+        ...m,
+        displayIndex: idx >= 0 ? idx : undefined
+      } as SelectedOption;
+    });
+
+    // Safety: ensure the current option is included if not found above
+    if (!optionsToCheck.find(
+      o => o === option ||
+      (o.optionId != null && o.optionId > -1 && o.optionId === option.optionId))
+    ) {
+      optionsToCheck.push(option);
+    }
+    return optionsToCheck;
+  }
+
+  // Direct Override: if all correct options are selected (checking EVERY source
+  // of truth) return the all-correct message, else the original feedback.
+  private computeMultiAllCorrectOverride(
+    ctx: FeedbackContext,
+    selectedIndex: number,
+    feedbackMessage: string,
+    correctMessage: string
+  ): string {
+    const displayOpts = ctx.optionsToDisplay || [];
+
+    // Count correct options
+    const correctIndices: number[] = [];
+    for (const [i, o] of displayOpts.entries()) {
+      if (isOptionCorrect(o)) correctIndices.push(i);
+    }
+    const correctCount = correctIndices.length;
+
+    // Check selection using MULTIPLE sources: any match = selected
+    const isOptSelected = (opt: Option, idx: number): boolean => {
+      // Source 1: optionsToDisplay item's selected flag
+      if (opt.selected) return true;
+      // Source 2: local selectedOptions Set (maintained by handleSelection)
+      const oid = opt.optionId;
+      const normId = (oid != null && !isNaN(Number(oid))) ? Number(oid) : null;
+      const effId = (normId !== null && normId > -1) ? normId : idx;
+      if (ctx.selectedOptions.has(effId)) return true;
+      // Source 3: optionBindings isSelected
+      if (ctx.optionBindings?.[idx]?.isSelected) return true;
+      if (ctx.optionBindings?.[idx]?.option?.selected) return true;
+      // Source 4: is this the option being clicked right now?
+      return idx === selectedIndex;
+    };
+
+    let correctSelectedCount = 0;
+    let incorrectSelectedCount = 0;
+    for (const [i, o] of displayOpts.entries()) {
+      const selected = isOptSelected(o, i);
+      if (isOptionCorrect(o) && selected) correctSelectedCount++;
+      if (!isOptionCorrect(o) && selected) incorrectSelectedCount++;
+    }
+
+    if (correctCount > 0 && correctSelectedCount >= correctCount && incorrectSelectedCount === 0) {
+      return `You're right! ${correctMessage}`;
+    }
+    return feedbackMessage;
   }
 
   /**
