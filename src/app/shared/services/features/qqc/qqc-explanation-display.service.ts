@@ -49,154 +49,156 @@ export class QqcExplanationDisplayService {
     optionsToDisplay: Option[];
     options: Option[];
   }): Promise<string> {
-    const svc = this.explanationTextService;
-    const quizSvc = this.quizService;
     const i0 = params.normalizeIndex(params.index);
 
-    // Step 1: Resolve the question object and raw text
+    const q = this.resolveQuestionForIndex(params.questionsArray, params.currentQuestionIndex, params.currentQuestion, i0);
+    if (!q) return '';  // Question object could not be resolved for this index
+
+    const baseRaw = (q?.explanation ?? '').toString().trim();
+
+    try {
+      this.explanationTextService.purgeAndDefer(i0);
+    } catch (e) {
+      console.error('QqcExplanationDisplayService.resolveFormatted purgeAndDefer failed:', e);
+    }
+    await new Promise(res => requestAnimationFrame(res));
+
+    const visualOpts = await this.resolveVisualOptions(params.optionsToDisplay, params.currentQuestionIndex, params.options, q, i0);
+    const formatted = this.formatExplanationForIndex(q, visualOpts, baseRaw, i0);
+    const clean = (formatted ?? '').trim();
+
+    this.cacheFormattedExplanation(i0, clean, baseRaw);
+
+    const nextText = (clean || baseRaw).trim();
+    if (!nextText) return clean || baseRaw;
+
+    if (i0 === params.currentQuestionIndex) {
+      this.emitExplanationForActiveIndex(q, i0, nextText);
+    }
+    return nextText;
+  }
+
+  /** Resolve the question for an index: input array, then current question, then the service. Extracted verbatim. */
+  private resolveQuestionForIndex(questionsArray: QuizQuestion[], currentQuestionIndex: number, currentQuestion: QuizQuestion | null, i0: number): QuizQuestion | null {
     let q: QuizQuestion | null = null;
     try {
-      if (params.questionsArray && params.questionsArray.length > i0) {
-        q = params.questionsArray[i0];
+      if (questionsArray && questionsArray.length > i0) {
+        q = questionsArray[i0];
       }
-
-      if (!q && params.currentQuestionIndex === i0 && params.currentQuestion) {
-        q = { ...params.currentQuestion } as QuizQuestion;
+      if (!q && currentQuestionIndex === i0 && currentQuestion) {
+        q = { ...currentQuestion } as QuizQuestion;
       }
-
       if (!q) {
-        const svcQuestions = quizSvc.shuffledQuestions || quizSvc.questions || [];
+        const svcQuestions = this.quizService.shuffledQuestions || this.quizService.questions || [];
         q = svcQuestions[i0];
       }
     } catch (err) {
       console.error('QqcExplanationDisplayService.resolveFormatted question lookup failed:', err);
     }
+    return q;
+  }
 
-    if (!q) return ''; // Question object could not be resolved for this index
+  /** Resolve the visual options for formatting: live optionsToDisplay, target question, passed options, q, then fetched. Extracted verbatim. */
+  private async resolveVisualOptions(optionsToDisplay: Option[], currentQuestionIndex: number, options: Option[], q: QuizQuestion, i0: number): Promise<Option[]> {
+    const quizSvc = this.quizService;
+    let visualOpts: Option[] = [];
 
-    const baseRaw = (q?.explanation ?? '').toString().trim();
-
-    try {
-      svc.purgeAndDefer(i0);
-    } catch (e) {
-      console.error('QqcExplanationDisplayService.resolveFormatted purgeAndDefer failed:', e);
+    if (i0 === currentQuestionIndex && optionsToDisplay?.length) {
+      visualOpts = optionsToDisplay;
+    } else {
+      try {
+        const questions = quizSvc.shuffledQuestions?.length
+          ? quizSvc.shuffledQuestions
+          : quizSvc.questions || [];
+        const targetQ = questions[i0];
+        if (targetQ?.options?.length) visualOpts = targetQ.options;
+      } catch (e) {
+        console.error('QqcExplanationDisplayService.resolveFormatted visual options lookup failed:', e);
+      }
     }
 
-    await new Promise(res => requestAnimationFrame(res));
+    if (!visualOpts?.length && options?.length) visualOpts = options;
+    if (!visualOpts?.length && q.options?.length) visualOpts = q.options;
 
-    // Step 2: Format explanation safely using authoritative indices
-    let formatted = '';
+    if (!visualOpts?.length && quizSvc) {
+      try {
+        const fetchedOpts = await firstValueFrom(quizSvc.getOptions(i0));
+        if (fetchedOpts?.length) visualOpts = fetchedOpts;
+      } catch (e) {
+        console.error('QqcExplanationDisplayService.resolveFormatted getOptions fetch failed:', e);
+      }
+    }
+    return visualOpts;
+  }
+
+  /** Format the explanation using the authoritative correct indices (falling back to flags/raw). Extracted verbatim. */
+  private formatExplanationForIndex(q: QuizQuestion, visualOpts: Option[], baseRaw: string, i0: number): string {
+    const svc = this.explanationTextService;
     try {
-      let visualOpts: Option[] = [];
-
-      if (i0 === params.currentQuestionIndex && params.optionsToDisplay?.length) {
-        visualOpts = params.optionsToDisplay;
-      } else {
-        try {
-          const questions = quizSvc.shuffledQuestions?.length
-            ? quizSvc.shuffledQuestions
-            : quizSvc.questions || [];
-          const targetQ = questions[i0];
-          if (targetQ?.options?.length) {
-            visualOpts = targetQ.options;
-          }
-        } catch (e) {
-          console.error('QqcExplanationDisplayService.resolveFormatted visual options lookup failed:', e);
-        }
-      }
-
-      if (!visualOpts?.length && params.options?.length) visualOpts = params.options;
-      if (!visualOpts?.length && q.options?.length) visualOpts = q.options;
-
-      if (!visualOpts?.length && quizSvc) {
-        try {
-          const fetchedOpts = await firstValueFrom(quizSvc.getOptions(i0));
-          if (fetchedOpts?.length) visualOpts = fetchedOpts;
-        } catch (e) {
-          console.error('QqcExplanationDisplayService.resolveFormatted getOptions fetch failed:', e);
-        }
-      }
-
       const correctIndices = svc.getCorrectOptionIndices(q, visualOpts, i0);
-
       if (correctIndices.length > 0) {
-        formatted = typeof svc.formatExplanation === 'function'
+        return typeof svc.formatExplanation === 'function'
           ? svc.formatExplanation(q, correctIndices, baseRaw, i0)
           : (baseRaw.includes('correct because') ? baseRaw : `Option ${correctIndices[0]} is correct because ${baseRaw}`);
-      } else {
-        const findCorrect = visualOpts
-          .map((opt, idx) => (isOptionCorrect(opt) ? idx + 1 : null))
-          .filter((n): n is number => n !== null);
-
-        if (findCorrect.length > 0) {
-          formatted = svc.formatExplanation(q, findCorrect, baseRaw, i0);
-        } else {
-          formatted = baseRaw;
-        }
       }
+      const findCorrect = visualOpts
+        .map((opt, idx) => (isOptionCorrect(opt) ? idx + 1 : null))
+        .filter((n): n is number => n !== null);
+      if (findCorrect.length > 0) {
+        return svc.formatExplanation(q, findCorrect, baseRaw, i0);
+      }
+      return baseRaw;
     } catch (e) {
-      formatted = baseRaw;
+      return baseRaw;
     }
+  }
 
-    const clean = (formatted ?? '').trim();
-
-    // Step 3: Cache
+  /** Write the formatted explanation into the FET caches. Extracted verbatim. */
+  private cacheFormattedExplanation(i0: number, clean: string, baseRaw: string): void {
+    const svc = this.explanationTextService;
     try {
-      svc.formattedExplanations[i0] = {
-        questionIndex: i0,
-        explanation: clean || baseRaw,
-      };
+      svc.formattedExplanations[i0] = { questionIndex: i0, explanation: clean || baseRaw };
       if (typeof svc.fetByIndex?.set === 'function') {
         svc.fetByIndex.set(i0, clean || baseRaw);
       }
     } catch (e) {
       console.error('QqcExplanationDisplayService.resolveFormatted FET cache write failed:', e);
     }
+  }
 
-    // Step 4: Emit only if we're still on this index
-    const nextText = (clean || baseRaw).trim();
-    if (!nextText) return clean || baseRaw;
+  /**
+   * Emit FET for the active index: single-answer emits directly; multi-answer
+   * only emits when ALL correct answers are selected (prevents FET leaking on a
+   * partially-answered multi-answer question). Extracted verbatim.
+   */
+  private emitExplanationForActiveIndex(q: QuizQuestion, i0: number, nextText: string): void {
+    const svc = this.explanationTextService;
+    const rawQ: any = this.quizService?.questions?.[i0] ?? q;
+    const rawOpts: any[] = rawQ?.options ?? [];
+    const correctCount = rawOpts.filter((o: any) => isOptionCorrect(o)).length;
+    const isMultiAnswer = correctCount > 1;
 
-    const stillActive = i0 === params.currentQuestionIndex;
-    if (stillActive) {
-      // Multi-answer guard: only emit FET text and set shouldDisplayExplanation
-      // when ALL correct answers are selected. Previously, setExplanationText
-      // was called unconditionally BEFORE this guard, leaking FET into the
-      // reactive pipeline for partially-answered multi-answer questions.
-      const rawQ: any = this.quizService?.questions?.[i0] ?? q;
-      const rawOpts: any[] = rawQ?.options ?? [];
-      const correctCount = rawOpts.filter(
-        (o: any) => isOptionCorrect(o)
-      ).length;
-      const isMultiAnswer = correctCount > 1;
-
-      if (isMultiAnswer) {
-        const correctTexts = rawOpts
-          .filter((o: any) => isOptionCorrect(o))
-          .map((o: any) => norm(o?.text))
-          .filter((t: string) => !!t);
-        const selections = this.selectedOptionService.getSelectedOptionsForQuestion(i0) ?? [];
-        const selTexts = new Set(
-          selections
-            .filter((s: any) => s?.selected !== false)
-            .map((s: any) => norm(s?.text))
-            .filter((t: string) => !!t)
-        );
-        const allCorrectSelected = correctTexts.length > 0
-          && correctTexts.every((t: string) => selTexts.has(t));
-        if (allCorrectSelected) {
-          svc.setExplanationText(nextText, { index: i0 });
-          svc.setShouldDisplayExplanation(true);
-        }
-      } else {
-        svc.setExplanationText(nextText, { index: i0 });
-        svc.setShouldDisplayExplanation(true);
-      }
-
-      svc.latestExplanation = nextText;
+    if (!isMultiAnswer || this.isMultiAnswerFullySelected(rawOpts, i0)) {
+      svc.setExplanationText(nextText, { index: i0 });
+      svc.setShouldDisplayExplanation(true);
     }
+    svc.latestExplanation = nextText;
+  }
 
-    return nextText;
+  /** Are all correct-option texts for this multi-answer question currently selected? Extracted verbatim. */
+  private isMultiAnswerFullySelected(rawOpts: any[], i0: number): boolean {
+    const correctTexts = rawOpts
+      .filter((o: any) => isOptionCorrect(o))
+      .map((o: any) => norm(o?.text))
+      .filter((t: string) => !!t);
+    const selections = this.selectedOptionService.getSelectedOptionsForQuestion(i0) ?? [];
+    const selTexts = new Set(
+      selections
+        .filter((s: any) => s?.selected !== false)
+        .map((s: any) => norm(s?.text))
+        .filter((t: string) => !!t)
+    );
+    return correctTexts.length > 0 && correctTexts.every((t: string) => selTexts.has(t));
   }
 
   /**
