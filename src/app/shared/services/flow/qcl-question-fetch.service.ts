@@ -121,7 +121,70 @@ export class QclQuestionFetchService {
     restoreSessionSelections: (questionIndex: number) => void
   ): Promise<FetchQuestionResult> {
     const { questionIndex, totalQuestions, quizId } = params;
-    const empty: FetchQuestionResult = {
+    const empty = this.emptyFetchResult();
+
+    try {
+      if (isNaN(questionIndex) || questionIndex < 0 || questionIndex >= totalQuestions) return empty;
+
+      restoreSessionSelections(questionIndex);
+
+      const fetched = await this.fetchQuestionAndOptions(questionIndex);
+      if (!fetched) return empty;
+      const { fetchedQuestion, fetchedOptions } = fetched;
+
+      this.explanationTextService.setResetComplete(false);
+      this.explanationTextService.setShouldDisplayExplanation(false);
+
+      const trimmedText = (fetchedQuestion?.questionText ?? '').trim() || 'No question available';
+      const { finalOptions, clonedOptions } = this.buildPreparedOptions(fetchedOptions);
+
+      const isAnswered = this.resolveIsAnswered(quizId, questionIndex, clonedOptions);
+      this.quizStateService.setDisplayState({
+        mode: isAnswered ? 'explanation' : 'question',
+        answered: isAnswered
+      });
+
+      const question = this.buildQuestion(fetchedQuestion, clonedOptions);
+      const currentQuestion = { ...question };
+      this.emitPreparedQuestion(currentQuestion, clonedOptions, questionIndex);
+
+      const explanationText = await this.resolvePreparedExplanation(isAnswered, fetchedQuestion, finalOptions, questionIndex);
+
+      this.quizService.setCurrentQuestion(currentQuestion);
+      this.quizService.setCurrentQuestionIndex(questionIndex);
+      this.quizStateService.updateCurrentQuestion(currentQuestion);
+
+      await this.applyAnswerednessCheck(questionIndex);
+
+      const questionPayload: QuestionPayload = { question: currentQuestion, options: clonedOptions, explanation: explanationText };
+
+      return {
+        success: true, question, currentQuestion, trimmedText, clonedOptions,
+        finalOptions, explanationText, isAnswered, questionPayload, shouldStartTimer: !isAnswered
+      };
+    } catch (error: any) {
+      return empty;
+    }
+  }
+
+  /** Fetch the question details + current options in parallel; null if either is missing/empty. */
+  private async fetchQuestionAndOptions(questionIndex: number): Promise<{ fetchedQuestion: any; fetchedOptions: any[] } | null> {
+    const [fetchedQuestion, fetchedOptions] = await Promise.all([
+      this.quizQuestionDataService.fetchQuestionDetails(questionIndex),
+      firstValueFrom(this.quizService.getCurrentOptions(questionIndex).pipe(take(1)))
+    ]);
+    if (
+      !fetchedQuestion ||
+      !fetchedQuestion.questionText?.trim() ||
+      !Array.isArray(fetchedOptions) ||
+      fetchedOptions.length === 0
+    ) return null;
+    return { fetchedQuestion, fetchedOptions };
+  }
+
+  /** The empty/failure result shape. */
+  private emptyFetchResult(): FetchQuestionResult {
+    return {
       success: false,
       question: null,
       currentQuestion: null,
@@ -133,166 +196,115 @@ export class QclQuestionFetchService {
       questionPayload: null,
       shouldStartTimer: false
     };
+  }
 
-    try {
-      if (isNaN(questionIndex) || 
-        questionIndex < 0 || 
-        questionIndex >= totalQuestions
-      ) return empty;
+  /** Hydrate fetched options (ids/correct/feedback), assign active states, and clone. Extracted verbatim. */
+  private buildPreparedOptions(fetchedOptions: any[]): { finalOptions: any[]; clonedOptions: any[] } {
+    const hydratedOptions = fetchedOptions.map((opt, idx) => ({
+      ...opt,
+      optionId: opt.optionId ?? idx,
+      correct: opt.correct ?? false,
+      feedback: opt.feedback ?? `The correct options are: ${opt.text}`
+    }));
+    const finalOptions = this.quizService.quizOptions.assignOptionActiveStates(hydratedOptions, false);
+    const clonedOptions = structuredClone?.(finalOptions) ?? JSON.parse(JSON.stringify(finalOptions));
+    return { finalOptions, clonedOptions };
+  }
 
-      restoreSessionSelections(questionIndex);
+  /**
+   * Determine answered state from valid persisted selections, clearing a stale
+   * answered flag when none survive, and sync the answered flags. Extracted verbatim.
+   */
+  private resolveIsAnswered(quizId: string, questionIndex: number, clonedOptions: any[]): boolean {
+    const quizIdForState = quizId || this.quizService.quizId || 'default-quiz';
+    const questionState = this.quizStateService.getQuestionState(quizIdForState, questionIndex);
+    const optionIdSet = new Set(
+      clonedOptions
+        .map((opt: Option) => opt.optionId)
+        .filter((id: any): id is number => typeof id === 'number')
+    );
+    const selectedOptions = this.selectedOptionService.getSelectedOptionsForQuestion(questionIndex);
+    const validSelections = (selectedOptions ?? []).filter((opt) => optionIdSet.has(opt.optionId ?? -1));
 
-      const [fetchedQuestion, fetchedOptions] = await Promise.all([
-        this.quizQuestionDataService.fetchQuestionDetails(questionIndex),
-        firstValueFrom(
-          this.quizService.getCurrentOptions(questionIndex).pipe(take(1))
-        )
-      ]);
-
-      if (
-        !fetchedQuestion ||
-        !fetchedQuestion.questionText?.trim() ||
-        !Array.isArray(fetchedOptions) ||
-        fetchedOptions.length === 0
-      ) return empty;
-
-      this.explanationTextService.setResetComplete(false);
-      this.explanationTextService.setShouldDisplayExplanation(false);
-
-      const trimmedText = (fetchedQuestion?.questionText ?? '').trim() || 'No question available';
-
-      const hydratedOptions = fetchedOptions.map((opt, idx) => ({
-        ...opt,
-        optionId: opt.optionId ?? idx,
-        correct: opt.correct ?? false,
-        feedback: opt.feedback ?? `The correct options are: ${opt.text}`
-      }));
-
-      const finalOptions = this.quizService.quizOptions.assignOptionActiveStates(hydratedOptions, false);
-      const clonedOptions = structuredClone?.(finalOptions) ?? JSON.parse(JSON.stringify(finalOptions));
-
-      const quizIdForState = quizId || this.quizService.quizId || 'default-quiz';
-      const questionState = this.quizStateService.getQuestionState(quizIdForState, questionIndex);
-      const optionIdSet = new Set(
-        clonedOptions
-          .map((opt: Option) => opt.optionId)
-          .filter((id: any): id is number => typeof id === 'number')
-      );
-      const selectedOptions = this.selectedOptionService.getSelectedOptionsForQuestion(questionIndex);
-      const validSelections = (selectedOptions ?? []).filter((opt) =>
-        optionIdSet.has(opt.optionId ?? -1)
-      );
-
-      let isAnswered = validSelections.length > 0;
-      if (!isAnswered && questionState?.isAnswered) {
-        this.quizStateService.setQuestionState(quizIdForState, questionIndex, {
-          ...questionState,
-          isAnswered: false,
-          explanationDisplayed: false
-        });
-        this.selectedOptionService.clearSelectionsForQuestion(questionIndex);
-        this.selectedOptionService.setAnswered(false, true);
-      }
-
-      if (isAnswered) {
-        this.quizStateService.setAnswered(true);
-        this.selectedOptionService.setAnswered(true, true);
-      } else {
-        this.quizStateService.setAnswered(false);
-        this.selectedOptionService.setAnswered(false, true);
-      }
-
-      this.quizStateService.setDisplayState({
-        mode: isAnswered ? 'explanation' : 'question',
-        answered: isAnswered
+    const isAnswered = validSelections.length > 0;
+    if (!isAnswered && questionState?.isAnswered) {
+      this.quizStateService.setQuestionState(quizIdForState, questionIndex, {
+        ...questionState,
+        isAnswered: false,
+        explanationDisplayed: false
       });
+      this.selectedOptionService.clearSelectionsForQuestion(questionIndex);
+      this.selectedOptionService.setAnswered(false, true);
+    }
 
-      const question: QuizQuestion = {
-        questionText: fetchedQuestion.questionText,
-        explanation: fetchedQuestion.explanation ?? '',
-        options: clonedOptions,
-        type: fetchedQuestion.type ?? QuestionType.SingleAnswer
-      };
-      const currentQuestion = { ...question };
+    if (isAnswered) {
+      this.quizStateService.setAnswered(true);
+      this.selectedOptionService.setAnswered(true, true);
+    } else {
+      this.quizStateService.setAnswered(false);
+      this.selectedOptionService.setAnswered(false, true);
+    }
+    return isAnswered;
+  }
 
-      this.quizService.emitQuestionAndOptions(currentQuestion, clonedOptions, questionIndex);
+  /** Assemble the prepared QuizQuestion from the fetched data + cloned options. */
+  private buildQuestion(fetchedQuestion: any, clonedOptions: any[]): QuizQuestion {
+    return {
+      questionText: fetchedQuestion.questionText,
+      explanation: fetchedQuestion.explanation ?? '',
+      options: clonedOptions,
+      type: fetchedQuestion.type ?? QuestionType.SingleAnswer
+    };
+  }
 
-      this.quizService.questionPayloadSig.set({
-        question: currentQuestion,
-        options: clonedOptions,
-        explanation: currentQuestion.explanation ?? ''
-      });
+  /** Emit the prepared question + options to the quiz service and payload signal. */
+  private emitPreparedQuestion(currentQuestion: QuizQuestion, clonedOptions: any[], questionIndex: number): void {
+    this.quizService.emitQuestionAndOptions(currentQuestion, clonedOptions, questionIndex);
+    this.quizService.questionPayloadSig.set({
+      question: currentQuestion,
+      options: clonedOptions,
+      explanation: currentQuestion.explanation ?? ''
+    });
+  }
 
-      let explanationText = '';
-      const shouldStartTimer = !isAnswered;
+  /**
+   * When answered: format + store the FET and set explanation display state.
+   * When not: force the baseline and push the selection message. Extracted verbatim.
+   */
+  private async resolvePreparedExplanation(isAnswered: boolean, fetchedQuestion: any, finalOptions: any[], questionIndex: number): Promise<string> {
+    if (!isAnswered) {
+      this.selectionMessageService.forceBaseline(questionIndex);
+      await this.selectionMessageService.setSelectionMessage(false);
+      return '';
+    }
+    const correctIndices = this.explanationTextService.getCorrectOptionIndices(fetchedQuestion, finalOptions, questionIndex);
+    const rawExplanation = fetchedQuestion.explanation?.trim() || 'No explanation available';
+    const explanationText = this.explanationTextService.formatExplanation(fetchedQuestion, correctIndices, rawExplanation);
+    this.explanationTextService.storeFormattedExplanation(questionIndex, explanationText, fetchedQuestion, finalOptions, true);
+    this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
+    return explanationText;
+  }
 
-      if (isAnswered) {
-        const correctIndices = this.explanationTextService.getCorrectOptionIndices(
-          fetchedQuestion,
-          finalOptions,
-          questionIndex
-        );
-        const rawExplanation = fetchedQuestion.explanation?.trim() || 'No explanation available';
-        explanationText = this.explanationTextService.formatExplanation(
-          fetchedQuestion,
-          correctIndices,
-          rawExplanation
-        );
+  /**
+   * Fresh-start-at-Q1 (no selections/answers) resets the score; otherwise
+   * re-check whether the question was answered correctly. Extracted verbatim.
+   */
+  private async applyAnswerednessCheck(questionIndex: number): Promise<void> {
+    const liveSelections = this.selectedOptionService.getSelectedOptionsForQuestion(questionIndex) ?? [];
+    const hasUserAnswersForQuestion =
+      Array.isArray(this.quizService.userAnswers?.[questionIndex]) &&
+      this.quizService.userAnswers[questionIndex].length > 0;
+    const savedIndexRaw = localStorage.getItem(SK_SAVED_QUESTION_INDEX);
+    const isFreshStartAtQ1 =
+      questionIndex === 0 &&
+      this.quizService.questionCorrectness.size === 0 &&
+      (savedIndexRaw == null || String(savedIndexRaw).trim() === '0');
 
-        this.explanationTextService.storeFormattedExplanation(
-          questionIndex,
-          explanationText,
-          fetchedQuestion,
-          finalOptions,
-          true
-        );
-        this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
-      } else {
-        this.selectionMessageService.forceBaseline(questionIndex);
-        await this.selectionMessageService.setSelectionMessage(false);
-      }
-
-      this.quizService.setCurrentQuestion(currentQuestion);
-      this.quizService.setCurrentQuestionIndex(questionIndex);
-      this.quizStateService.updateCurrentQuestion(currentQuestion);
-
-      const liveSelections = this.selectedOptionService.getSelectedOptionsForQuestion(questionIndex) ?? [];
-      const hasUserAnswersForQuestion =
-        Array.isArray(this.quizService.userAnswers?.[questionIndex]) &&
-        this.quizService.userAnswers[questionIndex].length > 0;
-      const savedIndexRaw = localStorage.getItem(SK_SAVED_QUESTION_INDEX);
-      const isFreshStartAtQ1 =
-        questionIndex === 0 &&
-        this.quizService.questionCorrectness.size === 0 &&
-        (savedIndexRaw == null || String(savedIndexRaw).trim() === '0');
-
-      if (isFreshStartAtQ1 && liveSelections.length === 0 && !hasUserAnswersForQuestion) {
-        this.quizService.questionCorrectness.delete(questionIndex);
-        this.quizService.sendCorrectCountToResults(0);
-      } else {
-        await this.quizService.checkIfAnsweredCorrectly(questionIndex, false);
-      }
-
-      const questionPayload: QuestionPayload = {
-        question: currentQuestion,
-        options: clonedOptions,
-        explanation: explanationText
-      };
-
-      return {
-        success: true,
-        question,
-        currentQuestion,
-        trimmedText,
-        clonedOptions,
-        finalOptions,
-        explanationText,
-        isAnswered,
-        questionPayload,
-        shouldStartTimer
-      };
-    } catch (error: any) {
-      return empty;
+    if (isFreshStartAtQ1 && liveSelections.length === 0 && !hasUserAnswersForQuestion) {
+      this.quizService.questionCorrectness.delete(questionIndex);
+      this.quizService.sendCorrectCountToResults(0);
+    } else {
+      await this.quizService.checkIfAnsweredCorrectly(questionIndex, false);
     }
   }
 
