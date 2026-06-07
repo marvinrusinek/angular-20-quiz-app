@@ -396,7 +396,7 @@ export class OptionUiSyncService {
       }
 
       // 2. Catch any selected options not in history (redundancy)
-      // Use the binding's effectiveId for the map lookup â€” the map
+      // Use the binding's effectiveId for the map lookup — the map
       // key is effectiveId (optionId), not position index. Using the
       // raw position idx would false-positive when a 1-based optionId
       // from another option collides with this binding's array index.
@@ -418,7 +418,7 @@ export class OptionUiSyncService {
           if (!hasRealId) {
             const owner = realIdOwnerForSelect.get(bEffId);
             if (owner !== undefined && owner !== idx) {
-              continue; // skip â€” this binding doesn't actually match the map entry
+              continue; // skip — this binding doesn't actually match the map entry
             }
           }
           fullSelections.push({
@@ -443,7 +443,7 @@ export class OptionUiSyncService {
     // Only set answered=true and emit FET for single-answer when the
     // clicked option is actually correct (pristine check). After Restart Quiz,
     // binding correct flags can be stale, so resolve from quizInitialState.
-    // In SHUFFLED mode, skip entirely â€” SOC handles all scoring/FET.
+    // In SHUFFLED mode, skip entirely — SOC handles all scoring/FET.
     const isShufForFET = this.quizService?.isShuffleEnabled?.()
       && this.quizService?.shuffledQuestions?.length > 0;
     if (ctx.type === 'single' && !isShufForFET) {
@@ -452,7 +452,7 @@ export class OptionUiSyncService {
         const clickedText = norm(optionBinding?.option?.text);
         const bundle = this.quizService?.quizInitialState ?? [];
         if (clickedText && bundle.length > 0) {
-          // Use TEXT-BASED question matching â€” index-based lookup fails in
+          // Use TEXT-BASED question matching — index-based lookup fails in
           // shuffled mode because pristineQuiz.questions[displayIndex] is
           // the WRONG question (original order).
           const isShuf = this.quizService?.isShuffleEnabled?.()
@@ -539,7 +539,7 @@ export class OptionUiSyncService {
     const isCorrectHelper = isOptionCorrect;
 
     // Use existing binding state (set by handleOptionClick) as the source of truth.
-    // Do NOT overwrite bindings from service â€” handleOptionClick already set the
+    // Do NOT overwrite bindings from service — handleOptionClick already set the
     // correct isSelected state for each binding, and overwriting from the service
     // can restore stale/accumulated selections.
     const selectedOptions: Option[] = ctx.optionBindings
@@ -553,7 +553,7 @@ export class OptionUiSyncService {
 
     const correctMessage = this.feedbackService.setCorrectMessage(freshOptions, currentQuestion!);
 
-    // EVALUATE RESOLUTION â€” use bindings as single source of truth for both
+    // EVALUATE RESOLUTION — use bindings as single source of truth for both
     // correct indices and selected indices to guarantee index consistency.
     const correctIndicesSet = new Set<number>();
     const futureIndices = new Set<number>();
@@ -672,17 +672,46 @@ export class OptionUiSyncService {
   }
 
   private checkAndScoreMultiAnswer(ctx: OptionUiSyncContext, questionIndex: number): void {
-    const isCorrectHelper = isOptionCorrect;
-    const normalize = (s: unknown): string => norm(s);
-
     // Get the authoritative question data
     const question = ctx.getQuestionAtDisplayIndex(questionIndex);
     const freshOptions = ctx.optionsToDisplay?.length > 0
       ? ctx.optionsToDisplay : (question?.options ?? []);
 
-    // PRISTINE-FIRST: Resolve correct options from quizInitialState to avoid
-    // stale/mutated correct flags on freshOptions (e.g. after Restart Quiz).
-    let correctOptions = freshOptions.filter(o => isCorrectHelper(o));
+    const { correctOptions, correctTextSet } =
+      this.resolveCorrectOptionsForScoring(ctx, questionIndex, question, freshOptions);
+
+    if (correctOptions.length === 0) return;
+
+    const isTrulyMulti = correctOptions.length > 1 || ctx.type === 'multiple';
+    const isActuallySingle = !isTrulyMulti;
+
+    const selectedOptions = this.gatherSelectedOptionsForScoring(ctx, questionIndex);
+    const { correctSelectedCount, hasIncorrect } =
+      this.countCorrectSelected(selectedOptions, correctTextSet);
+
+    if (isActuallySingle) {
+      if (correctSelectedCount >= 1 && !hasIncorrect) {
+        this.quizService.scoreDirectly(questionIndex, true, false);
+      }
+      return;
+    }
+
+    this.scoreMultiAnswerIfPerfect(
+      ctx, questionIndex, correctOptions, correctTextSet,
+      selectedOptions, correctSelectedCount, hasIncorrect
+    );
+  }
+
+  // PRISTINE-FIRST: Resolve correct options from quizInitialState to avoid
+  // stale/mutated correct flags on freshOptions (e.g. after Restart Quiz).
+  private resolveCorrectOptionsForScoring(
+    ctx: OptionUiSyncContext,
+    questionIndex: number,
+    question: any,
+    freshOptions: any[]
+  ): { correctOptions: any[]; correctTextSet: Set<string> } {
+    const normalize = (s: unknown): string => norm(s);
+    let correctOptions = freshOptions.filter(o => isOptionCorrect(o));
     let correctTextSet = new Set(
       correctOptions.map(o => normalize(o.text)).filter(Boolean)
     );
@@ -690,7 +719,7 @@ export class OptionUiSyncService {
     try {
       const bundle = this.quizService?.quizInitialState ?? [];
       if (bundle.length > 0) {
-        // Use TEXT-BASED question matching â€” index-based lookup
+        // Use TEXT-BASED question matching — index-based lookup
         // (pristineQuiz.questions[displayIndex]) fails in shuffled mode.
         const isShuf = this.quizService?.isShuffleEnabled?.()
           && this.quizService?.shuffledQuestions?.length > 0;
@@ -721,12 +750,12 @@ export class OptionUiSyncService {
       }
     } catch { /* ignore */ }
 
-    if (correctOptions.length === 0) return;
+    return { correctOptions, correctTextSet };
+  }
 
-    const isTrulyMulti = correctOptions.length > 1 || ctx.type === 'multiple';
-    const isActuallySingle = !isTrulyMulti;
-
-    // Gather selected options from MULTIPLE sources for robustness:
+  // Gather selected options from MULTIPLE sources for robustness, using the
+  // source with the most entries (most complete state).
+  private gatherSelectedOptionsForScoring(ctx: OptionUiSyncContext, questionIndex: number): any[] {
     // 1. Bindings (most immediate UI state)
     const bindingSelected = ctx.optionBindings
       .filter(b => b.isSelected || b.option.selected)
@@ -752,12 +781,18 @@ export class OptionUiSyncService {
     // 3. SelectedOptionService (source of truth)
     const serviceSelected = this.selectedOptionService.getSelectedOptionsForQuestion(questionIndex) ?? [];
 
-    // Use the source with the most entries (most complete state)
     let selectedOptions: any[] = bindingSelected;
     if (mapSelected.length > selectedOptions.length) selectedOptions = mapSelected;
     if (serviceSelected.length > selectedOptions.length) selectedOptions = serviceSelected;
+    return selectedOptions;
+  }
 
-    // Count how many correct options are among the selected, using text matching
+  // Count how many correct options are among the selected, using text matching.
+  private countCorrectSelected(
+    selectedOptions: any[],
+    correctTextSet: Set<string>
+  ): { correctSelectedCount: number; hasIncorrect: boolean } {
+    const normalize = (s: unknown): string => norm(s);
     let correctSelectedCount = 0;
     let hasIncorrect = false;
 
@@ -771,57 +806,63 @@ export class OptionUiSyncService {
         hasIncorrect = true;
       }
     }
+    return { correctSelectedCount, hasIncorrect };
+  }
 
-    if (isActuallySingle) {
-      if (correctSelectedCount >= 1 && !hasIncorrect) {
-        this.quizService.scoreDirectly(questionIndex, true, false);
-      }
-    } else {
-      // Also sanity-check the selection count directly against the durable
-       // correct-index tracker via bindings. hasIncorrect text-matching can
-       // false-negative when freshOptions has had correct flags mutated by
-       // an earlier flow, which would otherwise let this branch fire after
-       // only a partial set of correct answers plus incorrects.
-      const selectedTexts = new Set(selectedOptions.map(s => normalize(s?.text)).filter(Boolean));
-      const allCorrectTextsSelected =
-        correctTextSet.size > 0 &&
-        [...correctTextSet].every(t => selectedTexts.has(t));
-      const anyIncorrectTextSelected = selectedTexts.size > 0 &&
-        [...selectedTexts].some(t => !correctTextSet.has(t));
-      if (
-        correctSelectedCount >= correctOptions.length &&
-        correctOptions.length >= 2 &&
-        allCorrectTextsSelected &&
-        !hasIncorrect &&
-        !anyIncorrectTextSelected
-      ) {
-        this.quizService.scoreDirectly(questionIndex, true, true);
-        // Mark this multi-answer question as fully resolved so the
-        // rendering layer (option-item.isDisabled) honors b.disabled
-        // for unselected incorrect options. Without this flag, the
-        // policy correctly stamps b.disabled=true but the UI still
-        // returns false from isDisabled() in multi-answer mode.
-        this.quizService._multiAnswerPerfect.set(questionIndex, true);
-        writeSessionString(SK_MULTI_PERFECT + questionIndex, 'true');
-        // Force FET readiness even if already scored correct (to be safe)
-        this.selectedOptionService.setAnswered(true, true);
-        // Persist FET-ready state to sessionStorage. quiz-option-processing's
-        // persistOptionSelection gates these writes on isQuestionComplete from
-        // evaluateMultiAnswer, which can disagree for some questions (e.g.
-        // non-contiguous correct indices). Writing here is a safety net so
-        // FET actually renders when all correct answers are selected.
-        try {
-          sessionStorage.setItem(SK_IS_ANSWERED, 'true');
-          sessionStorage.setItem(SK_DISPLAY_MODE + questionIndex, 'explanation');
-        } catch { /* ignore */ }
-        this.nextButtonStateService.setNextButtonState(true);
-        // Emit FET â€” the shared-option-click path handles this when
-        // clickState.remaining === 0, but when that path doesn't fire,
-        // the explanation never renders. Emit here as a safety net.
-        // skipGuard=true bypasses the lock that otherwise suppresses FET.
-        if (ctx.emitExplanation) {
-          setTimeout(() => ctx.emitExplanation(questionIndex, true), 0);
-        }
+  private scoreMultiAnswerIfPerfect(
+    ctx: OptionUiSyncContext,
+    questionIndex: number,
+    correctOptions: any[],
+    correctTextSet: Set<string>,
+    selectedOptions: any[],
+    correctSelectedCount: number,
+    hasIncorrect: boolean
+  ): void {
+    const normalize = (s: unknown): string => norm(s);
+    // Also sanity-check the selection count directly against the durable
+    // correct-index tracker via bindings. hasIncorrect text-matching can
+    // false-negative when freshOptions has had correct flags mutated by
+    // an earlier flow, which would otherwise let this branch fire after
+    // only a partial set of correct answers plus incorrects.
+    const selectedTexts = new Set(selectedOptions.map(s => normalize(s?.text)).filter(Boolean));
+    const allCorrectTextsSelected =
+      correctTextSet.size > 0 &&
+      [...correctTextSet].every(t => selectedTexts.has(t));
+    const anyIncorrectTextSelected = selectedTexts.size > 0 &&
+      [...selectedTexts].some(t => !correctTextSet.has(t));
+    if (
+      correctSelectedCount >= correctOptions.length &&
+      correctOptions.length >= 2 &&
+      allCorrectTextsSelected &&
+      !hasIncorrect &&
+      !anyIncorrectTextSelected
+    ) {
+      this.quizService.scoreDirectly(questionIndex, true, true);
+      // Mark this multi-answer question as fully resolved so the
+      // rendering layer (option-item.isDisabled) honors b.disabled
+      // for unselected incorrect options. Without this flag, the
+      // policy correctly stamps b.disabled=true but the UI still
+      // returns false from isDisabled() in multi-answer mode.
+      this.quizService._multiAnswerPerfect.set(questionIndex, true);
+      writeSessionString(SK_MULTI_PERFECT + questionIndex, 'true');
+      // Force FET readiness even if already scored correct (to be safe)
+      this.selectedOptionService.setAnswered(true, true);
+      // Persist FET-ready state to sessionStorage. quiz-option-processing's
+      // persistOptionSelection gates these writes on isQuestionComplete from
+      // evaluateMultiAnswer, which can disagree for some questions (e.g.
+      // non-contiguous correct indices). Writing here is a safety net so
+      // FET actually renders when all correct answers are selected.
+      try {
+        sessionStorage.setItem(SK_IS_ANSWERED, 'true');
+        sessionStorage.setItem(SK_DISPLAY_MODE + questionIndex, 'explanation');
+      } catch { /* ignore */ }
+      this.nextButtonStateService.setNextButtonState(true);
+      // Emit FET — the shared-option-click path handles this when
+      // clickState.remaining === 0, but when that path doesn't fire,
+      // the explanation never renders. Emit here as a safety net.
+      // skipGuard=true bypasses the lock that otherwise suppresses FET.
+      if (ctx.emitExplanation) {
+        setTimeout(() => ctx.emitExplanation(questionIndex, true), 0);
       }
     }
   }
