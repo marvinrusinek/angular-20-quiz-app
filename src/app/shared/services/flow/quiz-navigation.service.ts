@@ -527,7 +527,12 @@ export class QuizNavigationService {
   }
 
   public resetRenderStateBeforeNavigation(targetIndex: number): void {
-    // Shut down all explanation display state immediately
+    this.resetExplanationDisplayState();
+    this.stampTargetQuestionAndLock(targetIndex);
+  }
+
+  // Shut down explanation display state and reset to question mode immediately.
+  private resetExplanationDisplayState(): void {
     this.explanationTextService.setShouldDisplayExplanation(false, {
       force: true
     });
@@ -545,14 +550,15 @@ export class QuizNavigationService {
       answered: false
     });
     this.quizStateService.setExplanationReady(false);
+  }
 
-    // SYNC qText DOM write + post-nav lock: stamp the target question's
-    // text directly into <h3 #qText> right now AND install a short-lived
-    // MutationObserver that reverts any FET-looking write back to q-txt
-    // for the next ~1200ms. Multiple async writers (timer-expiry
-    // setTimeout cascades, visibility-restore replays, soc FET stamps)
-    // race after a Next click and re-write the prior question's FET.
-    // The lock resolves the race deterministically.
+  // SYNC qText DOM write + post-nav lock: stamp the target question's text
+  // directly into <h3 #qText> now AND install a short-lived MutationObserver
+  // that reverts any FET-looking write back to q-txt for ~1200ms. Multiple
+  // async writers (timer-expiry setTimeout cascades, visibility-restore
+  // replays, soc FET stamps) race after a Next click and re-write the prior
+  // question's FET. The lock resolves the race deterministically.
+  private stampTargetQuestionAndLock(targetIndex: number): void {
     try {
       const h3 = document.querySelector('codelab-quiz-content h3') as HTMLElement | null;
       if (h3) {
@@ -563,83 +569,92 @@ export class QuizNavigationService {
           : qs.questions?.[targetIndex];
         const rawQText = (targetQ?.questionText ?? '').trim();
 
-        // Build target HTML with multi-answer banner if applicable, so
-        // the lock matches the canonical display HTML — otherwise blank-
-        // reverts strip the banner and other writers re-add it, causing
-        // banner flicker on Q(N) -> Q(N+1) transitions.
-        let targetQText = rawQText;
-        try {
-          let numCorrect = 0;
-          let totalOpts = (targetQ?.options ?? []).length;
-          const pq = qs?.getPristineQuestionByText?.(rawQText);
-          if (pq) {
-            const pOpts = pq.options ?? [];
-            numCorrect = pOpts.filter((o: any) => isOptionCorrect(o)).length;
-            totalOpts = pOpts.length;
-          }
-          if (numCorrect === 0) {
-            const sourceOpts = targetQ?.options ?? [];
-            numCorrect = sourceOpts.filter((o: any) => isOptionCorrect(o)).length;
-            totalOpts = sourceOpts.length;
-          }
-          if (numCorrect > 1 && totalOpts > 0) {
-            const banner = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(numCorrect, totalOpts);
-            targetQText = `${rawQText} <span class="correct-count">${banner}</span>`;
-          }
-        } catch { }
+        const targetQText = this.buildTargetQuestionHtml(targetQ, rawQText);
 
         if (targetQText) {
           this.questionHeadingService.setHtml(targetQText);
-
-          const w: any = window;
-          if (w.__navLockObserver) {
-            try { w.__navLockObserver.disconnect(); } catch { }
-          }
-          if (w.__navLockTimer) clearTimeout(w.__navLockTimer);
-
-          const looksLikeFet = (s: string): boolean => {
-            const lower = (s ?? '').toLowerCase();
-            // "correct because" is the FET signature.
-            // The multi-answer banner says "are correct" / "is correct"
-            // without "because", so we must NOT match those — otherwise
-            // the observer reverts banner writes back to bare q-txt.
-            return lower.includes('correct because');
-          };
-
-          const targetHasBanner = targetQText !== rawQText;
-          const enforce = (): void => {
-            const now = (h3.innerHTML ?? '').trim();
-            if (now === targetQText) return;
-            if (!now) {
-              this.questionHeadingService.setHtml(targetQText);
-              return;
-            }
-            if (looksLikeFet(now) && !looksLikeFet(targetQText)) {
-              this.questionHeadingService.setHtml(targetQText);
-              return;
-            }
-            // Bare-question-text write when target has the banner —
-            // restore the banner version so the user doesn't see the
-            // count flicker in/out as different writers race.
-            if (targetHasBanner && now === rawQText) {
-              this.questionHeadingService.setHtml(targetQText);
-            }
-          };
-
-          if (typeof MutationObserver !== 'undefined') {
-            const observer = new MutationObserver(() => enforce());
-            observer.observe(h3, { childList: true, characterData: true, subtree: true });
-            w.__navLockObserver = observer;
-            w.__navLockTimer = setTimeout(() => {
-              try { observer.disconnect(); } catch { }
-              w.__navLockObserver = null;
-              w.__navLockTimer = null;
-            }, NAV_LOCK_OBSERVER_DURATION_MS);
-          }
+          this.installNavLockObserver(h3, targetQText, rawQText);
         }
       }
     } catch (e) {
       console.error('QuizNavigationService.resetRenderStateBeforeNavigation DOM sync failed:', e);
+    }
+  }
+
+  // Build target HTML with the multi-answer banner if applicable, so the lock
+  // matches the canonical display HTML — otherwise blank-reverts strip the
+  // banner and other writers re-add it, causing banner flicker on transitions.
+  private buildTargetQuestionHtml(targetQ: any, rawQText: string): string {
+    let targetQText = rawQText;
+    try {
+      let numCorrect = 0;
+      let totalOpts = (targetQ?.options ?? []).length;
+      const pq = this.quizService?.getPristineQuestionByText?.(rawQText);
+      if (pq) {
+        const pOpts = pq.options ?? [];
+        numCorrect = pOpts.filter((o: any) => isOptionCorrect(o)).length;
+        totalOpts = pOpts.length;
+      }
+      if (numCorrect === 0) {
+        const sourceOpts = targetQ?.options ?? [];
+        numCorrect = sourceOpts.filter((o: any) => isOptionCorrect(o)).length;
+        totalOpts = sourceOpts.length;
+      }
+      if (numCorrect > 1 && totalOpts > 0) {
+        const banner = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(numCorrect, totalOpts);
+        targetQText = `${rawQText} <span class="correct-count">${banner}</span>`;
+      }
+    } catch { }
+    return targetQText;
+  }
+
+  // Install the short-lived MutationObserver that re-stamps the target question
+  // text whenever a racing writer overwrites it with FET or strips the banner.
+  private installNavLockObserver(h3: HTMLElement, targetQText: string, rawQText: string): void {
+    const w: any = window;
+    if (w.__navLockObserver) {
+      try { w.__navLockObserver.disconnect(); } catch { }
+    }
+    if (w.__navLockTimer) clearTimeout(w.__navLockTimer);
+
+    const looksLikeFet = (s: string): boolean => {
+      const lower = (s ?? '').toLowerCase();
+      // "correct because" is the FET signature.
+      // The multi-answer banner says "are correct" / "is correct"
+      // without "because", so we must NOT match those — otherwise
+      // the observer reverts banner writes back to bare q-txt.
+      return lower.includes('correct because');
+    };
+
+    const targetHasBanner = targetQText !== rawQText;
+    const enforce = (): void => {
+      const now = (h3.innerHTML ?? '').trim();
+      if (now === targetQText) return;
+      if (!now) {
+        this.questionHeadingService.setHtml(targetQText);
+        return;
+      }
+      if (looksLikeFet(now) && !looksLikeFet(targetQText)) {
+        this.questionHeadingService.setHtml(targetQText);
+        return;
+      }
+      // Bare-question-text write when target has the banner —
+      // restore the banner version so the user doesn't see the
+      // count flicker in/out as different writers race.
+      if (targetHasBanner && now === rawQText) {
+        this.questionHeadingService.setHtml(targetQText);
+      }
+    };
+
+    if (typeof MutationObserver !== 'undefined') {
+      const observer = new MutationObserver(() => enforce());
+      observer.observe(h3, { childList: true, characterData: true, subtree: true });
+      w.__navLockObserver = observer;
+      w.__navLockTimer = setTimeout(() => {
+        try { observer.disconnect(); } catch { }
+        w.__navLockObserver = null;
+        w.__navLockTimer = null;
+      }, NAV_LOCK_OBSERVER_DURATION_MS);
     }
   }
 
