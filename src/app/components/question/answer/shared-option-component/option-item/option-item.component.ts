@@ -325,7 +325,27 @@ export class OptionItemComponent implements OnInit {
   }
 
   isDisabled(): boolean {
-    // AUTO-REVEAL: correct options stay enabled (green), incorrect are disabled.
+    const auto = this.autoRevealDisabled();
+    if (auto !== undefined) return auto;
+
+    const revisit = this.revisitOverrideDisabled();
+    if (revisit !== undefined) return revisit;
+
+    // Timer-expiry handler stamped all bindings as disabled
+    if (this.isTimerStamped()) { return true; }
+
+    const _qIdx = this.quizService.currentQuestionIndex ?? this.currentQuestionIndex();
+    const _type = this.resolveEffectiveDisabledType(_qIdx);
+
+    if (_type === 'multiple') {
+      return this.isMultiAnswerOptionDisabled(_qIdx);
+    }
+
+    return this.isSingleAnswerOptionDisabled();
+  }
+
+  // AUTO-REVEAL: correct options stay enabled (green), incorrect are disabled.
+  private autoRevealDisabled(): boolean | undefined {
     const b = this.binding();
     if (b?._autoRevealedCorrect === true ||
         b?.option?._autoRevealedCorrect === true) {
@@ -334,9 +354,12 @@ export class OptionItemComponent implements OnInit {
     if (b?.disabled && b?.cssClasses?.['incorrect-option']) {
       return true;  // incorrect option in auto-reveal — disabled
     }
+    return undefined;
+  }
 
-    // Previous-revisit override: on a FULLY-resolved correct question, every
-    // INCORRECT option must render disabled (dark gray).
+  // Previous-revisit override: on a FULLY-resolved correct question, every
+  // INCORRECT option must render disabled (dark gray).
+  private revisitOverrideDisabled(): boolean | undefined {
     try {
       const _qIdxRev = this.resolveQuestionIndex();
 
@@ -348,19 +371,17 @@ export class OptionItemComponent implements OnInit {
         if (!isCanonCorrectHere) return true;
       }
     } catch (e) { console.error('isDisabled revisit-override failed:', e); }
+    return undefined;
+  }
 
-    // Timer-expiry handler stamped all bindings as disabled
-    if (this.isTimerStamped()) { return true; }
-
+  // RENDERING-LAYER PRISTINE GUARD: trust quizInitialState over the
+  // [type] input binding. If pristine says this question has >1
+  // correct option, force multi-mode regardless of what the parent
+  // template passed. This catches cases where isMultiMode resolved
+  // false in the template (e.g. Q2 of dependency-injection quiz)
+  // due to mutated/missing live binding flags.
+  private resolveEffectiveDisabledType(_qIdx: number): string {
     let _type = this.type();
-    const _qIdx = this.quizService.currentQuestionIndex ?? this.currentQuestionIndex();
-
-    // RENDERING-LAYER PRISTINE GUARD: trust quizInitialState over the
-    // [type] input binding. If pristine says this question has >1
-    // correct option, force multi-mode regardless of what the parent
-    // template passed. This catches cases where isMultiMode resolved
-    // false in the template (e.g. Q2 of dependency-injection quiz)
-    // due to mutated/missing live binding flags.
     if (_type !== 'multiple' && this.binding()?.option?.text) {
       const liveQT =
         (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[_qIdx]?.questionText
@@ -369,55 +390,58 @@ export class OptionItemComponent implements OnInit {
         this.quizService.getPristineCorrectTextsForQuestion(liveQT).size;
       if (pristineCC > 1) _type = 'multiple';
     }
+    return _type;
+  }
 
-    // For MULTIPLE mode, disable purely by data: when the user has
-    // selected every pristine-correct option, every other (unselected,
-    // incorrect) option becomes disabled. Reads selectedOptionsMapSig
-    // directly so Angular's signal tracking auto-marks this OnPush
-    // component dirty whenever selections mutate (no need for manual
-    // markForCheck or input-ref-change tricks).
-    if (_type === 'multiple') {
-      if (this.isTimerExpiredForThisQuestion()) { return true; }
+  // For MULTIPLE mode, disable purely by data: when the user has
+  // selected every pristine-correct option, every other (unselected,
+  // incorrect) option becomes disabled. Reads selectedOptionsMapSig
+  // directly so Angular's signal tracking auto-marks this OnPush
+  // component dirty whenever selections mutate (no need for manual
+  // markForCheck or input-ref-change tricks).
+  private isMultiAnswerOptionDisabled(_qIdx: number): boolean {
+    if (this.isTimerExpiredForThisQuestion()) { return true; }
 
-      const liveQT = norm(
-        (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[_qIdx]?.questionText
-        ?? (this.quizService as any)?.questions?.[_qIdx]?.questionText
+    const liveQT = norm(
+      (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[_qIdx]?.questionText
+      ?? (this.quizService as any)?.questions?.[_qIdx]?.questionText
+    );
+    const pristineCorrectTexts =
+      this.quizService.getPristineCorrectTextsForQuestion(liveQT);
+
+    if (pristineCorrectTexts.size > 0) {
+      // Read the signal directly — registers as a template dependency
+      // so this OnPush component re-renders when selections change.
+      const selectionsMap = this.selectedOptionService.selectedOptionsMapSig();
+      const selections = selectionsMap.get(_qIdx) ?? [];
+      const selectedTexts = new Set(
+        selections.map((s: SelectedOption) => norm(s?.text)).filter((t: string) => !!t)
       );
-      const pristineCorrectTexts =
-        this.quizService.getPristineCorrectTextsForQuestion(liveQT);
-
-      if (pristineCorrectTexts.size > 0) {
-        // Read the signal directly — registers as a template dependency
-        // so this OnPush component re-renders when selections change.
-        const selectionsMap = this.selectedOptionService.selectedOptionsMapSig();
-        const selections = selectionsMap.get(_qIdx) ?? [];
-        const selectedTexts = new Set(
-          selections.map((s: SelectedOption) => norm(s?.text)).filter((t: string) => !!t)
-        );
-        const allPristineCorrectSelected =
-          [...pristineCorrectTexts].every(t => selectedTexts.has(t));
-        if (allPristineCorrectSelected) {
-          const myText = norm(this.binding()?.option?.text);
-          const r = !selectedTexts.has(myText);
-          return r;
-        }
+      const allPristineCorrectSelected =
+        [...pristineCorrectTexts].every(t => selectedTexts.has(t));
+      if (allPristineCorrectSelected) {
+        const myText = norm(this.binding()?.option?.text);
+        const r = !selectedTexts.has(myText);
+        return r;
       }
-
-      // Fallback to the legacy flag path if pristine resolution failed
-      // (no quizInitialState match, etc.).
-      const perfectMap =
-        this.quizService._multiAnswerPerfect;
-      if (perfectMap?.get(_qIdx) === true && this.binding()?.disabled === true) {
-        return true;
-      }
-      return false;
     }
 
-    // SINGLE-ANSWER MODE — single, direct rule:
-    //   Lock = NOT-selected AND a pristine-correct option is already selected
-    //          for this question.
-    // The currently-selected option is never disabled.
-    // While no correct option has been selected, every option stays clickable.
+    // Fallback to the legacy flag path if pristine resolution failed
+    // (no quizInitialState match, etc.).
+    const perfectMap =
+      this.quizService._multiAnswerPerfect;
+    if (perfectMap?.get(_qIdx) === true && this.binding()?.disabled === true) {
+      return true;
+    }
+    return false;
+  }
+
+  // SINGLE-ANSWER MODE — single, direct rule:
+  //   Lock = NOT-selected AND a pristine-correct option is already selected
+  //          for this question.
+  // The currently-selected option is never disabled.
+  // While no correct option has been selected, every option stays clickable.
+  private isSingleAnswerOptionDisabled(): boolean {
     if (this.binding()?.isSelected) return false;
 
     const qIdx = this.quizService.currentQuestionIndex ?? this.currentQuestionIndex();
