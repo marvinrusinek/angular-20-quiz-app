@@ -256,7 +256,7 @@ export class SharedOptionBindingService {
       const isCorrectOpt = (o: any): boolean => isOptionCorrect(o);
       const current = comp.optionBindings?.();
 
-      const _res = this.questionResolution.resolve(qIdx, { includeSelections: false });
+      const _res = this.questionResolution.resolveQuestionState(qIdx, { includeSelections: false });
       const dotStatus = _res.dot;
 
       // Decide override mode:
@@ -499,7 +499,7 @@ export class SharedOptionBindingService {
       const savedByIndex = this.buildSavedByIndex(comp, saved, qIndex);
       if (savedByIndex.size === 0) return;
 
-      const _res = this.questionResolution.resolve(qIndex, { includeSelections: false });
+      const _res = this.questionResolution.resolveQuestionState(qIndex, { includeSelections: false });
       const wasPerfect = _res.fullyResolvedCorrect;
 
       this.restoreOptionsToDisplay(comp, savedByIndex, wasPerfect);

@@ -125,7 +125,7 @@ export class OptionInteractionEffectsService {
    * question. Body verbatim from the inline effect.
    */
   private scheduleScrubIfUnresolved(h: any, v: number): void {
-    const _res = h.questionResolution.resolve(v, { includeSelections: false });
+    const _res = h.questionResolution.resolveQuestionState(v, { includeSelections: false });
     const _confirmedCorrect = h.selectedOptionService.clickConfirmedDotStatus?.get(v) === 'correct';
     const _isResolved =
       (_res.scoredCorrect && (!_res.isCanonMulti || _res.multiPerfect)) ||

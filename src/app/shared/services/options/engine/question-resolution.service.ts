@@ -27,7 +27,7 @@ export class QuestionResolutionService {
   private readonly quizService = inject(QuizService);
   private readonly selectedOptionService = inject(SelectedOptionService);
 
-  resolve(
+  resolveQuestionState(
     qIdx: number,
     opts?: {
       includeDot?: boolean;
@@ -39,47 +39,89 @@ export class QuestionResolutionService {
     const includeSelections = opts?.includeSelections !== false;
     const includeWrongDetection = opts?.includeWrongDetection === true;
 
-    // Signal 1: dot status
-    let dot: 'correct' | 'wrong' | undefined;
-    if (includeDot) {
-      dot = this.selectedOptionService.clickConfirmedDotStatus?.get?.(qIdx) as 'correct' | 'wrong' | undefined;
-      if (!dot) {
-        try {
-          const stored = sessionStorage.getItem(SK_DOT_CONFIRMED + qIdx);
-          if (stored === 'correct' || stored === 'wrong') dot = stored;
-        } catch { /* ignore */ }
-      }
-    }
+    const s = this.gatherSignals(qIdx, includeDot, includeSelections);
 
-    // Signal 2: multi-answer perfect flag
+    const fullyResolvedCorrect = this.combineFullyResolvedCorrect(
+      s.scoredCorrect, s.isCanonMulti, s.multiPerfect, s.computedPerfect, s.dot
+    );
+    const fullyResolvedWrong = includeWrongDetection
+      ? this.combineFullyResolvedWrong(s.scoredCorrect, s.isCanonMulti, s.computedImperfect, s.dot, s.multiPerfect)
+      : false;
+
+    return { fullyResolvedCorrect, fullyResolvedWrong, ...s };
+  }
+
+  // Gather the per-signal facts that feed the combine steps
+  private gatherSignals(
+    qIdx: number,
+    includeDot: boolean,
+    includeSelections: boolean
+  ): Omit<QuestionResolutionResult, 'fullyResolvedCorrect' | 'fullyResolvedWrong'> {
+    const dot = includeDot ? this.resolveDotSignal(qIdx) : undefined;
+    const multiPerfect = this.resolveMultiPerfect(qIdx);
+    const scoredCorrect = this.resolveScoredCorrect(qIdx);
+    const correctOpts = this.resolvePristineCorrectOpts(qIdx);
+    const isCanonMulti = correctOpts.length > 1;
+    const { liveSel, computedPerfect, computedImperfect } = includeSelections
+      ? this.resolveSelectionSignals(qIdx, correctOpts)
+      : { liveSel: [], computedPerfect: false, computedImperfect: false };
+
+    return {
+      dot,
+      multiPerfect,
+      scoredCorrect,
+      computedPerfect,
+      computedImperfect,
+      correctOpts,
+      isCanonMulti,
+      liveSel,
+    };
+  }
+
+  // Signal 1: dot status
+  private resolveDotSignal(qIdx: number): 'correct' | 'wrong' | undefined {
+    let dot = this.selectedOptionService.clickConfirmedDotStatus?.get?.(qIdx) as 'correct' | 'wrong' | undefined;
+    if (!dot) {
+      try {
+        const stored = sessionStorage.getItem(SK_DOT_CONFIRMED + qIdx);
+        if (stored === 'correct' || stored === 'wrong') dot = stored;
+      } catch { /* ignore */ }
+    }
+    return dot;
+  }
+
+  // Signal 2: multi-answer perfect flag
+  private resolveMultiPerfect(qIdx: number): boolean {
     let multiPerfect = this.quizService._multiAnswerPerfect.get(qIdx) === true;
     if (!multiPerfect) {
       multiPerfect = readSessionString(SK_MULTI_PERFECT + qIdx) === 'true';
     }
+    return multiPerfect;
+  }
 
-    // Signal 3: scoring map (must use original index in shuffled mode)
+  // Signal 3: scoring map (must use original index in shuffled mode)
+  private resolveScoredCorrect(qIdx: number): boolean {
     const scoreMap = this.quizService?.questionCorrectness as Map<number, boolean> | undefined;
-    let scoredCorrect = false;
-    if (scoreMap) {
-      const qs: any = this.quizService;
-      const isShuf = qs?.isShuffleEnabled?.() && qs?.shuffledQuestions?.length > 0;
-      if (isShuf) {
-        let effectiveQuizId = qs?.quizId || '';
-        if (!effectiveQuizId) {
-          try { effectiveQuizId = localStorage.getItem('lastQuizId') || ''; } catch { /* ignore */ }
-        }
-        if (effectiveQuizId) {
-          const origIdx = qs?.scoringService?.quizShuffleService?.toOriginalIndex?.(effectiveQuizId, qIdx);
-          if (typeof origIdx === 'number' && origIdx >= 0) {
-            scoredCorrect = scoreMap.get(origIdx) === true;
-          }
-        }
-      } else {
-        scoredCorrect = scoreMap.get(qIdx) === true;
-      }
+    if (!scoreMap) return false;
+    const qs: any = this.quizService;
+    const isShuf = qs?.isShuffleEnabled?.() && qs?.shuffledQuestions?.length > 0;
+    if (!isShuf) {
+      return scoreMap.get(qIdx) === true;
     }
+    let effectiveQuizId = qs?.quizId || '';
+    if (!effectiveQuizId) {
+      try { effectiveQuizId = localStorage.getItem('lastQuizId') || ''; } catch { /* ignore */ }
+    }
+    if (!effectiveQuizId) return false;
+    const origIdx = qs?.scoringService?.quizShuffleService?.toOriginalIndex?.(effectiveQuizId, qIdx);
+    if (typeof origIdx === 'number' && origIdx >= 0) {
+      return scoreMap.get(origIdx) === true;
+    }
+    return false;
+  }
 
-    // Signal 4: pristine correct options from quizInitialState
+  // Signal 4: pristine correct options from quizInitialState
+  private resolvePristineCorrectOpts(qIdx: number): any[] {
     const optsForQ: any[] =
       this.quizService?.questions?.[qIdx]?.options
       ?? this.quizService?.shuffledQuestions?.[qIdx]?.options
@@ -102,88 +144,91 @@ export class QuestionResolutionService {
         (o: any) => isOptionCorrect(o)
       );
     }
+    return correctOpts;
+  }
 
-    const isCanonMulti = correctOpts.length > 1;
-
-    // Signal 5: selection comparison (only when requested)
-    let liveSel: any[] = [];
-    let computedPerfect = false;
-    let computedImperfect = false;
-
-    if (includeSelections) {
-      let sel: any[] = [];
-      try {
-        const raw = sessionStorage.getItem(SK_SEL_Q + qIdx);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) sel = parsed;
-        }
-      } catch { /* ignore */ }
-      if (sel.length === 0) {
-        sel = this.selectedOptionService.getSelectedOptionsForQuestion?.(qIdx) ?? [];
+  // Signal 5: selection comparison
+  private resolveSelectionSignals(
+    qIdx: number,
+    correctOpts: any[]
+  ): { liveSel: any[]; computedPerfect: boolean; computedImperfect: boolean } {
+    let sel: any[] = [];
+    try {
+      const raw = sessionStorage.getItem(SK_SEL_Q + qIdx);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) sel = parsed;
       }
-
-      liveSel = sel.filter((s: any) =>
-        s?.selected === true || s?.showIcon === true || s?.highlight === true
-      );
-
-      if (correctOpts.length > 0 && liveSel.length > 0) {
-        const wasPicked = (canon: any): boolean => {
-          const cid = canon?.optionId;
-          const ctxt = norm(canon?.text);
-          return liveSel.some((s: any) =>
-            (cid != null && s?.optionId === cid) ||
-            (!!ctxt && norm(s?.text) === ctxt)
-          );
-        };
-        const isCanonCorrectSel = (sItem: any): boolean => {
-          const sid = sItem?.optionId;
-          const stxt = norm(sItem?.text);
-          return correctOpts.some((c: any) =>
-            (sid != null && c?.optionId === sid) ||
-            (!!stxt && norm(c?.text) === stxt)
-          );
-        };
-
-        const allCovered = correctOpts.every(wasPicked);
-        const noExtras = liveSel.every(isCanonCorrectSel);
-        if (allCovered && noExtras) {
-          computedPerfect = true;
-        } else {
-          computedImperfect = true;
-        }
-      }
+    } catch { /* ignore */ }
+    if (sel.length === 0) {
+      sel = this.selectedOptionService.getSelectedOptionsForQuestion?.(qIdx) ?? [];
     }
 
-    // Combine: fullyResolvedCorrect
-    const fullyResolvedCorrect =
+    const liveSel = sel.filter((s: any) =>
+      s?.selected === true || s?.showIcon === true || s?.highlight === true
+    );
+
+    let computedPerfect = false;
+    let computedImperfect = false;
+    if (correctOpts.length > 0 && liveSel.length > 0) {
+      const wasPicked = (canon: any): boolean => {
+        const cid = canon?.optionId;
+        const ctxt = norm(canon?.text);
+        return liveSel.some((s: any) =>
+          (cid != null && s?.optionId === cid) ||
+          (!!ctxt && norm(s?.text) === ctxt)
+        );
+      };
+      const isCanonCorrectSel = (sItem: any): boolean => {
+        const sid = sItem?.optionId;
+        const stxt = norm(sItem?.text);
+        return correctOpts.some((c: any) =>
+          (sid != null && c?.optionId === sid) ||
+          (!!stxt && norm(c?.text) === stxt)
+        );
+      };
+
+      const allCovered = correctOpts.every(wasPicked);
+      const noExtras = liveSel.every(isCanonCorrectSel);
+      if (allCovered && noExtras) {
+        computedPerfect = true;
+      } else {
+        computedImperfect = true;
+      }
+    }
+    return { liveSel, computedPerfect, computedImperfect };
+  }
+
+  // Combine: fullyResolvedCorrect
+  private combineFullyResolvedCorrect(
+    scoredCorrect: boolean,
+    isCanonMulti: boolean,
+    multiPerfect: boolean,
+    computedPerfect: boolean,
+    dot: 'correct' | 'wrong' | undefined
+  ): boolean {
+    return (
       (scoredCorrect && (!isCanonMulti || multiPerfect || computedPerfect)) ||
       computedPerfect ||
       (!isCanonMulti && dot === 'correct') ||
-      (isCanonMulti && multiPerfect);
+      (isCanonMulti && multiPerfect)
+    );
+  }
 
-    // Combine: fullyResolvedWrong (only when requested)
-    let fullyResolvedWrong = false;
-    if (includeWrongDetection) {
-      fullyResolvedWrong =
-        (!scoredCorrect || isCanonMulti) &&
-        (computedImperfect ||
-          dot === 'wrong' ||
-          (isCanonMulti && dot === 'correct' && !multiPerfect));
-    }
-
-    return {
-      fullyResolvedCorrect,
-      fullyResolvedWrong,
-      dot,
-      multiPerfect,
-      scoredCorrect,
-      computedPerfect,
-      computedImperfect,
-      correctOpts,
-      isCanonMulti,
-      liveSel,
-    };
+  // Combine: fullyResolvedWrong
+  private combineFullyResolvedWrong(
+    scoredCorrect: boolean,
+    isCanonMulti: boolean,
+    computedImperfect: boolean,
+    dot: 'correct' | 'wrong' | undefined,
+    multiPerfect: boolean
+  ): boolean {
+    return (
+      (!scoredCorrect || isCanonMulti) &&
+      (computedImperfect ||
+        dot === 'wrong' ||
+        (isCanonMulti && dot === 'correct' && !multiPerfect))
+    );
   }
 
   /** Check whether a single option is among the canonical correct set. */

@@ -227,7 +227,7 @@ export class OptionItemComponent implements OnInit {
     try {
       const _qIdxRev = this.resolveQuestionIndex();
 
-      const res = this.questionResolution.resolve(_qIdxRev, { includeWrongDetection: true });
+      const res = this.questionResolution.resolveQuestionState(_qIdxRev, { includeWrongDetection: true });
       const { fullyResolvedCorrect, fullyResolvedWrong, correctOpts } = res;
       const _opt = this.binding()?.option;
 
@@ -340,7 +340,7 @@ export class OptionItemComponent implements OnInit {
     try {
       const _qIdxRev = this.resolveQuestionIndex();
 
-      const res = this.questionResolution.resolve(_qIdxRev);
+      const res = this.questionResolution.resolveQuestionState(_qIdxRev);
       if (res.fullyResolvedCorrect) {
         const isCanonCorrectHere = this.questionResolution.isOptionCanonCorrect(
           this.binding()?.option, res.correctOpts
@@ -530,7 +530,7 @@ export class OptionItemComponent implements OnInit {
     // options must be green and incorrect must be dark gray.
     try {
       const _qIdxFR = this.resolveQuestionIndex();
-      const resFR = this.questionResolution.resolve(_qIdxFR, { includeDot: false });
+      const resFR = this.questionResolution.resolveQuestionState(_qIdxFR, { includeDot: false });
       if (resFR.fullyResolvedCorrect) {
         const isCanonCorrect = this.questionResolution.isOptionCanonCorrect(
           this.binding()?.option, resFR.correctOpts
@@ -545,7 +545,7 @@ export class OptionItemComponent implements OnInit {
       if (!this._userHasClicked && !this.binding()?.isSelected) {
         const _qIdxRev = this.resolveQuestionIndex();
 
-        const res = this.questionResolution.resolve(_qIdxRev, { includeDot: false });
+        const res = this.questionResolution.resolveQuestionState(_qIdxRev, { includeDot: false });
         if (!res.fullyResolvedCorrect && res.isCanonMulti) {
           return null;
         }
