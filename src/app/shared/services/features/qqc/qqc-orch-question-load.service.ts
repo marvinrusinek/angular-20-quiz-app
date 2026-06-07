@@ -9,6 +9,12 @@ import type { QuizQuestionComponent } from '../../../../components/question/quiz
 
 type Host = QuizQuestionComponent;
 
+interface LoadPrep {
+  shouldPreserveVisualState: boolean;
+  shouldKeepExplanationVisible: boolean;
+  explanationSnapshot: any;
+}
+
 /**
  * Orchestrates QQC question loading and dynamic component initialization.
  * Extracted from QqcComponentOrchestratorService.
@@ -74,16 +80,83 @@ export class QqcOrchQuestionLoadService {
   }
 
   async runLoadQuestion(host: Host, signal?: AbortSignal): Promise<boolean> {
-    host.readyForExplanationDisplay.set(false);
-    host.isExplanationReady.set(false);
-    host.isExplanationLocked.set(true);
-    host.forceQuestionDisplay.set(true);
+    const prep = this.prepareForLoad(host);
+    try {
+      return await this.performLoad(host, prep, signal);
+    } catch (error) {
+      this.applyLoadError(host);
+      return false;
+    } finally {
+      host.isLoading.set(false);
+      host.quizStateService.setLoading(false);
+    }
+  }
+
+  // Set pre-load flags, snapshot the explanation, run the pre-load reset, and
+  // apply loading state. Returns the flags + snapshot the load path needs.
+  private prepareForLoad(host: Host): LoadPrep {
+    this.applyPreLoadFlags(host);
 
     const shouldPreserveVisualState = host.questionLoader.canRenderQuestionInstantly(
       host.questionsArray(),
       host.currentQuestionIndex()
     );
-    const explanationSnapshot = host.explanationManager.captureExplanationSnapshot({
+    const explanationSnapshot = this.captureExplanationSnapshot(host, shouldPreserveVisualState);
+    const shouldKeepExplanationVisible = explanationSnapshot.shouldRestore;
+
+    host.questionLoader.performPreLoadReset({
+      shouldPreserveVisualState,
+      shouldKeepExplanationVisible,
+      currentQuestionIndex: host.currentQuestionIndex()
+    });
+
+    this.applyLoadingState(host, shouldPreserveVisualState);
+
+    return { shouldPreserveVisualState, shouldKeepExplanationVisible, explanationSnapshot };
+  }
+
+  // Reset, restore/clear the explanation, load the question, and publish the
+  // result. Throws propagate to runLoadQuestion's catch; redirect/empty -> false.
+  private async performLoad(host: Host, prep: LoadPrep, signal?: AbortSignal): Promise<boolean> {
+    host.selectedOptionId = null;
+    const lockedIndex = host.currentQuestionIndex();
+
+    await host.resetQuestionStateBeforeNavigation({
+      preserveVisualState: prep.shouldPreserveVisualState,
+      preserveExplanation: prep.shouldKeepExplanationVisible
+    });
+
+    this.applyExplanationClearOrRestore(
+      host, prep.shouldKeepExplanationVisible, prep.explanationSnapshot, lockedIndex
+    );
+
+    const loadResult = await host.questionLoader.performLoadQuestionPostReset({
+      currentQuestionIndex: host.currentQuestionIndex(),
+      questionsArray: host.questionsArray(),
+      quizId: host.quizId(),
+      signal,
+      questions: host.questions()
+    });
+
+    if (!loadResult) return false;
+    if (loadResult.shouldRedirect) {
+      await host.router.navigate(['/results', host.quizId()]);
+      return false;
+    }
+
+    this.applyLoadResult(host, loadResult);
+    return true;
+  }
+
+  private applyPreLoadFlags(host: Host): void {
+    host.readyForExplanationDisplay.set(false);
+    host.isExplanationReady.set(false);
+    host.isExplanationLocked.set(true);
+    host.forceQuestionDisplay.set(true);
+  }
+
+  private captureExplanationSnapshot(host: Host, shouldPreserveVisualState: boolean): any {
+    return host.explanationManager.captureExplanationSnapshot({
       preserveVisualState: shouldPreserveVisualState,
       index: host.currentQuestionIndex(),
       explanationToDisplay: host.explanationToDisplay() ?? '',
@@ -95,14 +168,9 @@ export class QqcOrchQuestionLoadService {
       displayExplanation: host.displayExplanation(),
       displayStateAnswered: host.displayState().answered
     });
-    const shouldKeepExplanationVisible = explanationSnapshot.shouldRestore;
+  }
 
-    host.questionLoader.performPreLoadReset({
-      shouldPreserveVisualState,
-      shouldKeepExplanationVisible,
-      currentQuestionIndex: host.currentQuestionIndex()
-    });
-
+  private applyLoadingState(host: Host, shouldPreserveVisualState: boolean): void {
     if (shouldPreserveVisualState) {
       host.isLoading.set(false);
     } else {
@@ -111,92 +179,73 @@ export class QqcOrchQuestionLoadService {
       host.quizStateService.setAnswerSelected(false);
       if (!host.quizStateService.isLoading()) host.quizStateService.startLoading();
     }
+  }
 
-    try {
-      host.selectedOptionId = null;
-      const lockedIndex = host.currentQuestionIndex();
-
-      await host.resetQuestionStateBeforeNavigation({
-        preserveVisualState: shouldPreserveVisualState,
-        preserveExplanation: shouldKeepExplanationVisible
-      });
-
-      if (!shouldKeepExplanationVisible) {
-        const clearResult = host.questionLoader.performPostResetExplanationClear();
-        host.renderReady.set(false);
-        host.displayMode.set(clearResult.displayState.mode);
-        host.isAnswered.set(clearResult.displayState.answered);
-        host.forceQuestionDisplay.set(clearResult.forceQuestionDisplay);
-        host.readyForExplanationDisplay.set(clearResult.readyForExplanationDisplay);
-        host.isExplanationReady.set(clearResult.isExplanationReady);
-        host.isExplanationLocked.set(clearResult.isExplanationLocked);
-        host.feedbackText.set(clearResult.feedbackText);
-      } else {
-        const restoreResult = host.explanationFlow.computeRestoreAfterReset({
-          questionIndex: lockedIndex,
-          explanationText: explanationSnapshot.explanationText,
-          questionState: explanationSnapshot.questionState,
-          quizId: host.quizId(),
-          quizServiceQuizId: host.quizService.quizId,
-          currentQuizId: host.quizService.getCurrentQuizId(),
-        });
-        if (!restoreResult.shouldSkip) {
-          host.explanationToDisplay.set(restoreResult.explanationText);
-          host.updateDisplayMode(restoreResult.displayMode);
-          host.applyDisplayState(restoreResult.displayState);
-          host.applyExplanationFlags(restoreResult);
-          host.emitExplanationChange(restoreResult.explanationText, true);
-        }
-      }
-
-      const loadResult = await host.questionLoader.performLoadQuestionPostReset({
-        currentQuestionIndex: host.currentQuestionIndex(),
-        questionsArray: host.questionsArray(),
+  private applyExplanationClearOrRestore(
+    host: Host,
+    shouldKeepExplanationVisible: boolean,
+    explanationSnapshot: any,
+    lockedIndex: number
+  ): void {
+    if (!shouldKeepExplanationVisible) {
+      const clearResult = host.questionLoader.performPostResetExplanationClear();
+      host.renderReady.set(false);
+      host.displayMode.set(clearResult.displayState.mode);
+      host.isAnswered.set(clearResult.displayState.answered);
+      host.forceQuestionDisplay.set(clearResult.forceQuestionDisplay);
+      host.readyForExplanationDisplay.set(clearResult.readyForExplanationDisplay);
+      host.isExplanationReady.set(clearResult.isExplanationReady);
+      host.isExplanationLocked.set(clearResult.isExplanationLocked);
+      host.feedbackText.set(clearResult.feedbackText);
+    } else {
+      const restoreResult = host.explanationFlow.computeRestoreAfterReset({
+        questionIndex: lockedIndex,
+        explanationText: explanationSnapshot.explanationText,
+        questionState: explanationSnapshot.questionState,
         quizId: host.quizId(),
-        signal,
-        questions: host.questions()
+        quizServiceQuizId: host.quizService.quizId,
+        currentQuizId: host.quizService.getCurrentQuizId(),
       });
-
-      if (!loadResult) return false;
-      if (loadResult.shouldRedirect) {
-        await host.router.navigate(['/results', host.quizId()]);
-        return false;
+      if (!restoreResult.shouldSkip) {
+        host.explanationToDisplay.set(restoreResult.explanationText);
+        host.updateDisplayMode(restoreResult.displayMode);
+        host.applyDisplayState(restoreResult.displayState);
+        host.applyExplanationFlags(restoreResult);
+        host.emitExplanationChange(restoreResult.explanationText, true);
       }
-
-      host.questionsArray.set(loadResult.questionsArray);
-      host.currentQuestion.set(loadResult.currentQuestion);
-      host.optionsToDisplay.set(loadResult.optionsToDisplay);
-      host.updateShouldRenderOptions(host.optionsToDisplay());
-
-      const banner = host.feedbackManager.computeCorrectAnswersBanner({
-        currentQuestion: host.currentQuestion(),
-        currentQuestionIndex: host.currentQuestionIndex()
-      });
-      host.quizService.updateCorrectAnswersText(banner.bannerText);
-
-      host.sharedOptionComponent?.()?.initializeOptionBindings();
-      host.cdRef.markForCheck();
-
-      const cq = host.currentQuestion();
-      if (cq && host.optionsToDisplay()?.length > 0) {
-        host.questionAndOptionsReady.emit();
-        host.quizService.emitQuestionAndOptions(
-          cq,
-          host.optionsToDisplay(),
-          host.currentQuestionIndex()
-        );
-      }
-
-      return true;
-    } catch (error) {
-      host.feedbackText.set('Error loading question. Please try again.');
-      host.currentQuestion.set(null);
-      host.optionsToDisplay.set([]);
-      return false;
-    } finally {
-      host.isLoading.set(false);
-      host.quizStateService.setLoading(false);
     }
+  }
+
+  private applyLoadResult(host: Host, loadResult: any): void {
+    host.questionsArray.set(loadResult.questionsArray);
+    host.currentQuestion.set(loadResult.currentQuestion);
+    host.optionsToDisplay.set(loadResult.optionsToDisplay);
+    host.updateShouldRenderOptions(host.optionsToDisplay());
+
+    const banner = host.feedbackManager.computeCorrectAnswersBanner({
+      currentQuestion: host.currentQuestion(),
+      currentQuestionIndex: host.currentQuestionIndex()
+    });
+    host.quizService.updateCorrectAnswersText(banner.bannerText);
+
+    host.sharedOptionComponent?.()?.initializeOptionBindings();
+    host.cdRef.markForCheck();
+
+    const cq = host.currentQuestion();
+    if (cq && host.optionsToDisplay()?.length > 0) {
+      host.questionAndOptionsReady.emit();
+      host.quizService.emitQuestionAndOptions(
+        cq,
+        host.optionsToDisplay(),
+        host.currentQuestionIndex()
+      );
+    }
+  }
+
+  private applyLoadError(host: Host): void {
+    host.feedbackText.set('Error loading question. Please try again.');
+    host.currentQuestion.set(null);
+    host.optionsToDisplay.set([]);
   }
 
   runSetupRouteChangeHandler(host: Host): void {
