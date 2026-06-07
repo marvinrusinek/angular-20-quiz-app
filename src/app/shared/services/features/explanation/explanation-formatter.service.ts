@@ -16,7 +16,7 @@ import { norm } from '../../../utils/text-norm';
 
 @Injectable({ providedIn: 'root' })
 export class ExplanationFormatterService {
-  // ── injects ─────────────────────────────────────────────────────
+  // -- injects -----------------------------------------------------
   private readonly activatedRoute = inject(ActivatedRoute);
   private readonly injector = inject(Injector);
 
@@ -133,6 +133,10 @@ export class ExplanationFormatterService {
     this.formattedExplanationSig.set(trimmed);
   }
 
+  // Leading "Option(s) X is/are correct because" prefix.
+  private readonly fetAlreadyFormattedRe =
+    /^(?:option|options)\s+#?\d+(?:\s*,\s*#?\d+)*(?:\s+and\s+#?\d+)?\s+(?:is|are)\s+correct\s+because\s+/i;
+
   storeFormattedExplanation(
     index: number,
     explanation: string,
@@ -143,184 +147,119 @@ export class ExplanationFormatterService {
     if (index < 0) return;
     if (!explanation || explanation.trim() === '') return;
 
-    // Strip any existing "Option(s) X is/are correct because" prefix so we can
-    // re-format with the CORRECT visual indices from the passed `options` array.
-    // This ensures FET option numbers match the feedback text option numbers.
-    const alreadyFormattedRe =
-      /^(?:option|options)\s+#?\d+(?:\s*,\s*#?\d+)*(?:\s+and\s+#?\d+)?\s+(?:is|are)\s+correct\s+because\s+/i;
-
     const trimmedExplanation = explanation.trim();
-    const incomingAlreadyFormatted = alreadyFormattedRe.test(trimmedExplanation);
-    let formattedExplanation: string;
+    const incomingAlreadyFormatted = this.fetAlreadyFormattedRe.test(trimmedExplanation);
 
-    const parseLeadingOptionIndices = (text: string): number[] => {
-      const prefixMatch = text.match(
-        /^(?:option|options)\s+([^]*?)\s+(?:is|are)\s+correct\s+because\s+/i
-      );
-      if (!prefixMatch || !prefixMatch[1]) return [];
+    let formattedExplanation = (force && incomingAlreadyFormatted)
+      ? this.resolveForcedFormatted(index, question, options, trimmedExplanation)
+      : this.resolveDefaultFormatted(index, question, options, trimmedExplanation, incomingAlreadyFormatted);
 
-      const rawNumbers = prefixMatch[1].match(/\d+/g) || [];
-      return Array.from(
-        new Set(
-          rawNumbers
-            .map((n) => Number(n))
-            .filter((n) => Number.isFinite(n) && n > 0)
-        )
-      ).sort((a, b) => a - b);
-    };
+    formattedExplanation = this.revalidateFormattedAgainstVisual(formattedExplanation, index, question, options, trimmedExplanation);
 
-    const getVisualIndicesFromSnapshot = (): number[] => {
-      let opts = Array.isArray(options) ? options : [];
+    this.commitFormattedExplanation(index, question, formattedExplanation, force);
+  }
 
-      // If no options were passed, try to get them from the shuffled question data
-      if (opts.length === 0) {
-        try {
-          const quizSvc = this.injector.get(QuizService, null);
-          if (quizSvc) {
-            const shuffledQs = quizSvc.shuffledQuestions;
-            const isShuffled = quizSvc.isShuffleEnabled?.() ?? false;
-            const questions = isShuffled && shuffledQs?.length > 0
-              ? shuffledQs
-              : quizSvc.questions;
-            if (Array.isArray(questions) && questions[index]) {
-              opts = questions[index].options ?? [];
-            }
+  /** 1-based option indices parsed from a formatted FET prefix. */
+  private parseLeadingOptionIndices(text: string): number[] {
+    const prefixMatch = text.match(/^(?:option|options)\s+([^]*?)\s+(?:is|are)\s+correct\s+because\s+/i);
+    if (!prefixMatch || !prefixMatch[1]) return [];
+    const rawNumbers = prefixMatch[1].match(/\d+/g) || [];
+    return Array.from(new Set(
+      rawNumbers.map((n) => Number(n)).filter((n) => Number.isFinite(n) && n > 0)
+    )).sort((a, b) => a - b);
+  }
+
+  /** Visual correct-option indices from the snapshot: by answer-text first, then by correct flags. */
+  private getVisualIndicesFromSnapshot(index: number, question: QuizQuestion, options?: Option[]): number[] {
+    let opts = Array.isArray(options) ? options : [];
+    if (opts.length === 0) {
+      try {
+        const quizSvc = this.injector.get(QuizService, null);
+        if (quizSvc) {
+          const shuffledQs = quizSvc.shuffledQuestions;
+          const isShuffled = quizSvc.isShuffleEnabled?.() ?? false;
+          const questions = isShuffled && shuffledQs?.length > 0 ? shuffledQs : quizSvc.questions;
+          if (Array.isArray(questions) && questions[index]) {
+            opts = questions[index].options ?? [];
           }
-        } catch (e) { /* ignore */ }
-      }
-      if (opts.length === 0) return [];
-
-      const normalize = (s: unknown): string =>
-        String(s ?? '')
-          .replace(/<[^>]*>/g, ' ')
-          .replace(/&nbsp;/gi, ' ')
-          .replace(/ /g, ' ')
-          .trim()
-          .toLowerCase()
-          .replace(/\s+/g, ' ');
-
-      const answerTexts = new Set<string>();
-      for (const answer of (question?.answer ?? [])) {
-        const normalized = normalize((answer as any)?.text);
-        if (normalized) answerTexts.add(normalized);
-      }
-
-      const byAnswerText = opts
-        .map((option, idx) =>
-          answerTexts.has(normalize(option?.text)) ? idx + 1 : null
-        )
-        .filter((n): n is number => n !== null);
-      if (byAnswerText.length > 0) {
-        return Array.from(new Set(byAnswerText)).sort((a, b) => a - b);
-      }
-
-      const byFlags = opts
-        .map((option, idx) => {
-          return isOptionCorrect(option) ? idx + 1 : null;
-        })
-        .filter((n): n is number => n !== null);
-
-      return Array.from(new Set(byFlags)).sort((a, b) => a - b);
-    };
-
-    // If caller already formatted and explicitly forced storage, usually trust that text.
-    // But verify the leading option numbers still match the current visual options.
-    // This specifically protects shuffled Q1, where a pre-formatted canonical prefix can
-    // slip in during hydration and show incorrect numbering.
-    if (force && incomingAlreadyFormatted) {
-      const prefixIndices = parseLeadingOptionIndices(trimmedExplanation);
-      const visualSnapshotIndices = getVisualIndicesFromSnapshot();
-      const hasComparableData = prefixIndices.length > 0 && visualSnapshotIndices.length > 0;
-      const prefixMatchesSnapshot =
-        hasComparableData &&
-        prefixIndices.length === visualSnapshotIndices.length &&
-        prefixIndices.every((num, idx) => num === visualSnapshotIndices[idx]);
-
-      if (!hasComparableData || prefixMatchesSnapshot) {
-        formattedExplanation = trimmedExplanation;
-      } else {
-        let rawExplanation = trimmedExplanation.replace(alreadyFormattedRe, '').trim();
-        if (!rawExplanation) rawExplanation = trimmedExplanation;
-
-        const questionForFormatting =
-          Array.isArray(options) && options.length > 0
-            ? { ...question, options }
-            : question;
-        formattedExplanation = this.formatExplanation(
-          questionForFormatting,
-          visualSnapshotIndices,
-          rawExplanation,
-          index
-        );
-      }
-    } else {
-      // Default path: strip any existing prefix and regenerate with current options.
-      let rawExplanation = trimmedExplanation;
-      if (incomingAlreadyFormatted) {
-        rawExplanation = rawExplanation.replace(alreadyFormattedRe, '').trim();
-      }
-
-      const correctOptionIndices = this.getCorrectOptionIndices(question, options, index);
-      const questionForFormatting =
-        Array.isArray(options) && options.length > 0
-          ? { ...question, options }
-          : question;
-      formattedExplanation = this.formatExplanation(
-        questionForFormatting,
-        correctOptionIndices,
-        rawExplanation,
-        index
-      );
+        }
+      } catch (e) { /* ignore */ }
     }
+    if (opts.length === 0) return [];
 
-    // ── FINAL GUARDRAIL: Validate generated FET against visual snapshot ──
-    // Regardless of which path produced formattedExplanation, verify that
-    // the option numbers in the prefix actually match the visual options.
-    // This catches cases where any caller passed stale/canonical options.
-    const finalPrefixIndices = parseLeadingOptionIndices(formattedExplanation);
-    const finalVisualIndices = getVisualIndicesFromSnapshot();
-    if (
-      finalPrefixIndices.length > 0 &&
-      finalVisualIndices.length > 0 &&
-      (finalPrefixIndices.length !== finalVisualIndices.length ||
-        !finalPrefixIndices.every((num, idx) => num === finalVisualIndices[idx]))
-    ) {      let rawExplanation = formattedExplanation.replace(alreadyFormattedRe, '').trim();
-      if (!rawExplanation) rawExplanation = trimmedExplanation;
-      const questionForFormatting =
-        Array.isArray(options) && options.length > 0
-          ? { ...question, options }
-          : question;
-      formattedExplanation = this.formatExplanation(
-        questionForFormatting,
-        finalVisualIndices,
-        rawExplanation,
-        index
-      );
+    const answerTexts = new Set<string>();
+    for (const answer of (question?.answer ?? [])) {
+      const normalized = this.normalizeLocalText((answer as any)?.text);
+      if (normalized) answerTexts.add(normalized);
     }
+    const byAnswerText = opts
+      .map((option, idx) => answerTexts.has(this.normalizeLocalText(option?.text)) ? idx + 1 : null)
+      .filter((n): n is number => n !== null);
+    if (byAnswerText.length > 0) {
+      return Array.from(new Set(byAnswerText)).sort((a, b) => a - b);
+    }
+    const byFlags = opts
+      .map((option, idx) => isOptionCorrect(option) ? idx + 1 : null)
+      .filter((n): n is number => n !== null);
+    return Array.from(new Set(byFlags)).sort((a, b) => a - b);
+  }
 
-    // Keep lock protection, but allow replacement when regenerated text differs.
-    // In shuffled mode, early calls can lock in canonical numbering (wrong for UI),
-    // so a later pass using the visual option order must be able to correct it.
+  /** The question with the passed options spliced in (when non-empty). */
+  private questionWithOptions(question: QuizQuestion, options?: Option[]): QuizQuestion {
+    return Array.isArray(options) && options.length > 0 ? { ...question, options } : question;
+  }
+
+  /** Two index arrays are identical (same length, same order). */
+  private sameIndices(a: number[], b: number[]): boolean {
+    return a.length === b.length && a.every((n, i) => n === b[i]);
+  }
+
+  /** Strip the FET prefix down to the raw explanation (falling back to the original). */
+  private stripFetPrefix(text: string, fallback: string): string {
+    const raw = text.replace(this.fetAlreadyFormattedRe, '').trim();
+    return raw || fallback;
+  }
+
+  /** Forced + pre-formatted: trust the text when its prefix matches the visual snapshot, else re-format. */
+  private resolveForcedFormatted(index: number, question: QuizQuestion, options: Option[] | undefined, trimmedExplanation: string): string {
+    const prefixIndices = this.parseLeadingOptionIndices(trimmedExplanation);
+    const visualSnapshotIndices = this.getVisualIndicesFromSnapshot(index, question, options);
+    const hasComparableData = prefixIndices.length > 0 && visualSnapshotIndices.length > 0;
+    if (!hasComparableData || this.sameIndices(prefixIndices, visualSnapshotIndices)) {
+      return trimmedExplanation;
+    }
+    const rawExplanation = this.stripFetPrefix(trimmedExplanation, trimmedExplanation);
+    return this.formatExplanation(this.questionWithOptions(question, options), visualSnapshotIndices, rawExplanation, index);
+  }
+
+  /** Default path: strip any prefix and regenerate with the current correct indices. */
+  private resolveDefaultFormatted(index: number, question: QuizQuestion, options: Option[] | undefined, trimmedExplanation: string, incomingAlreadyFormatted: boolean): string {
+    const rawExplanation = incomingAlreadyFormatted ? this.stripFetPrefix(trimmedExplanation, trimmedExplanation) : trimmedExplanation;
+    const correctOptionIndices = this.getCorrectOptionIndices(question, options, index);
+    return this.formatExplanation(this.questionWithOptions(question, options), correctOptionIndices, rawExplanation, index);
+  }
+
+  /** Final guardrail: re-format if the prefix indices don't match the visual snapshot. */
+  private revalidateFormattedAgainstVisual(formattedExplanation: string, index: number, question: QuizQuestion, options: Option[] | undefined, trimmedExplanation: string): string {
+    const finalPrefixIndices = this.parseLeadingOptionIndices(formattedExplanation);
+    const finalVisualIndices = this.getVisualIndicesFromSnapshot(index, question, options);
+    const mismatch = finalPrefixIndices.length > 0 && finalVisualIndices.length > 0
+      && !this.sameIndices(finalPrefixIndices, finalVisualIndices);
+    if (!mismatch) return formattedExplanation;
+    const rawExplanation = this.stripFetPrefix(formattedExplanation, trimmedExplanation);
+    return this.formatExplanation(this.questionWithOptions(question, options), finalVisualIndices, rawExplanation, index);
+  }
+
+  /** Lock-protect then store the formatted FET (caches, lock, per-question map, signal). */
+  private commitFormattedExplanation(index: number, question: QuizQuestion, formattedExplanation: string, force: boolean): void {
     if (!force && this.lockedFetIndices.has(index)) {
-      const existing = this.fetByIndex.get(index)
-        ?? this.formattedExplanations[index]?.explanation ?? '';
+      const existing = this.fetByIndex.get(index) ?? this.formattedExplanations[index]?.explanation ?? '';
       if (existing.trim() === formattedExplanation.trim()) return;
     }
-
-    this.formattedExplanations[index] = {
-      questionIndex: index,
-      explanation: formattedExplanation
-    };
-    this.fetByIndex.set(index, formattedExplanation);  // sync helper map for component fallback
-
-    // LOCK this index to prevent future overwrites with wrong options
+    this.formattedExplanations[index] = { questionIndex: index, explanation: formattedExplanation };
+    this.fetByIndex.set(index, formattedExplanation);
     this.lockedFetIndices.add(index);
-    this.storeFormattedExplanationForQuestion(
-      question,
-      index,
-      formattedExplanation
-    );
-
+    this.storeFormattedExplanationForQuestion(question, index, formattedExplanation);
     this.explanationsUpdatedSig.set({ ...this.formattedExplanations });
   }
 
