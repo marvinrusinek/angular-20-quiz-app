@@ -35,34 +35,73 @@ export class OptionLockPolicyService {
     const bindings = params.bindings ?? [];
 
     if (!bindings.length) {
-      return {
-        shouldLockIncorrectOptions: false,
-        lockedIncorrectOptionIds: new Set<number>(),
-        resolvedTypeForLock: params.resolvedType,
-        hasCorrectSelectionForLock: false,
-        allCorrectSelectedForLock: false
-      };
+      return this.buildLockResult(false, new Set<number>(), params.resolvedType, false, false);
     }
 
     if (params.forceDisableAll) {
-      for (const b of bindings) {
-        b.disabled = true;
-        if (b.option) b.option.active = false;
-      }
-
-      return {
-        shouldLockIncorrectOptions: true,
-        lockedIncorrectOptionIds: new Set(
-          bindings
-            .map(b => b.option?.optionId)
-            .filter((id): id is number => typeof id === 'number')
-        ),
-        resolvedTypeForLock: params.resolvedType,
-        hasCorrectSelectionForLock: false,
-        allCorrectSelectedForLock: false
-      };
+      const locked = this.applyForceDisableAll(bindings);
+      return this.buildLockResult(true, locked, params.resolvedType, false, false);
     }
 
+    const { hasCorrectSelection, allCorrectSelected, isPerfect } =
+      this.computeSelectionState(bindings);
+
+    const shouldLockIncorrect = params.computeShouldLockIncorrectOptions(
+      params.resolvedType,
+      hasCorrectSelection,
+      allCorrectSelected
+    );
+
+    if (!shouldLockIncorrect && !isPerfect) {
+      this.unlockAllBindings(bindings);
+      return this.buildLockResult(
+        false, new Set<number>(), params.resolvedType, hasCorrectSelection, allCorrectSelected
+      );
+    }
+
+    const locked = this.applyGranularLocking(
+      bindings, isPerfect, allCorrectSelected, hasCorrectSelection, params.resolvedType
+    );
+    return this.buildLockResult(
+      true, locked, params.resolvedType, hasCorrectSelection, allCorrectSelected
+    );
+  }
+
+  private buildLockResult(
+    shouldLock: boolean,
+    locked: Set<number>,
+    resolvedType: QuestionType,
+    hasCorrectSelection: boolean,
+    allCorrectSelected: boolean
+  ): LockIncorrectResult {
+    return {
+      shouldLockIncorrectOptions: shouldLock,
+      lockedIncorrectOptionIds: locked,
+      resolvedTypeForLock: resolvedType,
+      hasCorrectSelectionForLock: hasCorrectSelection,
+      allCorrectSelectedForLock: allCorrectSelected
+    };
+  }
+
+  // Disable every binding and return the set of their optionIds.
+  private applyForceDisableAll(bindings: OptionBindings[]): Set<number> {
+    for (const b of bindings) {
+      b.disabled = true;
+      if (b.option) b.option.active = false;
+    }
+    return new Set(
+      bindings
+        .map(b => b.option?.optionId)
+        .filter((id): id is number => typeof id === 'number')
+    );
+  }
+
+  // Resolve canonical correctness, backfill binding flags, and derive selection state.
+  private computeSelectionState(bindings: OptionBindings[]): {
+    hasCorrectSelection: boolean;
+    allCorrectSelected: boolean;
+    isPerfect: boolean;
+  } {
     // Canonical correct indices from quizService (overrides stale binding flags)
     const canonicalCorrectIdxs = this.resolveCanonicalCorrectIdxs(bindings);
 
@@ -96,29 +135,26 @@ export class OptionLockPolicyService {
     );
     const isPerfect = allCorrectSelected && !hasIncorrectSelection;
 
-    const shouldLockIncorrect = params.computeShouldLockIncorrectOptions(
-      params.resolvedType,
-      hasCorrectSelection,
-      allCorrectSelected
-    );
+    return { hasCorrectSelection, allCorrectSelected, isPerfect };
+  }
 
-    const locked = new Set<number>();
-
-    if (!shouldLockIncorrect && !isPerfect) {
-      for (const b of bindings) {
-        b.disabled = false;
-        if (b.option) b.option.active = true;
-      }
-
-      return {
-        shouldLockIncorrectOptions: false,
-        lockedIncorrectOptionIds: locked,
-        resolvedTypeForLock: params.resolvedType,
-        hasCorrectSelectionForLock: hasCorrectSelection,
-        allCorrectSelectedForLock: allCorrectSelected
-      };
+  // Re-enable every binding (no locking applies).
+  private unlockAllBindings(bindings: OptionBindings[]): void {
+    for (const b of bindings) {
+      b.disabled = false;
+      if (b.option) b.option.active = true;
     }
+  }
 
+  // Apply granular per-binding locking and return the set of locked indices.
+  private applyGranularLocking(
+    bindings: OptionBindings[],
+    isPerfect: boolean,
+    allCorrectSelected: boolean,
+    hasCorrectSelection: boolean,
+    resolvedType: QuestionType
+  ): Set<number> {
+    const locked = new Set<number>();
     for (const b of bindings) {
       // GRANULAR LOCKING:
       // 1. If perfectly resolved, disable everything.
@@ -132,7 +168,7 @@ export class OptionLockPolicyService {
         // Multi-answer: Got all corrects, but maybe some incorrects too.
         // Disable everything EXCEPT the currently selected ones (to allow unselecting).
         shouldDisable = !b.isSelected;
-      } else if (params.resolvedType === QuestionType.SingleAnswer && hasCorrectSelection) {
+      } else if (resolvedType === QuestionType.SingleAnswer && hasCorrectSelection) {
         // Single-answer: unlock the selected one so it stays 'alive', lock others
         shouldDisable = !b.isSelected;
       }
@@ -143,14 +179,7 @@ export class OptionLockPolicyService {
       const bIdx = b.index;
       if (shouldDisable && bIdx != null) locked.add(bIdx);
     }
-
-    return {
-      shouldLockIncorrectOptions: true,
-      lockedIncorrectOptionIds: locked,
-      resolvedTypeForLock: params.resolvedType,
-      hasCorrectSelectionForLock: hasCorrectSelection,
-      allCorrectSelectedForLock: allCorrectSelected
-    };
+    return locked;
   }
 
   // ── private methods ─────────────────────────────────────────────
