@@ -565,6 +565,11 @@ export class QqcQlStreamService {
     this.explanationTextService.setShouldDisplayExplanation(false);
 
     let explanationText = '';
+    // Durable "answered correctly" signal (the same map that colors the dot
+    // green) — survives navigation's selection-clearing, unlike isAnswered.
+    const answeredCorrectly =
+      this.selectedOptionService.clickConfirmedDotStatus?.get?.(idx) === 'correct';
+
     this.timerService.stopTimer?.(undefined, { force: true });
     this.timerService.resetTimer();
     this.timerService.resetTimerFlagsFor(idx);
@@ -580,10 +585,15 @@ export class QqcQlStreamService {
         mode: 'explanation',
         answered: true
       });
+    }
+
+    if (answeredCorrectly) {
       // Freeze the countdown at the seconds remaining when this question was
-      // answered (timePerQuestion − recorded elapsed), instead of leaving it
-      // reset to a full countdown.
+      // answered correctly (timePerQuestion − recorded elapsed).
       this.timerService.freezeAtRecordedTime(idx);
+    } else if (isAnswered) {
+      // Answered but not correct (e.g. wrong single-answer): keep stopped.
+      this.timerService.isTimerRunning = false;
     } else {
       this.timerService.startTimer(
         this.timerService.timePerQuestion,
