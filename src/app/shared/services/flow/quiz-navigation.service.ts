@@ -217,6 +217,13 @@ export class QuizNavigationService {
       const fresh = await this.fetchAndEmitQuestion(index);
       if (!fresh) return false;
 
+      // Answered destination (selections preserved on revisit, e.g. a
+      // correctly-answered/locked question): freeze the timer at the recorded
+      // time taken instead of leaving it reset to a full countdown.
+      if (this.selectedOptionService.isQuestionAnswered(index)) {
+        this.timerService.freezeAtRecordedTime(index);
+      }
+
       // INDEX-MODEL REWRITE (Phase 2): deterministically re-derive the answered
       // state for the destination from the DURABLE per-display-index answered
       // flag (markQuestionAnswered, written by handleOptionClick on completion).
