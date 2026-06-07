@@ -102,6 +102,25 @@ export class AnswerEvaluationService {
       return { resolved: false, correctTotal: 0, correctSelected: 0, incorrectSelected: 0, remainingCorrect: 0 };
     }
 
+    const questionOptions = this.resolveAuthoritativeOptions(question);
+    const correctTotal =
+      questionOptions.filter(o => this.idResolver.coerceToBoolean(o.correct)).length;
+
+    const { correctSelected, incorrectSelected } =
+      this.countSelectedCorrectness(questionOptions, selected);
+
+    const remainingCorrect = Math.max(correctTotal - correctSelected, 0);
+    let resolved = correctTotal > 0 && remainingCorrect === 0;
+
+    if (strict) resolved = resolved && incorrectSelected === 0;
+
+    return { resolved, correctTotal, correctSelected, incorrectSelected,
+      remainingCorrect };
+  }
+
+  // Resolve the authoritative option set, overriding stale live correct-flags
+  // with pristine quizInitialState (or live questions[]) when counts disagree.
+  private resolveAuthoritativeOptions(question: QuizQuestion): Option[] {
     let questionOptions = Array.isArray(question.options) ? question.options : [];
     try {
       const qText = norm(question.questionText);
@@ -145,9 +164,53 @@ export class AnswerEvaluationService {
         }
       }
     } catch { /* ignore and keep original */ }
-    const correctTotal = 
-      questionOptions.filter(o => this.idResolver.coerceToBoolean(o.correct)).length;
+    return questionOptions;
+  }
 
+  // Match a selection to its option index via text, id, synthetic-id, then index.
+  private matchSelectionIndex(sel: any, questionOptions: Option[], hasRealIds: boolean): number {
+    let matchedIdx = -1;
+
+    // STRATEGY 1: TEXT MATCH
+    if (sel.text) {
+      const selText = norm(sel.text);
+      matchedIdx = questionOptions.findIndex(o =>
+        o.text && norm(o.text) === selText
+      );
+    }
+
+    // STRATEGY 2: ID MATCH
+    if (matchedIdx === -1 && sel.optionId != null && hasRealIds) {
+      const selIdStr = String(sel.optionId);
+      matchedIdx = questionOptions.findIndex(o =>
+        o.optionId != null && String(o.optionId) === selIdStr
+      );
+    }
+
+    // STRATEGY 3: Synthetic ID Modulo
+    if (matchedIdx === -1 && typeof sel.optionId === 'number' && sel.optionId > 100) {
+      const potentialIdx = (sel.optionId % 100) - 1;
+      if (potentialIdx >= 0 && potentialIdx < questionOptions.length) {
+        matchedIdx = potentialIdx;
+      }
+    }
+
+    // STRATEGY 4: Explicit index fallback
+    if (matchedIdx === -1 && typeof (sel as any).index === 'number') {
+      const idx = (sel as any).index;
+      if (idx >= 0 && idx < questionOptions.length) {
+        matchedIdx = idx;
+      }
+    }
+
+    return matchedIdx;
+  }
+
+  // Tally correct/incorrect selections, de-duping by matched option index.
+  private countSelectedCorrectness(
+    questionOptions: Option[],
+    selected: Option[]
+  ): { correctSelected: number; incorrectSelected: number } {
     let correctSelected = 0;
     let incorrectSelected = 0;
 
@@ -159,39 +222,7 @@ export class AnswerEvaluationService {
       if (!sel) continue;
       if ((sel as any).selected === false) continue;
 
-      let matchedIdx = -1;
-
-      // STRATEGY 1: TEXT MATCH
-      if (sel.text) {
-        const selText = norm(sel.text);
-        matchedIdx = questionOptions.findIndex(o =>
-          o.text && norm(o.text) === selText
-        );
-      }
-
-      // STRATEGY 2: ID MATCH
-      if (matchedIdx === -1 && sel.optionId != null && hasRealIds) {
-        const selIdStr = String(sel.optionId);
-        matchedIdx = questionOptions.findIndex(o =>
-          o.optionId != null && String(o.optionId) === selIdStr
-        );
-      }
-
-      // STRATEGY 3: Synthetic ID Modulo
-      if (matchedIdx === -1 && typeof sel.optionId === 'number' && sel.optionId > 100) {
-        const potentialIdx = (sel.optionId % 100) - 1;
-        if (potentialIdx >= 0 && potentialIdx < questionOptions.length) {
-          matchedIdx = potentialIdx;
-        }
-      }
-
-      // STRATEGY 4: Explicit index fallback
-      if (matchedIdx === -1 && typeof (sel as any).index === 'number') {
-        const idx = (sel as any).index;
-        if (idx >= 0 && idx < questionOptions.length) {
-          matchedIdx = idx;
-        }
-      }
+      const matchedIdx = this.matchSelectionIndex(sel, questionOptions, hasRealIds);
 
       if (matchedIdx !== -1) {
         if (seenIndicesInQuestion.has(matchedIdx)) continue;
@@ -201,22 +232,18 @@ export class AnswerEvaluationService {
         if (isCorrect) {
           correctSelected++;
         } else {
-          incorrectSelected++;        }
+          incorrectSelected++;
+        }
       } else {
         if (this.idResolver.coerceToBoolean(sel.correct)) {
           correctSelected++;
         } else {
-        incorrectSelected++;        }
+          incorrectSelected++;
+        }
       }
     }
 
-    const remainingCorrect = Math.max(correctTotal - correctSelected, 0);
-    let resolved = correctTotal > 0 && remainingCorrect === 0;
-
-    if (strict) resolved = resolved && incorrectSelected === 0;
-    
-    return { resolved, correctTotal, correctSelected, incorrectSelected, 
-      remainingCorrect };
+    return { correctSelected, incorrectSelected };
   }
 
   // ── Multi-answer detection ─────────────────────────────────
