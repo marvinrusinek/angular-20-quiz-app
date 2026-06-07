@@ -826,14 +826,7 @@ export class SharedOptionBindingService {
 
   buildSharedOptionConfig(comp: any, b: OptionBindings, i: number): SharedOptionConfig {
     const qIndex = comp.resolveCurrentQuestionIndex();
-    // Determine multi-answer from AUTHORITATIVE question data, not just
-    // comp.isMultiMode which can be wrong on refresh if question data
-    // hasn't fully loaded into the component yet.
-    const authQ = this.quizService.questions?.[qIndex];
-    const authCorrectCount = (authQ?.options ?? []).filter(
-      (o: any) => isOptionCorrect(o)
-    ).length;
-    const isMulti = comp.isMultiMode || authCorrectCount > 1 || this.quizService.multipleAnswer;
+    const isMulti = this.resolveBuildIsMulti(comp, qIndex);
 
     const isActuallySelected = b.isSelected;
 
@@ -841,73 +834,106 @@ export class SharedOptionBindingService {
     const showCorrectOnTimeout = comp.timerExpiredForQuestion()
       && (comp.timeoutCorrectOptionKeys?.has(optionKey) || isOptionCorrect(b.option));
 
-    let shouldHighlight: boolean;
+    const shouldHighlight = this.resolveShouldHighlight(
+      comp, b, i, qIndex, isMulti, isActuallySelected, showCorrectOnTimeout
+    );
+
+    return this.buildConfigObject(comp, b, i, qIndex, isActuallySelected, shouldHighlight);
+  }
+
+  // Determine multi-answer from AUTHORITATIVE question data, not just
+  // comp.isMultiMode which can be wrong on refresh if question data
+  // hasn't fully loaded into the component yet.
+  private resolveBuildIsMulti(comp: any, qIndex: number): boolean {
+    const authQ = this.quizService.questions?.[qIndex];
+    const authCorrectCount = (authQ?.options ?? []).filter(
+      (o: any) => isOptionCorrect(o)
+    ).length;
+    return comp.isMultiMode || authCorrectCount > 1 || this.quizService.multipleAnswer;
+  }
+
+  private resolveShouldHighlight(
+    comp: any,
+    b: OptionBindings,
+    i: number,
+    qIndex: number,
+    isMulti: boolean,
+    isActuallySelected: boolean,
+    showCorrectOnTimeout: boolean
+  ): boolean {
     if (isMulti && comp.hasUserClicked()) {
       // Hard Guard: For multi-answer live interaction, the durable click set
       // is the only authority for which options should highlight.
       const qIdx = comp.getActiveQuestionIndex?.() ?? qIndex;
       const durableSet: Set<number> | undefined = comp._multiSelectByQuestion?.get(qIdx);
       const isInDurableSet = durableSet ? durableSet.has(i) : false;
-      shouldHighlight = isInDurableSet || showCorrectOnTimeout;
-    } else if (!comp.hasUserClicked()) {
+      return isInDurableSet || showCorrectOnTimeout;
+    }
+    if (!comp.hasUserClicked()) {
       // REFRESH PATH (both single & multi): Binding state is unreliable
       // because multiple init paths (generateOptionBindings, initializeFromConfig,
       // setOptionBindingsIfChanged) overwrite each other. Query the persisted
       // sel_Q* data directly from the service as the single source of truth.
-      // Read from durable sel_Q* sessionStorage FIRST - the cleanest source.
-      // Fall back to getSelectedOptionsForQuestion only if sel_Q* is empty
-      // (e.g. single-answer wrong-only clicks where sel_Q* isn't written
-      // until the correct answer is clicked).
-      let saved: any[] = [];
-      try {
-        const raw = sessionStorage.getItem(SK_SEL_Q + qIndex);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            saved = parsed;
-          }
-        }
-      } catch { /* ignore */ }
-      if (saved.length === 0) {
-        saved = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
-      }
-      const bText = norm(b.option?.text);
-      // TEXT-ONLY PRIMARY MATCH: immune to synthetic ID mismatches and
-      // position shifts from shuffled options. ID/index fallbacks are only
-      // used when the saved entry has no text (legacy data).
-      const matchEntry = saved.find((s: any) => {
-        const sText = norm((s as any).text);
-        // If saved entry has text, ONLY match by text
-        if (sText) return bText && sText === bText;
-        // Legacy fallback (no text on saved entry): displayIndex then optionId
-        const sIdx = (s as any).displayIndex ?? (s as any).index ?? (s as any).idx;
-        if (sIdx != null && Number(sIdx) === i) return true;
-        const sId = (s as any).optionId;
-        const bId = b.option?.optionId;
-        const sIdReal = sId != null && sId !== -1 && String(sId) !== '-1';
-        const bIdReal = bId != null && bId !== -1 && String(bId) !== '-1';
-        return sIdReal && bIdReal && String(sId) === String(bId);
-      });
+      const matchEntry = this.findSavedSelectionMatch(qIndex, b, i);
       if (matchEntry) {
         // For multi-answer: only highlight options that were actually selected
         // (selected: true). For single-answer: also highlight previously-clicked
         // wrong options (selected: false but showIcon/highlight set).
         if (isMulti) {
-          shouldHighlight = !!(matchEntry as any).selected || showCorrectOnTimeout;
-        } else {
-          shouldHighlight = !!(matchEntry as any).selected
-            || !!(matchEntry as any).showIcon
-            || !!(matchEntry as any).highlight
-            || showCorrectOnTimeout;
+          return !!(matchEntry as any).selected || showCorrectOnTimeout;
         }
-      } else {
-        shouldHighlight = showCorrectOnTimeout;
+        return !!(matchEntry as any).selected
+          || !!(matchEntry as any).showIcon
+          || !!(matchEntry as any).highlight
+          || showCorrectOnTimeout;
       }
-    } else {
-      // Single-answer live interaction
-      shouldHighlight = !!b.option.highlight || isActuallySelected || showCorrectOnTimeout;
+      return showCorrectOnTimeout;
     }
+    // Single-answer live interaction
+    return !!b.option.highlight || isActuallySelected || showCorrectOnTimeout;
+  }
 
+  // Read persisted sel_Q* sessionStorage FIRST (the cleanest source), falling
+  // back to getSelectedOptionsForQuestion only if empty, then text-match the
+  // binding (ID/index fallbacks only when the saved entry has no text).
+  private findSavedSelectionMatch(qIndex: number, b: OptionBindings, i: number): any {
+    let saved: any[] = [];
+    try {
+      const raw = sessionStorage.getItem(SK_SEL_Q + qIndex);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          saved = parsed;
+        }
+      }
+    } catch { /* ignore */ }
+    if (saved.length === 0) {
+      saved = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
+    }
+    const bText = norm(b.option?.text);
+    return saved.find((s: any) => {
+      const sText = norm((s as any).text);
+      // If saved entry has text, ONLY match by text
+      if (sText) return bText && sText === bText;
+      // Legacy fallback (no text on saved entry): displayIndex then optionId
+      const sIdx = (s as any).displayIndex ?? (s as any).index ?? (s as any).idx;
+      if (sIdx != null && Number(sIdx) === i) return true;
+      const sId = (s as any).optionId;
+      const bId = b.option?.optionId;
+      const sIdReal = sId != null && sId !== -1 && String(sId) !== '-1';
+      const bIdReal = bId != null && bId !== -1 && String(bId) !== '-1';
+      return sIdReal && bIdReal && String(sId) === String(bId);
+    });
+  }
+
+  private buildConfigObject(
+    comp: any,
+    b: OptionBindings,
+    i: number,
+    qIndex: number,
+    isActuallySelected: boolean,
+    shouldHighlight: boolean
+  ): SharedOptionConfig {
     const isOnCorrectQuestion = comp.lastProcessedQuestionIndex === qIndex;
     const currentSelections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
 
