@@ -293,39 +293,16 @@ export class SharedOptionFeedbackService {
     const feedbackConfigs: Record<string | number, FeedbackProps> = { ...ctx.feedbackConfigs };
     let lastFeedbackQuestionIndex = ctx.lastFeedbackQuestionIndex;
 
-    // Clear stale feedback anchors for different question
-    if (lastFeedbackQuestionIndex !== currentQuestionIndex) {
-      for (const k of Object.keys(showFeedbackForOption)) {
-        delete showFeedbackForOption[k];
-      }
-      for (const k of Object.keys(feedbackConfigs)) delete feedbackConfigs[k];
-      
-      lastFeedbackQuestionIndex = currentQuestionIndex;
-    }
+    lastFeedbackQuestionIndex = this.clearStaleFeedbackAnchors(
+      showFeedbackForOption, feedbackConfigs, lastFeedbackQuestionIndex, currentQuestionIndex
+    );
 
     // Set the last option selected (used to show only one feedback block)
     // Use index for anchoring so it's stable in the template loop
     const lastFeedbackOptionId = index;
 
-    // Use consistent effective ID (matching shouldShowFeedbackAfter)
-    const normalizedIdForAnchor = 
-      (optionId != null && !isNaN(Number(optionId))) ? Number(optionId) : null;
-    const effectiveId = 
-      (normalizedIdForAnchor !== null && normalizedIdForAnchor > -1) 
-      ? normalizedIdForAnchor : index;
-
-    // Ensure feedback visibility state is updated for JUST THIS option
-    // (mutate to clear others)
-    for (const k of Object.keys(showFeedbackForOption)) {
-      delete showFeedbackForOption[k];
-    }
-
-    // Set both number and string keys to be bulletproof for template lookups
-    showFeedbackForOption[effectiveId] = true;
-    showFeedbackForOption[String(effectiveId)] = true;
-    if (typeof effectiveId === 'string' && !isNaN(Number(effectiveId))) {
-      showFeedbackForOption[Number(effectiveId)] = true;
-    }
+    const effectiveId = this.computeEffectiveAnchorId(optionId, index);
+    this.applyFeedbackVisibility(showFeedbackForOption, effectiveId);
 
     // Build the context for generateFeedbackConfig with the updated maps
     const updatedCtx: FeedbackContext = {
@@ -338,6 +315,76 @@ export class SharedOptionFeedbackService {
 
     const feedbackConfig = this.generateFeedbackConfig(option, index, updatedCtx);
 
+    const isResolved = this.computeAndApplyResolution(option, currentQuestionIndex, ctx);
+
+    this.storeFeedbackConfigUnderKeys(feedbackConfigs, ctx, effectiveId, index, feedbackConfig);
+    this.regenerateVisibleFeedbackConfigs(
+      ctx, updatedCtx, showFeedbackForOption, feedbackConfigs, effectiveId, currentQuestionIndex
+    );
+
+    // Update the answered state in the service
+    this.selectedOptionService.updateAnsweredState();
+
+    return {
+      showFeedback: true,
+      showFeedbackForOption,
+      feedbackConfigs,
+      currentFeedbackConfig: feedbackConfig,
+      activeFeedbackConfig: feedbackConfig,
+      lastFeedbackOptionId,
+      lastFeedbackQuestionIndex,
+      isResolved
+    };
+  }
+
+  // Clear stale feedback anchors when the active question changed.
+  private clearStaleFeedbackAnchors(
+    showFeedbackForOption: Record<string | number, boolean>,
+    feedbackConfigs: Record<string | number, FeedbackProps>,
+    lastFeedbackQuestionIndex: number,
+    currentQuestionIndex: number
+  ): number {
+    if (lastFeedbackQuestionIndex !== currentQuestionIndex) {
+      for (const k of Object.keys(showFeedbackForOption)) {
+        delete showFeedbackForOption[k];
+      }
+      for (const k of Object.keys(feedbackConfigs)) delete feedbackConfigs[k];
+
+      lastFeedbackQuestionIndex = currentQuestionIndex;
+    }
+    return lastFeedbackQuestionIndex;
+  }
+
+  // Use consistent effective ID (matching shouldShowFeedbackAfter)
+  private computeEffectiveAnchorId(optionId: number, index: number): number {
+    const normalizedIdForAnchor =
+      (optionId != null && !isNaN(Number(optionId))) ? Number(optionId) : null;
+    return (normalizedIdForAnchor !== null && normalizedIdForAnchor > -1)
+      ? normalizedIdForAnchor : index;
+  }
+
+  // Ensure feedback visibility is set for JUST THIS option (clear others first).
+  // Set both number and string keys to be bulletproof for template lookups.
+  private applyFeedbackVisibility(
+    showFeedbackForOption: Record<string | number, boolean>,
+    effectiveId: number | string
+  ): void {
+    for (const k of Object.keys(showFeedbackForOption)) {
+      delete showFeedbackForOption[k];
+    }
+    showFeedbackForOption[effectiveId] = true;
+    showFeedbackForOption[String(effectiveId)] = true;
+    if (typeof effectiveId === 'string' && !isNaN(Number(effectiveId))) {
+      showFeedbackForOption[Number(effectiveId)] = true;
+    }
+  }
+
+  // Resolve the question's answered state and persist it via the service.
+  private computeAndApplyResolution(
+    option: SelectedOption,
+    currentQuestionIndex: number,
+    ctx: FeedbackContext
+  ): boolean {
     const questionForResolution =
       this.quizService.questions?.[currentQuestionIndex] ?? ctx.currentQuestion;
     const selectedForResolution =
@@ -366,60 +413,61 @@ export class SharedOptionFeedbackService {
       // Ensure we don't accidentally reveal the explanation path
       this.selectedOptionService.setAnswered(false, false);
     }
+    return isResolved;
+  }
 
-    // Store config under both the numeric effectiveId and the string key
+  // Store config under the numeric effectiveId, the string key, and the
+  // canonical keyOf() key for the option at this index.
+  private storeFeedbackConfigUnderKeys(
+    feedbackConfigs: Record<string | number, FeedbackProps>,
+    ctx: FeedbackContext,
+    effectiveId: number | string,
+    index: number,
+    feedbackConfig: FeedbackProps
+  ): void {
     feedbackConfigs[effectiveId] = feedbackConfig;
     feedbackConfigs[String(effectiveId)] = feedbackConfig;
 
-    // Also store under the canonical keyOf() key for the option at this index
     const hydratedOpt = ctx.optionsToDisplay?.[index];
     if (hydratedOpt) {
       const canonicalKey = this.optionService.keyOf(hydratedOpt, index);
       feedbackConfigs[canonicalKey] = feedbackConfig;
     }
+  }
 
-    // Re-generate configs for ALL options that are currently showing feedback
-    // This ensures that if the latest click solves the question, any previous "Select 1 more"
-    // blocks also update to "You're right!" for consistency.
-    if (ctx.optionBindings) {
-      for (const [i, b] of ctx.optionBindings.entries()) {
-        const id = (b.option?.optionId != null && b.option.optionId > -1) ? b.option.optionId : i;
-        if (showFeedbackForOption[id] === true && id !== effectiveId && String(id) !== String(effectiveId)) {
-          const hydrated = ctx.optionsToDisplay?.[i];
-          if (hydrated) {
-            const selOpt: SelectedOption = {
-              ...hydrated,
-              selected: true,
-              questionIndex: currentQuestionIndex,
-              displayIndex: i,
-              feedback: hydrated.feedback ?? ''
-            };
-            const updatedCfg = this.generateFeedbackConfig(selOpt, i, updatedCtx);
-            feedbackConfigs[id] = updatedCfg;
-            feedbackConfigs[String(id)] = updatedCfg;
-            // Also update under canonical key
-            const bKey = this.optionService.keyOf(hydrated, i);
-            feedbackConfigs[bKey] = updatedCfg;
-          }
+  // Re-generate configs for ALL options currently showing feedback, so if the
+  // latest click solves the question, previous "Select 1 more" blocks also
+  // update to "You're right!" for consistency.
+  private regenerateVisibleFeedbackConfigs(
+    ctx: FeedbackContext,
+    updatedCtx: FeedbackContext,
+    showFeedbackForOption: Record<string | number, boolean>,
+    feedbackConfigs: Record<string | number, FeedbackProps>,
+    effectiveId: number | string,
+    currentQuestionIndex: number
+  ): void {
+    if (!ctx.optionBindings) return;
+    for (const [i, b] of ctx.optionBindings.entries()) {
+      const id = (b.option?.optionId != null && b.option.optionId > -1) ? b.option.optionId : i;
+      if (showFeedbackForOption[id] === true && id !== effectiveId && String(id) !== String(effectiveId)) {
+        const hydrated = ctx.optionsToDisplay?.[i];
+        if (hydrated) {
+          const selOpt: SelectedOption = {
+            ...hydrated,
+            selected: true,
+            questionIndex: currentQuestionIndex,
+            displayIndex: i,
+            feedback: hydrated.feedback ?? ''
+          };
+          const updatedCfg = this.generateFeedbackConfig(selOpt, i, updatedCtx);
+          feedbackConfigs[id] = updatedCfg;
+          feedbackConfigs[String(id)] = updatedCfg;
+          // Also update under canonical key
+          const bKey = this.optionService.keyOf(hydrated, i);
+          feedbackConfigs[bKey] = updatedCfg;
         }
       }
     }
-
-    // Update the answered state in the service
-    this.selectedOptionService.updateAnsweredState();
-
-    // Final debug state
-
-    return {
-      showFeedback: true,
-      showFeedbackForOption,
-      feedbackConfigs,
-      currentFeedbackConfig: feedbackConfig,
-      activeFeedbackConfig: feedbackConfig,
-      lastFeedbackOptionId,
-      lastFeedbackQuestionIndex,
-      isResolved
-    };
   }
 
   /**
