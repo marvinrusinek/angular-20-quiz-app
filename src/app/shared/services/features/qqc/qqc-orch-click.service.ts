@@ -24,6 +24,38 @@ export class QqcOrchClickService {
     host: Host,
     event: { option: any; index: number; checked: boolean; wasReselected?: boolean }
   ): Promise<void> {
+    const ctx = await this.prepareOptionClick(host, event);
+    if (!ctx) return;
+    const { idx, q, evtIdx, evtOpt } = ctx;
+
+    try {
+      const { selOptsSetImmediate, isMultiForSelection, allCorrect } =
+        this.runSyncClickFlow(host, q, idx, evtIdx, evtOpt, event.checked);
+
+      host.updateOptionHighlighting(selOptsSetImmediate);
+      host.refreshFeedbackFor(evtOpt ?? undefined);
+      this.applySingleAnswerDisable(host, idx, q, evtOpt, evtIdx);
+      host.cdRef.markForCheck();
+
+      this.maybeTriggerMultiAnswerFet(host, idx, q, allCorrect, isMultiForSelection);
+
+      this.scheduleImmediateClickUpdate(host, idx, q, evtOpt, evtIdx, selOptsSetImmediate);
+      this.schedulePostClickRaf(host, idx, q, evtOpt, evtIdx, event);
+      this.scheduleDeferredDisable(host, idx, q, evtOpt, evtIdx);
+    } finally {
+      this.scheduleClickGateRelease(host, q, evtOpt);
+    }
+  }
+
+  /**
+   * Pre-flight: reset flags, await interaction-ready, resolve the click context,
+   * and acquire the click gate. Returns null when the click should be ignored
+   * (not ready / no option / locked / gate held). Extracted verbatim.
+   */
+  private async prepareOptionClick(
+    host: Host,
+    event: { option: any; index: number; checked: boolean; wasReselected?: boolean }
+  ): Promise<{ idx: number; q: QuizQuestion | null; evtIdx: number; evtOpt: any } | null> {
     host._skipNextAsyncUpdates = false;
 
     if (host._pendingRAF != null) {
@@ -37,7 +69,7 @@ export class QqcOrchClickService {
       );
     }
 
-    if (!host.currentQuestion() || !host.currentOptions) return;
+    if (!host.currentQuestion() || !host.currentOptions) return null;
 
     const idx = host.quizService.getCurrentQuestionIndex() ?? 0;
     const q = host.quizService.getQuestionsInDisplayOrder?.()?.[idx]
@@ -47,252 +79,290 @@ export class QqcOrchClickService {
 
     host.explanationDisplay.resetExplanationStateForClick(idx);
 
-    if (evtOpt == null) return;
+    if (evtOpt == null) return null;
+    if (this.isClickedOptionLocked(host, idx, evtOpt)) return null;
+    if (host._clickGate) return null;
+    host._clickGate = true;
+    host.questionFresh.set(false);
+    return { idx, q, evtIdx, evtOpt };
+  }
 
+  /** Run the synchronous click flow and stash msgTok/lastAllCorrect. Extracted verbatim. */
+  private runSyncClickFlow(host: Host, q: QuizQuestion | null, idx: number, evtIdx: number, evtOpt: any, checked: boolean):
+    { selOptsSetImmediate: any; isMultiForSelection: boolean; allCorrect: boolean } {
+    const clickResult = host.clickOrchestrator.performSynchronousClickFlow({
+      question: q!,
+      questionIndex: idx,
+      evtIdx,
+      evtOpt,
+      checked,
+      optionsToDisplay: host.optionsToDisplay(),
+      currentQuestionOptions: host.currentQuestion()?.options,
+      totalQuestions: host.totalQuestions(),
+      msgTok: host._msgTok
+    });
+    host._msgTok = clickResult.msgTok;
+    host._lastAllCorrect = clickResult.allCorrect;
+    return {
+      selOptsSetImmediate: clickResult.selectedKeysSet,
+      isMultiForSelection: clickResult.isMultiForSelection,
+      allCorrect: clickResult.allCorrect,
+    };
+  }
+
+  /** Lock check: is the clicked option locked for this question? Extracted verbatim. */
+  private isClickedOptionLocked(host: Host, idx: number, evtOpt: any): boolean {
     try {
       const lockIdNum = Number(evtOpt?.optionId);
       if (Number.isFinite(lockIdNum) && host.selectedOptionService.isOptionLocked(idx, lockIdNum)) {
-        return;
+        return true;
       }
     } catch (e) {
       console.error('QqcOrchClickService.handleOptionSelected lock check failed:', e);
     }
+    return false;
+  }
 
-    if (host._clickGate) return;
-    host._clickGate = true;
-    host.questionFresh.set(false);
-
-    try {
-      const clickResult = host.clickOrchestrator.performSynchronousClickFlow({
-        question: q!,
-        questionIndex: idx,
-        evtIdx,
-        evtOpt,
-        checked: event.checked,
-        optionsToDisplay: host.optionsToDisplay(),
-        currentQuestionOptions: host.currentQuestion()?.options,
-        totalQuestions: host.totalQuestions(),
-        msgTok: host._msgTok
-      });
-
-      const { selectedKeysSet: selOptsSetImmediate,
-        isMultiForSelection, allCorrect } = clickResult;
-      host._msgTok = clickResult.msgTok;
-      host._lastAllCorrect = allCorrect;
-
+  /** Microtask: re-apply highlight/feedback/disable unless superseded. Extracted verbatim. */
+  private scheduleImmediateClickUpdate(host: Host, idx: number, q: QuizQuestion | null, evtOpt: any, evtIdx: number, selOptsSetImmediate: any): void {
+    queueMicrotask(() => {
+      if (host._skipNextAsyncUpdates) return;
       host.updateOptionHighlighting(selOptsSetImmediate);
       host.refreshFeedbackFor(evtOpt ?? undefined);
-
-      const applySingleAnswerDisable = () => {
-      try {
-        const rawQuestion: any = host.quizService.getQuestionsInDisplayOrder?.()?.[idx]
-          ?? host.quizService?.questions?.[idx]
-          ?? q;
-        const rawOpts: any[] = rawQuestion?.options ?? [];
-        const rawCorrectCount = rawOpts.filter((o: any) =>
-          isOptionCorrect(o)
-        ).length;
-
-        // Pristine fallback: if rawCorrectCount looks like single-answer
-        // (0 or 1) but quizInitialState shows >1 correct for the same
-        // question text, the binding/raw flags are stale and this is
-        // actually a multi-answer question. Skip the single-answer
-        // disable-all-incorrects path; the multi-answer pipeline
-        // (option-click-handler.updateDisabledSet) will lock incorrects
-        // only after ALL correct are selected.
-        let pristineMultiDetected = false;
-        try {
-          const liveQText = norm(rawQuestion?.questionText);
-          if (liveQText) {
-            const bundleM = host.quizService?.quizInitialState ?? [];
-            for (const quizM of bundleM) {
-              for (const pqM of (quizM?.questions ?? [])) {
-                if (norm(pqM?.questionText) !== liveQText) continue;
-                const pristineCorrect = (pqM?.options ?? []).filter(
-                  (o: any) => isOptionCorrect(o)
-                ).length;
-                if (pristineCorrect > 1) pristineMultiDetected = true;
-                break;
-              }
-              if (pristineMultiDetected) break;
-            }
-          }
-        } catch { /* ignore */ }
-
-        const isSingleAnswer = !pristineMultiDetected && rawCorrectCount <= 1;
-        const correctIdSet = new Set<number>(
-          rawOpts
-            .map((o: any, i: number) => {
-              const c = isOptionCorrect(o);
-              if (!c) return -1;
-              const id = Number(o?.optionId);
-              return Number.isFinite(id) && id !== -1 ? id : i;
-            })
-            .filter((n: number) => n >= 0)
-        );
-        const clickedId = Number(evtOpt?.optionId);
-        const clickedKey = Number.isFinite(clickedId) && clickedId !== -1 ? clickedId : evtIdx;
-        const clickedIsCorrect = correctIdSet.has(clickedKey)
-          || isOptionCorrect(evtOpt);
-
-        if (correctIdSet.size === 0 && clickedIsCorrect) {
-          correctIdSet.add(clickedKey);
-        }
-
-        if (isSingleAnswer && clickedIsCorrect) {
-          const targets: any[][] = [];
-          const soc: any = host.sharedOptionComponent?.();
-          if (soc?.optionBindings()?.length) targets.push(soc.optionBindings());
-          const sigBindings: any[] = host.optionBindings?.() ?? [];
-          if (sigBindings?.length) targets.push(sigBindings);
-          for (const arr of targets) {
-            for (let bi = 0; bi < arr.length; bi++) {
-              const b = arr[bi];
-              if (!b) continue;
-              const bId = Number(b.option?.optionId);
-              const effId = Number.isFinite(bId) && bId !== -1 ? bId : bi;
-              const isCorrect = correctIdSet.has(effId);
-              b.disabled = !isCorrect;
-              if (b.option) b.option.active = isCorrect;
-              if (!isCorrect && (b.isSelected || b.option?.selected)) {
-                b.highlight = true;
-                b.showFeedback = true;
-                if (b.option) {
-                  b.option.highlight = true;
-                  b.option.showIcon = true;
-                  b.option.feedback = b.option.feedback || 'incorrect';
-                }
-              }
-            }
-          }
-          soc?.cdRef?.markForCheck?.();
-        }
-      } catch (e) {
-        console.error('QqcOrchClickService.handleOptionSelected single-answer disable failed:', e);
-      }
-      };
-
-      applySingleAnswerDisable();
-
+      this.applySingleAnswerDisable(host, idx, q, evtOpt, evtIdx);
       host.cdRef.markForCheck();
+    });
+  }
 
-      const lockedIndex = host.currentQuestionIndex() ?? idx;
+  /** setTimeout(0): final single-answer disable pass after the click settles. Extracted verbatim. */
+  private scheduleDeferredDisable(host: Host, idx: number, q: QuizQuestion | null, evtOpt: any, evtIdx: number): void {
+    setTimeout(() => {
+      this.applySingleAnswerDisable(host, idx, q, evtOpt, evtIdx);
+      host.sharedOptionComponent?.()?.cdRef?.markForCheck?.();
+      host.cdRef?.markForCheck?.();
+    }, 0);
+  }
 
-      let fetGatePassed = allCorrect && isMultiForSelection;
-      if (fetGatePassed) {
-        try {
-          const displayQ: any = host.quizService.getQuestionsInDisplayOrder?.()?.[idx]
-            ?? host.quizService?.questions?.[idx]
-            ?? q;
-          let rawCorrectTexts = new Set<string>();
-          try {
-            rawCorrectTexts = host.quizService.getPristineCorrectTextsForQuestion(displayQ?.questionText);
-          } catch { /* ignore */ }
-          if (rawCorrectTexts.size === 0) {
-            const rawOpts: any[] = displayQ?.options ?? [];
-            rawCorrectTexts = new Set(
-              rawOpts.filter((o: any) => isOptionCorrect(o))
-                .map((o: any) => norm(o?.text))
-                .filter((t: string) => !!t)
-            );
-          }
-          const svcSel = host.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
-          const selTexts = new Set(svcSel.map((s: any) => norm(s?.text)).filter((t: string) => !!t));
-          const allCorrectSel = rawCorrectTexts.size > 0 && [...rawCorrectTexts].every(t => selTexts.has(t));
-          if (!allCorrectSel) {
-            fetGatePassed = false;
-          }
-        } catch { /* trust upstream */ }
+  /** Microtask (finally): release the click gate and push the selection message. Extracted verbatim. */
+  private scheduleClickGateRelease(host: Host, q: QuizQuestion | null, evtOpt: any): void {
+    queueMicrotask(() => {
+      host._clickGate = false;
+      host.selectionMessageService.releaseBaseline(host.currentQuestionIndex());
+      const selectionComplete =
+        q?.type === QuestionType.SingleAnswer ? !!evtOpt?.correct : host._lastAllCorrect;
+      host.selectionMessageService.setSelectionMessage(selectionComplete);
+    });
+  }
+
+  /**
+   * Single-answer disable: when the clicked option is the (single) correct one,
+   * disable every other option and mark wrongly-selected ones incorrect. No-op
+   * for multi-answer (incl. pristine-detected multi). Extracted verbatim.
+   */
+  private applySingleAnswerDisable(host: Host, idx: number, q: QuizQuestion | null, evtOpt: any, evtIdx: number): void {
+    try {
+      const { isSingleAnswer, clickedIsCorrect, correctIdSet } =
+        this.computeSingleAnswerDisableContext(host, idx, q, evtOpt, evtIdx);
+      if (isSingleAnswer && clickedIsCorrect) {
+        this.disableIncorrectSingleAnswerBindings(host, correctIdSet);
       }
+    } catch (e) {
+      console.error('QqcOrchClickService.handleOptionSelected single-answer disable failed:', e);
+    }
+  }
 
-      if (fetGatePassed && !host._fetEarlyShown.has(lockedIndex)) {
-        if (host.timerEffect.safeStopTimer('completed', host._timerStoppedForQuestion, host._lastAllCorrect)) {
-          host._timerStoppedForQuestion = true;
+  /**
+   * Derive single-answer disable context: whether this is single-answer (raw
+   * flags, with a pristine >1-correct override), whether the clicked option is
+   * correct, and the set of correct option keys. Extracted verbatim.
+   */
+  private computeSingleAnswerDisableContext(host: Host, idx: number, q: QuizQuestion | null, evtOpt: any, evtIdx: number):
+    { isSingleAnswer: boolean; clickedIsCorrect: boolean; correctIdSet: Set<number> } {
+    const rawQuestion: any = host.quizService.getQuestionsInDisplayOrder?.()?.[idx]
+      ?? host.quizService?.questions?.[idx]
+      ?? q;
+    const rawOpts: any[] = rawQuestion?.options ?? [];
+    const rawCorrectCount = rawOpts.filter((o: any) => isOptionCorrect(o)).length;
+
+    // Pristine fallback: stale single-looking raw flags but quizInitialState
+    // shows >1 correct => actually multi-answer; skip the single-answer disable.
+    const isSingleAnswer = !this.detectPristineMulti(host, rawQuestion) && rawCorrectCount <= 1;
+    const correctIdSet = new Set<number>(
+      rawOpts
+        .map((o: any, i: number) => {
+          const c = isOptionCorrect(o);
+          if (!c) return -1;
+          const id = Number(o?.optionId);
+          return Number.isFinite(id) && id !== -1 ? id : i;
+        })
+        .filter((n: number) => n >= 0)
+    );
+    const clickedId = Number(evtOpt?.optionId);
+    const clickedKey = Number.isFinite(clickedId) && clickedId !== -1 ? clickedId : evtIdx;
+    const clickedIsCorrect = correctIdSet.has(clickedKey) || isOptionCorrect(evtOpt);
+    if (correctIdSet.size === 0 && clickedIsCorrect) {
+      correctIdSet.add(clickedKey);
+    }
+    return { isSingleAnswer, clickedIsCorrect, correctIdSet };
+  }
+
+  /** Disable all bindings not in correctIdSet and flag wrongly-selected ones incorrect. Extracted verbatim. */
+  private disableIncorrectSingleAnswerBindings(host: Host, correctIdSet: Set<number>): void {
+    const targets: any[][] = [];
+    const soc: any = host.sharedOptionComponent?.();
+    if (soc?.optionBindings()?.length) targets.push(soc.optionBindings());
+    const sigBindings: any[] = host.optionBindings?.() ?? [];
+    if (sigBindings?.length) targets.push(sigBindings);
+    for (const arr of targets) {
+      for (let bi = 0; bi < arr.length; bi++) {
+        const b = arr[bi];
+        if (!b) continue;
+        const bId = Number(b.option?.optionId);
+        const effId = Number.isFinite(bId) && bId !== -1 ? bId : bi;
+        const isCorrect = correctIdSet.has(effId);
+        b.disabled = !isCorrect;
+        if (b.option) b.option.active = isCorrect;
+        if (!isCorrect && (b.isSelected || b.option?.selected)) {
+          b.highlight = true;
+          b.showFeedback = true;
+          if (b.option) {
+            b.option.highlight = true;
+            b.option.showIcon = true;
+            b.option.feedback = b.option.feedback || 'incorrect';
+          }
         }
-        host._fetEarlyShown.add(lockedIndex);
-        const displayQForFet = host.quizService.getQuestionsInDisplayOrder?.()?.[lockedIndex] ?? q;
-        host.explanationFlow.triggerMultiAnswerFet({ lockedIndex, question: displayQForFet }).then((fetResult: any) => {
-          if (host.currentQuestionIndex() !== lockedIndex || !fetResult) return;
-          host.displayExplanation.set(true);
-          host.displayMode.set('explanation');
-          host.isAnswered.set(true);
-          host.showExplanationChange.emit(true);
-          host.explanationToDisplay.set(fetResult.formatted);
-          host.explanationToDisplayChange?.emit(fetResult.formatted);
-        }).catch(() => {});
       }
+    }
+    soc?.cdRef?.markForCheck?.();
+  }
 
-      queueMicrotask(() => {
-        if (host._skipNextAsyncUpdates) return;
-        host.updateOptionHighlighting(selOptsSetImmediate);
-        host.refreshFeedbackFor(evtOpt ?? undefined);
-        applySingleAnswerDisable();
-        host.cdRef.markForCheck();
-      });
+  /**
+   * Early multi-answer FET: when all-correct + multi, re-validate against pristine
+   * correct texts, then (once per index) stop the timer and trigger the FET.
+   * Extracted verbatim.
+   */
+  private maybeTriggerMultiAnswerFet(host: Host, idx: number, q: QuizQuestion | null, allCorrect: boolean, isMultiForSelection: boolean): void {
+    const lockedIndex = host.currentQuestionIndex() ?? idx;
 
-      requestAnimationFrame(() => {
-        if (host._skipNextAsyncUpdates || idx !== host.currentQuestionIndex()) return;
-        const resolvedQuizId =
-          host.quizService.quizId ||
-          host.activatedRoute.snapshot.paramMap.get('quizId') ||
-          'dependency-injection';
-        host.clickOrchestrator.performPostClickRafTasks({
-          idx,
-          evtOpt: evtOpt ?? undefined,
-          evtIdx,
-          question: q!,
-          event,
-          quizId: resolvedQuizId,
-          generateFeedbackText: (question: QuizQuestion) => host.generateFeedbackText(question),
-          postClickTasks: (opt: any, i: number, checked: boolean, wasPrev: boolean, qIdx: number) =>
-            host.postClickTasks(opt, i, checked, wasPrev, qIdx),
-          handleCoreSelection: (ev: any, i: number) => {
-            host.performInitialSelectionFlow(ev, ev.option);
-            const coreResult = host.optionSelection.handleCoreSelectionState({
-              option: ev.option,
-              questionIndex: i,
-              currentQuestionIndex: host.currentQuestionIndex(),
-              questionType: host.question()?.type,
-              forceQuestionDisplay: host.forceQuestionDisplay(),
-              lastAllCorrect: host._lastAllCorrect,
-            });
-            if (coreResult.isAnswered) host.isAnswered.set(true);
-            host.forceQuestionDisplay.set(coreResult.forceQuestionDisplay);
-            if (coreResult.displayStateAnswered) {
-              host.isAnswered.set(coreResult.displayStateAnswered);
-              host.displayMode.set(coreResult.displayStateMode);
-            }
-            host.cdRef.markForCheck();
-          },
-          markBindingSelected: (opt: any) => {
-            const b = host.feedbackManager.markBindingSelected(opt, host.currentQuestionIndex(), host.optionBindings());
-            if (!b) return;
-            host.optionBindings.set(host.optionBindings().map((ob: any) =>
-              ob.option.optionId === b.option.optionId ? b : ob
-            ));
-            b.directiveInstance?.updateHighlight();
-          },
-          refreshFeedbackFor: (opt: Option) => host.refreshFeedbackFor(opt),
-        }).catch(() => {}).finally(() => {
-          applySingleAnswerDisable();
-          host.cdRef?.markForCheck?.();
-        });
-      });
+    const fetGatePassed = allCorrect && isMultiForSelection && this.isMultiFullySelected(host, idx, q);
 
-      setTimeout(() => {
-        applySingleAnswerDisable();
-        host.sharedOptionComponent?.()?.cdRef?.markForCheck?.();
+    if (fetGatePassed && !host._fetEarlyShown.has(lockedIndex)) {
+      if (host.timerEffect.safeStopTimer('completed', host._timerStoppedForQuestion, host._lastAllCorrect)) {
+        host._timerStoppedForQuestion = true;
+      }
+      host._fetEarlyShown.add(lockedIndex);
+      const displayQForFet = host.quizService.getQuestionsInDisplayOrder?.()?.[lockedIndex] ?? q;
+      host.explanationFlow.triggerMultiAnswerFet({ lockedIndex, question: displayQForFet }).then((fetResult: any) => {
+        if (host.currentQuestionIndex() !== lockedIndex || !fetResult) return;
+        host.displayExplanation.set(true);
+        host.displayMode.set('explanation');
+        host.isAnswered.set(true);
+        host.showExplanationChange.emit(true);
+        host.explanationToDisplay.set(fetResult.formatted);
+        host.explanationToDisplayChange?.emit(fetResult.formatted);
+      }).catch(() => {});
+    }
+  }
+
+  /** RAF-scheduled post-click tasks (feedback, core selection, binding marks). Extracted verbatim. */
+  private schedulePostClickRaf(host: Host, idx: number, q: QuizQuestion | null, evtOpt: any, evtIdx: number, event: any): void {
+    requestAnimationFrame(() => {
+      if (host._skipNextAsyncUpdates || idx !== host.currentQuestionIndex()) return;
+      const resolvedQuizId =
+        host.quizService.quizId ||
+        host.activatedRoute.snapshot.paramMap.get('quizId') ||
+        'dependency-injection';
+      host.clickOrchestrator.performPostClickRafTasks({
+        idx,
+        evtOpt: evtOpt ?? undefined,
+        evtIdx,
+        question: q!,
+        event,
+        quizId: resolvedQuizId,
+        generateFeedbackText: (question: QuizQuestion) => host.generateFeedbackText(question),
+        postClickTasks: (opt: any, i: number, checked: boolean, wasPrev: boolean, qIdx: number) =>
+          host.postClickTasks(opt, i, checked, wasPrev, qIdx),
+        handleCoreSelection: (ev: any, i: number) => this.applyCoreSelection(host, ev, i),
+        markBindingSelected: (opt: any) => this.applyMarkBindingSelected(host, opt),
+        refreshFeedbackFor: (opt: Option) => host.refreshFeedbackFor(opt),
+      }).catch(() => {}).finally(() => {
+        this.applySingleAnswerDisable(host, idx, q, evtOpt, evtIdx);
         host.cdRef?.markForCheck?.();
-      }, 0);
-
-    } finally {
-      queueMicrotask(() => {
-        host._clickGate = false;
-        host.selectionMessageService.releaseBaseline(host.currentQuestionIndex());
-        const selectionComplete =
-          q?.type === QuestionType.SingleAnswer ? !!evtOpt?.correct : host._lastAllCorrect;
-        host.selectionMessageService.setSelectionMessage(selectionComplete);
       });
+    });
+  }
+
+  /** Apply the core selection state result (answered / display mode). Extracted verbatim. */
+  private applyCoreSelection(host: Host, ev: any, i: number): void {
+    host.performInitialSelectionFlow(ev, ev.option);
+    const coreResult = host.optionSelection.handleCoreSelectionState({
+      option: ev.option,
+      questionIndex: i,
+      currentQuestionIndex: host.currentQuestionIndex(),
+      questionType: host.question()?.type,
+      forceQuestionDisplay: host.forceQuestionDisplay(),
+      lastAllCorrect: host._lastAllCorrect,
+    });
+    if (coreResult.isAnswered) host.isAnswered.set(true);
+    host.forceQuestionDisplay.set(coreResult.forceQuestionDisplay);
+    if (coreResult.displayStateAnswered) {
+      host.isAnswered.set(coreResult.displayStateAnswered);
+      host.displayMode.set(coreResult.displayStateMode);
+    }
+    host.cdRef.markForCheck();
+  }
+
+  /** Mark a binding selected and re-emit the bindings signal. Extracted verbatim. */
+  private applyMarkBindingSelected(host: Host, opt: any): void {
+    const b = host.feedbackManager.markBindingSelected(opt, host.currentQuestionIndex(), host.optionBindings());
+    if (!b) return;
+    host.optionBindings.set(host.optionBindings().map((ob: any) =>
+      ob.option.optionId === b.option.optionId ? b : ob
+    ));
+    b.directiveInstance?.updateHighlight();
+  }
+
+  /** Does quizInitialState show >1 correct option for this question (stale single-flag override)? Extracted verbatim. */
+  private detectPristineMulti(host: Host, rawQuestion: any): boolean {
+    try {
+      const liveQText = norm(rawQuestion?.questionText);
+      if (!liveQText) return false;
+      const bundleM = host.quizService?.quizInitialState ?? [];
+      for (const quizM of bundleM) {
+        for (const pqM of (quizM?.questions ?? [])) {
+          if (norm(pqM?.questionText) !== liveQText) continue;
+          const pristineCorrect = (pqM?.options ?? []).filter((o: any) => isOptionCorrect(o)).length;
+          if (pristineCorrect > 1) return true;
+          break;
+        }
+      }
+    } catch { /* ignore */ }
+    return false;
+  }
+
+  /** Are all pristine-correct texts for this multi-answer question selected? (true on error = trust upstream). Extracted verbatim. */
+  private isMultiFullySelected(host: Host, idx: number, q: QuizQuestion | null): boolean {
+    try {
+      const displayQ: any = host.quizService.getQuestionsInDisplayOrder?.()?.[idx]
+        ?? host.quizService?.questions?.[idx]
+        ?? q;
+      let rawCorrectTexts = new Set<string>();
+      try {
+        rawCorrectTexts = host.quizService.getPristineCorrectTextsForQuestion(displayQ?.questionText);
+      } catch { /* ignore */ }
+      if (rawCorrectTexts.size === 0) {
+        const rawOpts: any[] = displayQ?.options ?? [];
+        rawCorrectTexts = new Set(
+          rawOpts.filter((o: any) => isOptionCorrect(o))
+            .map((o: any) => norm(o?.text))
+            .filter((t: string) => !!t)
+        );
+      }
+      const svcSel = host.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
+      const selTexts = new Set(svcSel.map((s: any) => norm(s?.text)).filter((t: string) => !!t));
+      return rawCorrectTexts.size > 0 && [...rawCorrectTexts].every(t => selTexts.has(t));
+    } catch {
+      return true; // trust upstream
     }
   }
 }
