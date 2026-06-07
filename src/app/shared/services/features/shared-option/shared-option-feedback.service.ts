@@ -92,27 +92,13 @@ export class SharedOptionFeedbackService {
     selectedIndex: number,
     ctx: FeedbackContext
   ): FeedbackProps {
-    if (!option) {
-      return {
-        selectedOption: null,
-        correctMessage: '',
-        feedback: 'Feedback unavailable.',
-        showFeedback: false,
-        idx: selectedIndex,
-        options: ctx.optionsToDisplay ?? [],
-        question: ctx.currentQuestion ?? null
-      };
-    }
+    if (!option) return this.unavailableFeedbackProps(ctx, selectedIndex);
 
     // Ensure the main option has a displayIndex
     if (option.displayIndex === undefined) option.displayIndex = selectedIndex;
 
     const question = ctx.currentQuestion;
-    // Robust detection: check type OR count of correct answers in the raw question data
-    const isMulti = ctx.type === 'multiple' ||
-      question?.type === QuestionType.MultipleAnswer ||
-      (question as any)?.multipleAnswer ||
-      ((question?.options?.filter(o => isOptionCorrect(o)).length ?? 0) > 1);
+    const isMulti = this.detectMultiAnswer(ctx, question);
 
     // For Multi-Answer: consider ALL selected options to return "Select 1 more" etc.
     // For Single-Answer: just the current one (only one can be selected).
@@ -120,7 +106,6 @@ export class SharedOptionFeedbackService {
       ? this.gatherMultiOptionsToCheck(ctx, option, selectedIndex)
       : [option];
 
-    // Ensure correct feedback message context
     const feedbackMessage = this.feedbackService.buildFeedbackMessage(
       question as QuizQuestion,
       optionsToCheck,
@@ -138,6 +123,36 @@ export class SharedOptionFeedbackService {
       ? this.computeMultiAllCorrectOverride(ctx, selectedIndex, feedbackMessage, correctMessage)
       : feedbackMessage;
 
+    return this.buildFeedbackProps(ctx, option, selectedIndex, correctMessage, finalFeedback);
+  }
+
+  private unavailableFeedbackProps(ctx: FeedbackContext, selectedIndex: number): FeedbackProps {
+    return {
+      selectedOption: null,
+      correctMessage: '',
+      feedback: 'Feedback unavailable.',
+      showFeedback: false,
+      idx: selectedIndex,
+      options: ctx.optionsToDisplay ?? [],
+      question: ctx.currentQuestion ?? null
+    };
+  }
+
+  // Robust detection: check type OR count of correct answers in the raw question data
+  private detectMultiAnswer(ctx: FeedbackContext, question: QuizQuestion | null | undefined): boolean {
+    return ctx.type === 'multiple' ||
+      question?.type === QuestionType.MultipleAnswer ||
+      (question as any)?.multipleAnswer ||
+      ((question?.options?.filter(o => isOptionCorrect(o)).length ?? 0) > 1);
+  }
+
+  private buildFeedbackProps(
+    ctx: FeedbackContext,
+    option: SelectedOption,
+    selectedIndex: number,
+    correctMessage: string,
+    finalFeedback: string
+  ): FeedbackProps {
     return {
       selectedOption: option,
       correctMessage,
