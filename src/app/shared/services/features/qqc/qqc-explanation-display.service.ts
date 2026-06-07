@@ -187,7 +187,13 @@ export class QqcExplanationDisplayService {
    */
   private emitExplanationForActiveIndex(q: QuizQuestion, i0: number, nextText: string): void {
     const svc = this.explanationTextService;
-    const rawQ: any = this.quizService?.questions?.[i0] ?? q;
+    // Shuffle-aware: questions[i0] is the UNSHUFFLED question at i0, but the
+    // displayed question at i0 is shuffledQuestions[i0]. Use the display order
+    // so the multi-answer guard checks the right question's correct answers.
+    const displayQuestions = this.quizService?.shuffledQuestions?.length
+      ? this.quizService.shuffledQuestions
+      : (this.quizService?.questions ?? []);
+    const rawQ: any = displayQuestions[i0] ?? q;
     const rawOpts: any[] = rawQ?.options ?? [];
     const correctCount = rawOpts.filter((o: any) => isOptionCorrect(o)).length;
     const isMultiAnswer = correctCount > 1;
