@@ -177,8 +177,19 @@ export class SharedOptionBindingService {
 
     const currentIndex = comp.getActiveQuestionIndex() ?? 0;
 
-    // SHUFFLE GUARD: when shuffle is active, ensure we use options from
-    // the authoritative shuffledQuestions array for this display index.
+    this.applyBindingShuffleGuard(comp, currentIndex);
+    this.buildOptionsToDisplay(comp, currentIndex);
+    this.createAndSetBindings(comp);
+
+    comp.rehydrateUiFromState('generateOptionBindings');
+
+    this.applyRevisitOverride(comp);
+    this.finalizeBindings(comp);
+  }
+
+  // SHUFFLE GUARD: when shuffle is active, ensure we use options from
+  // the authoritative shuffledQuestions array for this display index.
+  private applyBindingShuffleGuard(comp: any, currentIndex: number): void {
     if (this.quizService.isShuffleEnabled() && this.quizService.shuffledQuestions?.length > 0) {
       const correctQ = this.quizService.shuffledQuestions[currentIndex];
       if (correctQ?.options?.length > 0) {
@@ -190,7 +201,9 @@ export class SharedOptionBindingService {
         }
       }
     }
+  }
 
+  private buildOptionsToDisplay(comp: any, currentIndex: number): void {
     const localOpts = Array.isArray(comp.optionsToDisplay)
       ? comp.optionsToDisplay.map((o: Option) => structuredClone(o)) : [];
 
@@ -225,7 +238,9 @@ export class SharedOptionBindingService {
         disabled: comp.computeDisabledState(opt, i)
       };
     });
+  }
 
+  private createAndSetBindings(comp: any): void {
     comp.optionBindings.set(this.optionBindingFactory.createBindings({
       optionsToDisplay: comp.optionsToDisplay,
       type: comp.resolveInteractionType(),
@@ -238,16 +253,16 @@ export class SharedOptionBindingService {
       isSelected: () => false,
       isDisabled: (opt: Option, idx: number) => comp.computeDisabledState(opt, idx)
     }));
+  }
 
-    comp.rehydrateUiFromState('generateOptionBindings');
-
-    // Previous-revisit visual override. After all the standard binding paths
-    // have run, force the Previous-revisit semantics:
-    //   * Question was answered correctly (clickConfirmedDotStatus === 'correct'):
-    //       correct options stay highlighted; incorrect options are greyed out.
-    //   * Question was answered incorrectly: clear all marks.
-    // This runs unconditionally (no hasUserClicked guard) so it survives the
-    // standard rehydrate path's early-returns.
+  // Previous-revisit visual override. After all the standard binding paths
+  // have run, force the Previous-revisit semantics:
+  //   * Question was answered correctly (clickConfirmedDotStatus === 'correct'):
+  //       correct options stay highlighted; incorrect options are greyed out.
+  //   * Question was answered incorrectly: clear all marks.
+  // This runs unconditionally (no hasUserClicked guard) so it survives the
+  // standard rehydrate path's early-returns.
+  private applyRevisitOverride(comp: any): void {
     try {
       const qIdx = comp.resolveCurrentQuestionIndex?.()
         ?? comp.questionIndex?.()
@@ -318,7 +333,9 @@ export class SharedOptionBindingService {
         try { comp.cdRef?.markForCheck?.(); } catch { /* ignore */ }
       }
     } catch (e) { console.error('generateOptionBindings revisit-override failed:', e); }
+  }
 
+  private finalizeBindings(comp: any): void {
     const hasFreshFeedback = Object.keys(comp.feedbackConfigs).length > 0;
     if (!hasFreshFeedback) comp.rebuildShowFeedbackMapFromBindings();
 
