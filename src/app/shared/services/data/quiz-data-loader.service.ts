@@ -183,7 +183,20 @@ export class QuizDataLoaderService {
     setInternalQuestions: (qs: QuizQuestion[]) => void
   ): Promise<QuizQuestion[]> {
 
-    // Restore persisted shuffled order
+    this.restorePersistedShuffle(quizId);
+
+    const cached = this.tryReturnCachedShuffled(quizId, questionsSig, setInternalQuestions);
+    if (cached) return cached;
+
+    if (this.fetchPromise) return this.fetchPromise;
+
+    this.fetchPromise = this.performFetch(quizId, questionsSig, setInternalQuestions);
+    return this.fetchPromise;
+  }
+
+  // Restore persisted shuffled order from localStorage when shuffle is on
+  // and we don't already have a shuffled set in memory.
+  private restorePersistedShuffle(quizId: string): void {
     if (this.shouldShuffle() && (!this.shuffledQuestions || this.shuffledQuestions.length === 0)) {
       try {
         const persistedQuizId = localStorage.getItem(SK_SHUFFLED_QUESTIONS_QUIZ_ID);
@@ -199,8 +212,15 @@ export class QuizDataLoaderService {
         console.error('Failed to load shuffled questions from localStorage:', e);
       }
     }
+  }
 
-    // Return existing shuffledQuestions if available
+  // Return existing shuffledQuestions if valid for this quiz; otherwise clear
+  // stale/bad state and return null so the caller proceeds to fetch.
+  private tryReturnCachedShuffled(
+    quizId: string,
+    questionsSig: WritableSignal<QuizQuestion[]>,
+    setInternalQuestions: (qs: QuizQuestion[]) => void
+  ): QuizQuestion[] | null {
     if (this.shuffledQuestions && this.shuffledQuestions.length > 0) {
       const hasBadData = this.shuffledQuestions.some(q =>
         Array.isArray(q.options) &&
@@ -237,81 +257,96 @@ export class QuizDataLoaderService {
         }
       }
     }
+    return null;
+  }
 
-    if (this.fetchPromise) return this.fetchPromise;
+  private async performFetch(
+    quizId: string,
+    questionsSig: WritableSignal<QuizQuestion[]>,
+    setInternalQuestions: (qs: QuizQuestion[]) => void
+  ): Promise<QuizQuestion[]> {
+    try {
+      if (!quizId) return [];
 
-    this.fetchPromise = (async () => {
-      try {
-        if (!quizId) return [];
+      const quizzes = await firstValueFrom<Quiz[]>(
+        this.http.get<Quiz[]>(this.quizUrl)
+      );
 
-        const quizzes = await firstValueFrom<Quiz[]>(
-          this.http.get<Quiz[]>(this.quizUrl)
-        );
+      const quiz = quizzes.find((q) => String(q.quizId) === String(quizId));
+      if (!quiz) return [];
 
-        const quiz = quizzes.find((q) => String(q.quizId) === String(quizId));
-        if (!quiz) return [];
+      this.currentQuizSig.set(quiz);
 
-        this.currentQuizSig.set(quiz);
+      const isSameQuiz = quizId && this.questionsQuizId === quizId;
+      const cachedLen = this.shuffledQuestions?.length || 0;
+      const metadataLen = quiz.questions?.length || 0;
+      const lengthMatches = cachedLen > 0 && cachedLen === metadataLen;
 
-        const isSameQuiz = quizId && this.questionsQuizId === quizId;
-        const cachedLen = this.shuffledQuestions?.length || 0;
-        const metadataLen = quiz.questions?.length || 0;
-        const lengthMatches = cachedLen > 0 && cachedLen === metadataLen;
-
-        if (isSameQuiz && lengthMatches) {
-          questionsSig.set(this.shuffledQuestions);
-          return this.shuffledQuestions;
-        }
-
-        this.shuffledQuestions = [];
-        setInternalQuestions([]);
-        this.questionsQuizId = quizId;
-
-        const normalized: QuizQuestion[] = (quiz.questions ?? []).map((q, qIdx) => {
-          const optsWithIds = this.quizShuffleService.assignOptionIds(q.options ?? [], qIdx);
-          const alignedAnswers = this.quizShuffleService.alignAnswersWithOptions(q.answer, optsWithIds);
-
-          const correctIds = new Set(alignedAnswers.map(a => Number(a.optionId)));
-          const finalOpts = optsWithIds.map(o => ({
-            ...o,
-            correct: correctIds.has(Number(o.optionId))
-          }));
-
-          return {
-            ...q,
-            options: finalOpts.map(o => ({ ...o })),
-            answer: alignedAnswers.map(a => ({ ...a }))
-          } as QuizQuestion;
-        });
-
-        this.canonicalQuestionsByQuiz.set(quizId, JSON.parse(JSON.stringify(normalized)));
-        setInternalQuestions(JSON.parse(JSON.stringify(normalized)));
-
-        if (this.shouldShuffle()) {
-          this.quizShuffleService.prepareShuffle(quizId, normalized);
-          const shuffled = this.quizShuffleService.buildShuffledQuestions(quizId, normalized);
-
-          this.shuffledQuestions = shuffled;
-          try {
-            localStorage.setItem(SK_SHUFFLED_QUESTIONS, JSON.stringify(shuffled));
-            localStorage.setItem(SK_SHUFFLED_QUESTIONS_QUIZ_ID, quizId);
-          } catch { }
-
-          questionsSig.set(shuffled);
-          return shuffled;
-        }
-
-        questionsSig.set(normalized);
-        return normalized;
-      } catch (e) {
-        console.error('QuizDataLoaderService.getShuffledQuestions quiz data fetch failed:', e);
-        return [];
-      } finally {
-        this.fetchPromise = null;
+      if (isSameQuiz && lengthMatches) {
+        questionsSig.set(this.shuffledQuestions);
+        return this.shuffledQuestions;
       }
-    })();
 
-    return this.fetchPromise;
+      this.shuffledQuestions = [];
+      setInternalQuestions([]);
+      this.questionsQuizId = quizId;
+
+      const normalized = this.normalizeQuizQuestions(quiz);
+
+      this.canonicalQuestionsByQuiz.set(quizId, JSON.parse(JSON.stringify(normalized)));
+      setInternalQuestions(JSON.parse(JSON.stringify(normalized)));
+
+      if (this.shouldShuffle()) {
+        return this.buildAndPersistShuffled(quizId, normalized, questionsSig);
+      }
+
+      questionsSig.set(normalized);
+      return normalized;
+    } catch (e) {
+      console.error('QuizDataLoaderService.getShuffledQuestions quiz data fetch failed:', e);
+      return [];
+    } finally {
+      this.fetchPromise = null;
+    }
+  }
+
+  // Normalize raw quiz questions: assign option ids, align answers, stamp correct flags.
+  private normalizeQuizQuestions(quiz: Quiz): QuizQuestion[] {
+    return (quiz.questions ?? []).map((q, qIdx) => {
+      const optsWithIds = this.quizShuffleService.assignOptionIds(q.options ?? [], qIdx);
+      const alignedAnswers = this.quizShuffleService.alignAnswersWithOptions(q.answer, optsWithIds);
+
+      const correctIds = new Set(alignedAnswers.map(a => Number(a.optionId)));
+      const finalOpts = optsWithIds.map(o => ({
+        ...o,
+        correct: correctIds.has(Number(o.optionId))
+      }));
+
+      return {
+        ...q,
+        options: finalOpts.map(o => ({ ...o })),
+        answer: alignedAnswers.map(a => ({ ...a }))
+      } as QuizQuestion;
+    });
+  }
+
+  // Build the shuffled order, persist it to localStorage, and publish it.
+  private buildAndPersistShuffled(
+    quizId: string,
+    normalized: QuizQuestion[],
+    questionsSig: WritableSignal<QuizQuestion[]>
+  ): QuizQuestion[] {
+    this.quizShuffleService.prepareShuffle(quizId, normalized);
+    const shuffled = this.quizShuffleService.buildShuffledQuestions(quizId, normalized);
+
+    this.shuffledQuestions = shuffled;
+    try {
+      localStorage.setItem(SK_SHUFFLED_QUESTIONS, JSON.stringify(shuffled));
+      localStorage.setItem(SK_SHUFFLED_QUESTIONS_QUIZ_ID, quizId);
+    } catch { }
+
+    questionsSig.set(shuffled);
+    return shuffled;
   }
 
   clearFetchPromise(): void {
