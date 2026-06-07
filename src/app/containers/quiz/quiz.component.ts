@@ -589,13 +589,14 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
 
   navigateToDot(index: number): void {
     if (!this.isDotClickable(index)) return;
-    const quizId = this.quizService.quizId || this.quizService.getCurrentQuizId();
     this.dotStatusService.clearForIndex(index);
     this.selectedOptionService.lastClickedCorrectByQuestion.clear();
     this.quizPersistence.clearPersistedDotStatus(this.quizId(), index);
     this.selectedOptionService.resetLocksForQuestion(index);
-    this.quizService.setCurrentQuestionIndex(index);
-    this.router.navigate(['/quiz/question', quizId, index + 1]);
+    // Route through the navigation service (same path as Next/Prev) so the
+    // destination question is fetched and EMITTED — a raw router.navigate only
+    // changes the URL and leaves the displayed question unchanged.
+    void this.quizNavigationService.navigateToQuestion(index);
   }
 
   isDotClickable(index: number): boolean {
