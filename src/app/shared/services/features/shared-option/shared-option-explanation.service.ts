@@ -41,9 +41,9 @@ export class SharedOptionExplanationService {
   private quizStateService = inject(QuizStateService);
   private selectedOptionService = inject(SelectedOptionService);
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════
   // Main Explanation Emission
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════
 
   /**
    * Resolves the question index, applies stale-call guard, builds context,
@@ -113,7 +113,7 @@ export class SharedOptionExplanationService {
         const resolved = this.checkResolution(ctx);
         if (!resolved) return;
       } else if (!question || !Array.isArray(question?.options)) {
-        // No question data available â€” cannot verify resolution. Block FET.
+        // No question data available — cannot verify resolution. Block FET.
         return;
       }
     }
@@ -143,28 +143,62 @@ export class SharedOptionExplanationService {
     this.scheduleExplanationVerification(resolvedIndex, explanationText);
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════
   // Resolution Check
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════
 
   /**
    * Checks whether the question is resolved (all correct answers selected).
    * Uses UI state first, falls back to service state.
    */
   private checkResolution(ctx: ExplanationContext): boolean {
-    const { resolvedIndex, question, optionBindings, optionsToDisplay } = ctx;
+    const { resolvedIndex, question } = ctx;
 
-    // Use authoritative question source â€” the component's question.options
-    // often lack the `correct` flag, making correctCount=0 and falling to
-    // single-answer logic which resolves on 1 correct selection.
+    const { correctCount, pristineCorrectTexts } = this.resolveCorrectCountAndTexts(ctx);
+    const isMultiAnswer = correctCount > 1 || this.quizService.multipleAnswer;
+
+    const selectedFromUi = this.collectSelectedFromUi(ctx);
+    const selectedFromService =
+      this.selectedOptionService.getSelectedOptionsForQuestion(resolvedIndex) ?? [];
+
+    const uiResolved = this.computeUiResolved(
+      selectedFromUi, correctCount, pristineCorrectTexts, question!
+    );
+
+    const status = this.selectedOptionService.getResolutionStatus(
+      question!,
+      selectedFromService as any,
+      false
+    );
+
+    let resolved = (selectedFromUi.length > 0) ? uiResolved : status.resolved;
+
+    // Pristine gate: require ALL pristine-correct texts present (blocks false
+    // positives from mutated flags).
+    if (isMultiAnswer && pristineCorrectTexts.size > 0) {
+      resolved = this.applyMultiAnswerPristineGate(
+        ctx, selectedFromUi, selectedFromService, pristineCorrectTexts, resolved
+      );
+    }
+
+    // Single-answer only: let the service override the UI verdict (multi's
+    // selectedOptionsMap can be contaminated by init paths).
+    if (!resolved && status.resolved && !isMultiAnswer) resolved = true;
+
+    return resolved;
+  }
+
+  // Resolve correct count/texts from pristine quizInitialState — live options
+  // can have stale correct flags (e.g. after Restart Quiz) that inflate the count.
+  private resolveCorrectCountAndTexts(
+    ctx: ExplanationContext
+  ): { correctCount: number; pristineCorrectTexts: Set<string> } {
+    const { resolvedIndex, question } = ctx;
+
     const authQuestion = this.quizService.getQuestionsInDisplayOrder?.()?.[resolvedIndex]
       ?? this.quizService.questions?.[resolvedIndex] ?? question;
-    // Always resolve correct count and texts from pristine quizInitialState.
-    // After Restart Quiz, live options can have ALL correct flags set to true
-    // (stale mutation), inflating correctCount and bypassing the multi-answer
-    // gate. Pristine data is immutable and always authoritative.
     let correctCount = 0;
-    let pristineCorrectTexts = new Set<string>();
+    const pristineCorrectTexts = new Set<string>();
     const qText = this.normalize(authQuestion?.questionText ?? question?.questionText);
     try {
       for (const quiz of this.quizService?.quizInitialState ?? []) {
@@ -184,22 +218,24 @@ export class SharedOptionExplanationService {
         if (correctCount > 0) break;
       }
     } catch { /* ignore */ }
-    // Fallback: use live data only if pristine lookup failed
     if (correctCount === 0) {
       correctCount = (authQuestion?.options ?? question!.options).filter(
         (o: any) => isOptionCorrect(o)
       ).length;
     }
-    const isMultiAnswer = correctCount > 1 || this.quizService.multipleAnswer;
+    return { correctCount, pristineCorrectTexts };
+  }
 
-    // RESOLVE: optionBindings may be a signal (-clean) or array (-main)
+  // optionBindings may be a signal (-clean) or array (-main)
+  private collectSelectedFromUi(ctx: ExplanationContext): any[] {
+    const { optionBindings, optionsToDisplay } = ctx;
     const _rawOb1 = optionBindings as any;
     const _ob1: any[] = typeof _rawOb1 === 'function' ? (_rawOb1() ?? []) : (_rawOb1 ?? []);
     const visualOptions = (Array.isArray(_ob1) && _ob1.length > 0)
       ? _ob1.map((b: OptionBindings) => b.option)
       : (optionsToDisplay ?? []);
 
-    const selectedFromUi = visualOptions
+    return visualOptions
       .map((opt: any, idx: number) => {
         const bindingSelected = _ob1?.[idx]?.isSelected === true;
         const optionSelected = opt?.selected === true || bindingSelected;
@@ -213,99 +249,96 @@ export class SharedOptionExplanationService {
           : null;
       })
       .filter((opt: any) => opt != null);
+  }
 
-    const selectedFromService =
-      this.selectedOptionService.getSelectedOptionsForQuestion(resolvedIndex) ?? [];
+  private isResolutionSelectionCorrect(
+    sel: any,
+    pristineCorrectTexts: Set<string>,
+    question: any
+  ): boolean {
+    const selText = this.normalize(sel?.text);
+    if (pristineCorrectTexts.size > 0 && selText) {
+      return pristineCorrectTexts.has(selText);
+    }
+    if (isOptionCorrect(sel)) return true;
 
-    const isSelectionCorrect = (sel: any): boolean => {
-      const selText = this.normalize(sel?.text);
-      if (pristineCorrectTexts.size > 0 && selText) {
-        return pristineCorrectTexts.has(selText);
-      }
-      if (isOptionCorrect(sel)) return true;
+    const selId = sel?.optionId;
 
-      const selId = sel?.optionId;
-
-      const byId = question!.options.find((o: any) =>
-        o?.optionId !== undefined && o?.optionId !== null &&
-        String(o.optionId) === String(selId)
-      );
-      if (byId) return isOptionCorrect(byId);
-
-      const byText = question!.options.find((o: any) =>
-        this.normalize(o?.text) !== '' && this.normalize(o?.text) === selText
-      );
-      if (byText) return isOptionCorrect(byText);
-
-      return false;
-    };
-
-    const uiResolved = (() => {
-      if (selectedFromUi.length === 0) return false;
-
-      const correctSelected = selectedFromUi.filter(isSelectionCorrect).length;
-
-      if (correctCount > 1) {
-        return correctSelected >= correctCount;
-      }
-      return correctSelected >= 1;
-    })();
-
-    const status = this.selectedOptionService.getResolutionStatus(
-      question!,
-      selectedFromService as any,
-      false
+    const byId = question!.options.find((o: any) =>
+      o?.optionId !== undefined && o?.optionId !== null &&
+      String(o.optionId) === String(selId)
     );
+    if (byId) return isOptionCorrect(byId);
 
-    let resolved = (selectedFromUi.length > 0) ? uiResolved : status.resolved;
+    const byText = question!.options.find((o: any) =>
+      this.normalize(o?.text) !== '' && this.normalize(o?.text) === selText
+    );
+    if (byText) return isOptionCorrect(byText);
 
-    // Multi-answer pristine gate: regardless of UI/service verdict, require
-    // that ALL pristine-correct option texts are present in selected set
-    // (UI union service). Blocks false positives when flags are mutated.
-    if (isMultiAnswer && pristineCorrectTexts.size > 0) {
-      const selectedTexts = new Set<string>();
-      for (const s of selectedFromUi) {
-        const t = this.normalize(s?.text);
-        if (t) selectedTexts.add(t);
-      }
-      for (const s of selectedFromService) {
-        if (s?.selected === false) continue;
-        const t = this.normalize((s as any)?.text);
-        if (t) selectedTexts.add(t);
-      }
-      try {
-        const idx = resolvedIndex;
-        const raw = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(SK_SEL_Q + idx) : null;
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) {
-            for (const s of parsed) {
-              if (s?.selected !== true) continue;
-              const t = this.normalize(s?.text);
-              if (t) selectedTexts.add(t);
-            }
+    return false;
+  }
+
+  private computeUiResolved(
+    selectedFromUi: any[],
+    correctCount: number,
+    pristineCorrectTexts: Set<string>,
+    question: any
+  ): boolean {
+    if (selectedFromUi.length === 0) return false;
+
+    const correctSelected = selectedFromUi.filter(
+      (sel: any) => this.isResolutionSelectionCorrect(sel, pristineCorrectTexts, question)
+    ).length;
+
+    if (correctCount > 1) {
+      return correctSelected >= correctCount;
+    }
+    return correctSelected >= 1;
+  }
+
+  private applyMultiAnswerPristineGate(
+    ctx: ExplanationContext,
+    selectedFromUi: any[],
+    selectedFromService: any[],
+    pristineCorrectTexts: Set<string>,
+    resolved: boolean
+  ): boolean {
+    const { resolvedIndex } = ctx;
+    const selectedTexts = new Set<string>();
+    for (const s of selectedFromUi) {
+      const t = this.normalize(s?.text);
+      if (t) selectedTexts.add(t);
+    }
+    for (const s of selectedFromService) {
+      if (s?.selected === false) continue;
+      const t = this.normalize((s as any)?.text);
+      if (t) selectedTexts.add(t);
+    }
+    try {
+      const idx = resolvedIndex;
+      const raw = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(SK_SEL_Q + idx) : null;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          for (const s of parsed) {
+            if (s?.selected !== true) continue;
+            const t = this.normalize(s?.text);
+            if (t) selectedTexts.add(t);
           }
         }
-      } catch { /* ignore */ }
-      let allPresent = true;
-      for (const t of pristineCorrectTexts) {
-        if (!selectedTexts.has(t)) { allPresent = false; break; }
       }
-      if (!allPresent) resolved = false;
+    } catch { /* ignore */ }
+    let allPresent = true;
+    for (const t of pristineCorrectTexts) {
+      if (!selectedTexts.has(t)) { allPresent = false; break; }
     }
-
-    // For multi-answer questions, do NOT let the service override the UI
-    // check. The service's selectedOptionsMap can be contaminated by init
-    // paths, causing it to report "resolved" when only 1 of 2 correct
-    // answers are actually selected. Only allow override for single-answer.
-    if (!resolved && status.resolved && !isMultiAnswer) resolved = true;
-
+    if (!allPresent) resolved = false;
     return resolved;
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════
   // Apply & Verify
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════
 
   applyExplanationText(
     explanationText: string,
@@ -428,9 +461,9 @@ export class SharedOptionExplanationService {
     return 0;
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════
   // Explanation Text Resolution
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════
 
   cacheResolvedFormattedExplanation(index: number, formatted: string): void {
     const text = (formatted ?? '').trim();
@@ -531,9 +564,9 @@ export class SharedOptionExplanationService {
     return formatted;
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════
   // Utilities
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════
 
   private normalize(value: unknown): string {
     return String(value ?? '')
