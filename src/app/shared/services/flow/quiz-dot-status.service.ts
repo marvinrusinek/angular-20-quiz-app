@@ -350,7 +350,53 @@ export class QuizDotStatusService {
       ? question!.options
       : currentQuestionOptions;
 
-    const normalize = (value: unknown): string => norm(value);
+    const sets = this.buildOptionMatchSets(referenceOptions);
+
+    // Source 1: the currently-displayed options for the active question
+    if (index === currentQuestionIndex && currentQuestionOptions.length > 0) {
+      const displayedSelections = this.collectDisplayedSelections(currentQuestionOptions, index);
+      if (displayedSelections.length > 0) {
+        return this.pickRelevantSelections(displayedSelections, index, sets);
+      }
+    }
+
+    // Source 2: SelectedOptionService map
+    const serviceSelection = this.selectedOptionService?.selectedOptionsMap?.get(index);
+    if (Array.isArray(serviceSelection) && serviceSelection.length > 0) {
+      return this.pickRelevantSelections(serviceSelection, index, sets);
+    }
+
+    // Source 3: QuizService map
+    const quizSelection = this.quizService?.selectedOptionsMap?.get(index);
+    if (Array.isArray(quizSelection) && quizSelection.length > 0) {
+      return this.pickRelevantSelections(quizSelection as SelectedOption[], index, sets);
+    }
+
+    // Source 4: reconstruct from stored userAnswers (revisited questions only)
+    if (index !== currentQuestionIndex) {
+      const reconstructed = this.reconstructStoredSelections(index, question);
+      if (reconstructed.length > 0) {
+        return reconstructed;
+      }
+    }
+
+    return [];
+  }
+
+  private isSelectionActive(selection: SelectedOption): boolean {
+    if (!selection) return false;
+
+    return selection.selected !== false &&
+      (selection as any)?.checked !== false &&
+      (selection as any)?.isSelected !== false &&
+      (selection as any)?.active !== false;
+  }
+
+  private buildOptionMatchSets(referenceOptions: Option[]): {
+    optionIdSet: Set<string>;
+    optionTextSet: Set<string>;
+    optionIndexSet: Set<number>;
+  } {
     const optionIdSet = new Set(
       referenceOptions
         .map((opt: Option, optIndex: number) => {
@@ -362,117 +408,94 @@ export class QuizDotStatusService {
         })
     );
     const optionTextSet = new Set(
-      referenceOptions.map((opt: Option) => normalize(opt?.text)).filter(Boolean)
+      referenceOptions.map((opt: Option) => norm(opt?.text)).filter(Boolean)
     );
     const optionIndexSet = new Set(
       referenceOptions.map((_opt: Option, optIndex: number) => optIndex)
     );
+    return { optionIdSet, optionTextSet, optionIndexSet };
+  }
 
-    const isSelectionActive = (selection: SelectedOption): boolean => {
-      if (!selection) return false;
+  private pickRelevantSelections(
+    selections: SelectedOption[],
+    index: number,
+    sets: { optionIdSet: Set<string>; optionTextSet: Set<string>; optionIndexSet: Set<number> }
+  ): SelectedOption[] {
+    if (!Array.isArray(selections) || selections.length === 0) return [];
 
-      return selection.selected !== false &&
-        (selection as any)?.checked !== false &&
-        (selection as any)?.isSelected !== false &&
-        (selection as any)?.active !== false;
-    };
+    const activeSelections = selections.filter((s) => this.isSelectionActive(s));
+    if (activeSelections.length === 0) return [];
 
-    const pickRelevantSelections = (selections: SelectedOption[]): SelectedOption[] => {
-      if (!Array.isArray(selections) || selections.length === 0) return [];
+    const exactQuestionSelections = activeSelections.filter(
+      (selection: SelectedOption) => selection?.questionIndex === index
+    );
+    if (exactQuestionSelections.length > 0) return exactQuestionSelections;
 
-      const activeSelections = selections.filter(isSelectionActive);
-      if (activeSelections.length === 0) return [];
-
-      const exactQuestionSelections = activeSelections.filter(
-        (selection: SelectedOption) => selection?.questionIndex === index
+    const matchedSelections = activeSelections.filter((selection: SelectedOption) => {
+      const selectionId = String(selection?.optionId ?? '').trim();
+      const selectionText = norm(selection?.text);
+      const selectionDisplayIndex = Number(
+        (selection as any)?.displayIndex ?? (selection as any)?.index ?? -1
       );
-      if (exactQuestionSelections.length > 0) return exactQuestionSelections;
 
-      const matchedSelections = activeSelections.filter((selection: SelectedOption) => {
-        const selectionId = String(selection?.optionId ?? '').trim();
-        const selectionText = normalize(selection?.text);
-        const selectionDisplayIndex = Number(
-          (selection as any)?.displayIndex ?? (selection as any)?.index ?? -1
+      return (
+        (selectionId !== '' && sets.optionIdSet.has(selectionId)) ||
+        (selectionText !== '' && sets.optionTextSet.has(selectionText)) ||
+        sets.optionIndexSet.has(selectionDisplayIndex)
+      );
+    });
+
+    return matchedSelections.length > 0 ? matchedSelections : activeSelections;
+  }
+
+  private collectDisplayedSelections(currentQuestionOptions: Option[], index: number): SelectedOption[] {
+    return currentQuestionOptions
+      .map((option: Option, optionIndex: number) => ({ option, optionIndex }))
+      .filter(({ option }) => this.isSelectionActive(option as SelectedOption))
+      .map(({ option, optionIndex }) => ({
+        ...(option as SelectedOption),
+        optionId: option?.optionId ?? optionIndex,
+        questionIndex: index,
+        displayIndex: Number(
+          (option as any)?.displayIndex ?? (option as any)?.index ?? optionIndex
+        ),
+        selected: true
+      } as SelectedOption));
+  }
+
+  private reconstructStoredSelections(index: number, question: QuizQuestion | undefined): SelectedOption[] {
+    const storedAnswerIds = Array.isArray(this.quizService?.userAnswers?.[index])
+      ? (this.quizService.userAnswers[index] as number[]) : [];
+    if (!(storedAnswerIds.length > 0 && Array.isArray(question?.options) && question!.options.length > 0)) {
+      return [];
+    }
+    return storedAnswerIds
+      .map((answerId: number) => {
+        const directMatch = question!.options.find(
+          (opt: Option) => String(opt?.optionId ?? '') === String(answerId)
         );
-
-        return (
-          (selectionId !== '' && optionIdSet.has(selectionId)) ||
-          (selectionText !== '' && optionTextSet.has(selectionText)) ||
-          optionIndexSet.has(selectionDisplayIndex)
-        );
-      });
-
-      return matchedSelections.length > 0 ? matchedSelections : activeSelections;
-    };
-
-    if (index === currentQuestionIndex && currentQuestionOptions.length > 0) {
-      const displayedSelections = currentQuestionOptions
-        .map((option: Option, optionIndex: number) => ({ option, optionIndex }))
-        .filter(({ option }) => isSelectionActive(option as SelectedOption))
-        .map(({ option, optionIndex }) => ({
-          ...(option as SelectedOption),
-          optionId: option?.optionId ?? optionIndex,
-          questionIndex: index,
-          displayIndex: Number(
-            (option as any)?.displayIndex ?? (option as any)?.index ?? optionIndex
-          ),
-          selected: true
-        } as SelectedOption));
-
-      if (displayedSelections.length > 0) {
-        return pickRelevantSelections(displayedSelections);
-      }
-    }
-
-    const serviceSelection = this.selectedOptionService?.selectedOptionsMap?.get(index);
-    if (Array.isArray(serviceSelection) && serviceSelection.length > 0) {
-      return pickRelevantSelections(serviceSelection);
-    }
-
-    const quizSelection = this.quizService?.selectedOptionsMap?.get(index);
-    if (Array.isArray(quizSelection) && quizSelection.length > 0) {
-      return pickRelevantSelections(quizSelection as SelectedOption[]);
-    }
-
-    if (index !== currentQuestionIndex) {
-      const storedAnswerIds = Array.isArray(this.quizService?.userAnswers?.[index])
-        ? (this.quizService.userAnswers[index] as number[]) : [];
-      if (storedAnswerIds.length > 0 && Array.isArray(question?.options) && question!.options.length > 0) {
-        const reconstructedSelections = storedAnswerIds
-          .map((answerId: number) => {
-            const directMatch = question!.options.find(
-              (opt: Option) => String(opt?.optionId ?? '') === String(answerId)
-            );
-            if (directMatch) {
-              return {
-                ...directMatch,
-                optionId: directMatch.optionId ?? answerId,
-                questionIndex: index,
-                selected: true
-              } as SelectedOption;
-            }
-
-            if (Number.isInteger(answerId) && answerId >= 0 && answerId < question!.options.length) {
-              return {
-                ...question!.options[answerId],
-                optionId: question!.options[answerId]?.optionId ?? answerId,
-                questionIndex: index,
-                displayIndex: answerId,
-                selected: true
-              } as SelectedOption;
-            }
-
-            return null;
-          })
-          .filter((selection): selection is SelectedOption => !!selection);
-
-        if (reconstructedSelections.length > 0) {
-          return reconstructedSelections;
+        if (directMatch) {
+          return {
+            ...directMatch,
+            optionId: directMatch.optionId ?? answerId,
+            questionIndex: index,
+            selected: true
+          } as SelectedOption;
         }
-      }
-    }
 
-    return [];
+        if (Number.isInteger(answerId) && answerId >= 0 && answerId < question!.options.length) {
+          return {
+            ...question!.options[answerId],
+            optionId: question!.options[answerId]?.optionId ?? answerId,
+            questionIndex: index,
+            displayIndex: answerId,
+            selected: true
+          } as SelectedOption;
+        }
+
+        return null;
+      })
+      .filter((selection): selection is SelectedOption => !!selection);
   }
 
   // ═══════════════════════════════════════════════════════════════
