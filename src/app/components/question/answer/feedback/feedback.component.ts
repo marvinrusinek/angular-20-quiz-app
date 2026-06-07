@@ -156,9 +156,7 @@ export class FeedbackComponent {
         const match = liveQ.options.find(
           (o: Option) => norm(o?.text) === candidateText
         );
-        if (isOptionCorrect(match)) {
-          return true;
-        }
+        if (isOptionCorrect(match)) return true;
       }
     }
     return false;
