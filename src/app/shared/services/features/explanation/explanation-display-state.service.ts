@@ -183,63 +183,28 @@ export class ExplanationDisplayStateService {
     const targetIdx = options.index ?? this._activeIndexValue;
     this.latestExplanationIndex = targetIdx;
 
-    // ── CENTRALIZED MULTI-ANSWER GUARD ──────────────────────────────
-    // Block non-empty FET text from entering the reactive pipeline for
-    // multi-answer questions that are not yet fully resolved. This
-    // prevents explanation text from reaching subscribeToDisplayText
-    // and writeQText before all correct answers are selected.
-    if (trimmed && !options.force) {
-      try {
-        const quizSvc = this.injector.get(QuizService, null);
-        const selectedSvc = this.injector.get(SelectedOptionService, null);
-        if (quizSvc && selectedSvc) {
-          const activeIdx = targetIdx ?? quizSvc.getCurrentQuestionIndex?.() ?? 0;
-          const rawQ: any = quizSvc?.questions?.[activeIdx];
-          const rawOpts: any[] = rawQ?.options ?? [];
-          const correctCount = rawOpts.filter(
-            (o: any) => isOptionCorrect(o)
-          ).length;
-          if (correctCount > 1) {
-            const correctTexts = rawOpts
-              .filter((o: any) => isOptionCorrect(o))
-              .map((o: any) => norm(o?.text))
-              .filter((t: string) => !!t);
-            const selections = selectedSvc.getSelectedOptionsForQuestion(activeIdx) ?? [];
-            const selTexts = new Set(
-              selections
-                .filter((s: any) => s?.selected !== false)
-                .map((s: any) => norm(s?.text))
-                .filter((t: string) => !!t)
-            );
-            const allCorrectSelected = correctTexts.length > 0
-              && correctTexts.every((t: string) => selTexts.has(t));
-            if (!allCorrectSelected) return;
-          }
-        }
-      } catch (e) {
-        console.error('ExplanationDisplayStateService.setExplanationText multi-answer guard failed:', e);
-      }
-    }
+    if (this.multiAnswerGuardBlocks(trimmed, options, targetIdx)) return;
+    if (this.shouldSkipWrite(trimmed, contextKey, signature, options)) return;
 
-    // Visibility lock: prevent overwrites during tab restore
-    if ((this as any)._visibilityLocked) return;
+    const finalExplanation = this.commitExplanationState(trimmed, contextKey, signature, targetIdx);
 
-    if (!options.force && this.explanationLocked) {
-      const lockedContext = this.lockedContext ?? this.globalContextKey;
-      const contextsMatch =
-        lockedContext === this.globalContextKey ||
-        contextKey === this.globalContextKey ||
-        lockedContext === contextKey;
+    const qIdx = targetIdx !== null ? targetIdx : this._activeIndex;
+    this.updateIndexedStorage(qIdx, finalExplanation);
 
-      if (!contextsMatch) return;
-      if (trimmed === '') return;
-    }
+    // Unified emission pipeline (Global)
+    this.formatter.formattedExplanationSig.set(finalExplanation);
 
-    if (!options.force) {
-      const previous = this.explanationByContext.get(contextKey) ?? '';
-      if (previous === trimmed && signature === this.lastExplanationSignature) return;
-    }
+    // Ensure direct subject update for visibility-stable downstream
+    this.explanationTextSig.set(finalExplanation);
+  }
 
+  // Commit the context map + signature and update latest-explanation tracking.
+  private commitExplanationState(
+    trimmed: string,
+    contextKey: string,
+    signature: string,
+    targetIdx: number | null | undefined
+  ): string {
     if (trimmed) {
       this.explanationByContext.set(contextKey, trimmed);
     } else {
@@ -248,7 +213,7 @@ export class ExplanationDisplayStateService {
 
     this.lastExplanationSignature = signature;
 
-    let finalExplanation = trimmed;
+    const finalExplanation = trimmed;
 
     // Clear old explanation when we're NOT setting new text.
     // This prevents Q1's explanation from showing for Q2.
@@ -258,42 +223,108 @@ export class ExplanationDisplayStateService {
     } else {
       this.latestExplanation = finalExplanation;
     }
+    return finalExplanation;
+  }
 
-    // Update the per-index subjects and collections if possible
-    const qIdx = targetIdx !== null ? targetIdx : this._activeIndex;
-    if (typeof qIdx === 'number' && qIdx >= 0) {
-      const trimmedFinal = (finalExplanation ?? '').trim();
-
-      // Update persistent indexed storage
-      if (trimmedFinal) {
-        this.formatter.formattedExplanations[qIdx] = {
-          questionIndex: qIdx,
-          explanation: trimmedFinal
-        };
-        this.formatter.fetByIndex.set(qIdx, trimmedFinal);
-      } else {
-        delete this.formatter.formattedExplanations[qIdx];
-        this.formatter.fetByIndex.delete(qIdx);
+  // CENTRALIZED MULTI-ANSWER GUARD: block non-empty FET text from entering the
+  // reactive pipeline for multi-answer questions that are not yet fully resolved
+  // (prevents explanation reaching subscribeToDisplayText/writeQText too early).
+  private multiAnswerGuardBlocks(
+    trimmed: string,
+    options: { force?: boolean },
+    targetIdx: number | null | undefined
+  ): boolean {
+    if (!(trimmed && !options.force)) return false;
+    try {
+      const quizSvc = this.injector.get(QuizService, null);
+      const selectedSvc = this.injector.get(SelectedOptionService, null);
+      if (quizSvc && selectedSvc) {
+        const activeIdx = targetIdx ?? quizSvc.getCurrentQuestionIndex?.() ?? 0;
+        const rawQ: any = quizSvc?.questions?.[activeIdx];
+        const rawOpts: any[] = rawQ?.options ?? [];
+        const correctCount = rawOpts.filter(
+          (o: any) => isOptionCorrect(o)
+        ).length;
+        if (correctCount > 1) {
+          const correctTexts = rawOpts
+            .filter((o: any) => isOptionCorrect(o))
+            .map((o: any) => norm(o?.text))
+            .filter((t: string) => !!t);
+          const selections = selectedSvc.getSelectedOptionsForQuestion(activeIdx) ?? [];
+          const selTexts = new Set(
+            selections
+              .filter((s: any) => s?.selected !== false)
+              .map((s: any) => norm(s?.text))
+              .filter((t: string) => !!t)
+          );
+          const allCorrectSelected = correctTexts.length > 0
+            && correctTexts.every((t: string) => selTexts.has(t));
+          if (!allCorrectSelected) return true;
+        }
       }
+    } catch (e) {
+      console.error('ExplanationDisplayStateService.setExplanationText multi-answer guard failed:', e);
+    }
+    return false;
+  }
 
-      // Notify the indexed reactive subjects
-      try {
-        const { text$ } = this.getOrCreate(qIdx);
-        text$.next(trimmedFinal);
-        this._byIndex.get(qIdx)?.next(trimmedFinal);
-      } catch (e) {
-        console.error('ExplanationDisplayStateService.setExplanationText indexed-subject notify failed:', e);
-      }
+  // Visibility lock, explanation-lock context mismatch, and dedup guards.
+  private shouldSkipWrite(
+    trimmed: string,
+    contextKey: string,
+    signature: string,
+    options: { force?: boolean }
+  ): boolean {
+    // Visibility lock: prevent overwrites during tab restore
+    if ((this as any)._visibilityLocked) return true;
 
-      // Broadcast the change to the collection
-      this.formatter.explanationsUpdatedSig.set({ ...this.formatter.formattedExplanations });
+    if (!options.force && this.explanationLocked) {
+      const lockedContext = this.lockedContext ?? this.globalContextKey;
+      const contextsMatch =
+        lockedContext === this.globalContextKey ||
+        contextKey === this.globalContextKey ||
+        lockedContext === contextKey;
+
+      if (!contextsMatch) return true;
+      if (trimmed === '') return true;
     }
 
-    // Unified emission pipeline (Global)
-    this.formatter.formattedExplanationSig.set(finalExplanation);
+    if (!options.force) {
+      const previous = this.explanationByContext.get(contextKey) ?? '';
+      if (previous === trimmed && signature === this.lastExplanationSignature) return true;
+    }
+    return false;
+  }
 
-    // Ensure direct subject update for visibility-stable downstream
-    this.explanationTextSig.set(finalExplanation);
+  // Update the per-index subjects and collections if the index is valid.
+  private updateIndexedStorage(qIdx: number | null | undefined, finalExplanation: string): void {
+    if (!(typeof qIdx === 'number' && qIdx >= 0)) return;
+
+    const trimmedFinal = (finalExplanation ?? '').trim();
+
+    // Update persistent indexed storage
+    if (trimmedFinal) {
+      this.formatter.formattedExplanations[qIdx] = {
+        questionIndex: qIdx,
+        explanation: trimmedFinal
+      };
+      this.formatter.fetByIndex.set(qIdx, trimmedFinal);
+    } else {
+      delete this.formatter.formattedExplanations[qIdx];
+      this.formatter.fetByIndex.delete(qIdx);
+    }
+
+    // Notify the indexed reactive subjects
+    try {
+      const { text$ } = this.getOrCreate(qIdx);
+      text$.next(trimmedFinal);
+      this._byIndex.get(qIdx)?.next(trimmedFinal);
+    } catch (e) {
+      console.error('ExplanationDisplayStateService.setExplanationText indexed-subject notify failed:', e);
+    }
+
+    // Broadcast the change to the collection
+    this.formatter.explanationsUpdatedSig.set({ ...this.formatter.formattedExplanations });
   }
 
   setExplanationTextForQuestionIndex(index: number, explanation: string): void {
