@@ -146,105 +146,16 @@ export class QuizContentDisplayService {
     isNavBack: boolean,
     lastInteractedIdx: number
   ): string {
-    const rawQText = qObj?.questionText || '';
-    const serviceQText = (qObj?.questionText ?? '').trim();
-    const effectiveQText = serviceQText || rawQText || '';
-
-    // Build the base question text display (with multi-answer banner if applicable)
-    let qDisplay = effectiveQText;
-    // Use PRISTINE quizInitialState as the source of truth for the correct
-    // count. Live quizService.questions[] can be mutated by option-lock-policy.
-    const rawQuestion = this.quizService?.questions?.[safeIdx] as QuizQuestion | undefined;
-    const sourceOpts = rawQuestion?.options ?? qObj?.options ?? [];
-    let numCorrect = sourceOpts.filter((o: Option) => isOptionCorrect(o)).length;
-    // Cross-check against pristine data — always prefer pristine count.
-    // After Restart Quiz, live options can have ALL correct flags set to
-    // true (stale mutation), inflating numCorrect. Pristine is immutable.
-    try {
-      const _pq = this.quizService?.getPristineQuestionByText(
-        rawQuestion?.questionText ?? qObj?.questionText
-      );
-      if (_pq) {
-        const pc = (_pq.options ?? []).filter(
-          (o: any) => isOptionCorrect(o)
-        ).length;
-        if (pc > 0) numCorrect = pc;
-      }
-    } catch { /* ignore */ }
-    if (numCorrect > 1 && sourceOpts.length) {
-      const banner = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
-        numCorrect,
-        sourceOpts.length
-      );
-      qDisplay = `${qDisplay} <span class="correct-count">${banner}</span>`;
-    }
-
-    // AUTHORITATIVE RESOLUTION FOR THIS INDEX
+    const { qDisplay, numCorrect } = this.buildQuestionDisplay(safeIdx, qObj);
     const safeSelections = Array.isArray(selections) ? selections : [];
     const isMultipleAnswer = numCorrect > 1;
-
-    // Multi-answer resolution uses RAW source options so mutated qObj.options
-    // with reduced correct flags can't make a 1-of-2 correct pick resolve true.
-    let isResolved = false;
-    if (qObj) {
-      if (isMultipleAnswer) {
-        // Multi-answer: NEVER resolve from this pipeline. The
-        // selectedOptionsMap is polluted (timer expiry / history writes
-        // mark all options as selected:true). FET for multi-answer
-        // questions must ONLY be triggered by the explicit click handler
-        // that verifies all correct answers at the moment of the click.
-        isResolved = false;
-      } else {
-        isResolved = this.selectedOptionService.isQuestionResolvedLeniently(qObj, safeSelections);
-
-        // PRISTINE SINGLE-ANSWER GATE: getSelectedOptionsForQuestion can
-        // return polluted data (e.g. ID collisions add the correct option
-        // even though the user never clicked it). Cross-check: the LAST
-        // actively-selected entry's text must match a pristine correct
-        // option. If not, the "correct" hit was pollution.
-        if (isResolved) {
-          try {
-            const pristineCorrectTexts = new Set(
-              this.quizService?.getPristineCorrectTextsForQuestion(qObj?.questionText) ?? []
-            );
-            if (pristineCorrectTexts.size > 0) {
-              // Find the last actively-selected entry (most recent click)
-              const activeSelections = safeSelections.filter(
-                (s: any) => s?.selected !== false
-              );
-              const lastSel = activeSelections.length > 0
-                ? activeSelections[activeSelections.length - 1]
-                : null;
-              const lastSelText = norm(lastSel?.text);
-              if (lastSelText && !pristineCorrectTexts.has(lastSelText)) {
-                isResolved = false;
-              }
-            }
-          } catch { /* ignore */ }
-        }
-      }
-    }
-
-    // Was this question answered in a prior session (e.g. before a page
-    // refresh)? The answered set is persisted to sessionStorage and
-    // restored in QuizStateService's constructor, so this survives F5.
-    // NOTE: This flag alone is NOT sufficient to show the FET — a
-    // single-answer wrong click also marks a question "answered", but the
-    // FET must only appear when ALL correct answers have been selected.
-    // We keep it around for the nav-back hasPriorAnswer check below.
+    const isResolved = this.computeIsResolved(qObj, safeSelections, isMultipleAnswer);
     const wasPreviouslyAnswered = this.quizStateService.isQuestionAnswered(safeIdx);
 
-    // Allow FET only if the question is actually resolved (all correct
-    // answers selected) OR the timer expired for a SINGLE-answer question.
-    // For multi-answer questions, FET requires ALL correct selected even
-    // on timeout — the user must select all correct to see the explanation.
+    // Base: FET when resolved (all-correct selected) or a single-answer timeout.
     let shouldShowExplanation = isResolved || isTimedOut;
 
-    // CRITICAL GUARD: Only show FET if user has actively interacted with
-    // this question in the current session. On a page refresh the in-memory
-    // interaction set is empty, so we also accept the presence of restored
-    // selections (safeSelections) OR a resolved state as proof of prior
-    // interaction — both are persisted via sel_Q*/selectedOptionsMap.
+    // Require active interaction this session (restored state counts after refresh).
     const hasInteracted =
       this.quizStateService.hasUserInteracted(safeIdx) ||
       lastInteractedIdx === safeIdx ||
@@ -252,211 +163,205 @@ export class QuizContentDisplayService {
       isResolved;
     if (!hasInteracted && !isTimedOut) shouldShowExplanation = false;
 
-    // When navigating backwards (Previous button), show question text
-    // UNLESS the question was previously answered / resolved — in that
-    // case we want the FET to persist so the user sees their prior result.
     const hasPriorAnswer = wasPreviouslyAnswered || isResolved || safeSelections.length > 0;
     if (isNavBack && !hasPriorAnswer) shouldShowExplanation = false;
 
-    // DIRECT OIS BYPASS: If OIS has already confirmed all correct answers
-    // are selected, trust it — but validate against pristine data first
-    // to prevent false positives from mutated bindings.
-    if (!shouldShowExplanation) {
-      if (this.quizService._multiAnswerPerfect.get(safeIdx) === true && hasInteracted) {
-        // Validate: for multi-answer questions, confirm all correct are truly selected
-        let oisBypassAllowed = true;
-        try {
-          const qs2: any = this.quizService;
-          const isShuf2 = qs2?.isShuffleEnabled?.() && Array.isArray(qs2?.shuffledQuestions) && qs2.shuffledQuestions.length > 0;
-          const liveQ2: any = isShuf2 ? qs2?.shuffledQuestions?.[safeIdx] : qs2?.questions?.[safeIdx];
-          const pCorrect = Array.from(
-            this.quizService?.getPristineCorrectTextsForQuestion(
-              liveQ2?.questionText ?? qObj?.questionText
-            ) ?? []
-          );
-          if (pCorrect.length >= 2) {
-            const selNow2 = new Set<string>();
-            for (const s of safeSelections) {
-              if (s?.selected !== true) continue;
-              const t = norm(s?.text);
-              if (t) selNow2.add(t);
-            }
-            const liveOpts2: any[] = Array.isArray(liveQ2?.options) ? liveQ2.options : [];
-            for (const o of liveOpts2) {
-              if (o?.selected === true || o?.highlight === true || o?.showIcon === true) {
-                const t = norm(o?.text);
-                if (t) selNow2.add(t);
-              }
-            }
-            if (!pCorrect.every(t => selNow2.has(t))) {
-              // Do NOT delete _multiAnswerPerfect — SOC set it after
-              // verifying all correct answers were clicked. The selection
-              // data visible here may lag behind in shuffled mode.
-              oisBypassAllowed = false;
-            }
-          }
-        } catch { /* ignore */ }
-        if (oisBypassAllowed) {
-          shouldShowExplanation = true;
-        }
-      }
-    }
+    shouldShowExplanation = this.applyOisBypass(shouldShowExplanation, safeIdx, qObj, safeSelections, hasInteracted);
 
     if (!shouldShowExplanation && state?.mode === 'explanation' && safeSelections.length > 0 && hasInteracted) {
-      // Only show FET when the question is actually resolved (correct answer selected).
       shouldShowExplanation = isResolved;
     }
 
-    // SCORING SERVICE OVERRIDE: if questionCorrectness says this question
-    // is correctly answered, trust it — it's set by scoreDirectly() which
-    // is called by SharedOptionClickService when all correct options are
-    // confirmed selected. This bypasses the selection text matching that
-    // fails in shuffled mode because option flags on quizService.questions
-    // don't reflect the SharedOptionComponent's binding state.
-    if (!shouldShowExplanation && hasInteracted) {
-      try {
-        const scoringSvc = this.quizService?.scoringService;
-        if (scoringSvc?.questionCorrectness) {
-          let scored = scoringSvc.questionCorrectness.get(safeIdx) === true;
-          if (!scored) {
-            // Full quizId resolution chain (mirrors incrementScore)
-            let effectiveQuizId = this.quizService?.quizId || '';
-            if (!effectiveQuizId) {
-              try { effectiveQuizId = localStorage.getItem('lastQuizId') || ''; } catch {}
-            }
-            if (!effectiveQuizId) {
-              try {
-                const shuffleKeys = 
-                  Object.keys(localStorage).filter((k: string) => k.startsWith('shuffleState:'));
-                if (shuffleKeys.length > 0) {
-                  effectiveQuizId = shuffleKeys[0].replace('shuffleState:', '');
-                }
-              } catch {}
-            }
-            if (effectiveQuizId) {
-              const origIdx = scoringSvc.quizShuffleService?.toOriginalIndex?.(effectiveQuizId, safeIdx);
-              if (typeof origIdx === 'number' && origIdx >= 0) {
-                scored = scoringSvc.questionCorrectness.get(origIdx) === true;
-              }
-            }
-          }
-          if (scored) shouldShowExplanation = true;
-        }
-        // Also check fetBypassForQuestion — set by SOC before scoring
-        if (!shouldShowExplanation) {
-          if (this.explanationTextService.fetBypassForQuestion?.get(safeIdx) === true) {
-            shouldShowExplanation = true;
-          }
-        }
-      } catch { /* ignore */ }
-    }
+    shouldShowExplanation = this.applyScoringOverride(shouldShowExplanation, safeIdx, hasInteracted);
 
-    // SOC-CONFIRMED BYPASS: when SOC has explicitly set fetBypassForQuestion
-    // or _multiAnswerPerfect, trust it unconditionally — SOC verified all
-    // correct answers at click time. Skip all downstream gates.
     const _socConfirmed =
       this.explanationTextService.fetBypassForQuestion?.get(safeIdx) === true
       || this.quizService._multiAnswerPerfect.get(safeIdx) === true;
-    if (_socConfirmed && hasInteracted) {
-      shouldShowExplanation = true;
-    }
+    if (_socConfirmed && hasInteracted) shouldShowExplanation = true;
 
-    // FINAL HARD GUARD: authoritative check via hasClickedInSession.
-    // This Set only grows on real user clicks or refresh-of-answered, so it's
-    // immune to sessionStorage contamination affecting other flags. If the user
-    // hasn't clicked this idx in this session and it wasn't just timed out,
-    // force question text.
+    // Final hard guard: require a real in-session click (immune to sessionStorage contamination).
     const hasClickedThisIdx = this.quizStateService.hasClickedInSession?.(safeIdx) ?? false;
     if (shouldShowExplanation && !isTimedOut && !hasClickedThisIdx && !_socConfirmed) {
       shouldShowExplanation = false;
     }
 
-    // ABSOLUTE PRISTINE GATE: re-validate multi-answer resolution
-    // directly against pristine quizInitialState regardless of which
-    // upstream flag flipped shouldShowExplanation to true. This closes
-    // every path that can set the flag erroneously (isResolved,
-    // _multiAnswerPerfect, explanation-mode override, etc.).
-    if (shouldShowExplanation && !isTimedOut && !_socConfirmed) {
+    shouldShowExplanation = this.applyAbsolutePristineGate(shouldShowExplanation, safeIdx, qObj, safeSelections, isTimedOut, _socConfirmed);
+
+    return this.resolveExplanationOrQuestion(shouldShowExplanation, safeIdx, qObj, fetText, qDisplay);
+  }
+
+  /** Build the question-text display (with the multi-answer "N correct" banner). Extracted verbatim. */
+  private buildQuestionDisplay(safeIdx: number, qObj: QuizQuestion | null): { qDisplay: string; numCorrect: number } {
+    const rawQText = qObj?.questionText || '';
+    const serviceQText = (qObj?.questionText ?? '').trim();
+    let qDisplay = serviceQText || rawQText || '';
+    // Prefer the PRISTINE correct count (live options can be mutated by option-lock-policy / Restart).
+    const rawQuestion = this.quizService?.questions?.[safeIdx] as QuizQuestion | undefined;
+    const sourceOpts = rawQuestion?.options ?? qObj?.options ?? [];
+    let numCorrect = sourceOpts.filter((o: Option) => isOptionCorrect(o)).length;
+    try {
+      const _pq = this.quizService?.getPristineQuestionByText(rawQuestion?.questionText ?? qObj?.questionText);
+      if (_pq) {
+        const pc = (_pq.options ?? []).filter((o: any) => isOptionCorrect(o)).length;
+        if (pc > 0) numCorrect = pc;
+      }
+    } catch { /* ignore */ }
+    if (numCorrect > 1 && sourceOpts.length) {
+      const banner = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(numCorrect, sourceOpts.length);
+      qDisplay = `${qDisplay} <span class="correct-count">${banner}</span>`;
+    }
+    return { qDisplay, numCorrect };
+  }
+
+  /**
+   * Single-answer resolution: multi-answer NEVER resolves from this pipeline
+   * (the selectedOptionsMap is polluted by timer/history writes). Single-answer
+   * is cross-checked: the last actively-selected text must be pristine-correct.
+   * Extracted verbatim.
+   */
+  private computeIsResolved(qObj: QuizQuestion | null, safeSelections: any[], isMultipleAnswer: boolean): boolean {
+    if (!qObj || isMultipleAnswer) return false;
+    let isResolved = this.selectedOptionService.isQuestionResolvedLeniently(qObj, safeSelections);
+    if (isResolved) {
       try {
-        const qs: any = this.quizService;
-        const isShuffled = qs?.isShuffleEnabled?.()
-          && Array.isArray(qs?.shuffledQuestions)
-          && qs.shuffledQuestions.length > 0;
-        const liveQForGate: any = isShuffled
-          ? qs?.shuffledQuestions?.[safeIdx]
-          : qs?.questions?.[safeIdx];
-        const pristineCorrect = Array.from(
-          this.quizService?.getPristineCorrectTextsForQuestion(
-            liveQForGate?.questionText ?? qObj?.questionText
-          ) ?? []
+        const pristineCorrectTexts = new Set(
+          this.quizService?.getPristineCorrectTextsForQuestion(qObj?.questionText) ?? []
         );
-        if (pristineCorrect.length >= 2) {
-          const selectedNow = new Set<string>();
-          // Active selections only
-          for (const s of safeSelections) {
-            if (s?.selected !== true) continue;
-            const t = norm(s?.text);
-            if (t) selectedNow.add(t);
-          }
-          // Live question options
-          const liveOpts: any[] = Array.isArray(liveQForGate?.options)
-            ? liveQForGate.options : [];
-          for (const o of liveOpts) {
-            const isSel = o?.selected === true
-              || o?.highlight === true
-              || o?.showIcon === true;
-            if (!isSel) continue;
-            const t = norm(o?.text);
-            if (t) selectedNow.add(t);
-          }
-          const allSel = pristineCorrect.every(t => selectedNow.has(t));
-          if (!allSel) {
-            // Before blocking, check questionCorrectness — the most
-            // authoritative signal for whether the question is correctly
-            // answered. scoreDirectly() sets it and handles shuffle key
-            // conversion internally.
-            let scoringOverrideGate = false;
-            try {
-              const scoringSvc4 = this.quizService?.scoringService;
-              if (scoringSvc4?.questionCorrectness) {
-                scoringOverrideGate = scoringSvc4.questionCorrectness.get(safeIdx) === true;
-                if (!scoringOverrideGate) {
-                  // Full quizId resolution chain
-                  let eqId4 = this.quizService?.quizId || '';
-                  if (!eqId4) {
-                    try { eqId4 = localStorage.getItem('lastQuizId') || ''; } catch {}
-                  }
-                  if (!eqId4) {
-                    try {
-                      const sk4 = Object.keys(localStorage).filter((k: string) => k.startsWith('shuffleState:'));
-                      if (sk4.length > 0) eqId4 = sk4[0].replace('shuffleState:', '');
-                    } catch {}
-                  }
-                  if (eqId4) {
-                    const origIdx4 = scoringSvc4.quizShuffleService?.toOriginalIndex?.(eqId4, safeIdx);
-                    if (typeof origIdx4 === 'number' && origIdx4 >= 0) {
-                      scoringOverrideGate = scoringSvc4.questionCorrectness.get(origIdx4) === true;
-                    }
-                  }
-                }
-              }
-              // Also check fetBypassForQuestion
-              if (!scoringOverrideGate) {
-                scoringOverrideGate =
-                  this.explanationTextService.fetBypassForQuestion?.get(safeIdx) === true;
-              }
-            } catch { /* ignore */ }
-            if (!scoringOverrideGate) {
-              shouldShowExplanation = false;
-              // Do NOT delete _multiAnswerPerfect — SOC set it after
-              // verifying all correct answers were clicked. Selection
-              // data visible in this pipeline may lag in shuffled mode.
-            }
+        if (pristineCorrectTexts.size > 0) {
+          const activeSelections = safeSelections.filter((s: any) => s?.selected !== false);
+          const lastSel = activeSelections.length > 0 ? activeSelections[activeSelections.length - 1] : null;
+          const lastSelText = norm(lastSel?.text);
+          if (lastSelText && !pristineCorrectTexts.has(lastSelText)) {
+            isResolved = false;
           }
         }
       } catch { /* ignore */ }
     }
+    return isResolved;
+  }
 
+  /** Shuffle-aware live question at an index. */
+  private getLiveQuestionForIndex(safeIdx: number): any {
+    const qs: any = this.quizService;
+    const isShuf = qs?.isShuffleEnabled?.() && Array.isArray(qs?.shuffledQuestions) && qs.shuffledQuestions.length > 0;
+    return isShuf ? qs?.shuffledQuestions?.[safeIdx] : qs?.questions?.[safeIdx];
+  }
+
+  /** Collect every active-selected option text (from the selections array + live option flags). */
+  private collectActiveSelectedTexts(safeSelections: any[], liveQ: any): Set<string> {
+    const out = new Set<string>();
+    for (const s of safeSelections) {
+      if (s?.selected !== true) continue;
+      const t = norm(s?.text);
+      if (t) out.add(t);
+    }
+    const liveOpts: any[] = Array.isArray(liveQ?.options) ? liveQ.options : [];
+    for (const o of liveOpts) {
+      if (o?.selected === true || o?.highlight === true || o?.showIcon === true) {
+        const t = norm(o?.text);
+        if (t) out.add(t);
+      }
+    }
+    return out;
+  }
+
+  /**
+   * For a multi-answer question (>=2 pristine correct), is every pristine-correct
+   * text currently selected? Returns true when not multi-answer (no gate applies).
+   */
+  private allMultiCorrectSelected(safeIdx: number, qObj: QuizQuestion | null, safeSelections: any[]): boolean {
+    const liveQ = this.getLiveQuestionForIndex(safeIdx);
+    const pCorrect = Array.from(
+      this.quizService?.getPristineCorrectTextsForQuestion(liveQ?.questionText ?? qObj?.questionText) ?? []
+    );
+    if (pCorrect.length < 2) return true;
+    const selNow = this.collectActiveSelectedTexts(safeSelections, liveQ);
+    return pCorrect.every(t => selNow.has(t));
+  }
+
+  /** Resolve the effective quizId (quizService, then localStorage lastQuizId / shuffleState keys). */
+  private resolveEffectiveQuizId(): string {
+    let effectiveQuizId = this.quizService?.quizId || '';
+    if (!effectiveQuizId) {
+      try { effectiveQuizId = localStorage.getItem('lastQuizId') || ''; } catch {}
+    }
+    if (!effectiveQuizId) {
+      try {
+        const shuffleKeys = Object.keys(localStorage).filter((k: string) => k.startsWith('shuffleState:'));
+        if (shuffleKeys.length > 0) effectiveQuizId = shuffleKeys[0].replace('shuffleState:', '');
+      } catch {}
+    }
+    return effectiveQuizId;
+  }
+
+  /** Is this index scored correct in questionCorrectness (direct, then via the shuffle origIdx)? */
+  private isQuestionScoredCorrect(safeIdx: number): boolean {
+    const scoringSvc = this.quizService?.scoringService;
+    if (!scoringSvc?.questionCorrectness) return false;
+    if (scoringSvc.questionCorrectness.get(safeIdx) === true) return true;
+    const effectiveQuizId = this.resolveEffectiveQuizId();
+    if (effectiveQuizId) {
+      const origIdx = scoringSvc.quizShuffleService?.toOriginalIndex?.(effectiveQuizId, safeIdx);
+      if (typeof origIdx === 'number' && origIdx >= 0) {
+        return scoringSvc.questionCorrectness.get(origIdx) === true;
+      }
+    }
+    return false;
+  }
+
+  /** Authoritative "this question is correct" signal: scored-correct OR fetBypass. */
+  private isScoredOrFetBypassed(safeIdx: number): boolean {
+    if (this.isQuestionScoredCorrect(safeIdx)) return true;
+    return this.explanationTextService.fetBypassForQuestion?.get(safeIdx) === true;
+  }
+
+  /** OIS bypass: when _multiAnswerPerfect is set, show FET if pristine-validated. */
+  private applyOisBypass(shouldShow: boolean, safeIdx: number, qObj: QuizQuestion | null, safeSelections: any[], hasInteracted: boolean): boolean {
+    if (shouldShow) return shouldShow;
+    if (this.quizService._multiAnswerPerfect.get(safeIdx) === true && hasInteracted) {
+      let oisBypassAllowed = true;
+      try {
+        oisBypassAllowed = this.allMultiCorrectSelected(safeIdx, qObj, safeSelections);
+      } catch { /* ignore */ }
+      if (oisBypassAllowed) return true;
+    }
+    return shouldShow;
+  }
+
+  /** Scoring-service / fetBypass override (authoritative when shuffled selection flags lag). */
+  private applyScoringOverride(shouldShow: boolean, safeIdx: number, hasInteracted: boolean): boolean {
+    if (shouldShow || !hasInteracted) return shouldShow;
+    try {
+      if (this.isScoredOrFetBypassed(safeIdx)) return true;
+    } catch { /* ignore */ }
+    return shouldShow;
+  }
+
+  /**
+   * Absolute pristine gate: for an unconfirmed multi-answer that isn't fully
+   * selected, block the FET unless scoring/fetBypass says it's correct.
+   * Extracted verbatim.
+   */
+  private applyAbsolutePristineGate(
+    shouldShow: boolean, safeIdx: number, qObj: QuizQuestion | null, safeSelections: any[],
+    isTimedOut: boolean, socConfirmed: boolean
+  ): boolean {
+    if (!(shouldShow && !isTimedOut && !socConfirmed)) return shouldShow;
+    try {
+      if (this.allMultiCorrectSelected(safeIdx, qObj, safeSelections)) return shouldShow;
+      let scoringOverrideGate = false;
+      try { scoringOverrideGate = this.isScoredOrFetBypassed(safeIdx); } catch { /* ignore */ }
+      if (!scoringOverrideGate) return false;
+    } catch { /* ignore */ }
+    return shouldShow;
+  }
+
+  /**
+   * Resolve the text to display: when showing FET, return the live/cached/raw/
+   * regenerated explanation (empty string preserves the cached DOM FET); else
+   * the question display. Extracted verbatim.
+   */
+  private resolveExplanationOrQuestion(shouldShow: boolean, safeIdx: number, qObj: QuizQuestion | null, fetText: string | null, qDisplay: string): string {
     const finalFet = (fetText ?? '').trim();
     const hasFet = finalFet.length > 0;
     const hasRaw = !!qObj?.explanation;
@@ -468,48 +373,27 @@ export class QuizContentDisplayService {
       finalFet.toLowerCase().includes('correct because')
     );
 
+    if (!shouldShow) return qDisplay;
+    if (isFetForThisQuestion) return finalFet;
 
-    if (shouldShowExplanation) {
-      if (isFetForThisQuestion) {
-        return finalFet;
-      }
-      // Before falling back to raw explanation, check formatted caches directly.
-      // The reactive stream (fetText) may not have the formatted text yet due to
-      // timing (e.g. resetExplanationState cleared _byIndex subjects), but the
-      // formattedExplanations cache or fetByIndex may still have it.
-      let cachedFet = (this.explanationTextService.formattedExplanations[safeIdx]?.explanation ?? '').trim()
-        || ((this.explanationTextService as any).fetByIndex?.get(safeIdx) ?? '').trim();
-      if (cachedFet && cachedFet.toLowerCase().includes('correct because')) {
-        return cachedFet;
-      }
-      if (hasRaw) {
-        // Last resort: format the raw explanation on-the-fly with option #s
-        const correctIndices = this.explanationTextService.getCorrectOptionIndices(
-          qObj, qObj.options, safeIdx
-        );
-        if (correctIndices.length > 0) {
-          const formatted = this.explanationTextService.formatExplanation(
-            qObj, correctIndices, qObj.explanation
-          );
-          return formatted;
-        }
-        return qObj.explanation || '';
-      }
-      // We WANT to show FET but no text is producible in this emission
-      // (caches not yet populated after refresh). Try regenerating from
-      // scratch using the raw question data so we don't have to fall back
-      // to question text — that would cause the visible FET to flicker
-      // back to the question on every stray emission.
-      const regenerated = this.regenerateFetForIndex(safeIdx);
-      if (regenerated) return regenerated;
-      
-      // Last resort: return empty string so the subscribeToDisplayText
-      // guard preserves the previously cached FET in the DOM rather than
-      // overwriting it with question text.
-      return '';
+    // Caches may hold the formatted FET even when the reactive stream doesn't yet.
+    const cachedFet = (this.explanationTextService.formattedExplanations[safeIdx]?.explanation ?? '').trim()
+      || ((this.explanationTextService as any).fetByIndex?.get(safeIdx) ?? '').trim();
+    if (cachedFet && cachedFet.toLowerCase().includes('correct because')) {
+      return cachedFet;
     }
-
-    return qDisplay;
+    if (qObj && hasRaw) {
+      // Last resort: format the raw explanation on-the-fly with option numbers.
+      const correctIndices = this.explanationTextService.getCorrectOptionIndices(qObj, qObj.options, safeIdx);
+      if (correctIndices.length > 0) {
+        return this.explanationTextService.formatExplanation(qObj, correctIndices, qObj.explanation);
+      }
+      return qObj.explanation || '';
+    }
+    // Want FET but no text producible yet: regenerate, else '' so the DOM keeps the cached FET.
+    const regenerated = this.regenerateFetForIndex(safeIdx);
+    if (regenerated) return regenerated;
+    return '';
   }
 
   // ═══════════════════════════════════════════════════════════════════════
