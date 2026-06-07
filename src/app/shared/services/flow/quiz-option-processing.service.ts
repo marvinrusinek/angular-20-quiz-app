@@ -67,7 +67,7 @@ export interface OptionEvaluationResult {
  */
 @Injectable({ providedIn: 'root' })
 export class QuizOptionProcessingService {
-  // ── injects ─────────────────────────────────────────────────────
+  // -- injects -----------------------------------------------------
   private dotStatusService = inject(QuizDotStatusService);
   private nextButtonStateService = inject(NextButtonStateService);
   private quizPersistence = inject(QuizPersistenceService);
@@ -76,11 +76,11 @@ export class QuizOptionProcessingService {
   private quizStateService = inject(QuizStateService);
   private selectedOptionService = inject(SelectedOptionService);
 
-  // ── public methods ──────────────────────────────────────────────
+  // -- public methods ----------------------------------------------
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ===============================================================
   // FULL OPTION CLICK ORCHESTRATION
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ===============================================================
 
   /**
    * Runs the full evaluation chain after a user option click.
@@ -157,9 +157,9 @@ export class QuizOptionProcessingService {
   }
 
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ===============================================================
   // EVALUATE IMMEDIATE CORRECTNESS
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ===============================================================
 
   evaluateImmediateCorrectness(params: {
     option: SelectedOption;
@@ -266,9 +266,9 @@ export class QuizOptionProcessingService {
     };
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ===============================================================
   // EVALUATE SINGLE-ANSWER SCORING
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ===============================================================
 
   evaluateSingleAnswer(params: {
     option: SelectedOption;
@@ -322,9 +322,9 @@ export class QuizOptionProcessingService {
     };
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ===============================================================
   // EVALUATE MULTI-ANSWER SCORING
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ===============================================================
 
   evaluateMultiAnswer(params: {
     option: SelectedOption;
@@ -340,145 +340,19 @@ export class QuizOptionProcessingService {
       optionsForImmediateScoring, correctOptionsForQuestion, quizId,
     } = params;
 
-    let allCorrectSelected = false;
-    let hasAnyCorrectSelection = false;
-    let hasIncorrectSelection = false;
-    let immediateMultiDotStatus: 'correct' | 'wrong' | null = null;
-    let currentSelections: SelectedOption[] = [...immediateSelections];
-    let syncIds: any[] = [];
-
-    const correctOpts = correctOptionsForQuestion;
-
-    if (correctOpts.length > 1) {
-      const clickedIndex = Number((option as any)?.displayIndex ?? (option as any)?.index ?? -1);
-      const optionIsCurrentlySelected =
-        option?.selected === true ||
-        (option as any)?.checked === true ||
-        (option as any)?.isSelected === true;
-      const alreadyIncluded = currentSelections.some((selection) =>
-        this.dotStatusService.selectionMatchesOption(selection, option, clickedIndex)
-      );
-      if (optionIsCurrentlySelected && !alreadyIncluded && option) {
-        currentSelections.push(option as SelectedOption);
-      }
-
-      const correctOptionEntries = this.dotStatusService.getResolvedCorrectOptionEntries(questionForSelection, optionsForImmediateScoring);
-      const everyCorrectSelected = correctOptionEntries.every(({ option: correctOpt, index: correctOptIndex }) => {
-        return currentSelections.some((selection) =>
-          this.dotStatusService.selectionMatchesOption(selection, correctOpt, correctOptIndex)
-        );
-      });
-
-      // Cross-check against PRISTINE quiz data. Mutated question data can have
-      // reduced correct flags, letting `everyCorrectSelected` fire on only 1 of
-      // 2 correct answers, which then marks isQuestionComplete=true and
-      // persists displayMode=explanation â€” causing premature FET display.
-      let rawAllCorrectSelected = everyCorrectSelected;
-      try {
-        const bundle = this.quizService?.quizInitialState ?? [];
-        const quizIdVal = this.quizService?.quizId;
-        const qText = norm(questionForSelection?.questionText);
-        let pristineCorrectTexts: string[] = [];
-
-        // Strategy 1: match by question text across all pristine quizzes
-        if (qText && bundle.length > 0) {
-          for (const quiz of bundle) {
-            for (const pq of (quiz?.questions ?? [])) {
-              if (norm(pq?.questionText) !== qText) continue;
-              pristineCorrectTexts = (pq?.options ?? [])
-                .filter((o: any) => isOptionCorrect(o))
-                .map((o: any) => norm(o?.text))
-                .filter((t: string) => !!t);
-              break;
-            }
-            if (pristineCorrectTexts.length > 0) break;
-          }
-        }
-
-        // Strategy 2: look up by index in the current quiz's pristine data
-        if (pristineCorrectTexts.length === 0 && quizIdVal) {
-          const pristineQuiz = bundle.find((qz: any) => qz?.quizId === quizIdVal);
-          const pristineQ = pristineQuiz?.questions?.[idx];
-          if (pristineQ) {
-            pristineCorrectTexts = (pristineQ?.options ?? [])
-              .filter((o: any) => isOptionCorrect(o))
-              .map((o: any) => norm(o?.text))
-              .filter((t: string) => !!t);
-          }
-        }
-
-        if (pristineCorrectTexts.length > 0) {
-          const selTexts = new Set(
-            currentSelections.map((s: any) => norm(s?.text)).filter((t: string) => !!t)
-          );
-          rawAllCorrectSelected = pristineCorrectTexts.every((t: string) => selTexts.has(t));
-        }
-      } catch { /* trust canonical */ }
-
-      allCorrectSelected = everyCorrectSelected && rawAllCorrectSelected;
-
-      hasIncorrectSelection = currentSelections.some((selection) =>
-        !this.dotStatusService.matchesAnyCorrectOption(selection, questionForSelection, optionsForImmediateScoring)
-      );
-
-      hasAnyCorrectSelection =
-        currentSelections.some((selection) =>
-          this.dotStatusService.matchesAnyCorrectOption(selection, questionForSelection, optionsForImmediateScoring)
-        ) && !hasIncorrectSelection;
-
-      syncIds = currentSelections
-        .map((s: any) => s?.optionId)
-        .filter((id: any) => id !== undefined && id !== null);
-      this.quizService.updateUserAnswer(idx, syncIds);
-    }
+    const { allCorrectSelected, hasIncorrectSelection, hasAnyCorrectSelection, currentSelections, syncIds } =
+      this.evaluateMultiCorrectness(option, idx, immediateSelections, questionForSelection, optionsForImmediateScoring, correctOptionsForQuestion);
 
     if (allCorrectSelected) this.quizService.scoreDirectly(idx, true, true);
 
-    // Compute immediate multi dot status
-    const clickedIndex = Number((option as any)?.displayIndex ?? (option as any)?.index ?? -1);
-    const clickedPayloadSaysCorrect = isOptionCorrect(option);
-    const clickedOptionIsCorrect =
-      clickedPayloadSaysCorrect ||
-      this.dotStatusService.matchesAnyCorrectOption(option as SelectedOption, questionForSelection, optionsForImmediateScoring) || (
-        Number.isInteger(clickedIndex) &&
-        clickedIndex >= 0 &&
-        clickedIndex < optionsForImmediateScoring.length &&
-        isOptionCorrect(optionsForImmediateScoring[clickedIndex])
-      );
-
-    const explicitSelectedState =
-      option?.selected ??
-      (option as any)?.checked ??
-      (option as any)?.isSelected;
-    const clickedOptionIsStillSelected = currentSelections.some((selection) =>
-      this.dotStatusService.selectionMatchesOption(selection, option as SelectedOption, clickedIndex)
+    const immediateMultiDotStatus = this.computeImmediateDotStatus(
+      option, currentSelections, questionForSelection, optionsForImmediateScoring,
+      allCorrectSelected, hasIncorrectSelection, hasAnyCorrectSelection
     );
-    const clickedOptionWasDeselected =
-      explicitSelectedState === false ? true : !clickedOptionIsStillSelected;
-
-    if (allCorrectSelected && !hasIncorrectSelection) {
-      immediateMultiDotStatus = 'correct';
-    } else if (clickedOptionWasDeselected) {
-      if (clickedOptionIsCorrect || hasIncorrectSelection) {
-        immediateMultiDotStatus = 'wrong';
-      } else if (hasAnyCorrectSelection) {
-        immediateMultiDotStatus = 'correct';
-      }
-    } else if (clickedOptionIsCorrect) {
-      immediateMultiDotStatus = 'correct';
-    } else if (hasIncorrectSelection || hasAnyCorrectSelection) {
-      immediateMultiDotStatus = 'wrong';
-    }
 
     if (!allCorrectSelected) this.quizService.scoreDirectly(idx, false, true);
 
-    if (immediateMultiDotStatus) {
-      this.dotStatusService.activeDotClickStatus.set(idx, immediateMultiDotStatus);
-      this.quizPersistence.setPersistedDotStatus(quizId, idx, immediateMultiDotStatus);
-      this.dotStatusService.pendingDotStatusOverrides.set(idx, immediateMultiDotStatus);
-      this.dotStatusService.dotStatusCache.set(idx, immediateMultiDotStatus);
-      this.selectedOptionService.clickConfirmedDotStatus.set(idx, immediateMultiDotStatus);
-    }
+    if (immediateMultiDotStatus) this.persistMultiDotStatus(idx, quizId, immediateMultiDotStatus);
 
     return {
       allCorrectSelected,
@@ -490,9 +364,161 @@ export class QuizOptionProcessingService {
     };
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  /**
+   * Multi-answer correctness: add the clicked option, check every correct is
+   * selected (canonical AND pristine), and derive incorrect/any-correct flags.
+   * No-op (all false) for single-answer questions. Extracted verbatim.
+   */
+  private evaluateMultiCorrectness(
+    option: SelectedOption,
+    idx: number,
+    immediateSelections: SelectedOption[],
+    questionForSelection: QuizQuestion | null,
+    optionsForImmediateScoring: Option[],
+    correctOptionsForQuestion: Option[]
+  ): { allCorrectSelected: boolean; hasIncorrectSelection: boolean; hasAnyCorrectSelection: boolean; currentSelections: SelectedOption[]; syncIds: any[] } {
+    const currentSelections: SelectedOption[] = [...immediateSelections];
+    if (correctOptionsForQuestion.length <= 1) {
+      return { allCorrectSelected: false, hasIncorrectSelection: false, hasAnyCorrectSelection: false, currentSelections, syncIds: [] };
+    }
+
+    this.addClickedOptionToSelections(option, currentSelections);
+
+    const correctOptionEntries = this.dotStatusService.getResolvedCorrectOptionEntries(questionForSelection, optionsForImmediateScoring);
+    const everyCorrectSelected = correctOptionEntries.every(({ option: correctOpt, index: correctOptIndex }) =>
+      currentSelections.some((selection) =>
+        this.dotStatusService.selectionMatchesOption(selection, correctOpt, correctOptIndex)
+      )
+    );
+
+    const rawAllCorrectSelected = this.resolvePristineAllCorrect(questionForSelection, idx, currentSelections, everyCorrectSelected);
+    const allCorrectSelected = everyCorrectSelected && rawAllCorrectSelected;
+
+    const hasIncorrectSelection = currentSelections.some((selection) =>
+      !this.dotStatusService.matchesAnyCorrectOption(selection, questionForSelection, optionsForImmediateScoring)
+    );
+    const hasAnyCorrectSelection = currentSelections.some((selection) =>
+      this.dotStatusService.matchesAnyCorrectOption(selection, questionForSelection, optionsForImmediateScoring)
+    ) && !hasIncorrectSelection;
+
+    const syncIds = currentSelections
+      .map((s: any) => s?.optionId)
+      .filter((id: any) => id !== undefined && id !== null);
+    this.quizService.updateUserAnswer(idx, syncIds);
+
+    return { allCorrectSelected, hasIncorrectSelection, hasAnyCorrectSelection, currentSelections, syncIds };
+  }
+
+  /**
+   * Pristine cross-check: mutated question data can have reduced correct flags,
+   * so re-validate "all correct selected" against pristine correct texts
+   * (by question text, then by index). Extracted verbatim.
+   */
+  private resolvePristineAllCorrect(questionForSelection: QuizQuestion | null, idx: number, currentSelections: SelectedOption[], everyCorrectSelected: boolean): boolean {
+    let rawAllCorrectSelected = everyCorrectSelected;
+    try {
+      const bundle = this.quizService?.quizInitialState ?? [];
+      const quizIdVal = this.quizService?.quizId;
+      const qText = norm(questionForSelection?.questionText);
+      let pristineCorrectTexts: string[] = [];
+
+      if (qText && bundle.length > 0) {
+        for (const quiz of bundle) {
+          for (const pq of (quiz?.questions ?? [])) {
+            if (norm(pq?.questionText) !== qText) continue;
+            pristineCorrectTexts = this.pristineCorrectTextsOf(pq);
+            break;
+          }
+          if (pristineCorrectTexts.length > 0) break;
+        }
+      }
+
+      if (pristineCorrectTexts.length === 0 && quizIdVal) {
+        const pristineQuiz = bundle.find((qz: any) => qz?.quizId === quizIdVal);
+        const pristineQ = pristineQuiz?.questions?.[idx];
+        if (pristineQ) pristineCorrectTexts = this.pristineCorrectTextsOf(pristineQ);
+      }
+
+      if (pristineCorrectTexts.length > 0) {
+        const selTexts = new Set(currentSelections.map((s: any) => norm(s?.text)).filter((t: string) => !!t));
+        rawAllCorrectSelected = pristineCorrectTexts.every((t: string) => selTexts.has(t));
+      }
+    } catch { /* trust canonical */ }
+    return rawAllCorrectSelected;
+  }
+
+  /** Append the clicked option to currentSelections when it's selected and not already present. Extracted verbatim. */
+  private addClickedOptionToSelections(option: SelectedOption, currentSelections: SelectedOption[]): void {
+    const clickedIndex = Number((option as any)?.displayIndex ?? (option as any)?.index ?? -1);
+    const optionIsCurrentlySelected =
+      option?.selected === true ||
+      (option as any)?.checked === true ||
+      (option as any)?.isSelected === true;
+    const alreadyIncluded = currentSelections.some((selection) =>
+      this.dotStatusService.selectionMatchesOption(selection, option, clickedIndex)
+    );
+    if (optionIsCurrentlySelected && !alreadyIncluded && option) {
+      currentSelections.push(option as SelectedOption);
+    }
+  }
+
+  /** Normalized correct-option texts of a pristine question. */
+  private pristineCorrectTextsOf(pq: any): string[] {
+    return (pq?.options ?? [])
+      .filter((o: any) => isOptionCorrect(o))
+      .map((o: any) => norm(o?.text))
+      .filter((t: string) => !!t);
+  }
+
+  /** Immediate multi-answer dot status from the click + aggregate selection flags. Extracted verbatim. */
+  private computeImmediateDotStatus(
+    option: SelectedOption,
+    currentSelections: SelectedOption[],
+    questionForSelection: QuizQuestion | null,
+    optionsForImmediateScoring: Option[],
+    allCorrectSelected: boolean,
+    hasIncorrectSelection: boolean,
+    hasAnyCorrectSelection: boolean
+  ): 'correct' | 'wrong' | null {
+    const clickedIndex = Number((option as any)?.displayIndex ?? (option as any)?.index ?? -1);
+    const clickedOptionIsCorrect =
+      isOptionCorrect(option) ||
+      this.dotStatusService.matchesAnyCorrectOption(option as SelectedOption, questionForSelection, optionsForImmediateScoring) || (
+        Number.isInteger(clickedIndex) &&
+        clickedIndex >= 0 &&
+        clickedIndex < optionsForImmediateScoring.length &&
+        isOptionCorrect(optionsForImmediateScoring[clickedIndex])
+      );
+
+    const explicitSelectedState = option?.selected ?? (option as any)?.checked ?? (option as any)?.isSelected;
+    const clickedOptionIsStillSelected = currentSelections.some((selection) =>
+      this.dotStatusService.selectionMatchesOption(selection, option as SelectedOption, clickedIndex)
+    );
+    const clickedOptionWasDeselected = explicitSelectedState === false ? true : !clickedOptionIsStillSelected;
+
+    if (allCorrectSelected && !hasIncorrectSelection) return 'correct';
+    if (clickedOptionWasDeselected) {
+      if (clickedOptionIsCorrect || hasIncorrectSelection) return 'wrong';
+      if (hasAnyCorrectSelection) return 'correct';
+      return null;
+    }
+    if (clickedOptionIsCorrect) return 'correct';
+    if (hasIncorrectSelection || hasAnyCorrectSelection) return 'wrong';
+    return null;
+  }
+
+  /** Persist the immediate multi dot status across the dot-status caches/services. Extracted verbatim. */
+  private persistMultiDotStatus(idx: number, quizId: string, status: 'correct' | 'wrong'): void {
+    this.dotStatusService.activeDotClickStatus.set(idx, status);
+    this.quizPersistence.setPersistedDotStatus(quizId, idx, status);
+    this.dotStatusService.pendingDotStatusOverrides.set(idx, status);
+    this.dotStatusService.dotStatusCache.set(idx, status);
+    this.selectedOptionService.clickConfirmedDotStatus.set(idx, status);
+  }
+
+  // ===============================================================
   // HANDLE AUTHORITATIVE CORRECTNESS CHECK
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ===============================================================
 
   async handleAuthoritativeCheck(params: {
     idx: number;
@@ -562,9 +588,9 @@ export class QuizOptionProcessingService {
     }
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ===============================================================
   // PERSIST OPTION SELECTION TO SESSION
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ===============================================================
 
   persistOptionSelection(params: {
     idx: number;
