@@ -660,34 +660,9 @@ subscribeToTimerExpiry(host: Host): void {
 
     host.initializeQuestionIndex();
 
-    let freshFromResults = false;
-    try {
-      freshFromResults = sessionStorage.getItem('freshStartFromResults') === 'true';
-      sessionStorage.removeItem('freshStartFromResults');
-    } catch {}
-
+    const freshFromResults = this.readFreshFromResults();
     if (freshFromResults) {
-      this.quizResetService.performRestartServiceResets(host.quizId(), host.totalQuestions() || 20);
-      this.dotStatusService.clearAllMaps();
-      this.quizPersistence.clearClickConfirmedDotStatus(host.totalQuestions() || 20);
-      this.quizPersistence.clearAllPersistedDotStatus(host.quizId());
-      this.selectedOptionService.lastClickedCorrectByQuestion.clear();
-      this.selectedOptionService.clearRefreshBackup();
-      this.selectedOptionService.clearState();
-      host.answeredQuestionIndices.clear();
-      host.progressSig.set(0);
-      try {
-        for (let i = 0; i < 100; i++) {
-          sessionStorage.removeItem('quiz_selection_' + i);
-          sessionStorage.removeItem(SK_DISPLAY_MODE + i);
-          sessionStorage.removeItem('feedbackText_' + i);
-        }
-        sessionStorage.removeItem(SK_SELECTED_OPTIONS_MAP);
-        sessionStorage.removeItem('rawSelectionsMap');
-        sessionStorage.removeItem('answeredQuestionIndices');
-        sessionStorage.removeItem('quizProgress');
-        sessionStorage.removeItem('quizProgressQuizId');
-      } catch {}
+      this.performFreshStartReset(host);
     }
 
     const cleared = this.quizResetService.clearStaleProgressAndDotStateForFreshStart(
@@ -702,6 +677,68 @@ subscribeToTimerExpiry(host: Host): void {
     await this.loadQuestions(host);
     host.isQuizLoaded.set(true);
 
+    this.restoreAnsweredFromDotStatus(host);
+    this.restoreSavedProgress(host, freshFromResults);
+    this.applyInitialIndexAndTimer(host);
+
+    this.wireRouteSubscriptions(host);
+
+    host.quizInitializationService.initializeAnswerSync(host.destroyRef);
+    host.resetQuestionState();
+    this.applyAnsweredOnRefresh(host);
+
+    if (freshFromResults) {
+      this.scheduleFreshStartClear(host);
+    }
+  }
+
+  // Read-and-consume the one-shot "fresh start from results" session flag.
+  private readFreshFromResults(): boolean {
+    let freshFromResults = false;
+    try {
+      freshFromResults = sessionStorage.getItem('freshStartFromResults') === 'true';
+      sessionStorage.removeItem('freshStartFromResults');
+    } catch {}
+    return freshFromResults;
+  }
+
+  // Wire timer-expiry, quiz setup, and route-param subscriptions (post-load).
+  private wireRouteSubscriptions(host: Host): void {
+    this.subscribeToTimerExpiry(host);
+
+    this.setupQuiz(host);
+    this.fetchRouteParams(host);
+    this.subscribeRouterAndInit(host);
+    this.subscribeToRouteParams(host);
+  }
+
+  // Full reset of service + persisted + session state on a fresh start from results.
+  private performFreshStartReset(host: Host): void {
+    this.quizResetService.performRestartServiceResets(host.quizId(), host.totalQuestions() || 20);
+    this.dotStatusService.clearAllMaps();
+    this.quizPersistence.clearClickConfirmedDotStatus(host.totalQuestions() || 20);
+    this.quizPersistence.clearAllPersistedDotStatus(host.quizId());
+    this.selectedOptionService.lastClickedCorrectByQuestion.clear();
+    this.selectedOptionService.clearRefreshBackup();
+    this.selectedOptionService.clearState();
+    host.answeredQuestionIndices.clear();
+    host.progressSig.set(0);
+    try {
+      for (let i = 0; i < 100; i++) {
+        sessionStorage.removeItem('quiz_selection_' + i);
+        sessionStorage.removeItem(SK_DISPLAY_MODE + i);
+        sessionStorage.removeItem('feedbackText_' + i);
+      }
+      sessionStorage.removeItem(SK_SELECTED_OPTIONS_MAP);
+      sessionStorage.removeItem('rawSelectionsMap');
+      sessionStorage.removeItem('answeredQuestionIndices');
+      sessionStorage.removeItem('quizProgress');
+      sessionStorage.removeItem('quizProgressQuizId');
+    } catch {}
+  }
+
+  // Seed answeredQuestionIndices / progress from confirmed dot status.
+  private restoreAnsweredFromDotStatus(host: Host): void {
     for (const [idx, status] of this.selectedOptionService.clickConfirmedDotStatus) {
       if (status === 'correct' || status === 'wrong') {
         host.answeredQuestionIndices.add(idx);
@@ -710,7 +747,10 @@ subscribeToTimerExpiry(host: Host): void {
     if (host.answeredQuestionIndices.size > 0) {
       host.progressSig.set(Math.round((host.answeredQuestionIndices.size / host.totalQuestions()) * 100));
     }
+  }
 
+  // Restore persisted progress/indices from sessionStorage (non-fresh start only).
+  private restoreSavedProgress(host: Host, freshFromResults: boolean): void {
     if (host.progressSig() === 0 && !freshFromResults) {
       try {
         const savedQuizId = sessionStorage.getItem('quizProgressQuizId');
@@ -730,7 +770,10 @@ subscribeToTimerExpiry(host: Host): void {
         }
       } catch {}
     }
+  }
 
+  // Commit the initial index, refresh its dot, and start its timer if unanswered.
+  private applyInitialIndexAndTimer(host: Host): void {
     const initialIndex = host.currentQuestionIndex() || 0;
     this.quizService.setCurrentQuestionIndex(initialIndex);
     host.updateDotStatus(initialIndex);
@@ -744,18 +787,10 @@ subscribeToTimerExpiry(host: Host): void {
       }, 300);
     }
     Promise.resolve().then(() => host.cdRef.markForCheck());
+  }
 
-    this.subscribeToTimerExpiry(host);
-
-    this.setupQuiz(host);
-    this.fetchRouteParams(host);
-    this.subscribeRouterAndInit(host);
-    this.subscribeToRouteParams(host);
-
-    host.quizInitializationService.initializeAnswerSync(host.destroyRef);
-
-    host.resetQuestionState();
-
+  // On refresh of an already-answered question, re-enable answered/Next state.
+  private applyAnsweredOnRefresh(host: Host): void {
     const confirmedStatus = this.selectedOptionService.clickConfirmedDotStatus.get(host.currentQuestionIndex());
     const isAnsweredOnRefresh = confirmedStatus === 'correct' || confirmedStatus === 'wrong';
     if (isAnsweredOnRefresh) {
@@ -766,14 +801,15 @@ subscribeToTimerExpiry(host: Host): void {
         host.cdRef.markForCheck();
       }, 100);
     }
+  }
 
-    if (freshFromResults) {
-      setTimeout(() => {
-        host.answeredQuestionIndices.clear();
-        host.progressSig.set(0);
-        host.cdRef.markForCheck();
-      }, 150);
-    }
+  // Deferred clear of answered/progress after a fresh start from results.
+  private scheduleFreshStartClear(host: Host): void {
+    setTimeout(() => {
+      host.answeredQuestionIndices.clear();
+      host.progressSig.set(0);
+      host.cdRef.markForCheck();
+    }, 150);
   }
 
   runOnDestroy(host: Host): void {
