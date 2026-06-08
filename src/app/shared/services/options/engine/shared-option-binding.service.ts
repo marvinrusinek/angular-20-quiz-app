@@ -348,19 +348,8 @@ export class SharedOptionBindingService {
   }
 
   processOptionBindings(comp: any): void {
-    // SHUFFLE GUARD: same as generateOptionBindings
     const pIdx = comp.currentQuestionIndex ?? this.quizService.getCurrentQuestionIndex() ?? 0;
-    if (this.quizService.isShuffleEnabled() && this.quizService.shuffledQuestions?.length > 0) {
-      const correctQ = this.quizService.shuffledQuestions[pIdx];
-      if (correctQ?.options?.length > 0 && comp.optionsToDisplay?.length > 0) {
-        const correctTexts = new Set(correctQ.options.map((o: Option) => norm(o?.text)));
-        const currentTexts = new Set((comp.optionsToDisplay).map((o: Option) => norm(o?.text)));
-        const match = correctTexts.size === currentTexts.size && [...correctTexts].every((t: string) => currentTexts.has(t));
-        if (!match) {
-          comp.optionsToDisplay = correctQ.options.map((o: Option) => ({ ...o }));
-        }
-      }
-    }
+    this.applyProcessShuffleGuard(comp, pIdx);
 
     const options = comp.optionsToDisplay ?? [];
 
@@ -374,6 +363,34 @@ export class SharedOptionBindingService {
 
     const currentIdx = comp.currentQuestionIndex ?? this.quizService.getCurrentQuestionIndex();
 
+    const ctx = this.buildSelectionContext(comp, currentIdx, cqForFeedback);
+    this.buildProcessedBindings(comp, options, ctx);
+    this.finalizeProcessedBindings(comp);
+  }
+
+  // SHUFFLE GUARD: same as generateOptionBindings
+  private applyProcessShuffleGuard(comp: any, pIdx: number): void {
+    if (this.quizService.isShuffleEnabled() && this.quizService.shuffledQuestions?.length > 0) {
+      const correctQ = this.quizService.shuffledQuestions[pIdx];
+      if (correctQ?.options?.length > 0 && comp.optionsToDisplay?.length > 0) {
+        const correctTexts = new Set(correctQ.options.map((o: Option) => norm(o?.text)));
+        const currentTexts = new Set((comp.optionsToDisplay).map((o: Option) => norm(o?.text)));
+        const match = correctTexts.size === currentTexts.size && [...correctTexts].every((t: string) => currentTexts.has(t));
+        if (!match) {
+          comp.optionsToDisplay = correctQ.options.map((o: Option) => ({ ...o }));
+        }
+      }
+    }
+  }
+
+  // Resolve the saved-selection context (filtered to this question) and the
+  // feedback sentence used to stamp every binding.
+  private buildSelectionContext(comp: any, currentIdx: number, cqForFeedback: any): {
+    savedSelections: any[];
+    savedIds: Set<number | string>;
+    savedByDisplayIdx: Set<number>;
+    feedbackSentence: string;
+  } {
     const rawSavedSelections = this.selectedOptionService.getSelectedOptionsForQuestion(currentIdx) || [];
     // Strict question-context filter: drop any selection whose stored
     // questionIndex doesn't match currentIdx, so a previous question's
@@ -383,9 +400,6 @@ export class SharedOptionBindingService {
       return sQIdx == null || Number(sQIdx) === Number(currentIdx);
     });
     const savedIds = this.toIdSet(savedSelections);
-
-    const getBindings = comp.getOptionBindings.bind(comp);
-    const highlightSet = comp.highlightedOptionIds;
 
     const feedbackSentence = this.feedbackService.buildFeedbackMessage(
       cqForFeedback,
@@ -406,6 +420,18 @@ export class SharedOptionBindingService {
         savedByDisplayIdx.add(Number(sIdx));
       }
     }
+
+    return { savedSelections, savedIds, savedByDisplayIdx, feedbackSentence };
+  }
+
+  private buildProcessedBindings(
+    comp: any,
+    options: Option[],
+    ctx: { savedIds: Set<number | string>; savedByDisplayIdx: Set<number>; feedbackSentence: string }
+  ): void {
+    const getBindings = comp.getOptionBindings.bind(comp);
+    const highlightSet = comp.highlightedOptionIds;
+    const { savedIds, savedByDisplayIdx, feedbackSentence } = ctx;
 
     comp.optionBindings.set(options.map((opt: Option, idx: number) => {
       const oIdNum = Number(opt.optionId);
@@ -445,7 +471,9 @@ export class SharedOptionBindingService {
       // in multi-answer), causing ghost isSelected=true on bindings.
       return getBindings(opt, idx, useSelected);
     }));
+  }
 
+  private finalizeProcessedBindings(comp: any): void {
     comp.rebuildShowFeedbackMapFromBindings();
     comp.updateSelections(-1);
 
