@@ -11,6 +11,7 @@ import { QuizScoringService } from './quiz-scoring.service';
 import { QuizService } from '../data/quiz.service';
 import { QuizStateService } from '../state/quizstate.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
+import { TimerService } from '../features/timer/timer.service';
 import { SK_DISPLAY_MODE, SK_DOT_CONFIRMED, SK_IS_ANSWERED } from '../../constants/session-keys';
 import { writeSessionString } from '../../utils/session-storage';
 
@@ -75,6 +76,7 @@ export class QuizOptionProcessingService {
   private quizService = inject(QuizService);
   private quizStateService = inject(QuizStateService);
   private selectedOptionService = inject(SelectedOptionService);
+  private timerService = inject(TimerService);
 
   // -- public methods ----------------------------------------------
 
@@ -310,6 +312,9 @@ export class QuizOptionProcessingService {
       this.dotStatusService.dotStatusCache.set(idx, 'correct');
       this.selectedOptionService.clickConfirmedDotStatus.set(idx, 'correct');
       writeSessionString(SK_DOT_CONFIRMED + idx, 'correct');
+      // Capture the live elapsed now so the frozen revisit shows the right
+      // seconds-remaining — covers the last question (no capture-on-leave).
+      this.timerService.recordElapsedForAnsweredQuestion(idx);
       this.quizService.scoreDirectly(idx, true, false);
     } else {
       this.selectedOptionService.clickConfirmedDotStatus.set(idx, 'wrong');

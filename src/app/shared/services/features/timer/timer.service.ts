@@ -484,6 +484,20 @@ export class TimerService implements OnDestroy {
     }
   }
 
+  // Record the live elapsed for a question that was just answered, so its
+  // frozen revisit shows the correct seconds-remaining. Covers the LAST
+  // question (and any) where the capture-on-leave path never runs. Only sets
+  // when we have a positive live elapsed and nothing better was already
+  // captured (so a real stop-capture isn't overwritten).
+  public recordElapsedForAnsweredQuestion(questionIndex: number): void {
+    if (questionIndex == null || questionIndex < 0) return;
+    const current = this.elapsedTimeSig();
+    if (typeof current === 'number' && current > 0 && !(this.elapsedTimes[questionIndex] > 0)) {
+      this.elapsedTimes[questionIndex] = current;
+      this.saveTimerState();
+    }
+  }
+
   public resetTimerFlagsFor(questionIndex: number): void {
     if (questionIndex == null || questionIndex < 0) return;
 
