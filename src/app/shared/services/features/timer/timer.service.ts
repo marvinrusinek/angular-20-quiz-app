@@ -136,18 +136,6 @@ export class TimerService implements OnDestroy {
     isCountdown: boolean = true,
     forceRestart: boolean = false
   ): void {
-    // Lowest-level guard: never run the timer for a correctly-answered
-    // question — freeze at the recorded seconds-remaining instead. Covers
-    // EVERY start path (loader, route, re-emit) in one place.
-    const activeIdxForFreeze = this.normalizeQuestionIndex(this.quizService?.currentQuestionIndex);
-    if (
-      activeIdxForFreeze >= 0 &&
-      this.selectedOptionService?.clickConfirmedDotStatus?.get?.(activeIdxForFreeze) === 'correct'
-    ) {
-      this.freezeAtRecordedTime(activeIdxForFreeze);
-      return;
-    }
-
     if (this.isTimerStoppedForCurrentQuestion && !forceRestart) return;
 
     // Anti-thrash: ignore any (re)start that happens within 5s of a previous
