@@ -110,7 +110,6 @@ export class TimerService implements OnDestroy {
       questionIndex: activeQuestionIndex,
       onStop: (elapsed?: number) => {
         if (elapsed != null && activeQuestionIndex != null) {
-          console.log('[TIMER-DIAG] capture(handleStopTimerSignal) idx=', activeQuestionIndex, 'elapsed=', elapsed);
           this.elapsedTimes[activeQuestionIndex] = elapsed;
           this.saveTimerState();
         }
@@ -137,9 +136,6 @@ export class TimerService implements OnDestroy {
     isCountdown: boolean = true,
     forceRestart: boolean = false
   ): void {
-    console.log('[TIMER-DIAG] startTimer called currentIdx=', this.quizService?.currentQuestionIndex,
-      'forceRestart=', forceRestart, 'isTimerRunning=', this.isTimerRunning,
-      'isStoppedForCurrent=', this.isTimerStoppedForCurrentQuestion, 'hasExpired=', this.hasExpiredForRun);
     if (this.isTimerStoppedForCurrentQuestion && !forceRestart) return;
 
     // Anti-thrash: ignore any (re)start that happens within 5s of a previous
@@ -381,7 +377,6 @@ export class TimerService implements OnDestroy {
         questionIndex: normalizedIndex,
         onStop: (elapsed?: number) => {
           if (elapsed != null) {
-            console.log('[TIMER-DIAG] capture(stopTimerIfApplicable) idx=', normalizedIndex, 'elapsed=', elapsed);
             this.elapsedTimes[normalizedIndex] = elapsed;
             this.saveTimerState();
           }
@@ -408,7 +403,6 @@ export class TimerService implements OnDestroy {
       questionIndex: idx,
       onStop: (elapsed?: number) => {
         if (elapsed != null) {
-          console.log('[TIMER-DIAG] capture(stopTimerForQuestion) idx=', idx, 'elapsed=', elapsed);
           this.elapsedTimes[idx] = elapsed;
           this.saveTimerState();
         }
@@ -485,10 +479,6 @@ export class TimerService implements OnDestroy {
     // positive recorded time. No bogus 0:00 fallback — leave the current
     // display untouched if nothing was captured (the timer is still stopped).
     const taken = this.elapsedTimes[questionIndex];
-    console.log('[TIMER-DIAG] freezeAtRecordedTime idx=', questionIndex,
-      'elapsedTimes[idx]=', taken, 'timePerQuestion=', this.timePerQuestion,
-      '=> display=', (typeof taken === 'number' && taken > 0) ? Math.max(this.timePerQuestion - taken, 0) : '(unchanged)',
-      'currentElapsedSig=', this.elapsedTimeSig());
     if (typeof taken === 'number' && taken > 0) {
       this.elapsedTimeSig.set(taken);
     }
