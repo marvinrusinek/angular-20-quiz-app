@@ -476,10 +476,15 @@ export class TimerService implements OnDestroy {
     this.stoppedForQuestion.add(questionIndex);
 
     // Only paint the recorded seconds-remaining when we actually have a
-    // positive recorded time. No bogus 0:00 fallback — leave the current
-    // display untouched if nothing was captured (the timer is still stopped).
+    // positive recorded time AND this freeze is for the question currently on
+    // screen. The displayed elapsed is a single global signal, so a stale-index
+    // freeze (e.g. a loader restart firing with a lagging currentQuestionIndex)
+    // would otherwise clobber the displayed question's frozen time with another
+    // question's value. No bogus 0:00 fallback — leave the display untouched
+    // when nothing was captured (the timer is still stopped either way).
+    const activeIdx = this.normalizeQuestionIndex(this.quizService?.currentQuestionIndex);
     const taken = this.elapsedTimes[questionIndex];
-    if (typeof taken === 'number' && taken > 0) {
+    if (questionIndex === activeIdx && typeof taken === 'number' && taken > 0) {
       this.elapsedTimeSig.set(taken);
     }
   }
