@@ -190,7 +190,6 @@ export class TimerService implements OnDestroy {
       })
     );
 
-    console.log('[TIMER-DIAG2] startTimer SUBSCRIBED currentQ=', this.quizService?.currentQuestionIndex, 'duration=', duration);
     this.timerSubscription = timer$.subscribe();
   }
 
@@ -214,8 +213,6 @@ export class TimerService implements OnDestroy {
     if (this.isTimerRunning) {
       const stopIdx = this.normalizeQuestionIndex(this.quizService?.currentQuestionIndex);
       const curElapsed = this.elapsedTimeSig();
-      console.log('[TIMER-DIAG2] stopTimer capture-check idx=', stopIdx, 'curElapsed=', curElapsed,
-        'alreadyHas=', this.elapsedTimes[stopIdx]);
       if (stopIdx >= 0 && typeof curElapsed === 'number' && curElapsed > 0 && !(this.elapsedTimes[stopIdx] > 0)) {
         this.elapsedTimes[stopIdx] = curElapsed;
       }
@@ -499,11 +496,7 @@ export class TimerService implements OnDestroy {
     // when nothing was captured (the timer is still stopped either way).
     const activeIdx = this.normalizeQuestionIndex(this.quizService?.currentQuestionIndex);
     const taken = this.elapsedTimes[questionIndex];
-    const willPaint = questionIndex === activeIdx && typeof taken === 'number' && taken > 0;
-    console.log('[TIMER-DIAG2] freeze idx=', questionIndex, 'activeIdx(currentQ)=', activeIdx,
-      'elapsedTimes[idx]=', taken, 'willPaint=', willPaint,
-      'elapsedTimes=', JSON.stringify(this.elapsedTimes), 'currentElapsedSig=', this.elapsedTimeSig());
-    if (willPaint) {
+    if (questionIndex === activeIdx && typeof taken === 'number' && taken > 0) {
       this.elapsedTimeSig.set(taken);
     }
   }
@@ -516,9 +509,6 @@ export class TimerService implements OnDestroy {
   public recordElapsedForAnsweredQuestion(questionIndex: number): void {
     if (questionIndex == null || questionIndex < 0) return;
     const current = this.elapsedTimeSig();
-    console.log('[TIMER-DIAG2] recordElapsed idx=', questionIndex, 'currentElapsedSig=', current,
-      'isTimerRunning=', this.isTimerRunning, 'alreadyHas=', this.elapsedTimes[questionIndex],
-      'elapsedTimes=', JSON.stringify(this.elapsedTimes));
     if (typeof current === 'number' && current > 0 && !(this.elapsedTimes[questionIndex] > 0)) {
       this.elapsedTimes[questionIndex] = current;
       this.saveTimerState();
