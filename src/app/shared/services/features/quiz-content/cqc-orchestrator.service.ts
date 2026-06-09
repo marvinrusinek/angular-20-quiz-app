@@ -267,6 +267,18 @@ export class CqcOrchestratorService {
       : (host.currentIndex >= 0
         ? host.currentIndex
         : (host.quizService.getCurrentQuestionIndex?.() ?? 0));
+
+    // MULTI-ANSWER: the heading must keep the question text + "(N answers are
+    // correct)" banner (the FET shows in its own area), even after the question
+    // is answered/timed out. Without this, a visibility-restore after expiry
+    // re-stamps the heading with the banner-less FET. buildQuestionDisplayHTML
+    // only emits the `correct-count` banner for multi-answer, so single-answer
+    // falls through to the FET-in-heading behavior below unchanged.
+    const banneredQ = this.fetGuard.buildQuestionDisplayHTML(host, idx);
+    if (banneredQ && banneredQ.includes('correct-count')) {
+      return banneredQ;
+    }
+
     let intended = '';
     if (this.fetGuard.hasInteractionEvidence(host, idx)) {
       intended = this.resolveCachedFet(host, idx);
