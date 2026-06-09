@@ -16,6 +16,25 @@ import { SelectedOptionService } from '../../state/selectedoption.service';
 import { SelectionMessageService } from '../selection-message/selection-message.service';
 import { TimerService } from '../timer/timer.service';
 
+/** The per-question reset state the component should apply. */
+export interface ResetPerQuestionResult {
+  hasSelections: boolean;
+  i0: number;
+  feedbackConfigs: Record<number | string, FeedbackConfig>;
+  lastFeedbackOptionId: number;
+  showFeedbackForOption: { [optionId: number]: boolean };
+  questionFresh: boolean;
+  timedOut: boolean;
+  timerStoppedForQuestion: boolean;
+  lastAllCorrect: boolean;
+  lastLoggedIndex: number;
+  lastLoggedQuestionIndex: number;
+  displayMode: 'question' | 'explanation';
+  displayExplanation: boolean;
+  explanationToDisplay: string;
+  explanationOwnerIdx: number;
+}
+
 /**
  * Manages per-question reset, state clearing, and click guard resets for QQC.
  * Extracted from QuizQuestionComponent to reduce its size.
@@ -41,40 +60,9 @@ export class QqcResetManagerService {
     formattedByIndex: Map<number, string>;
     clearSharedOptionForceDisable: () => void;
     resolveFormatted: (idx: number, opts: any) => void;
-  }): {
-    hasSelections: boolean;
-    i0: number;
-    feedbackConfigs: Record<number | string, FeedbackConfig>;
-    lastFeedbackOptionId: number;
-    showFeedbackForOption: { [optionId: number]: boolean };
-    questionFresh: boolean;
-    timedOut: boolean;
-    timerStoppedForQuestion: boolean;
-    lastAllCorrect: boolean;
-    lastLoggedIndex: number;
-    lastLoggedQuestionIndex: number;
-    displayMode: 'question' | 'explanation';
-    displayExplanation: boolean;
-    explanationToDisplay: string;
-    explanationOwnerIdx: number;
-  } {
+  }): ResetPerQuestionResult {
     const i0 = params.normalizeIndex(params.index);
-    const existingSelections =
-      this.selectedOptionService.getSelectedOptionsForQuestion(i0) ?? [];
-    // Treat the question as "has selections" if EITHER live selections are
-    // present OR the scoring map already recorded it correct (revisit on
-    // Previous: the in-memory selections may have been pruned but the
-    // questionCorrectness map persists across nav).
-    const questionCorrectnessMap: Map<number, boolean> | undefined =
-      this.quizService?.questionCorrectness;
-    const scoredCorrect = !!questionCorrectnessMap?.get?.(i0);
-    let dotConfirmed = false;
-    try {
-      const dotStored = sessionStorage.getItem(SK_DOT_CONFIRMED + i0);
-      dotConfirmed = dotStored === 'correct' || dotStored === 'wrong';
-    } catch { /* ignore */ }
-    const hasSelections =
-      existingSelections.length > 0 || scoredCorrect || dotConfirmed;
+    const hasSelections = this.resolveHasSelections(i0);
 
     // Clear stale FET cache
     params.formattedByIndex.delete(i0);
@@ -97,37 +85,9 @@ export class QqcResetManagerService {
 
     // Explanation & display mode
     if (hasSelections) {
-      this.explanationTextService.setShouldDisplayExplanation(true);
-      this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
-      this.quizStateService.setAnswered(true);
-      this.quizStateService.setAnswerSelected(true);
-      // Also flip SelectedOptionService.isAnsweredSig and force-enable the
-      // Next button so revisited (already-answered) questions don't leave
-      // Next stuck disabled. The reactive Next-button stream is driven by
-      // selectedOptionService.isAnswered$, so flip that here; the
-      // forceEnable buys 1500ms of held-enable to outlast any
-      // navigation-end resets that fire after this point.
-      try { this.selectedOptionService.setAnswered?.(true, true); } catch { }
-      try { this.nextButtonStateService.forceEnable?.(1500); } catch { }
-      // Re-apply after the next macrotask in case a downstream reset path
-      // disables the button between now and the end of navigation.
-      setTimeout(() => {
-        try { this.selectedOptionService.setAnswered?.(true, true); } catch { }
-        try { this.nextButtonStateService.forceEnable?.(1500); } catch { }
-      }, 0);
+      this.applyAnsweredResetState(i0);
     } else {
-      this.explanationTextService.unlockExplanation?.();
-      this.explanationTextService.resetExplanationText();
-      this.explanationTextService.setShouldDisplayExplanation(false);
-      this.quizStateService.setDisplayState({ mode: 'question', answered: false });
-      this.quizStateService.setAnswered(false);
-      this.quizStateService.setAnswerSelected(false);
-      // Reset the selection message so the stale "Next button" / "Show Results"
-      // message from a prior answered question doesn't persist on an unanswered one.
-      const msg = i0 === 0
-        ? 'Please start the quiz by selecting an option.'
-        : 'Please click an option to continue.';
-      this.selectionMessageService.pushMessage(msg, i0);
+      this.applyFreshResetState(i0);
     }
 
     // Prewarm explanation cache
@@ -151,6 +111,72 @@ export class QqcResetManagerService {
       showFeedbackForOption = { ...feedbackMap };
     }
 
+    return this.buildResetResult(hasSelections, i0, showFeedbackForOption);
+  }
+
+  // Treat the question as "has selections" if EITHER live selections are
+  // present OR the scoring map already recorded it correct OR the dot was
+  // confirmed (revisit on Previous: in-memory selections may be pruned but
+  // questionCorrectness / SK_DOT_CONFIRMED persist across nav).
+  private resolveHasSelections(i0: number): boolean {
+    const existingSelections =
+      this.selectedOptionService.getSelectedOptionsForQuestion(i0) ?? [];
+    const questionCorrectnessMap: Map<number, boolean> | undefined =
+      this.quizService?.questionCorrectness;
+    const scoredCorrect = !!questionCorrectnessMap?.get?.(i0);
+    let dotConfirmed = false;
+    try {
+      const dotStored = sessionStorage.getItem(SK_DOT_CONFIRMED + i0);
+      dotConfirmed = dotStored === 'correct' || dotStored === 'wrong';
+    } catch { /* ignore */ }
+    return existingSelections.length > 0 || scoredCorrect || dotConfirmed;
+  }
+
+  // Already-answered question: show the explanation and force the Next button
+  // enabled (revisited answered questions must not leave Next stuck disabled).
+  private applyAnsweredResetState(i0: number): void {
+    this.explanationTextService.setShouldDisplayExplanation(true);
+    this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
+    this.quizStateService.setAnswered(true);
+    this.quizStateService.setAnswerSelected(true);
+    // Also flip SelectedOptionService.isAnsweredSig and force-enable the
+    // Next button so revisited (already-answered) questions don't leave
+    // Next stuck disabled. The reactive Next-button stream is driven by
+    // selectedOptionService.isAnswered$, so flip that here; the
+    // forceEnable buys 1500ms of held-enable to outlast any
+    // navigation-end resets that fire after this point.
+    try { this.selectedOptionService.setAnswered?.(true, true); } catch { }
+    try { this.nextButtonStateService.forceEnable?.(1500); } catch { }
+    // Re-apply after the next macrotask in case a downstream reset path
+    // disables the button between now and the end of navigation.
+    setTimeout(() => {
+      try { this.selectedOptionService.setAnswered?.(true, true); } catch { }
+      try { this.nextButtonStateService.forceEnable?.(1500); } catch { }
+    }, 0);
+  }
+
+  // Fresh/unanswered question: clear explanation, reset to question mode, and
+  // restore the prompt selection message.
+  private applyFreshResetState(i0: number): void {
+    this.explanationTextService.unlockExplanation?.();
+    this.explanationTextService.resetExplanationText();
+    this.explanationTextService.setShouldDisplayExplanation(false);
+    this.quizStateService.setDisplayState({ mode: 'question', answered: false });
+    this.quizStateService.setAnswered(false);
+    this.quizStateService.setAnswerSelected(false);
+    // Reset the selection message so the stale "Next button" / "Show Results"
+    // message from a prior answered question doesn't persist on an unanswered one.
+    const msg = i0 === 0
+      ? 'Please start the quiz by selecting an option.'
+      : 'Please click an option to continue.';
+    this.selectionMessageService.pushMessage(msg, i0);
+  }
+
+  private buildResetResult(
+    hasSelections: boolean,
+    i0: number,
+    showFeedbackForOption: { [optionId: number]: boolean }
+  ): ResetPerQuestionResult {
     return {
       hasSelections,
       i0,
