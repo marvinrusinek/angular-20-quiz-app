@@ -190,6 +190,7 @@ export class TimerService implements OnDestroy {
       })
     );
 
+    console.log('[TIMER-DIAG2] startTimer SUBSCRIBED currentQ=', this.quizService?.currentQuestionIndex, 'duration=', duration);
     this.timerSubscription = timer$.subscribe();
   }
 
@@ -501,6 +502,9 @@ export class TimerService implements OnDestroy {
   public recordElapsedForAnsweredQuestion(questionIndex: number): void {
     if (questionIndex == null || questionIndex < 0) return;
     const current = this.elapsedTimeSig();
+    console.log('[TIMER-DIAG2] recordElapsed idx=', questionIndex, 'currentElapsedSig=', current,
+      'isTimerRunning=', this.isTimerRunning, 'alreadyHas=', this.elapsedTimes[questionIndex],
+      'elapsedTimes=', JSON.stringify(this.elapsedTimes));
     if (typeof current === 'number' && current > 0 && !(this.elapsedTimes[questionIndex] > 0)) {
       this.elapsedTimes[questionIndex] = current;
       this.saveTimerState();
