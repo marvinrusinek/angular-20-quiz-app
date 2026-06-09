@@ -207,6 +207,20 @@ export class TimerService implements OnDestroy {
 
     void options;  // prevent unused-parameter warning (intentional)
 
+    // Capture the live elapsed for the current question BEFORE any early-return
+    // below (anti-thrash / not-running). This is the central, path-agnostic
+    // capture: whichever flow stops the timer on a correct answer records the
+    // seconds taken, so a frozen revisit shows the right seconds-remaining.
+    if (this.isTimerRunning) {
+      const stopIdx = this.normalizeQuestionIndex(this.quizService?.currentQuestionIndex);
+      const curElapsed = this.elapsedTimeSig();
+      console.log('[TIMER-DIAG2] stopTimer capture-check idx=', stopIdx, 'curElapsed=', curElapsed,
+        'alreadyHas=', this.elapsedTimes[stopIdx]);
+      if (stopIdx >= 0 && typeof curElapsed === 'number' && curElapsed > 0 && !(this.elapsedTimes[stopIdx] > 0)) {
+        this.elapsedTimes[stopIdx] = curElapsed;
+      }
+    }
+
     if (!this.isTimerRunning) return;
 
     // Anti-thrash: ignore stops fired immediately after a fresh start
