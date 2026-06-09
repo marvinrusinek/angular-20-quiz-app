@@ -772,70 +772,9 @@ export class ExplanationDisplayStateService {
     // Lock immediately to prevent race conditions with reactive streams
     this._fetLocked = true;
 
-    // ── MULTI-ANSWER GUARD ──────────────────────────────────────────────
-    if (value && index >= 0) {
-      try {
-        const quizSvc = this.injector.get(QuizService, null);
-
-        if (quizSvc) {
-          const isShuffled = quizSvc.isShuffleEnabled?.() ?? false;
-          const shuffled = Array.isArray(quizSvc.shuffledQuestions)
-            ? quizSvc.shuffledQuestions
-            : [];
-          const baseQuestions = isShuffled && shuffled.length > 0
-            ? shuffled
-            : quizSvc.questions;
-
-          // Prefer display-order accessor when available
-          const displayQuestions =
-            typeof quizSvc.getQuestionsInDisplayOrder === 'function'
-              ? quizSvc.getQuestionsInDisplayOrder()
-              : baseQuestions;
-
-          const question = displayQuestions?.[index] ?? baseQuestions?.[index] ?? null;
-          let correctCount = 0;
-
-          if (question && Array.isArray(question.options)) {
-            correctCount = question.options.filter(
-              (o: any) => isOptionCorrect(o)
-            ).length;
-          }
-
-          // Determine authoritative correct count from RAW questions (unmutated).
-          const rawQs = quizSvc.questions ?? [];
-          const rawQ: any = rawQs[index] ?? question;
-          const rawCorrectCount = (rawQ?.options ?? []).filter(
-            (o: any) => isOptionCorrect(o)
-          ).length;
-          const effectiveCorrectCount = Math.max(correctCount, rawCorrectCount);
-
-          // Multi-answer gate: block FET until ALL correct answers are selected.
-          // Uses raw question options as source of truth so mutated display-
-          // order copies with scrambled correct flags don't fool the check.
-          if (!bypassGuard && effectiveCorrectCount > 1) {
-            const sos = this.injector.get(SelectedOptionService, null);
-            const selections = sos?.selectedOptionsMap?.get(index) ?? [];
-            const rawOpts: any[] = rawQ?.options ?? [];
-            const rawCorrectTexts = new Set(
-              rawOpts.filter((o: any) => isOptionCorrect(o))
-                .map((o: any) => norm(o?.text)).filter((t: string) => !!t)
-            );
-            const selTexts = new Set(
-              (selections as any[]).map((s: any) => norm(s?.text)).filter((t: string) => !!t)
-            );
-            const allCorrectSel = rawCorrectTexts.size > 0 && [...rawCorrectTexts].every(t => selTexts.has(t));
-
-            const oisPerfect = quizSvc._multiAnswerPerfect.get(index) === true;
-
-            if (!oisPerfect && !allCorrectSel) {
-              this._fetLocked = false;
-              return;
-            }
-          }
-        }
-      } catch (e) {
-        console.error('ExplanationDisplayStateService.emitFormatted multi-answer guard failed:', e);
-      }
+    if (this.isBlockedByMultiAnswerEmitGuard(value, index, bypassGuard)) {
+      this._fetLocked = false;
+      return;
     }
 
     const trimmed = (value ?? '').trim();
@@ -846,10 +785,86 @@ export class ExplanationDisplayStateService {
       return;
     }
 
+    this.applyFormattedEmit(index, trimmed);
+  }
+
+  // MULTI-ANSWER GUARD: block the FET emit until ALL correct answers are
+  // selected. Uses RAW question options as source of truth so mutated
+  // display-order copies with scrambled correct flags don't fool the check.
+  // Returns true when the emit should be blocked.
+  private isBlockedByMultiAnswerEmitGuard(
+    value: string | null,
+    index: number,
+    bypassGuard: boolean
+  ): boolean {
+    if (!(value && index >= 0)) return false;
+    try {
+      const quizSvc = this.injector.get(QuizService, null);
+
+      if (quizSvc) {
+        const isShuffled = quizSvc.isShuffleEnabled?.() ?? false;
+        const shuffled = Array.isArray(quizSvc.shuffledQuestions)
+          ? quizSvc.shuffledQuestions
+          : [];
+        const baseQuestions = isShuffled && shuffled.length > 0
+          ? shuffled
+          : quizSvc.questions;
+
+        // Prefer display-order accessor when available
+        const displayQuestions =
+          typeof quizSvc.getQuestionsInDisplayOrder === 'function'
+            ? quizSvc.getQuestionsInDisplayOrder()
+            : baseQuestions;
+
+        const question = displayQuestions?.[index] ?? baseQuestions?.[index] ?? null;
+        let correctCount = 0;
+
+        if (question && Array.isArray(question.options)) {
+          correctCount = question.options.filter(
+            (o: any) => isOptionCorrect(o)
+          ).length;
+        }
+
+        // Determine authoritative correct count from RAW questions (unmutated).
+        const rawQs = quizSvc.questions ?? [];
+        const rawQ: any = rawQs[index] ?? question;
+        const rawCorrectCount = (rawQ?.options ?? []).filter(
+          (o: any) => isOptionCorrect(o)
+        ).length;
+        const effectiveCorrectCount = Math.max(correctCount, rawCorrectCount);
+
+        if (!bypassGuard && effectiveCorrectCount > 1) {
+          const sos = this.injector.get(SelectedOptionService, null);
+          const selections = sos?.selectedOptionsMap?.get(index) ?? [];
+          const rawOpts: any[] = rawQ?.options ?? [];
+          const rawCorrectTexts = new Set(
+            rawOpts.filter((o: any) => isOptionCorrect(o))
+              .map((o: any) => norm(o?.text)).filter((t: string) => !!t)
+          );
+          const selTexts = new Set(
+            (selections as any[]).map((s: any) => norm(s?.text)).filter((t: string) => !!t)
+          );
+          const allCorrectSel = rawCorrectTexts.size > 0 && [...rawCorrectTexts].every(t => selTexts.has(t));
+
+          const oisPerfect = quizSvc._multiAnswerPerfect.get(index) === true;
+
+          if (!oisPerfect && !allCorrectSel) {
+            return true;
+          }
+        }
+      }
+    } catch (e) {
+      console.error('ExplanationDisplayStateService.emitFormatted multi-answer guard failed:', e);
+    }
+    return false;
+  }
+
+  // Validate, store, and broadcast the formatted FET for this index.
+  private applyFormattedEmit(index: number, trimmed: string): void {
     this.latestExplanationIndex = index;
 
     // Validate prefix option numbers against visual data
-    let validatedText = this.formatter.validateAndCorrectFetPrefix(trimmed, index);
+    const validatedText = this.formatter.validateAndCorrectFetPrefix(trimmed, index);
 
     this.latestExplanation = validatedText;
 
