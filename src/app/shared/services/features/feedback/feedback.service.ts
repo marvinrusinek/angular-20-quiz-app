@@ -49,7 +49,7 @@ export class FeedbackService {
     optionsToDisplay?: Option[],
     targetOption?: Option
   ): string {
-    if (timedOut) return 'Time\'s up. Review the explanation above.';
+    if (timedOut) return '';
 
     // URL-authoritative early exit: reconcile recorded clicks against the URL
     // question's correct options; a clean win returns "You're right!" directly.
