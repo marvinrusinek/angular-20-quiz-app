@@ -219,17 +219,33 @@ export class QuizSessionManagerService {
     if (sanitizedQuestions.length === 0) return null;
 
     state.shuffledQuestions = sanitizedQuestions;
+    this.persistShuffledQuestions(state);
+    state.questions = sanitizedQuestions;
+    questionsSig.set(sanitizedQuestions);
+
+    this.applyCurrentQuestionState(state, sanitizedQuestions);
+    this.updateQuizDataForSession(state, quizId, sanitizedQuestions);
+
+    questionsSig.set(sanitizedQuestions);
+
+    return quizId;
+  }
+
+  private persistShuffledQuestions(state: QuizSessionState): void {
     try {
       localStorage.setItem(SK_SHUFFLED_QUESTIONS, JSON.stringify(state.shuffledQuestions));
       localStorage.setItem(SK_SHUFFLED_QUESTIONS_QUIZ_ID, String(state.quizId ?? ''));
     } catch (err) {
       console.error('QuizSessionManagerService.applySessionQuestions shuffled questions persist failed:', err);
     }
-    state.questions = sanitizedQuestions;
-    questionsSig.set(sanitizedQuestions);
+  }
 
-    const newQuizId = quizId;
-
+  // Bound the current index, publish it + the current question/options to the
+  // reactive subjects (emit when options exist, else stage on the next* sigs).
+  private applyCurrentQuestionState(
+    state: QuizSessionState,
+    sanitizedQuestions: QuizQuestion[]
+  ): void {
     state.totalQuestions.set(sanitizedQuestions.length);
 
     const boundedIndex = Math.min(
@@ -261,7 +277,15 @@ export class QuizSessionManagerService {
       state.nextQuestionSig.set(currentQuestion);
       state.nextOptionsSig.set(normalizedOptions);
     }
+  }
 
+  // Compute correct answers and upsert this quiz into quizData / active /
+  // selected with the sanitized questions.
+  private updateQuizDataForSession(
+    state: QuizSessionState,
+    quizId: string,
+    sanitizedQuestions: QuizQuestion[]
+  ): void {
     const correctAnswersMap = this.optionsService.calculateCorrectAnswers(sanitizedQuestions);
     state.correctAnswers = correctAnswersMap;
 
@@ -296,10 +320,6 @@ export class QuizSessionManagerService {
     if (state.selectedQuiz?.quizId === quizId || !state.selectedQuiz) {
       state.selectedQuiz = updatedQuiz;
     }
-
-    questionsSig.set(sanitizedQuestions);
-
-    return newQuizId;
   }
 
   /**
