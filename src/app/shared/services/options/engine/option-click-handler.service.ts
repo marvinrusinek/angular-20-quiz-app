@@ -505,16 +505,16 @@ export class OptionClickHandlerService {
     let questionLocked = false;
     try {
       questionLocked = this.selectedOptionService.isQuestionLocked(qIndex);
-    } catch (e) {
-      console.error('OptionClickHandlerService.computeDisabledState questionLocked check failed:', e);
+    } catch (err: unknown) {
+      console.error('OptionClickHandlerService.computeDisabledState questionLocked check failed:', err);
     }
 
     let optionLocked = false;
     try {
       optionLocked = this.selectedOptionService.isOptionLocked(qIndex, index) ||
         this.selectedOptionService.isOptionLocked(qIndex, lockId);
-    } catch (e) {
-      console.error('OptionClickHandlerService.computeDisabledState optionLocked check failed:', e);
+    } catch (err: unknown) {
+      console.error('OptionClickHandlerService.computeDisabledState optionLocked check failed:', err);
     }
 
     const lockedIncorrect = lockedIncorrectOptionIds.has(index) || lockedIncorrectOptionIds.has(lockId);

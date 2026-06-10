@@ -45,7 +45,7 @@ export class QqcQlFetchService {
         // No questions loaded
         return null;
       }
-    } catch (error) {
+    } catch {
       // Error loading questions
       return null;
     }
@@ -196,7 +196,7 @@ export class QqcQlFetchService {
       if (!currentQuestion) return null;
 
       return { questionsArray, currentQuestionIndex, currentQuestion };
-    } catch (error) {
+    } catch {
       // Error during initialization
       return null;
     }
@@ -230,7 +230,7 @@ export class QqcQlFetchService {
       );
 
       return questions;
-    } catch (error) {
+    } catch {
       // Error loading questions
       return [];
     }
@@ -348,7 +348,7 @@ export class QqcQlFetchService {
           questions
         };
       }
-    } catch (error) {
+    } catch {
       // Error fetching question data
       return { success: false, currentQuestion: null, optionsToDisplay: [], questions };
     }
@@ -411,7 +411,7 @@ export class QqcQlFetchService {
         optionsToDisplay: [...question.options],
         currentQuestionIndex: idx
       };
-    } catch (error) {
+    } catch {
       // Error loading question data
       return { 
         currentQuestion: null, 

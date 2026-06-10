@@ -50,7 +50,7 @@ export class QqcFeedbackManagerService {
         showIcon: option.correct || option.showIcon,
         selected: option.selected ?? false
       }));
-    } catch (error) {
+    } catch {
       return optionsToDisplay;
     }
   }
@@ -425,7 +425,7 @@ export class QqcFeedbackManagerService {
         shouldDisplayExplanation,
         displayExplanation
       };
-    } catch (error) {
+    } catch {
       return null;
     }
   }
@@ -463,7 +463,7 @@ export class QqcFeedbackManagerService {
       );
 
       return feedbackText || 'No feedback generated for the current question.';
-    } catch (error) {
+    } catch {
       return 'An error occurred while generating feedback. Please try again.';
     }
   }
@@ -538,7 +538,7 @@ export class QqcFeedbackManagerService {
           return { bannerText: '', numCorrect };
         }
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('QqcFeedbackManagerService.computeCorrectBanner banner computation failed:', err);
     }
 

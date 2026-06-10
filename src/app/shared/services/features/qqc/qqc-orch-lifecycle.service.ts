@@ -58,7 +58,7 @@ export class QqcOrchLifecycleService {
       this.pushInitialSelectionMessage(host);
 
       this.wirePostLoadSubscriptions(host);
-    } catch (error) {
+    } catch {
     }
   }
 

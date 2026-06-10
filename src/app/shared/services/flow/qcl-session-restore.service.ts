@@ -117,7 +117,7 @@ export class QclSessionRestoreService {
               questionIndex
             );
           }
-        } catch (error: any) {
+        } catch {
           // failed to restore selections
         }
       }
@@ -136,7 +136,7 @@ export class QclSessionRestoreService {
             if (Array.isArray(ids)) {
               selectedOptions = ids;
             }
-          } catch (error: any) {
+          } catch {
             // failed to parse stored selections
           }
         }
@@ -149,7 +149,7 @@ export class QclSessionRestoreService {
       const questionOptions =
         this.selectedOptionService.selectedOptionsMap.get(currentQuestionIndex) || [];
       this.selectedOptionService.updateAnsweredState(questionOptions, currentQuestionIndex);
-    } catch (error) {
+    } catch {
       // selection restore failed
     }
   }
@@ -171,7 +171,7 @@ export class QclSessionRestoreService {
 
         if (restoredOption) restoredOption.selected = true;
       }
-    } catch (error: any) {
+    } catch {
       // failed to parse selected options
     }
   }
@@ -255,7 +255,7 @@ export class QclSessionRestoreService {
       } else {
         this.quizStateService.applyDefaultStates(params.quizId, questions);
       }
-    } catch (error: any) {
+    } catch {
       // quiz session preparation failed
     }
   }

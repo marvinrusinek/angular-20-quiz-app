@@ -271,8 +271,8 @@ export class QqcOptionClickOrchestratorService {
           });
         this.selectedOptionService.lockMany(questionIndex, allIdsNum as number[]);
       }
-    } catch (e) {
-      console.error('QqcOptionClickOrchestratorService.applyOptionLocks lock logic failed:', e);
+    } catch (err: unknown) {
+      console.error('QqcOptionClickOrchestratorService.applyOptionLocks lock logic failed:', err);
     }
   }
 
@@ -347,8 +347,8 @@ export class QqcOptionClickOrchestratorService {
       if (Number.isFinite(lockIdNum) && this.selectedOptionService.isOptionLocked(questionIndex, lockIdNum)) {
         return true;
       }
-    } catch (e) {
-      console.error('QqcOptionClickOrchestratorService.isOptionLocked lock check failed:', e);
+    } catch (err: unknown) {
+      console.error('QqcOptionClickOrchestratorService.isOptionLocked lock check failed:', err);
     }
     return false;
   }
@@ -517,8 +517,8 @@ export class QqcOptionClickOrchestratorService {
     try {
       const selectionToPersist = { ...evtOpt, index: evtIdx };
       this.selectedOptionService.setSelectedOption(selectionToPersist, questionIndex, undefined, isMultiForSelection);
-    } catch (e) {
-      console.error('QqcOptionClickOrchestratorService.performSynchronousClickFlow selection-persist failed:', e);
+    } catch (err: unknown) {
+      console.error('QqcOptionClickOrchestratorService.performSynchronousClickFlow selection-persist failed:', err);
     }
 
     // Track multi-answer scoring

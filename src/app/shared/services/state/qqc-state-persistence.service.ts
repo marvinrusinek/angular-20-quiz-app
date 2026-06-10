@@ -69,7 +69,7 @@ export class QqcStatePersistenceService {
       if (params.feedbackText) {
         sessionStorage.setItem(`feedbackText_${questionIndex}`, params.feedbackText);
       }
-    } catch (error: any) {
+    } catch {
       // Error saving quiz state
     }
   }
@@ -107,7 +107,7 @@ export class QqcStatePersistenceService {
       try {
         const parsed = JSON.parse(optionsData);
         if (Array.isArray(parsed) && parsed.length > 0) parsedOptions = parsed;
-      } catch (error: any) {
+      } catch {
         // Error parsing options data
       }
     }
@@ -121,7 +121,7 @@ export class QqcStatePersistenceService {
         if (Array.isArray(parsed) && parsed.length > 0) {
           selectedOptions = parsed.filter((o: any) => o.optionId !== undefined);
         }
-      } catch (error: any) {
+      } catch {
         // Error parsing selected options data
       }
     }

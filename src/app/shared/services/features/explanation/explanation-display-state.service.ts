@@ -234,8 +234,8 @@ export class ExplanationDisplayStateService {
           if (!allCorrectSelected) return true;
         }
       }
-    } catch (e) {
-      console.error('ExplanationDisplayStateService.setExplanationText multi-answer guard failed:', e);
+    } catch (err: unknown) {
+      console.error('ExplanationDisplayStateService.setExplanationText multi-answer guard failed:', err);
     }
     return false;
   }
@@ -319,8 +319,8 @@ export class ExplanationDisplayStateService {
       const { text$ } = this.getOrCreate(qIdx);
       text$.next(trimmedFinal);
       this._byIndex.get(qIdx)?.next(trimmedFinal);
-    } catch (e) {
-      console.error('ExplanationDisplayStateService.setExplanationText indexed-subject notify failed:', e);
+    } catch (err: unknown) {
+      console.error('ExplanationDisplayStateService.setExplanationText indexed-subject notify failed:', err);
     }
 
     // Broadcast the change to the collection
@@ -367,8 +367,8 @@ export class ExplanationDisplayStateService {
           this.latestExplanation = lockedExplanation;
           this.latestExplanationIndex = questionIndex;
           this.setGate(questionIndex, true);
-        } catch (e) {
-          console.error('ExplanationDisplayStateService.getFormattedExplanationTextForQuestion locked-emit failed:', e);
+        } catch (err: unknown) {
+          console.error('ExplanationDisplayStateService.getFormattedExplanationTextForQuestion locked-emit failed:', err);
         }
 
         return new Observable(sub => { sub.next(lockedExplanation); sub.complete(); });
@@ -395,7 +395,7 @@ export class ExplanationDisplayStateService {
 
         this.shouldDisplayExplanationSig.set(false);
         this.isExplanationTextDisplayedSig.set(false);
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('ExplanationDisplayStateService.getFormattedExplanationTextForQuestion FET-state purge failed:', err);
       }
 
@@ -471,8 +471,8 @@ export class ExplanationDisplayStateService {
   public getLatestFormattedExplanation(): string | null {
     try {
       return this.formatter.formattedExplanationSig();
-    } catch (e) {
-      console.error('ExplanationDisplayStateService.getLatestFormattedExplanation signal read failed:', e);
+    } catch (err: unknown) {
+      console.error('ExplanationDisplayStateService.getLatestFormattedExplanation signal read failed:', err);
       return null;
     }
   }
@@ -853,8 +853,8 @@ export class ExplanationDisplayStateService {
           }
         }
       }
-    } catch (e) {
-      console.error('ExplanationDisplayStateService.emitFormatted multi-answer guard failed:', e);
+    } catch (err: unknown) {
+      console.error('ExplanationDisplayStateService.emitFormatted multi-answer guard failed:', err);
     }
     return false;
   }
@@ -1012,7 +1012,7 @@ export class ExplanationDisplayStateService {
     try {
       this.setShouldDisplayExplanation(false, { force: true });
       this.setIsExplanationTextDisplayed(false);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('ExplanationDisplayStateService.closeAllGates display-state reset failed:', err);
     }
   }

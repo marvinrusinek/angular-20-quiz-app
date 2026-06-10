@@ -248,7 +248,7 @@ export class QuizContentLoaderService {
           o.showIcon = false;
         }
       }
-    } catch (error: any) {
+    } catch {
     }
   }
 

@@ -70,7 +70,7 @@ export class QqcNavigationHandlerService {
         explanationDisplayed: displayExplanation,
         explanationText: this.explanationTextService.latestExplanation ?? ''
       });
-    } catch (err) { }
+    } catch { }
   }
 
   /**
@@ -85,7 +85,7 @@ export class QqcNavigationHandlerService {
       ets.updateFormattedExplanation('');
       ets._activeIndex = -1;
       ets.latestExplanation = '';
-    } catch (err) { }
+    } catch { }
   }
 
   /**
@@ -147,7 +147,7 @@ export class QqcNavigationHandlerService {
 
       this._hiddenAt = null;
       this._elapsedAtHide = null;
-    } catch (err) {    }
+    } catch {    }
 
     return { shouldExpire: false, expiredIndex: -1 };
   }
@@ -207,7 +207,7 @@ export class QqcNavigationHandlerService {
         feedbackText: restored.feedbackText,
         optionsToDisplay
       };
-    } catch (error) {
+    } catch {
       return {
         explanationText: '',
         displayMode: 'question',
@@ -254,7 +254,7 @@ export class QqcNavigationHandlerService {
         shouldShowExplanation: thisQHasOwnFet,
         explanationText: thisQHasOwnFet ? ownFetText : ''
       };
-    } catch (fetErr) {
+    } catch {
       return { shouldShowExplanation: false, explanationText: '' };
     }
   }
@@ -283,7 +283,7 @@ export class QqcNavigationHandlerService {
       ets.latestExplanation = '';
       ets.setShouldDisplayExplanation(false);
       ets.setIsExplanationTextDisplayed(false);
-    } catch (err) { }
+    } catch { }
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -529,7 +529,7 @@ export class QqcNavigationHandlerService {
 
       try {
         feedbackText = await params.generateFeedbackText(params.currentQuestion);
-      } catch (error) { }
+      } catch { }
     }
 
     // Debounce before applying FET state (ensures no race)

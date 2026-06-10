@@ -355,8 +355,8 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     this.quizService.setCurrentQuestionIndex(idx);
     try {
       localStorage.setItem(SK_SAVED_QUESTION_INDEX, JSON.stringify(idx));
-    } catch (e) {
-      console.error('Failed to persist question index to localStorage:', e);
+    } catch (err: unknown) {
+      console.error('Failed to persist question index to localStorage:', err);
     }
   }
 
@@ -513,8 +513,8 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
         'answeredQuestionIndices',
         JSON.stringify([...this.answeredQuestionIndices])
       );
-    } catch (e) {
-      console.error('Failed to persist quiz progress to sessionStorage:', e);
+    } catch (err: unknown) {
+      console.error('Failed to persist quiz progress to sessionStorage:', err);
     }
     this.cdRef.markForCheck();
   }

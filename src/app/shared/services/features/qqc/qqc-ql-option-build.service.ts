@@ -232,7 +232,7 @@ export class QqcQlOptionBuildService {
       try { instance.optionBindings.set(builtBindings); } catch {}
       try { if (instance.questionData?.set) instance.questionData.set({ ...question, options: clonedOptions }); } catch {}
       try { componentRef?.changeDetectorRef?.markForCheck(); } catch {}
-    } catch (error) {
+    } catch {
       try {
         instance.question.set({ ...question });
         instance.optionsToDisplay.set(clonedOptions);

@@ -121,7 +121,7 @@ export class QuizSelectionComponent implements OnInit {
       }
 
       await this.router.navigate([QuizRoutes.INTRO, quizId]);
-    } catch (error: any) {
+    } catch {
       // error handled silently
     }
   }
@@ -220,8 +220,8 @@ export class QuizSelectionComponent implements OnInit {
 
       const allAccessed = new Set([...completedIds, ...startedIds]);
       this.accessedCount.set(allAccessed.size);
-    } catch (error: unknown) {
-      console.warn('[QuizSelection] Failed to restore quiz access state.', error);
+    } catch (err: unknown) {
+      console.warn('[QuizSelection] Failed to restore quiz access state.', err);
       this.accessedCount.set(0);
     }
   }

@@ -121,7 +121,7 @@ export class SummaryReportComponent implements OnInit {
         score: this.quizMetadata().percentage ?? 0,
         totalQuestions: this.quizService.totalQuestions()
       });
-    } catch (error) {
+    } catch {
       // Fallback to ensure UI doesn't look broken
       this.currentScore.set({
         quizId: this.quizId || 'Unknown',

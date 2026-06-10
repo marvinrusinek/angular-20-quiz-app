@@ -78,7 +78,7 @@ export class QqcExplanationFlowService {
               return 'No explanation available...';
             }
           }
-        } catch (timeoutError) {
+        } catch {
           // Timeout while fetching formatted explanation
           return 'Explanation text unavailable at the moment.';
         }
@@ -86,7 +86,7 @@ export class QqcExplanationFlowService {
         // questionData is invalid
         return 'No explanation available.';
       }
-    } catch (error) {
+    } catch {
       // Error in fetching explanation text
       return 'Error fetching explanation.';
     }
@@ -248,7 +248,7 @@ export class QqcExplanationFlowService {
         explanationText,
         shouldDisplay: params.lastAllCorrect
       };
-    } catch (error) {
+    } catch {
       // Error processing current question
 
       // Error fallback — no action needed
@@ -354,12 +354,12 @@ export class QqcExplanationFlowService {
         requestAnimationFrame(() => {
           try {
             this.quizService.updateCorrectAnswersText(params.correctAnswersText);
-          } catch (err) { }
+          } catch { }
         });
       } else {
         this.quizService.updateCorrectAnswersText('');
       }
-    } catch (err) { }
+    } catch { }
   }
 
   /**
@@ -406,7 +406,7 @@ export class QqcExplanationFlowService {
       } else {
         return { explanationToDisplay: '', success: false };
       }
-    } catch (error) {
+    } catch {
       // Error fetching explanation for question
       return {
         explanationToDisplay: this.getExplanationErrorText(),
@@ -530,7 +530,7 @@ export class QqcExplanationFlowService {
       svc.displayState?.setExplanationText?.(formatted);
       svc.displayState?.setIsExplanationTextDisplayed?.(true);
       return { formatted, shouldDisplay: true };
-    } catch (err) {
+    } catch {
       return null;
     }
   }
@@ -621,7 +621,7 @@ export class QqcExplanationFlowService {
       }
 
       return { success: true, explanationToDisplay };
-    } catch (error) {
+    } catch {
       // Error in performFetchAndSetExplanation
       return {
         success: false,

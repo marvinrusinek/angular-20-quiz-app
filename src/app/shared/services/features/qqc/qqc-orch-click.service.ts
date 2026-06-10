@@ -117,8 +117,8 @@ export class QqcOrchClickService {
       if (Number.isFinite(lockIdNum) && host.selectedOptionService.isOptionLocked(idx, lockIdNum)) {
         return true;
       }
-    } catch (e) {
-      console.error('QqcOrchClickService.handleOptionSelected lock check failed:', e);
+    } catch (err: unknown) {
+      console.error('QqcOrchClickService.handleOptionSelected lock check failed:', err);
     }
     return false;
   }
@@ -166,8 +166,8 @@ export class QqcOrchClickService {
       if (isSingleAnswer && clickedIsCorrect) {
         this.disableIncorrectSingleAnswerBindings(host, correctIdSet);
       }
-    } catch (e) {
-      console.error('QqcOrchClickService.handleOptionSelected single-answer disable failed:', e);
+    } catch (err: unknown) {
+      console.error('QqcOrchClickService.handleOptionSelected single-answer disable failed:', err);
     }
   }
 

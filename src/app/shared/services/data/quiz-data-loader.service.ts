@@ -208,8 +208,8 @@ export class QuizDataLoaderService {
             this.questionsQuizId = quizId;
           }
         }
-      } catch (e) {
-        console.error('Failed to load shuffled questions from localStorage:', e);
+      } catch (err: unknown) {
+        console.error('Failed to load shuffled questions from localStorage:', err);
       }
     }
   }
@@ -235,8 +235,8 @@ export class QuizDataLoaderService {
         try {
           localStorage.removeItem(SK_SHUFFLED_QUESTIONS);
           localStorage.removeItem(SK_SHUFFLED_QUESTIONS_QUIZ_ID);
-        } catch (e) {
-          console.error('Failed to clear bad shuffled questions from localStorage:', e);
+        } catch (err: unknown) {
+          console.error('Failed to clear bad shuffled questions from localStorage:', err);
         }
       } else {
         const isSameQuiz = quizId && this.questionsQuizId === quizId;
@@ -302,8 +302,8 @@ export class QuizDataLoaderService {
 
       questionsSig.set(normalized);
       return normalized;
-    } catch (e) {
-      console.error('QuizDataLoaderService.getShuffledQuestions quiz data fetch failed:', e);
+    } catch (err: unknown) {
+      console.error('QuizDataLoaderService.getShuffledQuestions quiz data fetch failed:', err);
       return [];
     } finally {
       this.fetchPromise = null;

@@ -82,7 +82,7 @@ export class SelectionPersistenceService {
         this.clearStaleSessionData(ctx);
       }
 
-    } catch (err: any) {    }
+    } catch {    }
   }
 
   private restoreFromRefresh(ctx: SelectionStateContext): void {
@@ -161,7 +161,7 @@ export class SelectionPersistenceService {
         ...ctx._selectionHistory.keys()
       ]);
       for (const idx of durableIndices) this.mergeAndPersistQuestion(ctx, idx);
-    } catch (err: any) { }
+    } catch { }
   }
 
   private mergeAndPersistQuestion(ctx: SelectionStateContext, idx: number): void {

@@ -276,7 +276,7 @@ export class OptionItemComponent implements OnInit {
           'disabled-option': false
         };
       }
-    } catch (e) { console.error('getOptionClasses revisit-override failed:', e); }
+    } catch (err: unknown) { console.error('getOptionClasses revisit-override failed:', err); }
 
     // If the timer-expiry handler pre-stamped CSS classes on this binding
     // FOR THIS question, return them directly — do NOT let downstream
@@ -370,7 +370,7 @@ export class OptionItemComponent implements OnInit {
         );
         if (!isCanonCorrectHere) return true;
       }
-    } catch (e) { console.error('isDisabled revisit-override failed:', e); }
+    } catch (err: unknown) { console.error('isDisabled revisit-override failed:', err); }
     return undefined;
   }
 
@@ -588,7 +588,7 @@ export class OptionItemComponent implements OnInit {
         );
         return isCanonCorrect ? CORRECT_COLOR : DISABLED_COLOR;
       }
-    } catch (e) { console.error('getOptionBackgroundColor fullyResolved check failed:', e); }
+    } catch (err: unknown) { console.error('getOptionBackgroundColor fullyResolved check failed:', err); }
     return undefined;
   }
 
@@ -604,7 +604,7 @@ export class OptionItemComponent implements OnInit {
           return null;
         }
       }
-    } catch (e) { console.error('getOptionBackgroundColor revisit-guard failed:', e); }
+    } catch (err: unknown) { console.error('getOptionBackgroundColor revisit-guard failed:', err); }
     return undefined;
   }
 
@@ -877,7 +877,7 @@ export class OptionItemComponent implements OnInit {
         this.binding().disabled = true;
         if (this.binding().option) (this.binding().option as any).active = false;
       }
-    } catch (e) { console.error('applyMultiAnswerDisableState failed:', e); }
+    } catch (err: unknown) { console.error('applyMultiAnswerDisableState failed:', err); }
   }
 
 

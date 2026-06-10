@@ -93,7 +93,7 @@ export class SocAnswerProcessingService {
           ?? this.quizService?.getQuestionsInDisplayOrder?.()?.[displayIdx];
         fetText = (liveQ?.explanation ?? '').trim();
       }
-    } catch (e) { console.error('processMultiAnswerClick FET-text resolution failed:', e); }
+    } catch (err: unknown) { console.error('processMultiAnswerClick FET-text resolution failed:', err); }
 
     if (fetText) {
       // Format as "Options X and Y are correct because ..." using 1-based
@@ -110,7 +110,7 @@ export class SocAnswerProcessingService {
         if (qForFormat && oneBasedIndices.length > 0) {
           formattedFET = this.explanationTextService.formatExplanation(qForFormat, oneBasedIndices, fetText);
         }
-      } catch (e) { console.error('processMultiAnswerClick FET formatting failed:', e); }
+      } catch (err: unknown) { console.error('processMultiAnswerClick FET formatting failed:', err); }
 
       const qForStore = comp.currentQuestion()
         ?? comp.getQuestionAtDisplayIndex?.(displayIdx)
@@ -146,7 +146,7 @@ export class SocAnswerProcessingService {
       correctIdxs = rawOpts
         .map((o: any, i: number) => isOptionCorrect(o) ? i : -1)
         .filter((n: number) => n >= 0);
-    } catch (e) { console.error('processSingleAnswerClick canonical-resolution failed:', e); }
+    } catch (err: unknown) { console.error('processSingleAnswerClick canonical-resolution failed:', err); }
     if (correctIdxs.length === 0 && effectiveCorrectIndices?.length) {
       correctIdxs = effectiveCorrectIndices;
     }
@@ -187,7 +187,7 @@ export class SocAnswerProcessingService {
           }
         }
       }
-    } catch (e) { console.error('processSingleAnswerClick pristine-correct check failed:', e); }
+    } catch (err: unknown) { console.error('processSingleAnswerClick pristine-correct check failed:', err); }
     return false;
   }
 
@@ -214,7 +214,7 @@ export class SocAnswerProcessingService {
         // Shared FET write (same sequence as the multi-answer path).
         this.writeResolvedFet(displayIdx, fetText, singleFetQuestion);
       }
-    } catch (e) { console.error('processSingleAnswerClick FET-sync write failed:', e); }
+    } catch (err: unknown) { console.error('processSingleAnswerClick FET-sync write failed:', err); }
 
     const singleFetCtx = {
       resolvedIndex: displayIdx,
@@ -228,8 +228,8 @@ export class SocAnswerProcessingService {
     setTimeout(() => {
       try {
         this.sharedOptionExplanationService.emitExplanation(singleFetCtx as any, true);
-      } catch (e) {
-        console.error('SocAnswerProcessingService.processSingleAnswerClick FET-backup emission failed:', e);
+      } catch (err: unknown) {
+        console.error('SocAnswerProcessingService.processSingleAnswerClick FET-backup emission failed:', err);
         comp.emitExplanation(displayIdx, true);
       }
     }, 0);
@@ -302,7 +302,7 @@ export class SocAnswerProcessingService {
         sessionStorage.setItem(SK_SEL_Q + qIdx, JSON.stringify(toSave));
         this.selectedOptionService.addToSelectionHistory(qIdx, toSave as any[]);
       }
-    } catch (e) { console.error('processSingleAnswerClick selection-persist failed:', e); }
+    } catch (err: unknown) { console.error('processSingleAnswerClick selection-persist failed:', err); }
   }
 
   private scoreAndOpenFet(comp: any, qIdx: number, displayIdx: number, isMulti: boolean): void {
@@ -462,7 +462,7 @@ export class SocAnswerProcessingService {
           allCorrectInDurable = selectedCorrectCount >= pristineCorrectTextsAC.size;
         }
       }
-    } catch (e) { console.error('processMultiAnswerClick allCorrectInDurable check failed:', e); }
+    } catch (err: unknown) { console.error('processMultiAnswerClick allCorrectInDurable check failed:', err); }
     return allCorrectInDurable;
   }
 
@@ -515,7 +515,7 @@ export class SocAnswerProcessingService {
           }
         }
       }
-    } catch (e) { console.error('processMultiAnswerClick pristine-recompute failed:', e); }
+    } catch (err: unknown) { console.error('processMultiAnswerClick pristine-recompute failed:', err); }
     return effectiveCorrectIndices;
   }
 
@@ -541,7 +541,7 @@ export class SocAnswerProcessingService {
           return true;
         }
       }
-    } catch (e) { console.error('processMultiAnswerClick suppressDisable-guard failed:', e); }
+    } catch (err: unknown) { console.error('processMultiAnswerClick suppressDisable-guard failed:', err); }
     return false;
   }
 
@@ -695,7 +695,7 @@ export class SocAnswerProcessingService {
         });
         return true;
       }
-    } catch (e) { console.error('processSingleAnswerClick multi-answer guard failed:', e); }
+    } catch (err: unknown) { console.error('processSingleAnswerClick multi-answer guard failed:', err); }
     return false;
   }
 
@@ -760,7 +760,7 @@ export class SocAnswerProcessingService {
       }, 0);
 
       comp.cdRef?.detectChanges?.();
-    } catch (e) { console.error('auto-reveal failed:', e); }
+    } catch (err: unknown) { console.error('auto-reveal failed:', err); }
   }
 
   /**
@@ -914,7 +914,7 @@ export class SocAnswerProcessingService {
             fetTextAR
           );
         }
-      } catch (e) { console.error('triggerAllIncorrectsExhausted FET formatting failed:', e); }
+      } catch (err: unknown) { console.error('triggerAllIncorrectsExhausted FET formatting failed:', err); }
     }
     return fetTextAR;
   }

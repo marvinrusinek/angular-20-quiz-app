@@ -332,7 +332,7 @@ export class SharedOptionBindingService {
         comp.optionBindings.set(refreshed);
         try { comp.cdRef?.markForCheck?.(); } catch { /* ignore */ }
       }
-    } catch (e) { console.error('generateOptionBindings revisit-override failed:', e); }
+    } catch (err: unknown) { console.error('generateOptionBindings revisit-override failed:', err); }
   }
 
   private finalizeBindings(comp: any): void {
@@ -557,8 +557,8 @@ export class SharedOptionBindingService {
       }
       if (comp.rebuildShowFeedbackMapFromBindings) comp.rebuildShowFeedbackMapFromBindings();
       comp.cdRef?.markForCheck?.();
-    } catch (e) {
-      console.error('rehydrateUiFromState failed:', e);
+    } catch (err: unknown) {
+      console.error('rehydrateUiFromState failed:', err);
     }
   }
 
@@ -833,8 +833,8 @@ export class SharedOptionBindingService {
             (comp.optionsToDisplay ?? []).filter((o: any) => o && typeof o === 'object'),
             cqForTarget
           );
-        } catch (e) {
-          console.error('SharedOptionBindingService.rehydrateUiFromState correctMessage resolution failed:', e);
+        } catch (err: unknown) {
+          console.error('SharedOptionBindingService.rehydrateUiFromState correctMessage resolution failed:', err);
         }
         comp._feedbackDisplay = {
           idx: targetIdx,
@@ -848,7 +848,7 @@ export class SharedOptionBindingService {
             idx: targetIdx
           } as FeedbackProps
         };
-      } catch (e) { console.error('rehydrateUiFromState feedback-display failed:', e); }
+      } catch (err: unknown) { console.error('rehydrateUiFromState feedback-display failed:', err); }
     }
   }
 
@@ -1130,8 +1130,8 @@ export class SharedOptionBindingService {
     try {
       const qIndex = comp.currentQuestionIndex;
       this.selectedOptionService.unlockQuestion(qIndex);
-    } catch (e) {
-      console.error('SharedOptionBindingService.clearForceDisableAllOptions unlockQuestion failed:', e);
+    } catch (err: unknown) {
+      console.error('SharedOptionBindingService.clearForceDisableAllOptions unlockQuestion failed:', err);
     }
 
     comp.clickService?.updateBindingSnapshots(comp);

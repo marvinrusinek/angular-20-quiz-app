@@ -99,7 +99,7 @@ export class QuizNavigationService {
       }
     }
 
-    try { this.resetExplanationAndState(); } catch (err: any) {
+    try { this.resetExplanationAndState(); } catch (err: unknown) {
       console.error('QuizNavigationService.advanceToNextQuestion explanation reset failed:', err);
     }
 
@@ -118,7 +118,7 @@ export class QuizNavigationService {
       (this as any).displayExplanation = false;
       (this as any).explanationToDisplay = '';
       this.explanationTextService.setShouldDisplayExplanation(false);
-    } catch (err: any) { }
+    } catch { }
 
     const result = await this.navigateWithOffset(-1);
 
@@ -247,7 +247,7 @@ export class QuizNavigationService {
       // push needed here — and the dot-nav path benefits the same way.
 
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('QuizNavigationService.navigateToQuestion navigation failed:', err);
       return false;
     } finally {
@@ -300,7 +300,7 @@ export class QuizNavigationService {
       if (ets._gate) {
         for (const gate of ets._gate.values()) gate?.next?.(false);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('QuizNavigationService.fetchAndEmitQuestion FET cache reset failed:', err);
     }
 
@@ -346,7 +346,7 @@ export class QuizNavigationService {
           });
 
           resolve();
-        } catch (err) {
+        } catch {
           qqls._frozen = false;
           qqls._isVisualFrozen = false;
           resolve();
@@ -414,7 +414,7 @@ export class QuizNavigationService {
 
       const navSuccess = await this.router.navigateByUrl(routeUrl);
       return navSuccess;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('QuizNavigationService.resetUIAndNavigate navigation failed:', err);
       return false;
     }
@@ -464,8 +464,8 @@ export class QuizNavigationService {
           })
         )
       );
-    } catch (error: any) {
-      console.error('QuizNavigationService.ensureSessionQuestions session hydration failed:', error);
+    } catch (err: unknown) {
+      console.error('QuizNavigationService.ensureSessionQuestions session hydration failed:', err);
     }
   }
 
@@ -478,8 +478,8 @@ export class QuizNavigationService {
           })
         )
       );
-    } catch (error: any) {
-      console.error('QuizNavigationService.tryResolveQuestion question resolution failed:', error);
+    } catch (err: unknown) {
+      console.error('QuizNavigationService.tryResolveQuestion question resolution failed:', err);
       return null;
     }
   }
@@ -585,8 +585,8 @@ export class QuizNavigationService {
           this.installNavLockObserver(h3, targetQText, rawQText);
         }
       }
-    } catch (e) {
-      console.error('QuizNavigationService.resetRenderStateBeforeNavigation DOM sync failed:', e);
+    } catch (err: unknown) {
+      console.error('QuizNavigationService.resetRenderStateBeforeNavigation DOM sync failed:', err);
     }
   }
 

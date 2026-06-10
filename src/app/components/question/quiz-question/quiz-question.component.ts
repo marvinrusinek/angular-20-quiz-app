@@ -213,8 +213,8 @@ export class QuizQuestionComponent extends BaseQuestion
       try {
         this.questionPayloadSig.set(value);
         this.hydrateFromPayload(value);
-      } catch (e) {
-        console.error('QuizQuestionComponent questionPayload hydration failed:', e);
+      } catch (err: unknown) {
+        console.error('QuizQuestionComponent questionPayload hydration failed:', err);
       }
     });
 

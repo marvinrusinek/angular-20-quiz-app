@@ -27,7 +27,7 @@ export class QclFetGateService {
     try {
       ets._fetLocked = true;
       ets.purgeAndDefer(adjustedIndex);
-    } catch (error: any) { }
+    } catch { }
   }
 
   resetDisplayExplanationText(currentQuestionIndex: number): void {
@@ -205,7 +205,7 @@ export class QclFetGateService {
       ets.setIsExplanationTextDisplayed(false);
       ets.formattedExplanationSig.set('');
       requestAnimationFrame(() => ets.emitFormatted(-1, null));
-    } catch (error) {
+    } catch {
     }
   }
 
@@ -222,7 +222,7 @@ export class QclFetGateService {
       }
       this.explanationTextService.setShouldDisplayExplanation(false);
       this.explanationTextService.setIsExplanationTextDisplayed(false);
-    } catch (error: any) {
+    } catch {
     }
   }
 

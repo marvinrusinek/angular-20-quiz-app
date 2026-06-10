@@ -282,7 +282,7 @@ export class IntroductionComponent implements OnInit {
       if (viaService) return true;  // if the service explicitly succeeded, we’re done
 
       // Service returned false/undefined/non-boolean – fall back to direct navigation
-    } catch (error) {
+    } catch {
       // error handled silently
     }
 
@@ -303,10 +303,10 @@ export class IntroductionComponent implements OnInit {
       }
 
       return fallbackSucceeded;
-    } catch (fallbackErr: unknown) {
+    } catch (err: unknown) {
       console.error(
         '[QuizSelection] Fallback navigation failed.',
-        { quizId, error: fallbackErr }
+        { quizId, error: err }
       );
 
       return false;
@@ -324,7 +324,7 @@ export class IntroductionComponent implements OnInit {
         this.selectedQuiz.set(loadedQuiz);
       }
       return loadedQuiz;
-    } catch (error) {
+    } catch {
       // error handled silently
       return null;
     }
@@ -344,8 +344,8 @@ export class IntroductionComponent implements OnInit {
   private persistQuizId(quizId: string): void {
     try {
       localStorage.setItem('quizId', quizId);
-    } catch (storageError) {
-      console.error('Failed to persist quizId to localStorage:', storageError);
+    } catch (err: unknown) {
+      console.error('Failed to persist quizId to localStorage:', err);
     }
   }
 }

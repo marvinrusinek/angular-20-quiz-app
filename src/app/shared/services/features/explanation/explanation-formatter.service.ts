@@ -183,7 +183,7 @@ export class ExplanationFormatterService {
             opts = questions[index].options ?? [];
           }
         }
-      } catch (e) { /* ignore */ }
+      } catch { /* ignore */ }
     }
     if (opts.length === 0) return [];
 
@@ -336,8 +336,8 @@ export class ExplanationFormatterService {
           : -1);
       const rawOpts = quizSvc?.questions?.[idx]?.options;
       if (Array.isArray(rawOpts) && rawOpts.length) opts = rawOpts;
-    } catch (e) {
-      console.error('ExplanationFormatterService.formatExplanation options fallback lookup failed:', e);
+    } catch (err: unknown) {
+      console.error('ExplanationFormatterService.formatExplanation options fallback lookup failed:', err);
     }
     return opts;
   }
@@ -352,8 +352,8 @@ export class ExplanationFormatterService {
           const svcIdx = quizSvc.getCurrentQuestionIndex();
           if (typeof svcIdx === 'number' && svcIdx >= 0) qIdx = svcIdx;
         }
-      } catch (e) {
-        console.error('ExplanationFormatterService.formatExplanation QuizService index fallback failed:', e);
+      } catch (err: unknown) {
+        console.error('ExplanationFormatterService.formatExplanation QuizService index fallback failed:', err);
       }
     }
     return qIdx ?? 0;
@@ -458,8 +458,8 @@ export class ExplanationFormatterService {
           return this.extractPristineCorrectSets(pristine, question, targetQuestionText);
         }
       }
-    } catch (e) {
-      console.error('ExplanationFormatterService.formatExplanation pristine correct-answer lookup failed:', e);
+    } catch (err: unknown) {
+      console.error('ExplanationFormatterService.formatExplanation pristine correct-answer lookup failed:', err);
     }
     return { correctTexts: new Set<string>(), correctIds: new Set<string | number>() };
   }
@@ -791,8 +791,8 @@ export class ExplanationFormatterService {
           }
         }
       }
-    } catch (e) {
-      console.error('ExplanationFormatterService.storeFormattedExplanation validation failed:', e);
+    } catch (err: unknown) {
+      console.error('ExplanationFormatterService.storeFormattedExplanation validation failed:', err);
     }
     return trimmed;
   }

@@ -149,7 +149,7 @@ export class QqcInitializerService {
         questionsArray: result,
         questions: result
       };
-    } catch (error) {
+    } catch {
       // Error initializing quiz questions and answers
       return null;
     }
@@ -182,7 +182,7 @@ export class QqcInitializerService {
             questionIndex,
             explanation: explanationText || 'No explanation provided.'
           };
-        } catch (explanationError) {
+        } catch {
           // Failed to fetch explanation for this question
 
           this.explanationTextService.formattedExplanations[questionIndex] = {
@@ -191,7 +191,7 @@ export class QqcInitializerService {
           };
         }
       }
-    } catch (fatalError) {
+    } catch {
       // Unexpected error during prepareQuestion
     }
   }
@@ -312,7 +312,7 @@ export class QqcInitializerService {
     let isCorrect = false;
     try {
       isCorrect = await this.quizService.checkIfAnsweredCorrectly();
-    } catch (error) {
+    } catch {
       // Error checking answer correctness
     }
 

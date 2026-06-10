@@ -192,8 +192,8 @@ export class QuizAnswerEvaluationService {
           if (t) selTexts.add(t);
         }
       }
-    } catch (e) {
-      console.error('Failed to retrieve selected options for evaluation:', e);
+    } catch (err: unknown) {
+      console.error('Failed to retrieve selected options for evaluation:', err);
     }
 
     if (selTexts.size === 0 && answers?.length > 0) {

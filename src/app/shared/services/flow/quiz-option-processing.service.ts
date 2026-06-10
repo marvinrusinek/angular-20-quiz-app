@@ -579,8 +579,8 @@ export class QuizOptionProcessingService {
             const allPristineSelected = pristineCorrectTexts.every(t => selTexts.has(t));
             if (!allPristineSelected) pristineBlocked = true;
           }
-        } catch (e) {
-          console.error('QuizOptionProcessingService.handleAuthoritativeCheck pristine guard failed:', e);
+        } catch (err: unknown) {
+          console.error('QuizOptionProcessingService.handleAuthoritativeCheck pristine guard failed:', err);
         }
       }
 
@@ -616,7 +616,7 @@ export class QuizOptionProcessingService {
         sessionStorage.setItem(SK_IS_ANSWERED, 'true');
         sessionStorage.setItem(SK_DISPLAY_MODE + idx, 'explanation');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('QuizOptionProcessingService.persistOptionSelection session-persist failed:', err);
     }
 

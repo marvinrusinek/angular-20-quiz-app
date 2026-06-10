@@ -114,5 +114,5 @@ export function installGlobalFetWatchdog(): void {
     if (document.body) start();
     else document.addEventListener('DOMContentLoaded', start, { once: true });
     document.addEventListener('click', () => setTimeout(enforce, 50), true);
-  } catch (err: any) { }
+  } catch { }
 }

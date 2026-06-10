@@ -513,8 +513,8 @@ export class SelectedOptionService {
         this.idResolver.coerceToBoolean(option.selected)
       );
       this.isAnsweredSig.set(isAnswered);
-    } catch (error: any) {
-      console.error('SelectedOptionService.updateAnsweredState state evaluation failed:', error);
+    } catch (err: unknown) {
+      console.error('SelectedOptionService.updateAnsweredState state evaluation failed:', err);
     }
   }
 
@@ -686,7 +686,7 @@ export class SelectedOptionService {
         }
       }
       for (const key of keysToRemove) sessionStorage.removeItem(key);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('SelectedOptionService.clearState session key cleanup failed:', err);
     }
   }
@@ -741,8 +741,8 @@ export class SelectedOptionService {
           (o as any).disabled = false;
         }
       }
-    } catch (error) {
-      console.error('SelectedOptionService.resetOptionState option state reset failed:', error);
+    } catch (err: unknown) {
+      console.error('SelectedOptionService.resetOptionState option state reset failed:', err);
     }
   }
 
@@ -750,8 +750,8 @@ export class SelectedOptionService {
     try {
       this.selectedOptionsMap.clear();
       this.lockState.clearLockedOptionsMap();
-    } catch (error: any) {
-      console.error('SelectedOptionService.resetAllStates map clear failed:', error);
+    } catch (err: unknown) {
+      console.error('SelectedOptionService.resetAllStates map clear failed:', err);
     }
   }
 
@@ -931,8 +931,8 @@ export class SelectedOptionService {
       localStorage.removeItem('currentQuestionIndex');
       localStorage.removeItem(`quizState_${quizId}`);
       localStorage.removeItem(`selectedOptions_${quizId}`);
-    } catch (e) {
-      console.error('SelectedOptionService.clearAllSelectionsForQuiz localStorage cleanup failed:', e);
+    } catch (err: unknown) {
+      console.error('SelectedOptionService.clearAllSelectionsForQuiz localStorage cleanup failed:', err);
     }
   }
 }

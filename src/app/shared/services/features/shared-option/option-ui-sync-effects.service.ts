@@ -126,8 +126,8 @@ export class OptionUiSyncEffectsService {
       queueMicrotask(() => {
         try {
           host.generateOptionBindings();
-        } catch (e) {
-          console.error('SharedOptionComponent self-heal generateOptionBindings failed', e);
+        } catch (err: unknown) {
+          console.error('SharedOptionComponent self-heal generateOptionBindings failed', err);
         }
       });
     }

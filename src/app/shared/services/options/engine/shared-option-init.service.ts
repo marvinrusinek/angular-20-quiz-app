@@ -214,8 +214,8 @@ export class SharedOptionInitService {
       const newIdx = comp.currentQuestionIndex ?? comp.questionIndex() ?? 0;
       this.explanationTextService._activeIndex = newIdx;
       this.explanationTextService.latestExplanationIndex = newIdx;
-    } catch (e) {
-      console.error('SharedOptionInitService.resetStateForNewQuestion FET state reset failed:', e);
+    } catch (err: unknown) {
+      console.error('SharedOptionInitService.resetStateForNewQuestion FET state reset failed:', err);
     }
   }
 
@@ -355,8 +355,8 @@ export class SharedOptionInitService {
 
       // Use generateOptionBindings for consistency (handles deduplication, showOptions, etc.)
       comp.generateOptionBindings();
-    } catch (e) {
-      console.error('SharedOptionInitService.initializeOptionBindings binding init failed:', e);
+    } catch (err: unknown) {
+      console.error('SharedOptionInitService.initializeOptionBindings binding init failed:', err);
       comp.optionBindingsInitialized.set(false);
     }
   }

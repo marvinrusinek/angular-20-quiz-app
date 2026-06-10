@@ -178,8 +178,8 @@ export class QuizSetupRouteService {
           sms._multiAnswerInProgressLock?.clear?.();
           sms._multiAnswerCompletionLock?.clear?.();
           sms._multiAnswerPreLock?.clear?.();
-        } catch (e) {
-          console.error('QuizSetupRouteService.subscribeToQuestionIndex lock clear failed:', e);
+        } catch (err: unknown) {
+          console.error('QuizSetupRouteService.subscribeToQuestionIndex lock clear failed:', err);
         }
 
         // Start the timer on both initial load and navigation (unless answered)
@@ -259,8 +259,8 @@ export class QuizSetupRouteService {
         this.timerService.freezeAtRecordedTime(index);
       }
       localStorage.setItem(SK_SAVED_QUESTION_INDEX, index.toString());
-    } catch (error: any) {
-      console.error('QuizSetupRouteService.subscribeToRouteParams param map change handling failed:', error);
+    } catch (err: unknown) {
+      console.error('QuizSetupRouteService.subscribeToRouteParams param map change handling failed:', err);
     }
   }
 
@@ -331,8 +331,8 @@ export class QuizSetupRouteService {
         () => host.cdRef.markForCheck()
       );
       setTimeout(() => this.quizContentLoaderService.enableAllOptionPointerEvents(), 200);
-    } catch (error: any) {
-      console.error('QuizSetupRouteService.handleRouteIndexChange content update failed:', error);
+    } catch (err: unknown) {
+      console.error('QuizSetupRouteService.handleRouteIndexChange content update failed:', err);
     } finally {
       host.isNavigatedByUrl.set(false);
     }
@@ -365,8 +365,8 @@ export class QuizSetupRouteService {
           if (prev) this.selectedOptionService.reapplySelectionForQuestion(prev, host.currentQuestionIndex());
         }, 50);
       }, 50);
-    } catch (e) {
-      console.error('QuizSetupRouteService.loadQuestionByRouteIndex question load failed:', e);
+    } catch (err: unknown) {
+      console.error('QuizSetupRouteService.loadQuestionByRouteIndex question load failed:', err);
       host.cdRef.markForCheck();
     }
   }

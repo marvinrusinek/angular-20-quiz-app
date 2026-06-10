@@ -494,8 +494,8 @@ export class QuizContentDisplayService {
       );
 
       return this.explanationTextService.fetByIndex?.get(idx)?.trim() || '';
-    } catch (e) {
-      console.error('QuizContentDisplayService.regenerateFetForIndex FET regeneration failed:', e);
+    } catch (err: unknown) {
+      console.error('QuizContentDisplayService.regenerateFetForIndex FET regeneration failed:', err);
       return '';
     }
   }

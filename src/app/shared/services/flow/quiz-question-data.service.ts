@@ -77,8 +77,8 @@ export class QuizQuestionDataService {
 
       this.quizDataService.setQuestionType(question);
       return question;
-    } catch (error: any) {
-      throw error;
+    } catch (err: unknown) {
+      throw err;
     }
   }
 
@@ -109,8 +109,8 @@ export class QuizQuestionDataService {
         explanation: explanation ?? '',
         type: this.quizDataService.questionType as QuestionType
       } as QuizQuestion;
-    } catch (error: any) {
-      throw error;
+    } catch (err: unknown) {
+      throw err;
     }
   }
 

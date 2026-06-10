@@ -75,7 +75,7 @@ export class QqcOrchQuestionLoadService {
         host.shouldRenderOptions.set(true);
       }
       try { componentRef.changeDetectorRef.markForCheck(); } catch {}
-    } catch (error) {
+    } catch {
     }
   }
 
@@ -83,7 +83,7 @@ export class QqcOrchQuestionLoadService {
     const prep = this.prepareForLoad(host);
     try {
       return await this.performLoad(host, prep, signal);
-    } catch (error) {
+    } catch {
       this.applyLoadError(host);
       return false;
     } finally {

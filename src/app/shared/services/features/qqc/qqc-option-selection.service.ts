@@ -142,8 +142,8 @@ export class QqcOptionSelectionService {
           this.timerService.isTimerRunning = false;
         }
       }
-    } catch (error) {
-      console.error('QqcOptionSelectionService.stopTimerOnCorrectAnswer timer logic failed:', error);
+    } catch (err: unknown) {
+      console.error('QqcOptionSelectionService.stopTimerOnCorrectAnswer timer logic failed:', err);
     }
   }
 
@@ -251,8 +251,8 @@ export class QqcOptionSelectionService {
         isOptionSelected: !isOptionSelected,  // toggled
         timerStopped: !!timerStopped
       };
-    } catch (error) {
-      console.error('QqcOptionSelectionService.handleOptionClicked option click handling failed:', error);
+    } catch (err: unknown) {
+      console.error('QqcOptionSelectionService.handleOptionClicked option click handling failed:', err);
       return null;
     }
   }
@@ -474,8 +474,8 @@ export class QqcOptionSelectionService {
         explanationText,
         isFeedbackApplied: true
       };
-    } catch (error) {
-      console.error('QqcOptionSelectionService.selectOptionAndApplyFeedback option selection failed:', error);
+    } catch (err: unknown) {
+      console.error('QqcOptionSelectionService.selectOptionAndApplyFeedback option selection failed:', err);
       return null;
     }
   }
@@ -523,8 +523,8 @@ export class QqcOptionSelectionService {
       await params.shouldUpdateMessageOnAnswerFn(isAnswered);
 
       return { currentQuestion, optionsToDisplay, data };
-    } catch (error) {
-      console.error('QqcOptionSelectionService.fetchAndProcessCurrentQuestion question fetch failed:', error);
+    } catch (err: unknown) {
+      console.error('QqcOptionSelectionService.fetchAndProcessCurrentQuestion question fetch failed:', err);
       return null;
     }
   }
@@ -552,8 +552,8 @@ export class QqcOptionSelectionService {
         },
         params.correctAnswersLength
       );
-    } catch (stateUpdateError) {
-      console.error('QqcOptionSelectionService.updateQuestionState state update failed:', stateUpdateError);
+    } catch (err: unknown) {
+      console.error('QqcOptionSelectionService.updateQuestionState state update failed:', err);
     }
   }
 

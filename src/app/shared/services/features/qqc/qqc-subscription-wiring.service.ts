@@ -310,7 +310,7 @@ export class QqcSubscriptionWiringService {
 
       try {
         await params.onRouteChange(zeroBasedIndex, displayIndex);
-      } catch (error) { }
+      } catch { }
     });
   }
 }

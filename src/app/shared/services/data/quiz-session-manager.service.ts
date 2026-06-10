@@ -206,8 +206,8 @@ export class QuizSessionManagerService {
 
     try {
       quizResetSource.next();
-    } catch (e) {
-      console.error('QuizSessionManagerService.applySessionQuestions quizReset emission failed:', e);
+    } catch (err: unknown) {
+      console.error('QuizSessionManagerService.applySessionQuestions quizReset emission failed:', err);
     }
 
     if (!Array.isArray(questions) || questions.length === 0) return null;
@@ -235,7 +235,7 @@ export class QuizSessionManagerService {
     try {
       localStorage.setItem(SK_SHUFFLED_QUESTIONS, JSON.stringify(state.shuffledQuestions));
       localStorage.setItem(SK_SHUFFLED_QUESTIONS_QUIZ_ID, String(state.quizId ?? ''));
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('QuizSessionManagerService.applySessionQuestions shuffled questions persist failed:', err);
     }
   }

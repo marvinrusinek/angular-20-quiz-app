@@ -42,7 +42,7 @@ export class QqcExplanationManagerService {
       if (!trimmed) return 'No explanation available for this question.';
 
       return trimmed;
-    } catch (error) {
+    } catch {
       return 'Error loading explanation.';
     }
   }
@@ -85,7 +85,7 @@ export class QqcExplanationManagerService {
           explanation: questionData.explanation || 'No explanation available'
         };
       }
-    } catch (error) {
+    } catch {
       return {
         questionIndex,
         explanation: questionData.explanation || 'Error processing explanation'

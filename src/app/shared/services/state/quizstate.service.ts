@@ -234,8 +234,8 @@ export class QuizStateService {
         } else {
           // Stored state is not in object format
         }
-      } catch (error) {
-        console.error('QuizStateService.loadState stored state parse failed:', error);
+      } catch (err: unknown) {
+        console.error('QuizStateService.loadState stored state parse failed:', err);
         return null;
       }
     }

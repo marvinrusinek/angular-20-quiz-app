@@ -248,7 +248,7 @@ export class QuizShuffleService {
           localStorage.removeItem(key);
         }
       }
-    } catch (err: any) {
+    } catch {
       // clear failed — non-critical
     }
   }
@@ -308,7 +308,7 @@ export class QuizShuffleService {
         optionOrder: Array.from(state.optionOrder.entries())
       };
       localStorage.setItem(`shuffleState:${quizId}`, JSON.stringify(serializedState));
-    } catch (err: any) {
+    } catch {
       // persist failed — non-critical
     }
   }
@@ -328,7 +328,7 @@ export class QuizShuffleService {
 
       this.shuffleByQuizId.set(quizId, state);
       return true;
-    } catch (err: any) {
+    } catch {
       // load failed — non-critical
       return false;
     }

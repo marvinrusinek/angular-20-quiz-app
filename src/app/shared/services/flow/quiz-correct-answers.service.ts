@@ -63,7 +63,7 @@ export class QuizCorrectAnswersService {
 
       this.quizService.updateCorrectAnswersText('');
       return correctAnswersText;
-    } catch (error: any) {
+    } catch {
       this.quizService.updateCorrectAnswersText('');
       return '';
     }

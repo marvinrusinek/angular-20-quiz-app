@@ -74,8 +74,8 @@ export class QqcExplanationDisplayService {
   private async prepareForFormat(i0: number): Promise<void> {
     try {
       this.explanationTextService.purgeAndDefer(i0);
-    } catch (e) {
-      console.error('QqcExplanationDisplayService.resolveFormatted purgeAndDefer failed:', e);
+    } catch (err: unknown) {
+      console.error('QqcExplanationDisplayService.resolveFormatted purgeAndDefer failed:', err);
     }
     await new Promise(res => requestAnimationFrame(res));
   }
@@ -106,7 +106,7 @@ export class QqcExplanationDisplayService {
         const svcQuestions = this.quizService.shuffledQuestions || this.quizService.questions || [];
         q = svcQuestions[i0];
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('QqcExplanationDisplayService.resolveFormatted question lookup failed:', err);
     }
     return q;
@@ -126,8 +126,8 @@ export class QqcExplanationDisplayService {
           : quizSvc.questions || [];
         const targetQ = questions[i0];
         if (targetQ?.options?.length) visualOpts = targetQ.options;
-      } catch (e) {
-        console.error('QqcExplanationDisplayService.resolveFormatted visual options lookup failed:', e);
+      } catch (err: unknown) {
+        console.error('QqcExplanationDisplayService.resolveFormatted visual options lookup failed:', err);
       }
     }
 
@@ -138,8 +138,8 @@ export class QqcExplanationDisplayService {
       try {
         const fetchedOpts = await firstValueFrom(quizSvc.getOptions(i0));
         if (fetchedOpts?.length) visualOpts = fetchedOpts;
-      } catch (e) {
-        console.error('QqcExplanationDisplayService.resolveFormatted getOptions fetch failed:', e);
+      } catch (err: unknown) {
+        console.error('QqcExplanationDisplayService.resolveFormatted getOptions fetch failed:', err);
       }
     }
     return visualOpts;
@@ -162,7 +162,7 @@ export class QqcExplanationDisplayService {
         return svc.formatExplanation(q, findCorrect, baseRaw, i0);
       }
       return baseRaw;
-    } catch (e) {
+    } catch {
       return baseRaw;
     }
   }
@@ -175,8 +175,8 @@ export class QqcExplanationDisplayService {
       if (typeof svc.fetByIndex?.set === 'function') {
         svc.fetByIndex.set(i0, clean || baseRaw);
       }
-    } catch (e) {
-      console.error('QqcExplanationDisplayService.resolveFormatted FET cache write failed:', e);
+    } catch (err: unknown) {
+      console.error('QqcExplanationDisplayService.resolveFormatted FET cache write failed:', err);
     }
   }
 
@@ -359,7 +359,7 @@ export class QqcExplanationDisplayService {
           explanationToDisplay: explanationText,
           displayExplanation: true
         };
-      } catch (error) {
+      } catch {
         // Error fetching explanation in updateExplanationDisplay
         return {
           explanationToDisplay: 'Error loading explanation.',
@@ -538,7 +538,7 @@ export class QqcExplanationDisplayService {
         explanationText,
         questionState
       };
-    } catch (error) {
+    } catch {
       // Error managing explanation display
 
       // Ensure flags are always set
@@ -594,7 +594,7 @@ export class QqcExplanationDisplayService {
         this.explanationTextService.lockExplanation();
 
         return { explanationText, shouldShowExplanation: true };
-      } catch (error) {
+      } catch {
         // Error fetching explanation text
         return { explanationText: 'Error loading explanation.', shouldShowExplanation: true };
       }
@@ -706,7 +706,7 @@ export class QqcExplanationDisplayService {
           shouldEmitExplanation: true,
           shouldResetQuestionState: false
         };
-      } catch (error) {
+      } catch {
         // Error fetching explanation in updateExplanationDisplay
         return {
           explanationToDisplay: 'Error loading explanation.',
@@ -818,7 +818,7 @@ export class QqcExplanationDisplayService {
 
       if (text && setCache) context.formattedByIndex.set(i0, text);
       return text;
-    } catch (err) {
+    } catch {
       return '';
     }
   }
@@ -876,7 +876,7 @@ export class QqcExplanationDisplayService {
               return 'No explanation available...';
             }
           }
-        } catch (timeoutError) {
+        } catch {
           // Timeout while fetching formatted explanation
           return 'Explanation text unavailable at the moment.';
         }
@@ -884,7 +884,7 @@ export class QqcExplanationDisplayService {
         // questionData is invalid
         return 'No explanation available.';
       }
-    } catch (error) {
+    } catch {
       // Error in fetching explanation text
       return 'Error fetching explanation.';
     }

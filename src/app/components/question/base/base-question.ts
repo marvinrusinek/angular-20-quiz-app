@@ -176,7 +176,7 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
       this.updateCorrectMessageForQuestion();
 
       this.cdRef.markForCheck();
-    } catch (error: any) {
+    } catch {
       // error handled silently
     }
   }
@@ -194,7 +194,7 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
       const qqc = (this as any).quizQuestionComponent ??
         (this as any)._quizQuestionComponent;
       qqc?._fetEarlyShown?.clear();
-    } catch (err: any) {
+    } catch {
     }
 
     if (this.question() && Array.isArray(this.question()!.options) && this.question()!.options.length > 0) {

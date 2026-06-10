@@ -452,7 +452,7 @@ export class QqcTimerEffectService {
 
       if (text && setCache) params.formattedByIndex.set(i0, text);
       return text;
-    } catch (err) {
+    } catch {
       return '';
     }
   }
@@ -605,7 +605,7 @@ export class QqcTimerEffectService {
       });
 
       return { optionsToDisplay: updatedOptions, stopped: !!stopped };
-    } catch (error) {
+    } catch {
       return { optionsToDisplay: params.optionsToDisplay, stopped: false };
     }
   }
@@ -681,7 +681,7 @@ export class QqcTimerEffectService {
       });
 
       return { formattedText, needsAsyncRepair };
-    } catch (err) {
+    } catch {
       return { formattedText: null, needsAsyncRepair: false };
     }
   }

@@ -310,7 +310,7 @@ export class AnswerEvaluationService {
         selectedIds.size === correctIds.size &&
         [...selectedIds].every((id) => correctIds.has(id))
       );
-    } catch (err: any) {
+    } catch {
       // Error evaluating correctness
       return false;
     }

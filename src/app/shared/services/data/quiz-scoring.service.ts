@@ -289,7 +289,7 @@ export class QuizScoringService {
         this.questionCorrectness = new Map(
           Object.entries(parsed).map(([k, v]) => [Number(k), Boolean(v)])
         );      }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('QuizScoringService.loadQuestionCorrectness localStorage parse failed:', err);
     }
   }
@@ -298,7 +298,7 @@ export class QuizScoringService {
     try {
       const obj = Object.fromEntries(this.questionCorrectness);
       localStorage.setItem('questionCorrectness', JSON.stringify(obj));
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('QuizScoringService.saveQuestionCorrectness localStorage write failed:', err);
     }
   }
@@ -346,7 +346,7 @@ export class QuizScoringService {
       this.correctCountSig.set(restored);
       this.correctAnswersCountSig.set(restored);
       localStorage.setItem(SK_CORRECT_ANSWERS_COUNT, String(restored));
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('QuizScoringService.restoreScoreFromPersistence score restore failed:', err);
     }
   }

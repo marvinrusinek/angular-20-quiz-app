@@ -132,7 +132,7 @@ export class QclQuestionFetchService {
       if (!fetched) return empty;
 
       return await this.prepareQuestion(quizId, questionIndex, fetched.fetchedQuestion, fetched.fetchedOptions);
-    } catch (error: any) {
+    } catch {
       return empty;
     }
   }
@@ -413,7 +413,7 @@ export class QclQuestionFetchService {
           correct: option.correct ?? false
         })) ?? question.options
       };
-    } catch (error: any) {
+    } catch {
       return null;
     }
   }
@@ -432,7 +432,7 @@ export class QclQuestionFetchService {
       if (!quiz) return null;
 
       return { quiz, questions };
-    } catch (error: any) {
+    } catch {
       return null;
     }
   }

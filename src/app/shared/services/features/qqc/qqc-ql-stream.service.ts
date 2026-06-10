@@ -201,10 +201,10 @@ export class QqcQlStreamService {
         this.isQuestionDisplayed = true;
 
         this.isLoading = false;
-      } catch (error) {
+      } catch {
         this.isLoading = false;
       }
-    } catch (error) {
+    } catch {
       this.isLoading = false;
     }
   }
@@ -235,7 +235,7 @@ export class QqcQlStreamService {
         opt.active = true;
         i++;
       }
-    } catch (error) {
+    } catch {
       cloned =
         typeof structuredClone === 'function'
           ? structuredClone(opts)
@@ -412,7 +412,7 @@ export class QqcQlStreamService {
             } else {
               this.questionsArray = [...(fetched as QuizQuestion[])];
             }
-          } catch (error) {
+          } catch {
             this.questionsArray = await firstValueFrom(this.quizDataService.getQuestionsForQuiz(quizId));
             this.quizService.questions = [...this.questionsArray];
           }
@@ -815,7 +815,7 @@ export class QqcQlStreamService {
       this.quizService.optionsSource.next(finalOpts);
 
       return true;
-    } catch (err: any) {
+    } catch {
       return false;
     } finally {
       this.isLoadingSig.set(false);
@@ -875,7 +875,7 @@ export class QqcQlStreamService {
       this.questionToDisplaySig.set('');
       this._lastQuestionText = '';
       this._lastRenderedIndex = -1;
-    } catch (error) { }
+    } catch { }
   }
 
   public freezeQuestionStream(durationMs = 120): void {

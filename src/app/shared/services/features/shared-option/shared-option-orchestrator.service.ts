@@ -254,8 +254,8 @@ export class SharedOptionOrchestratorService {
       host.ensureOptionsToDisplay();
       host.preserveOptionHighlighting();
       host.cdRef.markForCheck();
-    } catch (e) {
-      console.error('SharedOptionOrchestratorService.runOnVisibilityChange visibility handling failed:', e);
+    } catch (err: unknown) {
+      console.error('SharedOptionOrchestratorService.runOnVisibilityChange visibility handling failed:', err);
     }
   }
 

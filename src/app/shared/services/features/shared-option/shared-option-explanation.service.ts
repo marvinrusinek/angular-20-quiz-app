@@ -130,7 +130,7 @@ export class SharedOptionExplanationService {
     try {
       this.explanationTextService._fetLocked = false;
       this.explanationTextService.unlockExplanation();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('SharedOptionExplanationService.emitExplanation unlock failed:', err);
     }
 

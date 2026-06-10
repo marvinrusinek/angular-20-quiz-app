@@ -245,7 +245,7 @@ export class AccordionComponent implements OnInit {
     try {
       const stored = localStorage.getItem(SK_USER_ANSWERS);
       storedAnswers = stored ? JSON.parse(stored) : [];
-    } catch (error: any) {
+    } catch {
       // error handled silently
     }
 

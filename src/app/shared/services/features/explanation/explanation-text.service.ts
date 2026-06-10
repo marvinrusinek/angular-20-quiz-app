@@ -335,8 +335,8 @@ export class ExplanationTextService {
       this.displayState._byIndex.get(index)?.next(
         this.formatter.formattedExplanations[index]?.explanation ?? ''
       );
-    } catch (e) {
-      console.error('ExplanationTextService.storeFormattedExplanation display state update failed:', e);
+    } catch (err: unknown) {
+      console.error('ExplanationTextService.storeFormattedExplanation display state update failed:', err);
     }
   }
 

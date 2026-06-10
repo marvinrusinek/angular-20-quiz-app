@@ -514,7 +514,7 @@ export class CqcOrchestratorService {
       host.explanationTextService.explanationsInitialized = true;
 
       host.initializeCurrentQuestionIndex();
-    } catch (error: any) {
+    } catch {
     }
   }
 

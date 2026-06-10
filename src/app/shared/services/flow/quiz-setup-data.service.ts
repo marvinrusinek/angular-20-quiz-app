@@ -53,7 +53,7 @@ export class QuizSetupDataService {
       host.totalQuestions.set(questions.length);
       host.isQuizDataLoaded.set(true);
       host.cdRef.markForCheck();
-    } catch (error: any) {
+    } catch {
       // question loading failed
     }
     this.pushInitialQuestionPayload(host);
@@ -103,7 +103,7 @@ export class QuizSetupDataService {
       if (currentQuiz) this.quizService.setCurrentQuiz(currentQuiz);
       host.isQuizLoaded.set(true);
       return true;
-    } catch (error: any) {
+    } catch {
       host.questions.set([]);
       return false;
     }

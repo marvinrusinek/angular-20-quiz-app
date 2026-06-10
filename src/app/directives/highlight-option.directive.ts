@@ -174,7 +174,7 @@ export class HighlightOptionDirective implements OnInit {
         }
 
         opt.showIcon = false;
-      } catch (error: unknown) {
+      } catch {
         // error handled silently
       }
     }, 0);

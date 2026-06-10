@@ -55,7 +55,7 @@ export class CqcQuestionNavService {
       }
       this.fetGuard.writeQText(host, display);
       return true;
-    } catch (err) {
+    } catch {
       return false;
     }
   }
@@ -274,7 +274,7 @@ export class CqcQuestionNavService {
         this.applyQuestionLoad(host, question);
         this.runEagerFetRegeneration(host, question, zeroBasedIndex);
       }
-    } catch (error: any) {
+    } catch {
     }
   }
 
@@ -324,7 +324,7 @@ export class CqcQuestionNavService {
           this.fetGuard.writeQText(host, display);
         }
       }
-    } catch (err) {
+    } catch {
       // Eager FET regeneration failed
     }
   }

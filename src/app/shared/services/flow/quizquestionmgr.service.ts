@@ -49,7 +49,7 @@ export class QuizQuestionManagerService {
         return correctAnswersCount > 1;
       }
       return false;
-    } catch (error: any) {
+    } catch {
       return false;
     }
   }

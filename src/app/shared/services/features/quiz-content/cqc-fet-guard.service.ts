@@ -253,8 +253,8 @@ export class CqcFetGuardService {
       if (looksLikeFet) {
         return this.applyNuclearFetResolution(host, safe, _liveIdx);
       }
-    } catch (e) {
-      console.error('CqcFetGuardService.writeQText NUCLEAR GATE failed:', e);
+    } catch (err: unknown) {
+      console.error('CqcFetGuardService.writeQText NUCLEAR GATE failed:', err);
     }
     return safe;
   }
@@ -1046,8 +1046,8 @@ export class CqcFetGuardService {
       const clickHandler = () => setTimeout(enforce, 0);
       document.addEventListener('click', clickHandler, true);
       host._fetWatchdogClick = clickHandler;
-    } catch (e) {
-      console.error('CqcFetGuardService.installFetWatchdog install failed:', e);
+    } catch (err: unknown) {
+      console.error('CqcFetGuardService.installFetWatchdog install failed:', err);
     }
   }
 

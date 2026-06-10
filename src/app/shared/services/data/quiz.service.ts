@@ -72,8 +72,8 @@ export class QuizService {
     };
   quizId = (() => {
     try { return localStorage.getItem('quizId') ?? ''; }
-    catch (e) {
-      console.error('QuizService.quizId localStorage read failed:', e);
+    catch (err: unknown) {
+      console.error('QuizService.quizId localStorage read failed:', err);
       return '';
     }
   })();
@@ -101,8 +101,8 @@ export class QuizService {
 
   private questionsQuizId: string | null = (() => {
     try { return localStorage.getItem(SK_SHUFFLED_QUESTIONS_QUIZ_ID); }
-    catch (e) {
-      console.error('QuizService.questionsQuizId localStorage read failed:', e);
+    catch (err: unknown) {
+      console.error('QuizService.questionsQuizId localStorage read failed:', err);
       return null;
     }
   })();
@@ -175,8 +175,8 @@ export class QuizService {
       }
       const stored = localStorage.getItem(SK_SHUFFLED_QUESTIONS);
       return stored ? JSON.parse(stored) : [];
-    } catch (e) {
-      console.error('QuizService.shuffledQuestions localStorage parse failed:', e);
+    } catch (err: unknown) {
+      console.error('QuizService.shuffledQuestions localStorage parse failed:', err);
       return [];
     }
   })();
@@ -191,8 +191,8 @@ export class QuizService {
 
   userAnswers: any[] = (() => {
     try { return JSON.parse(localStorage.getItem(SK_USER_ANSWERS) ?? '[]'); }
-    catch (e) {
-      console.error('QuizService.userAnswers localStorage parse failed:', e);
+    catch (err: unknown) {
+      console.error('QuizService.userAnswers localStorage parse failed:', err);
       return [];
     }
   })();
@@ -556,8 +556,8 @@ export class QuizService {
         if (!_userAnsweredCorrectly && !_scored) {
           this._multiAnswerPerfect.delete(safeIndex);
         }
-      } catch (e) {
-        console.error('QuizService.setCurrentQuestionIndex _multiAnswerPerfect check failed:', e);
+      } catch (err: unknown) {
+        console.error('QuizService.setCurrentQuestionIndex _multiAnswerPerfect check failed:', err);
         // If the check fails for any reason, fall back to clearing
         // (safer than leaving a possibly-stale flag set).
         this._multiAnswerPerfect.delete(safeIndex);
@@ -930,7 +930,7 @@ export class QuizService {
     this.userAnswers[questionIndex] = answerIds;
     try {
       localStorage.setItem(SK_USER_ANSWERS, JSON.stringify(this.userAnswers));
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('QuizService.updateUserAnswer localStorage write failed:', err);
     }
 
@@ -1129,7 +1129,7 @@ export class QuizService {
     try {
       const raw = sessionStorage.getItem('finalResult');
       return raw ? (JSON.parse(raw) as FinalResult) : null;
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('QuizService.getFinalResultSnapshot sessionStorage parse failed:', err);
       return null;
     }
