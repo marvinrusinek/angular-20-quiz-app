@@ -10,49 +10,6 @@
   padding: 20px 0;
 }
 
-/* "Time's up!" banner — shown between the question and the options when
-   the countdown expires on the current question. Amber reads as a
-   warning state distinct from the green/red answer feedback. */
-.times-up-banner {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  max-width: max-content;
-  margin: 10px auto 14px;
-  padding: 8px 16px;
-  background-color: #f0ad4e;
-  color: #4a2f00;
-  font-size: 15px;
-  font-weight: 600;
-  border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-  animation: times-up-in 0.25s ease;
-
-  .times-up-icon {
-    width: 20px;
-    height: 20px;
-    font-size: 20px;
-  }
-}
-
-@keyframes times-up-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .times-up-banner {
-    animation: none;
-  }
-}
-
 @media (max-width: 600px) {
   :host {
     padding: 10px 8px;

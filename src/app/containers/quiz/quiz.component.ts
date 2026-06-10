@@ -257,11 +257,6 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.getEffectiveQuestionIndex() < effectiveTotal - 1;
   });
 
-  // True when the countdown ran out on the question currently on screen.
-  readonly isCurrentQuestionTimedOut = computed(() =>
-    this.timerService.expiredForQuestionIndexSig() === this.currentQuestionIndex()
-  );
-
   questions$: Observable<QuizQuestion[]> = this.quizService.questions$;
   currentQuestion$ = this.quizStateService.currentQuestion$;
   subscriptions: Subscription = new Subscription();
