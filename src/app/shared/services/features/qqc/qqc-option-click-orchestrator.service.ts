@@ -514,26 +514,10 @@ export class QqcOptionClickOrchestratorService {
     const isMultiForSelection = this.isMultiForSelection(question);
 
     // Persist selection
-    try {
-      const selectionToPersist = { ...evtOpt, index: evtIdx };
-      this.selectedOptionService.setSelectedOption(selectionToPersist, questionIndex, undefined, isMultiForSelection);
-    } catch (err: unknown) {
-      console.error('QqcOptionClickOrchestratorService.performSynchronousClickFlow selection-persist failed:', err);
-    }
+    this.persistClickSelection(evtOpt, evtIdx, questionIndex, isMultiForSelection);
 
     // Track multi-answer scoring
-    if (isMultiForSelection && question?.options) {
-      const { allCorrectSelected } = this.trackMultiAnswerSelection({
-        questionIndex,
-        evtIdx,
-        checked,
-        question
-      });
-
-      if (allCorrectSelected) {
-        this.quizService.scoreDirectly(questionIndex, true, true);
-      }
-    }
+    this.applyMultiAnswerScoring(question, questionIndex, evtIdx, checked, isMultiForSelection);
 
     // Track per-click dot color
     this.trackClickedOptionCorrectness(questionIndex, evtIdx, question);
@@ -577,17 +561,7 @@ export class QqcOptionClickOrchestratorService {
       isMultiForSelection
     });
 
-    // Apply correctness state to services. When the question is already
-    // locked (e.g. timer-expired auto-resolution), force enableNext=true so
-    // a post-timeout click can't accidentally disable a Next button that's
-    // already been enabled by the timeout pathway.
-    let effectiveEnableNext = enableNext;
-    try {
-      if (this.selectedOptionService.isQuestionLocked?.(questionIndex)) {
-        effectiveEnableNext = true;
-      }
-    } catch { /* ignore */ }
-    this.applyCorrectnessState({ enableNext: effectiveEnableNext, isMultiForSelection });
+    this.applyCorrectnessWithLockOverride(questionIndex, enableNext, isMultiForSelection);
 
     return {
       optionsNow,
@@ -599,6 +573,61 @@ export class QqcOptionClickOrchestratorService {
       hasAnySelection,
       msgTok
     };
+  }
+
+  // Persist the clicked selection (best-effort).
+  private persistClickSelection(
+    evtOpt: SelectedOption,
+    evtIdx: number,
+    questionIndex: number,
+    isMultiForSelection: boolean
+  ): void {
+    try {
+      const selectionToPersist = { ...evtOpt, index: evtIdx };
+      this.selectedOptionService.setSelectedOption(selectionToPersist, questionIndex, undefined, isMultiForSelection);
+    } catch (err: unknown) {
+      console.error('QqcOptionClickOrchestratorService.performSynchronousClickFlow selection-persist failed:', err);
+    }
+  }
+
+  // Track multi-answer selection and score directly once all correct are picked.
+  private applyMultiAnswerScoring(
+    question: QuizQuestion,
+    questionIndex: number,
+    evtIdx: number,
+    checked: boolean,
+    isMultiForSelection: boolean
+  ): void {
+    if (isMultiForSelection && question?.options) {
+      const { allCorrectSelected } = this.trackMultiAnswerSelection({
+        questionIndex,
+        evtIdx,
+        checked,
+        question
+      });
+
+      if (allCorrectSelected) {
+        this.quizService.scoreDirectly(questionIndex, true, true);
+      }
+    }
+  }
+
+  // Apply correctness state to services. When the question is already
+  // locked (e.g. timer-expired auto-resolution), force enableNext=true so
+  // a post-timeout click can't accidentally disable a Next button that's
+  // already been enabled by the timeout pathway.
+  private applyCorrectnessWithLockOverride(
+    questionIndex: number,
+    enableNext: boolean,
+    isMultiForSelection: boolean
+  ): void {
+    let effectiveEnableNext = enableNext;
+    try {
+      if (this.selectedOptionService.isQuestionLocked?.(questionIndex)) {
+        effectiveEnableNext = true;
+      }
+    } catch { /* ignore */ }
+    this.applyCorrectnessState({ enableNext: effectiveEnableNext, isMultiForSelection });
   }
 
   /**
