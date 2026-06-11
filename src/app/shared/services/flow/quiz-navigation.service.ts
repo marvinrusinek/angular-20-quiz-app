@@ -144,109 +144,7 @@ export class QuizNavigationService {
     this.resetRenderStateBeforeNavigation(index);
 
     try {
-      // Set navigating state
-      this.isNavigating = true;
-      this.quizStateService.setNavigating(true);
-      this.quizStateService.setLoading(true);
-
-      // Perform Router Navigation
-      const navSuccess = await this.performRouterNavigation(index);
-      if (!navSuccess) return false;
-
-      // Reset timer state before emitting the new index to avoid immediate expiry
-      this.timerService.stopTimer(undefined, { force: true });
-      this.timerService.resetTimer();
-      this.timerService.resetTimerFlagsFor(index);
-
-      // Clear stale selections on both source AND destination unless the
-      // question is timer-locked (then preserve the timeout-revealed state).
-      // Per user requirement: questions should be COMPLETELY CLEAN on
-      // revisit, regardless of what was clicked first visit. _multiAnswerPerfect
-      // was previously used as a "preserve correct state" gate but it was
-      // being set by buggy paths even on wrong-only clicks.
-      const isResolved = (idx: number) => this.optionLockState.isQuestionLocked(idx);
-      const sourceIdx = this.quizService.getCurrentQuestionIndex();
-      if (sourceIdx >= 0 && sourceIdx !== index && !isResolved(sourceIdx)) {
-        this.selectedOptionService.clearSelectionsForQuestion(sourceIdx);
-      }
-      if (!isResolved(index)) {
-        this.selectedOptionService.clearSelectionsForQuestion(index);
-      }
-      // Wipe _multiAnswerPerfect for the destination unless the question
-      // was actually scored correct (questionCorrectness). For a genuinely
-      // perfectly-answered question we WANT the flag preserved so revisit
-      // re-renders the green/gray highlight; only buggy stale flags need
-      // wiping, and those won't have questionCorrectness set.
-      // In shuffled mode, questionCorrectness is keyed by ORIGINAL index
-      // (set by scoreDirectly), so map display→original before checking.
-      const _isScoredAt = (idx: number): boolean => {
-        if (this.quizService.questionCorrectness?.get?.(idx) === true) return true;
-        try {
-          const qs: any = this.quizService;
-          const isShuf = qs?.isShuffleEnabled?.() && qs?.shuffledQuestions?.length > 0;
-          if (isShuf) {
-            let eqId = qs?.quizId || '';
-            if (!eqId) { try { eqId = localStorage.getItem('lastQuizId') || ''; } catch {} }
-            if (eqId) {
-              const origIdx = qs?.scoringService?.quizShuffleService?.toOriginalIndex?.(eqId, idx);
-              if (typeof origIdx === 'number' && origIdx >= 0) {
-                return this.quizService.questionCorrectness?.get?.(origIdx) === true;
-              }
-            }
-          }
-        } catch { /* ignore */ }
-        return false;
-      };
-      const _scoredDest = _isScoredAt(index);
-      if (!_scoredDest) this.quizService._multiAnswerPerfect.delete(index);
-      if (sourceIdx >= 0 && sourceIdx !== index && !_isScoredAt(sourceIdx)) {
-        this.quizService._multiAnswerPerfect.delete(sourceIdx);
-      }
-
-      // Update Service State (Index) - Update AFTER router nav success
-      this.quizService.setCurrentQuestionIndex(index);
-
-      // Reset UI States for New Question
-      this.resetExplanationAndState();
-      this.selectedOptionService.setAnswered(false, true);
-
-      // Clear all option selections when navigating to new question
-      this.nextButtonStateService.reset();
-      this.quizQuestionLoaderService.resetUI();
-
-      // Fetch New Question Data
-      const fresh = await this.fetchAndEmitQuestion(index);
-      if (!fresh) return false;
-
-      // Correctly-answered destination on revisit: freeze the timer at the
-      // recorded seconds-remaining. Gate ONLY on the durable dot-status — a
-      // selection-based check falsely fires for unanswered questions holding
-      // stale selections, flashing them to a bogus 0:00.
-      if (this.selectedOptionService.clickConfirmedDotStatus?.get?.(index) === 'correct') {
-        this.timerService.freezeAtRecordedTime(index);
-      }
-
-      // INDEX-MODEL REWRITE (Phase 2): deterministically re-derive the answered
-      // state for the destination from the DURABLE per-display-index answered
-      // flag (markQuestionAnswered, written by handleOptionClick on completion).
-      // This flag survives the selection-store clear above, so it's the
-      // authoritative "was this question answered" signal on revisit — replacing
-      // the racy re-derivation stream that intermittently left Next disabled.
-      // Only ENABLE (never disable) so a genuinely-unanswered destination is
-      // unaffected.
-      if (this.quizStateService.isQuestionAnswered(index)) {
-        this.quizStateService.setAnswered(true);
-        this.selectedOptionService.setAnswered(true, true);
-      }
-
-      // Finalize
-      this.notifyNavigationSuccess();
-      // Selection message is derived automatically via
-      // SelectionMessageService.computedNavMessage (a computed signal that
-      // re-fires whenever currentQuestionIndexSig changes). No imperative
-      // push needed here — and the dot-nav path benefits the same way.
-
-      return true;
+      return await this.performNavigation(index);
     } catch (err: unknown) {
       console.error('QuizNavigationService.navigateToQuestion navigation failed:', err);
       return false;
@@ -254,6 +152,123 @@ export class QuizNavigationService {
       this.isNavigating = false;
       this.quizStateService.setNavigating(false);
       this.quizStateService.setLoading(false);
+    }
+  }
+
+  // The navigation body: route, reset timer/state, fetch+emit, finalize.
+  // Returns false on a failed router nav or fetch. Throws propagate to
+  // navigateToQuestion's catch; its finally always clears the navigating flags.
+  private async performNavigation(index: number): Promise<boolean> {
+    // Set navigating state
+    this.isNavigating = true;
+    this.quizStateService.setNavigating(true);
+    this.quizStateService.setLoading(true);
+
+    // Perform Router Navigation
+    const navSuccess = await this.performRouterNavigation(index);
+    if (!navSuccess) return false;
+
+    // Reset timer state before emitting the new index to avoid immediate expiry
+    this.timerService.stopTimer(undefined, { force: true });
+    this.timerService.resetTimer();
+    this.timerService.resetTimerFlagsFor(index);
+
+    this.clearStaleNavigationState(index);
+
+    // Update Service State (Index) - Update AFTER router nav success
+    this.quizService.setCurrentQuestionIndex(index);
+
+    // Reset UI States for New Question
+    this.resetExplanationAndState();
+    this.selectedOptionService.setAnswered(false, true);
+
+    // Clear all option selections when navigating to new question
+    this.nextButtonStateService.reset();
+    this.quizQuestionLoaderService.resetUI();
+
+    // Fetch New Question Data
+    const fresh = await this.fetchAndEmitQuestion(index);
+    if (!fresh) return false;
+
+    this.applyDestinationAnsweredState(index);
+
+    // Finalize
+    this.notifyNavigationSuccess();
+    // Selection message is derived automatically via
+    // SelectionMessageService.computedNavMessage (a computed signal that
+    // re-fires whenever currentQuestionIndexSig changes). No imperative
+    // push needed here — and the dot-nav path benefits the same way.
+
+    return true;
+  }
+
+  // Clear stale selections on both source AND destination unless the
+  // question is timer-locked (then preserve the timeout-revealed state).
+  // Per user requirement: questions should be COMPLETELY CLEAN on
+  // revisit, regardless of what was clicked first visit. _multiAnswerPerfect
+  // was previously used as a "preserve correct state" gate but it was
+  // being set by buggy paths even on wrong-only clicks.
+  private clearStaleNavigationState(index: number): void {
+    const isResolved = (idx: number) => this.optionLockState.isQuestionLocked(idx);
+    const sourceIdx = this.quizService.getCurrentQuestionIndex();
+    if (sourceIdx >= 0 && sourceIdx !== index && !isResolved(sourceIdx)) {
+      this.selectedOptionService.clearSelectionsForQuestion(sourceIdx);
+    }
+    if (!isResolved(index)) {
+      this.selectedOptionService.clearSelectionsForQuestion(index);
+    }
+    // Wipe _multiAnswerPerfect for the destination unless the question
+    // was actually scored correct (questionCorrectness). For a genuinely
+    // perfectly-answered question we WANT the flag preserved so revisit
+    // re-renders the green/gray highlight; only buggy stale flags need
+    // wiping, and those won't have questionCorrectness set.
+    // In shuffled mode, questionCorrectness is keyed by ORIGINAL index
+    // (set by scoreDirectly), so map display→original before checking.
+    const _isScoredAt = (idx: number): boolean => {
+      if (this.quizService.questionCorrectness?.get?.(idx) === true) return true;
+      try {
+        const qs: any = this.quizService;
+        const isShuf = qs?.isShuffleEnabled?.() && qs?.shuffledQuestions?.length > 0;
+        if (isShuf) {
+          let eqId = qs?.quizId || '';
+          if (!eqId) { try { eqId = localStorage.getItem('lastQuizId') || ''; } catch {} }
+          if (eqId) {
+            const origIdx = qs?.scoringService?.quizShuffleService?.toOriginalIndex?.(eqId, idx);
+            if (typeof origIdx === 'number' && origIdx >= 0) {
+              return this.quizService.questionCorrectness?.get?.(origIdx) === true;
+            }
+          }
+        }
+      } catch { /* ignore */ }
+      return false;
+    };
+    const _scoredDest = _isScoredAt(index);
+    if (!_scoredDest) this.quizService._multiAnswerPerfect.delete(index);
+    if (sourceIdx >= 0 && sourceIdx !== index && !_isScoredAt(sourceIdx)) {
+      this.quizService._multiAnswerPerfect.delete(sourceIdx);
+    }
+  }
+
+  private applyDestinationAnsweredState(index: number): void {
+    // Correctly-answered destination on revisit: freeze the timer at the
+    // recorded seconds-remaining. Gate ONLY on the durable dot-status — a
+    // selection-based check falsely fires for unanswered questions holding
+    // stale selections, flashing them to a bogus 0:00.
+    if (this.selectedOptionService.clickConfirmedDotStatus?.get?.(index) === 'correct') {
+      this.timerService.freezeAtRecordedTime(index);
+    }
+
+    // INDEX-MODEL REWRITE (Phase 2): deterministically re-derive the answered
+    // state for the destination from the DURABLE per-display-index answered
+    // flag (markQuestionAnswered, written by handleOptionClick on completion).
+    // This flag survives the selection-store clear above, so it's the
+    // authoritative "was this question answered" signal on revisit — replacing
+    // the racy re-derivation stream that intermittently left Next disabled.
+    // Only ENABLE (never disable) so a genuinely-unanswered destination is
+    // unaffected.
+    if (this.quizStateService.isQuestionAnswered(index)) {
+      this.quizStateService.setAnswered(true);
+      this.selectedOptionService.setAnswered(true, true);
     }
   }
 
