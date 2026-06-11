@@ -197,7 +197,15 @@ export class QuizContentDisplayService {
     const serviceQText = (qObj?.questionText ?? '').trim();
     let qDisplay = serviceQText || rawQText || '';
     // Prefer the PRISTINE correct count (live options can be mutated by option-lock-policy / Restart).
-    const rawQuestion = this.quizService?.questions?.[safeIdx] as QuizQuestion | undefined;
+    // SHUFFLE-AWARE: in shuffle mode `questions[safeIdx]` is the WRONG question
+    // (safeIdx is the DISPLAY index). Read from shuffledQuestions so the
+    // multi-answer banner reflects the displayed question, not the original one
+    // at that numeric index — otherwise the banner vanishes on click.
+    const _isShufQD = this.quizService?.isShuffleEnabled?.()
+      && this.quizService?.shuffledQuestions?.length > 0;
+    const rawQuestion = (_isShufQD
+      ? this.quizService?.shuffledQuestions?.[safeIdx]
+      : this.quizService?.questions?.[safeIdx]) as QuizQuestion | undefined;
     const sourceOpts = rawQuestion?.options ?? qObj?.options ?? [];
     let numCorrect = sourceOpts.filter((o: Option) => isOptionCorrect(o)).length;
     try {
