@@ -70,8 +70,17 @@ export class QqcOrchDisplayService {
 
     if (!host.containerInitialized && host.dynamicAnswerContainer?.()) {
       const cq = host.currentQuestion();
-      if (cq) host.loadDynamicComponent(cq, host.optionsToDisplay());
-      host.containerInitialized = true;
+      const opts = host.optionsToDisplay();
+      // Only latch containerInitialized when options are actually present.
+      // loadDynamicComponent early-returns on empty options, so latching here
+      // unconditionally would permanently skip creation on a cold-load race
+      // where the payload arrives before options are ready — the options would
+      // never render. Leaving it unlatched lets the next options-bearing
+      // payload retry.
+      if (cq && Array.isArray(opts) && opts.length > 0) {
+        host.loadDynamicComponent(cq, opts);
+        host.containerInitialized = true;
+      }
     }
     host.sharedOptionComponent?.()?.initializeOptionBindings();
 

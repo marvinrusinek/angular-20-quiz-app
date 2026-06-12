@@ -271,9 +271,16 @@ export class QqcOrchLifecycleService {
         host.resetUIForNewQuestion();
       },
       onNavigationToQuestion: ({ question, options }: { question: QuizQuestion; options: Option[] }) => {
+        // Only latch containerInitialized when options are present —
+        // loadDynamicComponent early-returns on empty options, so latching
+        // unconditionally permanently skips creation on a cold-load race and
+        // the options never render. Leave it unlatched to retry on the next
+        // options-bearing event.
         if (!host.containerInitialized && host.dynamicAnswerContainer?.()) {
-          host.loadDynamicComponent(question, options);
-          host.containerInitialized = true;
+          if (question && Array.isArray(options) && options.length > 0) {
+            host.loadDynamicComponent(question, options);
+            host.containerInitialized = true;
+          }
         }
         host.sharedOptionConfig = null;
       },
