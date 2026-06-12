@@ -1074,9 +1074,14 @@ export class CqcFetGuardService {
 
   private revertQTextToQuestion(host: Host, el: HTMLElement): void {
     try {
-      const liveQ = this.getLiveQuestion(host);
-      const rawQ = (liveQ?.questionText ?? '').trim();
-      if (rawQ) el.innerHTML = rawQ;
+      const idx = this.getActiveIdx(host);
+      // Restore question text WITH the multi-answer banner (not bare text):
+      // reverting a not-yet-resolved multi-answer FET must keep the
+      // "N answers are correct" banner, otherwise it vanishes on click.
+      const withBanner = this.buildQuestionDisplayHTML(host, idx);
+      const liveQ = this.getLiveQuestion(host, idx);
+      const html = withBanner || (liveQ?.questionText ?? '').trim();
+      if (html) el.innerHTML = html;
     } catch { /* ignore */ }
   }
 
