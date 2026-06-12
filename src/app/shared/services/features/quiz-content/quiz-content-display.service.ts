@@ -307,15 +307,31 @@ export class QuizContentDisplayService {
   private isQuestionScoredCorrect(safeIdx: number): boolean {
     const scoringSvc = this.quizService?.scoringService;
     if (!scoringSvc?.questionCorrectness) return false;
-    if (scoringSvc.questionCorrectness.get(safeIdx) === true) return true;
+    // questionCorrectness is keyed by ORIGINAL (scoring) index. A raw lookup with
+    // the DISPLAY index can collide with another question's original-index entry
+    // in shuffle (e.g. display idx 4 hitting the original idx 4 of an already-
+    // answered question), producing a false "scored" that wrongly opens the FET.
+    // Only trust an entry whose pristine question text matches the displayed one.
+    if (scoringSvc.questionCorrectness.get(safeIdx) === true && this.correctnessKeyMatchesDisplayed(safeIdx, safeIdx)) {
+      return true;
+    }
     const effectiveQuizId = this.resolveEffectiveQuizId();
     if (effectiveQuizId) {
       const origIdx = scoringSvc.quizShuffleService?.toOriginalIndex?.(effectiveQuizId, safeIdx);
       if (typeof origIdx === 'number' && origIdx >= 0) {
-        return scoringSvc.questionCorrectness.get(origIdx) === true;
+        return scoringSvc.questionCorrectness.get(origIdx) === true
+          && this.correctnessKeyMatchesDisplayed(origIdx, safeIdx);
       }
     }
     return false;
+  }
+
+  /** True when the pristine question at `key` is the same question shown at display `safeIdx` (text match). */
+  private correctnessKeyMatchesDisplayed(key: number, safeIdx: number): boolean {
+    const displayedText = norm(this.quizService?.getQuestionsInDisplayOrder?.()?.[safeIdx]?.questionText);
+    if (!displayedText) return true;  // can't disprove → keep legacy behavior
+    const pristineText = norm(this.quizService?.questions?.[key]?.questionText);
+    return !pristineText || pristineText === displayedText;
   }
 
   /** Authoritative "this question is correct" signal: scored-correct OR fetBypass. */
