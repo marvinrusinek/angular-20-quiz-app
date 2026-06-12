@@ -20,7 +20,15 @@ export function isCurrentOptionCorrect(
   const opt = binding?.option as any;
   if (isOptionCorrect(opt) || binding?.isCorrect === true) return true;
 
-  const question = (quizService as any).questions?.[qIdx];
+  // SHUFFLE-AWARE: in shuffle mode `questions[qIdx]` is the WRONG question
+  // (qIdx is the DISPLAY index). Read from the display-order array so an
+  // unselected option can't text-match a same-named correct option in a
+  // different question and get wrongly painted green on timeout.
+  const svc = quizService as any;
+  const isShuf = svc?.isShuffleEnabled?.()
+    && Array.isArray(svc?.shuffledQuestions)
+    && svc.shuffledQuestions.length > 0;
+  const question = isShuf ? svc?.shuffledQuestions?.[qIdx] : svc?.questions?.[qIdx];
   if (question?.options && opt?.text) {
     const optText = norm(opt.text);
     const match = question.options.find(
