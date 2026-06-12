@@ -313,7 +313,7 @@ export class CqcOrchestratorService {
     // Check FET caches first — but only if the question is resolved.
     // For multi-answer questions, the cache may have been populated by
     // an upstream path before all correct answers were selected.
-    const isResolvedForCache = this.fetGuard.isQuestionResolvedFromStorage(host, idx);
+    const isResolvedForCache = this.isResolvedOrConfirmed(host, idx);
     let cachedFet = isResolvedForCache
       ? ((host.explanationTextService.formattedExplanations?.[idx]?.explanation ?? '').trim()
         || (host.explanationTextService.fetByIndex?.get(idx) ?? '').trim())
@@ -346,6 +346,21 @@ export class CqcOrchestratorService {
    * no quiz data / no FET resolved (caller falls through to its fallbacks).
    * Extracted verbatim.
    */
+  /**
+   * Resolved for FET purposes: storage-resolved OR SOC-confirmed all-correct.
+   * isQuestionResolvedFromStorage misses an all-correct multi-answer in shuffle
+   * (the storage record is keyed/derived differently), which made the FET fall
+   * back to question text even though _multiAnswerPerfect/fetBypass were set on
+   * completion. Honor those authoritative completion signals so a fully-answered
+   * multi-answer actually shows its FET.
+   */
+  private isResolvedOrConfirmed(host: Host, idx: number): boolean {
+    if (this.fetGuard.isQuestionResolvedFromStorage(host, idx)) return true;
+    if (host.quizService?._multiAnswerPerfect?.get?.(idx) === true) return true;
+    if (host.explanationTextService?.fetBypassForQuestion?.get?.(idx) === true) return true;
+    return false;
+  }
+
   private computeOnTheFlyFet(host: Host, idx: number): string {
     try {
       const questions = host.quizService.getQuestionsInDisplayOrder?.()
@@ -353,7 +368,7 @@ export class CqcOrchestratorService {
       const q = questions?.[idx];
       if (q?.explanation && q?.options?.length > 0) {
         // Check resolution to decide FET vs question text
-        const isResolved = this.fetGuard.isQuestionResolvedFromStorage(host, idx);
+        const isResolved = this.isResolvedOrConfirmed(host, idx);
         if (isResolved) {
           const correctIndices = host.explanationTextService.getCorrectOptionIndices(q, q.options, idx);
           if (correctIndices.length > 0) {
