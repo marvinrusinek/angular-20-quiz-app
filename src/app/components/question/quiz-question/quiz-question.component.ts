@@ -218,6 +218,23 @@ export class QuizQuestionComponent extends BaseQuestion
       }
     });
 
+    // COLD-LOAD SELF-HEAL: create the dynamic answer component as soon as BOTH
+    // the options and the #dynamicAnswerContainer are available, in whatever
+    // order they arrive. The payload/nav paths that normally create it can fire
+    // before the container exists (or with empty options) and then never retry,
+    // leaving the options unrendered until a manual refresh (intermittent, worse
+    // on slow envs). This effect tracks only signals loadDynamicComponent does
+    // not mutate, and containerInitialized is a plain field, so it can't loop.
+    effect(() => {
+      const container = this.dynamicAnswerContainer();
+      const opts = this.optionsToDisplay();
+      const cq = this.currentQuestion();
+      if (this.containerInitialized || !container || !cq) return;
+      if (!Array.isArray(opts) || opts.length === 0) return;
+      this.loadDynamicComponent(cq, opts);
+      this.containerInitialized = true;
+    });
+
     // (Removed signal→handleQuestionAndOptionsChange bridge — was interfering
     // with init flow. The inline <codelab-question-answer> in the template
     // now drives options directly via signal bindings.)
