@@ -1,22 +1,29 @@
-import { Injectable, ViewContainerRef, ComponentRef, Type } from '@angular/core';
+import { inject, Injectable, ViewContainerRef, ComponentRef, Type } from '@angular/core';
+
+import { ANSWER_COMPONENT } from '../../tokens/answer-component.token';
 
 @Injectable({ providedIn: 'root' })
 export class DynamicComponentService {
-  // ── properties ──────────────────────────────────────────────────
-  private cachedAnswerComponent: Type<any> | null = null;
-  private loadingPromise: Promise<Type<any>> | null = null;
+  // AnswerComponent is provided eagerly via ANSWER_COMPONENT (from main.ts)
+  // instead of a dynamic import(). The lazy import produced a separate hashed
+  // chunk whose fetch could fail on a cold load ("Failed to fetch dynamically
+  // imported module" — observed in StackBlitz's WebContainer); injecting the
+  // already-bundled class removes the chunk (and the rejected-promise cache)
+  // entirely. The token is provided from the bootstrap entry, so this service
+  // no longer imports AnswerComponent and the circular dependency that broke
+  // bootstrap ("Class extends value undefined") is gone.
+  private readonly answerComponent = inject<Type<any>>(ANSWER_COMPONENT);
 
   // ── public methods ──────────────────────────────────────────────
+  // Kept async so existing `await loadComponent(...)` callers are unchanged.
   public async loadComponent<T>(
     container: ViewContainerRef,
     multipleAnswer: boolean,
     onOptionClicked: (event: any) => void
   ): Promise<ComponentRef<T>> {
-    const AnswerComponent = await this.importComponent();
-
     container.clear();
 
-    const componentRef = container.createComponent(AnswerComponent as Type<T>);
+    const componentRef = container.createComponent(this.answerComponent as Type<T>);
 
     (componentRef.instance as any).isMultipleAnswer = multipleAnswer;
 
@@ -29,37 +36,5 @@ export class DynamicComponentService {
     }
 
     return componentRef;
-  }
-
-  // ── private methods ─────────────────────────────────────────────
-  private async importComponent(): Promise<Type<any>> {
-    // Already cached → instant
-    if (this.cachedAnswerComponent) return this.cachedAnswerComponent;
-
-    // Already loading → wait for same promise
-    if (this.loadingPromise) return this.loadingPromise;
-
-    // First load (real one)
-    this.loadingPromise =
-      import('../../../components/question/answer/answer-component/answer.component').then(
-        (module) => {
-          if (!module?.AnswerComponent) {
-            throw new Error(
-              '[DynamicComponentService] AnswerComponent missing from module'
-            );
-          }
-
-          this.cachedAnswerComponent = module.AnswerComponent;
-          return module.AnswerComponent;
-        }
-      );
-
-    // Do NOT keep a REJECTED loadingPromise — clear it on failure so a later
-    // attempt re-invokes import() instead of replaying the cached rejection.
-    this.loadingPromise.catch(() => {
-      this.loadingPromise = null;
-    });
-
-    return this.loadingPromise;
   }
 }

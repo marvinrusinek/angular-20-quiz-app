@@ -14,6 +14,8 @@ import { firstValueFrom } from 'rxjs';
 
 import { routes } from './app/router/quiz-routing.routes';
 import { AppComponent } from './app/app.component';
+import { AnswerComponent } from './app/components/question/answer/answer-component/answer.component';
+import { ANSWER_COMPONENT } from './app/shared/tokens/answer-component.token';
 import { installGlobalFetWatchdog } from './app/shared/utils/fet-watchdog';
 import { setQuizDataCache } from './app/shared/quiz-data-cache';
 import { Quiz } from './app/shared/models/Quiz.model';
@@ -24,6 +26,11 @@ installGlobalFetWatchdog();
 bootstrapApplication(AppComponent, {
   providers: [
     provideZonelessChangeDetection(),
+    // Provide AnswerComponent eagerly (imported here at the bootstrap entry,
+    // outside the cyclic graph) so DynamicComponentService creates it without a
+    // lazy import() — no separate chunk to fetch (fixes StackBlitz cold-load
+    // "Failed to fetch dynamically imported module"), no circular dependency.
+    { provide: ANSWER_COMPONENT, useValue: AnswerComponent },
     provideClientHydration(withEventReplay()),
     provideHttpClient(withFetch()),
     provideRouter(routes),
