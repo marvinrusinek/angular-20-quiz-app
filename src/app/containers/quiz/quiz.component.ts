@@ -161,28 +161,6 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     // — the cold-load "options never show" bug (worse on slow envs).
     this.quizService.questionsSig();
 
-    // [COLD-DIAG] container-level capture: record the inputs every time this
-    // gate computes, into a window global that survives reloads + console
-    // clears, so a failing cold load (where the question component never
-    // renders and logs nothing) can still be diagnosed via window.__coldDiag.
-    try {
-      const _m = window.location.pathname.match(QUESTION_ROUTE_REGEX);
-      const _urlIdx = _m ? Number(_m[1]) - 1 : -1;
-      const _qs = this.quizService.questions;
-      const _w = window as any;
-      _w.__coldDiag = _w.__coldDiag || [];
-      _w.__coldDiag.push({
-        t: Date.now() % 100000,
-        urlIdx: _urlIdx,
-        questionsLen: Array.isArray(_qs) ? _qs.length : 'n/a',
-        urlQOptsLen: _qs?.[_urlIdx]?.options?.length ?? 0,
-        payloadHasQ: !!payload?.question,
-        payloadOptsLen: Array.isArray(payload?.options) ? payload.options.length : 'n/a',
-        shuffleActive: !!this.quizService.isShuffleEnabled?.()
-      });
-      if (_w.__coldDiag.length > 60) _w.__coldDiag.shift();
-    } catch { /* ignore */ }
-
     // URL-AUTHORITATIVE OVERRIDE: when the user has navigated directly to
     // /question/{quizId}/{N}, the URL is the only source we trust. Any
     // payload whose question doesn't match the URL question is a stale

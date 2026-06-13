@@ -27,10 +27,6 @@ export class QqcOrchQuestionLoadService {
   async runLoadDynamicComponent(host: Host, question: QuizQuestion, options: Option[]): Promise<void> {
     try {
       const container = host.dynamicAnswerContainer?.();
-      console.log('[COLD-DIAG] loadDynamicComponent — question=', !!question,
-        'optsLen=', Array.isArray(options) ? options.length : 'n/a',
-        'container=', !!container,
-        'hasQText=', !!question && ('questionText' in question));
       if (
         !question ||
         !Array.isArray(options) ||
@@ -38,7 +34,6 @@ export class QqcOrchQuestionLoadService {
         !container ||
         !('questionText' in question)
       ) {
-        console.log('[COLD-DIAG] loadDynamicComponent EARLY-RETURN');
         return;
       }
 
@@ -52,7 +47,6 @@ export class QqcOrchQuestionLoadService {
         // (firstValueFrom throws EmptyError if the observable completes without
         // emitting on a cold load). Derive multi-answer synchronously from the
         // question's correct-option count so the component still renders.
-        console.log('[COLD-DIAG] loadDynamicComponent — isMultipleAnswer FELL BACK');
         isMultipleAnswer = (question.options ?? []).filter((o: Option) => isOptionCorrect(o)).length > 1;
       }
 
@@ -65,21 +59,18 @@ export class QqcOrchQuestionLoadService {
           isMultipleAnswer,
           host.onOptionClicked.bind(host)
         );
-      } catch (err: unknown) {
+      } catch {
         // Creation failed — unlatch so the reactive effect retries on the next
         // signal change instead of being permanently stuck (the latch was set
         // by the caller when this was invoked, not when it succeeded).
         host.containerInitialized = false;
-        console.log('[COLD-DIAG] loadDynamicComponent — loadComponent THREW', err);
         return;
       }
       if (!componentRef?.instance) {
         host.containerInitialized = false;
-        console.log('[COLD-DIAG] loadDynamicComponent — NO INSTANCE');
         return;
       }
       const instance = componentRef.instance;
-      console.log('[COLD-DIAG] loadDynamicComponent — INSTANCE CREATED');
 
       const configured = host.questionLoader.configureDynamicInstance({
         instance,
@@ -104,10 +95,9 @@ export class QqcOrchQuestionLoadService {
         host.shouldRenderOptions.set(true);
       }
       try { componentRef.changeDetectorRef.markForCheck(); } catch {}
-    } catch (err: unknown) {
+    } catch {
       // Any failure after entry — unlatch so the effect can retry.
       host.containerInitialized = false;
-      console.log('[COLD-DIAG] loadDynamicComponent — OUTER CATCH', err);
     }
   }
 
@@ -252,8 +242,6 @@ export class QqcOrchQuestionLoadService {
     host.questionsArray.set(loadResult.questionsArray);
     host.currentQuestion.set(loadResult.currentQuestion);
     host.optionsToDisplay.set(loadResult.optionsToDisplay);
-    console.log('[COLD-DIAG] applyLoadResult — cq=', !!loadResult.currentQuestion,
-      'optsLen=', Array.isArray(loadResult.optionsToDisplay) ? loadResult.optionsToDisplay.length : 'n/a');
     host.updateShouldRenderOptions(host.optionsToDisplay());
 
     const banner = host.feedbackManager.computeCorrectAnswersBanner({
