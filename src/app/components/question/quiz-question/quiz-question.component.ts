@@ -1,6 +1,6 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, Component, computed, DestroyRef, 
-  effect, inject, input, model, OnDestroy, OnInit, output,
+  effect, inject, input, model, OnInit, output,
   signal, viewChild, ViewContainerRef
 } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
@@ -54,7 +54,7 @@ const EXPLANATION_PURGE_DELAY_MS = 500;
   }
 })
 export class QuizQuestionComponent extends BaseQuestion
-  implements OnInit, OnDestroy, AfterViewInit {
+  implements OnInit, AfterViewInit {
   // ── injects ─────────────────────────────────────────────────────
   public readonly explanationTextService = inject(ExplanationTextService);
   public readonly nextButtonStateService = inject(NextButtonStateService);
@@ -242,6 +242,12 @@ export class QuizQuestionComponent extends BaseQuestion
     setTimeout(() => {
       this.explanationTextService.purgeAndDefer(99);
     }, EXPLANATION_PURGE_DELAY_MS);
+
+    this.destroyRef.onDestroy(() => {
+      this._isDestroyed = true;
+      this._abortController?.abort();
+      this.componentOrchestrator.runOnDestroy(this);
+    });
   }
 
   override async ngOnInit(): Promise<void> {
@@ -250,12 +256,6 @@ export class QuizQuestionComponent extends BaseQuestion
 
   async ngAfterViewInit(): Promise<void> {
     return this.componentOrchestrator.runAfterViewInit(this);
-  }
-
-  ngOnDestroy(): void {
-    this._isDestroyed = true;
-    this._abortController?.abort();
-    this.componentOrchestrator.runOnDestroy(this);
   }
 
   /** Alias so host:any callers (quiz-setup, qqc-orch-lifecycle) still resolve. */

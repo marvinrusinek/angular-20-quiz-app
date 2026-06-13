@@ -1,6 +1,6 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef,
-  DoCheck, inject, input, OnDestroy, OnInit, output, signal
+  DoCheck, inject, input, OnInit, output, signal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
@@ -73,7 +73,7 @@ import { SharedOptionConfigDirective } from '../../../../directives/shared-optio
   }
 })
 export class SharedOptionComponent
-    implements OnInit, DoCheck, OnDestroy, AfterViewInit {
+    implements OnInit, DoCheck, AfterViewInit {
   // ── injects ─────────────────────────────────────────────────────
   private readonly bindingService = inject(SharedOptionBindingService);
   public readonly clickHandler = inject(OptionClickHandlerService);
@@ -249,6 +249,10 @@ export class SharedOptionComponent
     // owned by OptionFeedbackEffectsService. Registered LAST so overall
     // effect-creation order is preserved.
     this.optionFeedbackEffects.registerFeedbackEffects(this);
+
+    this.destroyRef.onDestroy(() => {
+      this.orchestrator.runOnDestroy(this);
+    });
   }
 
   // ── lifecycle hooks ─────────────────────────────────────────────
@@ -258,10 +262,6 @@ export class SharedOptionComponent
 
   ngAfterViewInit(): void {
     this.orchestrator.runAfterViewInit(this);
-  }
-
-  ngOnDestroy(): void {
-    this.orchestrator.runOnDestroy(this);
   }
 
   ngDoCheck(): void {

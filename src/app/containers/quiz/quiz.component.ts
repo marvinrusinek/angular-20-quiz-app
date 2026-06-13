@@ -6,7 +6,6 @@ import {
   computed,
   DestroyRef,
   inject,
-  OnDestroy,
   OnInit,
   signal,
   viewChild,
@@ -91,7 +90,7 @@ type AnimationState = 'animationStarted' | 'none';
     '(window:resize)': 'onResize()'
   }
 })
-export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
+export class QuizComponent implements OnInit, AfterViewInit {
   // ── injects ─────────────────────────────────────────────────────
   private readonly dialog = inject(MatDialog);
   private readonly dotStatusService = inject(QuizDotStatusService);
@@ -279,6 +278,11 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
 
   constructor() {
     this.quizSetupService.wireConstructor(this);
+
+    this.destroyRef.onDestroy(() => {
+      this.removeScrollIndicator();
+      this.quizSetupService.runOnDestroy(this);
+    });
   }
 
   async ngOnInit(): Promise<void> {
@@ -287,11 +291,6 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
 
   async ngAfterViewInit(): Promise<void> {
     return this.quizSetupService.runAfterViewInit(this);
-  }
-
-  ngOnDestroy(): void {
-    this.removeScrollIndicator();
-    this.quizSetupService.runOnDestroy(this);
   }
 
   async onGlobalKey(event: KeyboardEvent): Promise<void> {

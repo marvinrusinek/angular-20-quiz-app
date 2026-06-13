@@ -1,6 +1,6 @@
 import {
   ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, effect,
-  ElementRef, inject, input, OnDestroy, OnInit, output, Renderer2, signal, untracked, viewChild
+  ElementRef, inject, input, OnInit, output, Renderer2, signal, untracked, viewChild
 } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
@@ -36,7 +36,7 @@ import { QuizQuestionComponent } from
   styleUrls: ['./codelab-quiz-content.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class CodelabQuizContentComponent implements OnInit, OnDestroy {
+export class CodelabQuizContentComponent implements OnInit {
   // ── injects ─────────────────────────────────────────────────────
   private readonly displayService = inject(QuizContentDisplayService);
   public readonly explanationTextService = inject(ExplanationTextService);
@@ -199,6 +199,11 @@ export class CodelabQuizContentComponent implements OnInit, OnDestroy {
       if ((el.innerHTML ?? '') === html) return;
       this.renderer.setProperty(el, 'innerHTML', html);
     });
+
+    this.destroyRef.onDestroy(() => {
+      // FET watchdog cleanup is handled by orchestrator.runOnDestroy via fetGuard.
+      this.orchestrator.runOnDestroy(this);
+    });
   }
 
   async ngOnInit(): Promise<void> {
@@ -206,11 +211,6 @@ export class CodelabQuizContentComponent implements OnInit, OnDestroy {
     const result = this.orchestrator.runOnInit(this);
     this.orchestrator.runInstallFetWatchdog(this);
     return result;
-  }
-
-  ngOnDestroy(): void {
-    // FET watchdog cleanup is handled by orchestrator.runOnDestroy via fetGuard.
-    this.orchestrator.runOnDestroy(this);
   }
 
   setCombinedQuestionData$(v: Observable<CombinedQuestionDataType> | null): void { this._combinedQuestionDataSig.set(v); }
