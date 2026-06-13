@@ -17,6 +17,7 @@ import { QuizShuffleService } from '../flow/quiz-shuffle.service';
 import { getQuizData, getQuizResources } from '../../quiz-data-cache';
 import { isOptionCorrect } from '../../utils/is-option-correct';
 import { Utils } from '../../utils/utils';
+import { swallow } from '../../utils/error-logging';
 
 @Injectable({ providedIn: 'root' })
 export class QuizDataLoaderService {
@@ -253,7 +254,7 @@ export class QuizDataLoaderService {
           try {
             localStorage.removeItem(SK_SHUFFLED_QUESTIONS);
             localStorage.removeItem(SK_SHUFFLED_QUESTIONS_QUIZ_ID);
-          } catch { }
+          } catch (err: unknown) { swallow('quiz-data-loader.service.ts', err); }
         }
       }
     }
@@ -343,7 +344,7 @@ export class QuizDataLoaderService {
     try {
       localStorage.setItem(SK_SHUFFLED_QUESTIONS, JSON.stringify(shuffled));
       localStorage.setItem(SK_SHUFFLED_QUESTIONS_QUIZ_ID, quizId);
-    } catch { }
+    } catch (err: unknown) { swallow('quiz-data-loader.service.ts', err); }
 
     questionsSig.set(shuffled);
     return shuffled;
@@ -367,7 +368,7 @@ export class QuizDataLoaderService {
       localStorage.setItem('checkedShuffle', String(isChecked));
       localStorage.removeItem(SK_SHUFFLED_QUESTIONS);
       localStorage.removeItem(SK_SHUFFLED_QUESTIONS_QUIZ_ID);
-    } catch { }
+    } catch (err: unknown) { swallow('quiz-data-loader.service.ts', err); }
 
     this.quizShuffleService.clearAll();
     this.shuffledQuestions = [];

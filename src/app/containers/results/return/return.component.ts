@@ -15,6 +15,7 @@ import { QuizService } from '../../../shared/services/data/quiz.service';
 import { SelectedOptionService } from '../../../shared/services/state/selectedoption.service';
 import { ThemeService } from '../../../shared/services/ui/theme.service';
 import { TimerService } from '../../../shared/services/features/timer/timer.service';
+import { swallow } from '../../../shared/utils/error-logging';
 
 @Component({
   selector: 'codelab-results-return',
@@ -153,7 +154,7 @@ export class ReturnComponent implements OnInit {
       this.clearQuizProgressLocalStorage();
 
       sessionStorage.setItem('freshStartFromResults', 'true');
-    } catch {}
+    } catch (err: unknown) { swallow('return.component.ts', err); }
   }
 
   private clearQuestionSessionStorage(): void {
@@ -201,6 +202,6 @@ export class ReturnComponent implements OnInit {
   private clearResultsUiState(): void {
     try {
       sessionStorage.removeItem('resultsActiveSection');
-    } catch {}
+    } catch (err: unknown) { swallow('return.component.ts', err); }
   }
 }

@@ -8,6 +8,7 @@ import { QuizStatus } from '../../models/quiz-status.enum';
 import { QuizDataService } from '../data/quizdata.service';
 import { QuizService } from '../data/quiz.service';
 import { SelectedOptionService } from './selectedoption.service';
+import { swallow } from '../../utils/error-logging';
 
 /**
  * Manages localStorage/sessionStorage persistence for quiz dot status,
@@ -56,7 +57,7 @@ export class QuizPersistenceService {
         const n = Number(raw);
         if (Number.isFinite(n) && n >= 0) return Math.trunc(n);
       }
-    } catch { }
+    } catch (err: unknown) { swallow('quiz-persistence.service.ts', err); }
     return null;
   }
 
@@ -69,7 +70,7 @@ export class QuizPersistenceService {
       for (const key of keys) {
         localStorage.setItem(key, String(Math.max(0, Math.trunc(value))));
       }
-    } catch { }
+    } catch (err: unknown) { swallow('quiz-persistence.service.ts', err); }
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -112,7 +113,7 @@ export class QuizPersistenceService {
         parsed[String(index)] = status;
         localStorage.setItem(key, JSON.stringify(parsed));
       }
-    } catch { }
+    } catch (err: unknown) { swallow('quiz-persistence.service.ts', err); }
   }
 
   clearPersistedDotStatus(quizId: string, index: number): void {
@@ -130,7 +131,7 @@ export class QuizPersistenceService {
           localStorage.setItem(key, JSON.stringify(parsed));
         }
       }
-    } catch { }
+    } catch (err: unknown) { swallow('quiz-persistence.service.ts', err); }
   }
 
   /** Remove ALL persisted dot status entries (used on quiz restart). */
@@ -141,7 +142,7 @@ export class QuizPersistenceService {
         'quiz_dot_status_default',
       ]));
       for (const key of keys) localStorage.removeItem(key);
-    } catch { }
+    } catch (err: unknown) { swallow('quiz-persistence.service.ts', err); }
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -154,14 +155,14 @@ export class QuizPersistenceService {
     for (const [key] of this.selectedOptionService.clickConfirmedDotStatus) {
       try {
         sessionStorage.removeItem(SK_DOT_CONFIRMED + key);
-      } catch {}
+      } catch (err: unknown) { swallow('quiz-persistence.service.ts', err); }
     }
     // Also sweep any orphaned session keys (up to totalQuestions)
     const total = totalQuestions || 20;
     for (let i = 0; i < total; i++) {
       try {
         sessionStorage.removeItem(SK_DOT_CONFIRMED + i);
-      } catch {}
+      } catch (err: unknown) { swallow('quiz-persistence.service.ts', err); }
     }
     this.selectedOptionService.clickConfirmedDotStatus.clear();
   }
@@ -213,7 +214,7 @@ export class QuizPersistenceService {
         }
       }
       for (const key of lsKeysToRemove) localStorage.removeItem(key);
-    } catch {}
+    } catch (err: unknown) { swallow('quiz-persistence.service.ts', err); }
   }
 
   // ═══════════════════════════════════════════════════════════════

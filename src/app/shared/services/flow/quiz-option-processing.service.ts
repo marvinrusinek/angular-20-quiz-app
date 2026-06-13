@@ -17,6 +17,7 @@ import { writeSessionString } from '../../utils/session-storage';
 
 import { isOptionCorrect } from '../../utils/is-option-correct';
 import { norm } from '../../utils/text-norm';
+import { swallow } from '../../utils/error-logging';
 
 /**
  * Result of evaluating immediate correctness for an option click.
@@ -215,7 +216,7 @@ export class QuizOptionProcessingService {
           if (correctCountForQuestion > 1) break;
         }
       }
-    } catch { /* ignore */ }
+    } catch (err: unknown) { swallow('quiz-option-processing.service.ts', err); /* ignore */ }
 
     const isSingleAnswerQuestion = correctCountForQuestion === 1;
 
@@ -448,7 +449,7 @@ export class QuizOptionProcessingService {
         const selTexts = new Set(currentSelections.map((s: any) => norm(s?.text)).filter((t: string) => !!t));
         rawAllCorrectSelected = pristineCorrectTexts.every((t: string) => selTexts.has(t));
       }
-    } catch { /* trust canonical */ }
+    } catch (err: unknown) { swallow('quiz-option-processing.service.ts', err); /* trust canonical */ }
     return rawAllCorrectSelected;
   }
 
@@ -633,6 +634,6 @@ export class QuizOptionProcessingService {
           sessionStorage.setItem(SK_DOT_CONFIRMED + idx, clickedCorrect ? 'correct' : 'wrong');
         }
       }
-    } catch {}
+    } catch (err: unknown) { swallow('quiz-option-processing.service.ts', err); }
   }
 }

@@ -11,6 +11,7 @@ import { QuizService } from '../data/quiz.service';
 
 import { isOptionCorrect } from '../../utils/is-option-correct';
 import { norm } from '../../utils/text-norm';
+import { swallow } from '../../utils/error-logging';
 
 export interface ResolutionStatus {
   resolved: boolean;
@@ -163,7 +164,7 @@ export class AnswerEvaluationService {
           }
         }
       }
-    } catch { /* ignore and keep original */ }
+    } catch (err: unknown) { swallow('answer-evaluation.service.ts', err); /* ignore and keep original */ }
     return questionOptions;
   }
 

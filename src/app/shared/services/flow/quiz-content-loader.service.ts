@@ -20,6 +20,7 @@ import { QuizStateService } from '../state/quizstate.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
 
 import { isOptionCorrect } from '../../utils/is-option-correct';
+import { swallow } from '../../utils/error-logging';
 
 /**
  * Result from fetchAndSetQuestionData preparation.
@@ -248,8 +249,7 @@ export class QuizContentLoaderService {
           o.showIcon = false;
         }
       }
-    } catch {
-    }
+    } catch (err: unknown) { swallow('quiz-content-loader.service.ts', err); }
   }
 
   enableAllOptionPointerEvents(): void {
@@ -345,11 +345,11 @@ export class QuizContentLoaderService {
       try {
         const key = `dot_status_${quizId}_${leavingIdx}`;
         localStorage.setItem(key, leavingStatus);
-      } catch { }
+      } catch (err: unknown) { swallow('quiz-content-loader.service.ts', err); }
       this.selectedOptionService.clickConfirmedDotStatus.set(leavingIdx, leavingStatus);
       try { 
         sessionStorage.setItem(SK_DOT_CONFIRMED + leavingIdx, leavingStatus);
-      } catch { }
+      } catch (err: unknown) { swallow('quiz-content-loader.service.ts', err); }
     }
   }
 

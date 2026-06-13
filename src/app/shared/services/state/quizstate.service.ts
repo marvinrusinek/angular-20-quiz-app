@@ -11,6 +11,7 @@ import { QuestionState } from '../../models/QuestionState.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 
 import { isOptionCorrect } from '../../utils/is-option-correct';
+import { swallow } from '../../utils/error-logging';
 
 @Injectable({ providedIn: 'root' })
 export class QuizStateService {
@@ -118,7 +119,7 @@ export class QuizStateService {
             currentUrlIdx = oneBased - 1;
           }
         }
-      } catch { /* ignore */ }
+      } catch (err: unknown) { swallow('quizstate.service.ts', err); /* ignore */ }
 
       const restore = (key: string, target: Set<number>) => {
         const raw = sessionStorage.getItem(key);
@@ -153,8 +154,8 @@ export class QuizStateService {
           this.ANSWERED_STORAGE_KEY,
           JSON.stringify(Array.from(this._answeredQuestionIndices))
         );
-      } catch { /* ignore */ }
-    } catch { /* ignore */ }
+      } catch (err: unknown) { swallow('quizstate.service.ts', err); /* ignore */ }
+    } catch (err: unknown) { swallow('quizstate.service.ts', err); /* ignore */ }
   }
 
   public persistInteractionState(): void {
@@ -167,7 +168,7 @@ export class QuizStateService {
         this.ANSWERED_STORAGE_KEY,
         JSON.stringify(Array.from(this._answeredQuestionIndices))
       );
-    } catch { /* ignore */ }
+    } catch (err: unknown) { swallow('quizstate.service.ts', err); /* ignore */ }
   }
 
   setDisplayState(state: {
@@ -498,7 +499,7 @@ export class QuizStateService {
             currentUrlIdx = oneBased - 1;
           }
         }
-      } catch { /* ignore */ }
+      } catch (err: unknown) { swallow('quizstate.service.ts', err); /* ignore */ }
       if (currentUrlIdx === null) return;
       // Only seed if sessionStorage says this exact idx was answered.
       // Check multiple evidence sources because QuizStateService.reset()
@@ -515,18 +516,18 @@ export class QuizStateService {
             const parsed = JSON.parse(selRaw);
             if (Array.isArray(parsed) && parsed.length > 0) hasEvidence = true;
           }
-        } catch { /* ignore */ }
+        } catch (err: unknown) { swallow('quizstate.service.ts', err); /* ignore */ }
       }
       if (!hasEvidence) {
         try {
           const dot = sessionStorage.getItem(SK_DOT_CONFIRMED + currentUrlIdx);
           if (dot === 'correct' || dot === 'wrong') hasEvidence = true;
-        } catch { /* ignore */ }
+        } catch (err: unknown) { swallow('quizstate.service.ts', err); /* ignore */ }
       }
       if (hasEvidence) {
         this._clickedInSession.add(currentUrlIdx);
       }
-    } catch { /* ignore */ }
+    } catch (err: unknown) { swallow('quizstate.service.ts', err); /* ignore */ }
   }
 
   clearClickedInSession(): void {
@@ -548,7 +549,7 @@ export class QuizStateService {
     try {
       sessionStorage.removeItem(this.INTERACTED_STORAGE_KEY);
       sessionStorage.removeItem(this.ANSWERED_STORAGE_KEY);
-    } catch { /* ignore */ }
+    } catch (err: unknown) { swallow('quizstate.service.ts', err); /* ignore */ }
     this.userHasInteractedSig.set(-1);  // Reset so stale index doesn't falsely pass hasInteracted checks
     this.currentQuestionSig.set(null);
     this.explanationReadySig.set(false);

@@ -5,6 +5,7 @@ import { SK_DOT_CONFIRMED, SK_SEL_Q, SK_SELECTED_OPTIONS_MAP } from '../../const
 import { SelectedOption } from '../../models/SelectedOption.model';
 
 import { norm } from '../../utils/text-norm';
+import { swallow } from '../../utils/error-logging';
 
 /**
  * The subset of SelectedOptionService state that the persistence layer
@@ -59,7 +60,7 @@ export class SelectionPersistenceService {
             }
           }
         }
-      } catch { /* ignore */ }
+      } catch (err: unknown) { swallow('selection-persistence.service.ts', err); /* ignore */ }
 
       if (ctx.selectedOptionsMap.size > 0) {
         ctx._refreshBackup = new Map(ctx.selectedOptionsMap);
@@ -82,7 +83,7 @@ export class SelectionPersistenceService {
         this.clearStaleSessionData(ctx);
       }
 
-    } catch {    }
+    } catch (err: unknown) { swallow('selection-persistence.service.ts', err); }
   }
 
   private restoreFromRefresh(ctx: SelectionStateContext): void {
@@ -117,7 +118,7 @@ export class SelectionPersistenceService {
               sessionStorage.removeItem(SK_SEL_Q + i);
             }
           }
-        } catch { /* ignore */ }
+        } catch (err: unknown) { swallow('selection-persistence.service.ts', err); /* ignore */ }
       }
     }
     if (ctx.selectedOptionsMap.size > 0) {
@@ -161,7 +162,7 @@ export class SelectionPersistenceService {
         ...ctx._selectionHistory.keys()
       ]);
       for (const idx of durableIndices) this.mergeAndPersistQuestion(ctx, idx);
-    } catch { }
+    } catch (err: unknown) { swallow('selection-persistence.service.ts', err); }
   }
 
   private mergeAndPersistQuestion(ctx: SelectionStateContext, idx: number): void {
@@ -175,7 +176,7 @@ export class SelectionPersistenceService {
         const parsed = JSON.parse(priorRaw);
         if (Array.isArray(parsed)) fromPrior = parsed;
       }
-    } catch { /* ignore */ }
+    } catch (err: unknown) { swallow('selection-persistence.service.ts', err); /* ignore */ }
 
     const merged = new Map<string, any>();
 
@@ -229,7 +230,7 @@ export class SelectionPersistenceService {
       const existing = JSON.parse(localStorage.getItem(key) || '{}');
       existing[questionIndex] = selections;
       localStorage.setItem(key, JSON.stringify(existing));
-    } catch { /* ignore */ }
+    } catch (err: unknown) { swallow('selection-persistence.service.ts', err); /* ignore */ }
   }
 
   recoverAnswersForResults(rawSelectionsMap: Map<number, { optionId: number; text: string }[]>): void {
@@ -246,13 +247,13 @@ export class SelectionPersistenceService {
           }
         }
       }
-    } catch { /* ignore */ }
+    } catch (err: unknown) { swallow('selection-persistence.service.ts', err); /* ignore */ }
   }
 
   clearAnswersForResults(): void {
     try {
       localStorage.removeItem('quizAnswersForResults');
-    } catch { /* ignore */ }
+    } catch (err: unknown) { swallow('selection-persistence.service.ts', err); /* ignore */ }
   }
 
   // ── Session key cleanup ────────────────────────────────────

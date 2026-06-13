@@ -26,6 +26,7 @@ import { SK_CORRECT_ANSWERS_COUNT, SK_SAVED_QUESTION_INDEX, SK_SELECTED_OPTIONS_
 import { withCorrectCountBanner } from '../../utils/correct-count-banner';
 import { isOptionCorrect } from '../../utils/is-option-correct';
 import { norm } from '../../utils/text-norm';
+import { swallow } from '../../utils/error-logging';
 
 /** Delay before clearing the backward-navigation signal after a Previous click. */
 const PREVIOUS_NAV_SIGNAL_RESET_DELAY_MS = 500;
@@ -118,7 +119,7 @@ export class QuizNavigationService {
       (this as any).displayExplanation = false;
       (this as any).explanationToDisplay = '';
       this.explanationTextService.setShouldDisplayExplanation(false);
-    } catch { }
+    } catch (err: unknown) { swallow('quiz-navigation.service.ts', err); }
 
     const result = await this.navigateWithOffset(-1);
 
@@ -231,7 +232,7 @@ export class QuizNavigationService {
         const isShuf = qs?.isShuffleEnabled?.() && qs?.shuffledQuestions?.length > 0;
         if (isShuf) {
           let eqId = qs?.quizId || '';
-          if (!eqId) { try { eqId = localStorage.getItem('lastQuizId') || ''; } catch {} }
+          if (!eqId) { try { eqId = localStorage.getItem('lastQuizId') || ''; } catch (err: unknown) { swallow('quiz-navigation.service.ts', err); } }
           if (eqId) {
             const origIdx = qs?.scoringService?.quizShuffleService?.toOriginalIndex?.(eqId, idx);
             if (typeof origIdx === 'number' && origIdx >= 0) {
@@ -239,7 +240,7 @@ export class QuizNavigationService {
             }
           }
         }
-      } catch { /* ignore */ }
+      } catch (err: unknown) { swallow('quiz-navigation.service.ts', err); /* ignore */ }
       return false;
     };
     const _scoredDest = _isScoredAt(index);
@@ -404,7 +405,7 @@ export class QuizNavigationService {
           localStorage.removeItem(SK_SELECTED_OPTIONS_MAP);
           localStorage.removeItem(SK_USER_ANSWERS);
           sessionStorage.removeItem(SK_SELECTED_OPTIONS_MAP);
-        } catch { }
+        } catch (err: unknown) { swallow('quiz-navigation.service.ts', err); }
       }
 
       // Always ensure the quiz session is hydrated before attempting to access questions.
@@ -566,7 +567,7 @@ export class QuizNavigationService {
     // Drop any lingering question text
     try {
       this.quizQuestionLoaderService?.questionToDisplaySig?.set('');
-    } catch { }
+    } catch (err: unknown) { swallow('quiz-navigation.service.ts', err); }
 
     // Reset to question mode so next frame starts clean
     this.quizStateService.setDisplayState({
@@ -628,7 +629,7 @@ export class QuizNavigationService {
         const banner = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(numCorrect, totalOpts);
         targetQText = withCorrectCountBanner(rawQText, banner);
       }
-    } catch { }
+    } catch (err: unknown) { swallow('quiz-navigation.service.ts', err); }
     return targetQText;
   }
 
@@ -637,7 +638,7 @@ export class QuizNavigationService {
   private installNavLockObserver(h3: HTMLElement, targetQText: string, rawQText: string): void {
     const w: any = window;
     if (w.__navLockObserver) {
-      try { w.__navLockObserver.disconnect(); } catch { }
+      try { w.__navLockObserver.disconnect(); } catch (err: unknown) { swallow('quiz-navigation.service.ts', err); }
     }
     if (w.__navLockTimer) clearTimeout(w.__navLockTimer);
 
@@ -675,7 +676,7 @@ export class QuizNavigationService {
       observer.observe(h3, { childList: true, characterData: true, subtree: true });
       w.__navLockObserver = observer;
       w.__navLockTimer = setTimeout(() => {
-        try { observer.disconnect(); } catch { }
+        try { observer.disconnect(); } catch (err: unknown) { swallow('quiz-navigation.service.ts', err); }
         w.__navLockObserver = null;
         w.__navLockTimer = null;
       }, NAV_LOCK_OBSERVER_DURATION_MS);

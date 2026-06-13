@@ -8,6 +8,7 @@ import { ExplanationTextService } from '../features/explanation/explanation-text
 import { QuestionStateResult } from './quiz-content-loader.service';
 import { QuizService } from '../data/quiz.service';
 import { QuizStateService } from '../state/quizstate.service';
+import { swallow } from '../../utils/error-logging';
 
 /**
  * Handles FET gate control, explanation preparation, and explanation state evaluation.
@@ -27,7 +28,7 @@ export class QclFetGateService {
     try {
       ets._fetLocked = true;
       ets.purgeAndDefer(adjustedIndex);
-    } catch { }
+    } catch (err: unknown) { swallow('qcl-fet-gate.service.ts', err); }
   }
 
   resetDisplayExplanationText(currentQuestionIndex: number): void {
@@ -205,8 +206,7 @@ export class QclFetGateService {
       ets.setIsExplanationTextDisplayed(false);
       ets.formattedExplanationSig.set('');
       requestAnimationFrame(() => ets.emitFormatted(-1, null));
-    } catch {
-    }
+    } catch (err: unknown) { swallow('qcl-fet-gate.service.ts', err); }
   }
 
   seedFirstQuestionText(): void {
@@ -222,8 +222,7 @@ export class QclFetGateService {
       }
       this.explanationTextService.setShouldDisplayExplanation(false);
       this.explanationTextService.setIsExplanationTextDisplayed(false);
-    } catch {
-    }
+    } catch (err: unknown) { swallow('qcl-fet-gate.service.ts', err); }
   }
 
   resolveExplanationChange(

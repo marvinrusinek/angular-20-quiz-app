@@ -26,6 +26,7 @@ import { BackToTopComponent } from '../../components/back-to-top/back-to-top.com
 import { ScrollDownIndicatorComponent } from '../../components/scroll-down-indicator/scroll-down-indicator.component';
 
 import { SlideLeftToRightAnimation } from '../../animations/animations';
+import { swallow } from '../../shared/utils/error-logging';
 
 @Component({
   selector: 'codelab-quiz-selection',
@@ -278,7 +279,7 @@ export class QuizSelectionComponent implements OnInit {
       // needing a route round-trip back to the selection page.
       const accessedSet = new Set([...completed, ...started]);
       this.accessedCount.set(accessedSet.size);
-    } catch { /* ignore storage failures */ }
+    } catch (err: unknown) { swallow('quiz-selection.component.ts', err); /* ignore storage failures */ }
   }
 
   // Load quizzes once – replaces constructor side-effect

@@ -16,6 +16,7 @@ import { norm } from '../../../utils/text-norm';
 import { QuizService } from '../../data/quiz.service';
 import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
+import { swallow } from '../../../utils/error-logging';
 
 const START_MSG = 'Please start the quiz by selecting an option.';
 const CONTINUE_MSG = 'Please select an option to continue...';
@@ -130,14 +131,14 @@ export class SelectionMessageService {
       if (isShuf) {
         let eqId = qs?.quizId || '';
         if (!eqId) {
-          try { eqId = localStorage.getItem('lastQuizId') || ''; } catch { /* ignore */ }
+          try { eqId = localStorage.getItem('lastQuizId') || ''; } catch (err: unknown) { swallow('selection-message.service.ts', err); /* ignore */ }
         }
         if (eqId) {
           const mapped = qs?.scoringService?.quizShuffleService?.toOriginalIndex?.(eqId, idx);
           if (typeof mapped === 'number' && mapped >= 0) origIdx = mapped;
         }
       }
-    } catch { /* ignore */ }
+    } catch (err: unknown) { swallow('selection-message.service.ts', err); /* ignore */ }
 
     // Single authoritative probe: only marked when this session's pushMessage
     // already recorded a real completion message for this idx. No reliance on
@@ -163,14 +164,14 @@ export class SelectionMessageService {
       if (isShuf) {
         let eqId = qs?.quizId || '';
         if (!eqId) {
-          try { eqId = localStorage.getItem('lastQuizId') || ''; } catch { /* ignore */ }
+          try { eqId = localStorage.getItem('lastQuizId') || ''; } catch (err: unknown) { swallow('selection-message.service.ts', err); /* ignore */ }
         }
         if (eqId) {
           const mapped = qs?.scoringService?.quizShuffleService?.toOriginalIndex?.(eqId, idx);
           if (typeof mapped === 'number' && mapped >= 0) origIdx = mapped;
         }
       }
-    } catch { /* ignore */ }
+    } catch (err: unknown) { swallow('selection-message.service.ts', err); /* ignore */ }
     return this.quizStateService.isQuestionAnswered?.(idx) === true
       || qs?.questionCorrectness?.get?.(idx) === true
       || (origIdx >= 0 && qs?.questionCorrectness?.get?.(origIdx) === true)

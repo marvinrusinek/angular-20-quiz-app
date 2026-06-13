@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { auditTime, distinctUntilChanged, filter, shareReplay } from 'rxjs/operators';
 
 import { SK_SAVED_QUESTION_INDEX } from '../../constants/session-keys';
+import { swallow } from '../../utils/error-logging';
 
 /**
  * Holds the user-facing banner texts that sit above/below the question:
@@ -50,14 +51,14 @@ export class QuizBannerService {
 
     try {
       localStorage.setItem('correctAnswersText', text);
-    } catch { /* localStorage may be full / unavailable */ }
+    } catch (err: unknown) { swallow('quiz-banner.service.ts', err); /* localStorage may be full / unavailable */ }
   }
 
   clearStoredCorrectAnswersText(): void {
     try {
       localStorage.removeItem('correctAnswersText');
       this.correctAnswersCountTextSig.set('');
-    } catch { /* ignore */ }
+    } catch (err: unknown) { swallow('quiz-banner.service.ts', err); /* ignore */ }
   }
 
   // ── Question-number badge ──────────────────────────────────────────

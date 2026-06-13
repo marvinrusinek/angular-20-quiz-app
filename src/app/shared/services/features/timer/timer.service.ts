@@ -11,6 +11,7 @@ import { QuizService } from '../../data/quiz.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 import { readSessionJson } from '../../../utils/session-storage';
 import { isOptionCorrect } from '../../../utils/is-option-correct';
+import { swallow } from '../../../utils/error-logging';
 
 interface StopTimerAttemptOptions {
   questionIndex?: number,
@@ -294,7 +295,7 @@ export class TimerService implements OnDestroy {
     // Fire sound (or any UX) BEFORE stopping so teardown doesn't stop it
     try {
       options.onBeforeStop?.();
-    } catch { }
+    } catch (err: unknown) { swallow('timer.service.ts', err); }
 
     try {
       // Stop the timer with force AND bypass anti-thrash. Anti-thrash

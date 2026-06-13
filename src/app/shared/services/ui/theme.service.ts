@@ -1,4 +1,5 @@
 import { computed, effect, Injectable, signal } from '@angular/core';
+import { swallow } from '../../utils/error-logging';
 
 export type Theme = 'light' | 'dark';
 
@@ -22,7 +23,7 @@ export class ThemeService {
       document.documentElement.setAttribute('data-theme', t);
       try {
         localStorage.setItem(ThemeService.STORAGE_KEY, t);
-      } catch {}
+      } catch (err: unknown) { swallow('theme.service.ts', err); }
     });
   }
 
@@ -36,7 +37,7 @@ export class ThemeService {
     try {
       const stored = localStorage.getItem(ThemeService.STORAGE_KEY);
       if (stored === 'dark' || stored === 'light') return stored;
-    } catch {}
+    } catch (err: unknown) { swallow('theme.service.ts', err); }
     if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
       return 'dark';
     }

@@ -8,6 +8,8 @@
  * so the failure mode can be handled explicitly.
  */
 
+import { swallow } from './error-logging';
+
 /**
  * Read a JSON value from sessionStorage. Returns `fallback` when:
  *   - the key isn't present
@@ -28,7 +30,7 @@ export function readSessionJson<T>(key: string, fallback: T): T {
 export function writeSessionJson(key: string, value: unknown): void {
   try {
     sessionStorage.setItem(key, JSON.stringify(value));
-  } catch { /* ignore */ }
+  } catch (err: unknown) { swallow('session-storage.ts', err); /* ignore */ }
 }
 
 /** Read a raw string from sessionStorage. Returns `fallback` on miss / error. */
@@ -44,12 +46,12 @@ export function readSessionString(key: string, fallback = ''): string {
 export function writeSessionString(key: string, value: string): void {
   try {
     sessionStorage.setItem(key, value);
-  } catch { /* ignore */ }
+  } catch (err: unknown) { swallow('session-storage.ts', err); /* ignore */ }
 }
 
 /** Remove a key from sessionStorage. Errors are swallowed. */
 export function removeSessionKey(key: string): void {
   try {
     sessionStorage.removeItem(key);
-  } catch { /* ignore */ }
+  } catch (err: unknown) { swallow('session-storage.ts', err); /* ignore */ }
 }

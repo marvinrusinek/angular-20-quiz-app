@@ -33,7 +33,7 @@ import { removeSessionKey } from '../../utils/session-storage';
 
 import { QUESTION_ROUTE_REGEX } from '../../constants/route-patterns';
 import { isOptionCorrect } from '../../utils/is-option-correct';
-import { reportError } from '../../utils/error-logging';
+import { reportError, swallow } from '../../utils/error-logging';
 import { norm } from '../../utils/text-norm';
 
 type Host = QuizComponent;
@@ -319,7 +319,7 @@ export class QuizSetupService {
             if (mo) clickedIsCorrectForFET = isOptionCorrect(mo);
           }
         }
-      } catch { /* ignore */ }
+      } catch (err: unknown) { swallow('quiz-setup.service.ts', err); /* ignore */ }
     }
     if (!isMultiAnswer && clickedIsCorrectForFET) {
       this.showExplanationForQuestion(host, idx);
@@ -441,13 +441,13 @@ export class QuizSetupService {
       sessionStorage.removeItem('answeredQuestionIndices');
       sessionStorage.removeItem('quizProgress');
       sessionStorage.removeItem('quizProgressQuizId');
-    } catch {}
+    } catch (err: unknown) { swallow('quiz-setup.service.ts', err); }
     try {
       this.quizStateService._hasUserInteracted?.clear?.();
       this.quizStateService._answeredQuestionIndices?.clear?.();
       this.quizStateService._clickedInSession?.clear?.();
       this.quizStateService.persistInteractionState?.();
-    } catch {}
+    } catch (err: unknown) { swallow('quiz-setup.service.ts', err); }
 
     this.router.navigate(['/quiz/question', host.quizId(), 1])
       .then(() => {
@@ -564,7 +564,7 @@ subscribeToTimerExpiry(host: Host): void {
         correctCount = pOpts.length;
         correctTexts = pOpts.map((o: any) => norm(o?.text)).filter((t: string) => !!t);
       }
-    } catch { /* ignore */ }
+    } catch (err: unknown) { swallow('quiz-setup.service.ts', err); /* ignore */ }
     if (correctCount === 0) {
       const rawOpts: any[] = rawQ?.options ?? [];
       correctCount = rawOpts.filter(
@@ -587,7 +587,7 @@ subscribeToTimerExpiry(host: Host): void {
       if (isShuf && scoringSvc?.questionCorrectness) {
         let effectiveQuizId = this.quizService?.quizId || '';
         if (!effectiveQuizId) {
-          try { effectiveQuizId = localStorage.getItem('lastQuizId') || ''; } catch {}
+          try { effectiveQuizId = localStorage.getItem('lastQuizId') || ''; } catch (err: unknown) { swallow('quiz-setup.service.ts', err); }
         }
         if (effectiveQuizId) {
           const origIdx = scoringSvc.quizShuffleService?.toOriginalIndex?.(effectiveQuizId, qIdx);
@@ -601,7 +601,7 @@ subscribeToTimerExpiry(host: Host): void {
       if (!scoredCorrect) {
         scoredCorrect = this.explanationTextService.fetBypassForQuestion?.get(qIdx) === true;
       }
-    } catch { /* ignore */ }
+    } catch (err: unknown) { swallow('quiz-setup.service.ts', err); /* ignore */ }
     return scoredCorrect;
   }
 
@@ -646,7 +646,7 @@ subscribeToTimerExpiry(host: Host): void {
               return;  // skip stale payload that doesn't match the URL question
             }
           }
-        } catch { /* non-browser env */ }
+        } catch (err: unknown) { swallow('quiz-setup.service.ts', err); /* non-browser env */ }
 
         host.combinedQuestionData.set(payload);
         host.questionToDisplaySig.set(payload.question.questionText?.trim() ?? '');
@@ -692,7 +692,7 @@ subscribeToTimerExpiry(host: Host): void {
     if (!quizId) return null;
     host.quizId.set(quizId);
 
-    try { localStorage.setItem('lastQuizId', quizId); } catch {}
+    try { localStorage.setItem('lastQuizId', quizId); } catch (err: unknown) { swallow('quiz-setup.service.ts', err); }
 
     host.initializeQuestionIndex();
     return quizId;
@@ -718,7 +718,7 @@ subscribeToTimerExpiry(host: Host): void {
     try {
       freshFromResults = sessionStorage.getItem('freshStartFromResults') === 'true';
       sessionStorage.removeItem('freshStartFromResults');
-    } catch {}
+    } catch (err: unknown) { swallow('quiz-setup.service.ts', err); }
     return freshFromResults;
   }
 
@@ -754,7 +754,7 @@ subscribeToTimerExpiry(host: Host): void {
       sessionStorage.removeItem('answeredQuestionIndices');
       sessionStorage.removeItem('quizProgress');
       sessionStorage.removeItem('quizProgressQuizId');
-    } catch {}
+    } catch (err: unknown) { swallow('quiz-setup.service.ts', err); }
   }
 
   // Seed answeredQuestionIndices / progress from confirmed dot status.
@@ -788,7 +788,7 @@ subscribeToTimerExpiry(host: Host): void {
             }
           }
         }
-      } catch {}
+      } catch (err: unknown) { swallow('quiz-setup.service.ts', err); }
     }
   }
 
@@ -833,18 +833,18 @@ subscribeToTimerExpiry(host: Host): void {
   }
 
   runOnDestroy(host: Host): void {
-    try { host.subscriptions?.unsubscribe(); } catch {}
-    try { this.dotStatusService.dotStatusCache.clear(); } catch {}
-    try { this.dotStatusService.pendingDotStatusOverrides.clear(); } catch {}
-    try { this.dotStatusService.activeDotClickStatus.clear(); } catch {}
-    try { this.timerService.stopTimer(undefined, { force: true }); } catch {}
-    try { this.nextButtonStateService.cleanupNextButtonStateStream(); } catch {}
+    try { host.subscriptions?.unsubscribe(); } catch (err: unknown) { swallow('quiz-setup.service.ts', err); }
+    try { this.dotStatusService.dotStatusCache.clear(); } catch (err: unknown) { swallow('quiz-setup.service.ts', err); }
+    try { this.dotStatusService.pendingDotStatusOverrides.clear(); } catch (err: unknown) { swallow('quiz-setup.service.ts', err); }
+    try { this.dotStatusService.activeDotClickStatus.clear(); } catch (err: unknown) { swallow('quiz-setup.service.ts', err); }
+    try { this.timerService.stopTimer(undefined, { force: true }); } catch (err: unknown) { swallow('quiz-setup.service.ts', err); }
+    try { this.nextButtonStateService.cleanupNextButtonStateStream(); } catch (err: unknown) { swallow('quiz-setup.service.ts', err); }
     const tooltip = host.nextButtonTooltip?.();
     if (tooltip) {
       try {
         tooltip.disabled = true;
         tooltip.hide();
-      } catch {}
+      } catch (err: unknown) { swallow('quiz-setup.service.ts', err); }
     }
   }
 

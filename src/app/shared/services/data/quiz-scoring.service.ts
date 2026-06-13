@@ -9,6 +9,7 @@ import { QuizShuffleService } from '../flow/quiz-shuffle.service';
 import { getQuizData } from '../../quiz-data-cache';
 import { isOptionCorrect } from '../../utils/is-option-correct';
 import { norm } from '../../utils/text-norm';
+import { swallow } from '../../utils/error-logging';
 
 @Injectable({ providedIn: 'root' })
 export class QuizScoringService {
@@ -118,7 +119,7 @@ export class QuizScoringService {
       if (!effectiveQuizId) {
         try {
           effectiveQuizId = localStorage.getItem('lastQuizId') || '';
-        } catch { }
+        } catch (err: unknown) { swallow('quiz-scoring.service.ts', err); }
       }
       if (!effectiveQuizId) {
         const shuffleKeys = Object.keys(localStorage).filter(k => k.startsWith('shuffleState:'));

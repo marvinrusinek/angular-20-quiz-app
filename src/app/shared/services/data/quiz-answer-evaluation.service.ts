@@ -8,6 +8,7 @@ import { QuizOptionsService } from './quiz-options.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
 import { isOptionCorrect } from '../../utils/is-option-correct';
 import { norm } from '../../utils/text-norm';
+import { swallow } from '../../utils/error-logging';
 
 /**
  * Handles answer evaluation, correctness checking, and direct scoring
@@ -216,7 +217,7 @@ export class QuizAnswerEvaluationService {
             if (t) selTexts.add(t);
           }
         }
-      } catch { }
+      } catch (err: unknown) { swallow('quiz-answer-evaluation.service.ts', err); }
     }
 
     if (selTexts.size > 0) {
@@ -235,7 +236,7 @@ export class QuizAnswerEvaluationService {
     if (!this._selectedOptionService) {
       try {
         this._selectedOptionService = this.injector.get(SelectedOptionService);
-      } catch { /* ignore */ }
+      } catch (err: unknown) { swallow('quiz-answer-evaluation.service.ts', err); /* ignore */ }
     }
     return this._selectedOptionService;
   }

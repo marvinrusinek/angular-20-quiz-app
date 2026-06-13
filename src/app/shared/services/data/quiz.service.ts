@@ -31,6 +31,7 @@ import { SK_SHUFFLED_QUESTIONS, SK_SHUFFLED_QUESTIONS_QUIZ_ID, SK_USER_ANSWERS }
 import { getQuizData } from '../../quiz-data-cache';
 import { isOptionCorrect } from '../../utils/is-option-correct';
 import { norm } from '../../utils/text-norm';
+import { swallow } from '../../utils/error-logging';
 
 @Injectable({ providedIn: 'root' })
 export class QuizService {
@@ -742,7 +743,7 @@ export class QuizService {
       // Clear stale shuffledQuestions from localStorage to prevent mismatch
       localStorage.removeItem(SK_SHUFFLED_QUESTIONS);
       localStorage.removeItem(SK_SHUFFLED_QUESTIONS_QUIZ_ID);
-    } catch { }
+    } catch (err: unknown) { swallow('quiz.service.ts', err); }
 
     // Clear shuffle state on toggle to ensure fresh shuffle
     // This prevents stale shuffled data from being used when toggling
@@ -1139,7 +1140,7 @@ export class QuizService {
     this.finalResultSig.set(null);
     try {
       sessionStorage.removeItem('finalResult');
-    } catch { }
+    } catch (err: unknown) { swallow('quiz.service.ts', err); }
   }
 
   resetQuizSessionForNewRun(quizId: string): void {

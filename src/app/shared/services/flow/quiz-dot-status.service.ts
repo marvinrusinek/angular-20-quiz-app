@@ -16,6 +16,7 @@ import { SelectedOptionService } from '../state/selectedoption.service';
 
 import { isOptionCorrect } from '../../utils/is-option-correct';
 import { norm } from '../../utils/text-norm';
+import { swallow } from '../../utils/error-logging';
 
 type DotStatus = 'correct' | 'wrong' | 'pending';
 type DotResolved = 'correct' | 'wrong';
@@ -783,7 +784,7 @@ export class QuizDotStatusService {
         this.persistence.setPersistedDotStatus(quizId, index, sessionVal);
         return sessionVal;
       }
-    } catch { }
+    } catch (err: unknown) { swallow('quiz-dot-status.service.ts', err); }
     return null;
   }
 
@@ -990,7 +991,7 @@ export class QuizDotStatusService {
       if (sessionVal === 'correct' || sessionVal === 'wrong') {
         return this.cacheAndReturn(c, sessionVal);
       }
-    } catch {}
+    } catch (err: unknown) { swallow('quiz-dot-status.service.ts', err); }
 
     return 'pending';
   }

@@ -16,6 +16,7 @@ import { ResetStateService } from '../state/reset-state.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
 import { SelectionMessageService } from '../features/selection-message/selection-message.service';
 import { TimerService } from '../features/timer/timer.service';
+import { swallow } from '../../utils/error-logging';
 
 /**
  * Orchestrates reset operations across multiple services.
@@ -104,7 +105,7 @@ export class QuizResetService {
       localStorage.removeItem('questionCorrectness');
       localStorage.removeItem(SK_SELECTED_OPTIONS_MAP);
       localStorage.removeItem(SK_USER_ANSWERS);
-    } catch { }
+    } catch (err: unknown) { swallow('quiz-reset.service.ts', err); }
 
     localStorage.removeItem(SK_SAVED_QUESTION_INDEX);
   }
@@ -177,7 +178,7 @@ export class QuizResetService {
       sessionStorage.removeItem('quizProgress');
       sessionStorage.removeItem('quizProgressQuizId');
       sessionStorage.removeItem('answeredQuestionIndices');
-    } catch { }
+    } catch (err: unknown) { swallow('quiz-reset.service.ts', err); }
 
     return true;
   }
@@ -200,7 +201,7 @@ export class QuizResetService {
 
     try {
       localStorage.setItem('lastQuizId', routeQuizId);
-    } catch { }
+    } catch (err: unknown) { swallow('quiz-reset.service.ts', err); }
   }
 
   resetForQuizSwitch(routeQuizId: string): void {
@@ -221,7 +222,7 @@ export class QuizResetService {
       localStorage.removeItem('quiz_progress_default');
       localStorage.setItem(SK_SAVED_QUESTION_INDEX, '0');
       sessionStorage.clear();
-    } catch { }
+    } catch (err: unknown) { swallow('quiz-reset.service.ts', err); }
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -274,7 +275,7 @@ export class QuizResetService {
 
     try {
       this.quizQuestionLoaderService?.questionToDisplaySig.set('');
-    } catch { }
+    } catch (err: unknown) { swallow('quiz-reset.service.ts', err); }
 
     this.quizStateService.setDisplayState({ mode: 'question', answered: false });
     this.quizStateService.setExplanationReady(false);
@@ -292,7 +293,7 @@ export class QuizResetService {
     // sessionStorage `sel_Q*` keys. Without this, an incorrectly-answered
     // Q2 leaves a feedback overlay that suppresses highlight on revisit
     // after Restart.
-    try { this.selectedOptionService.clearState(); } catch {}
+    try { this.selectedOptionService.clearState(); } catch (err: unknown) { swallow('quiz-reset.service.ts', err); }
 
     this.explanationTextService.resetExplanationState();
     this.explanationTextService.unlockExplanation();

@@ -59,6 +59,7 @@ import { ChangeRouteAnimation } from '../../animations/animations';
 import { withCorrectCountBanner } from '../../shared/utils/correct-count-banner';
 import { isOptionCorrect } from '../../shared/utils/is-option-correct';
 import { norm } from '../../shared/utils/text-norm';
+import { swallow } from '../../shared/utils/error-logging';
 
 const INFO_ICON_COLOR = '#1e90ff';
 
@@ -183,9 +184,7 @@ export class QuizComponent implements OnInit, AfterViewInit {
           }
         }
       }
-    } catch {
-      /* non-browser env */
-    }
+    } catch (err: unknown) { swallow('quiz.component.ts', err); /* non-browser env */ }
 
     if (!payload?.question) return payload;
 
@@ -545,9 +544,7 @@ export class QuizComponent implements OnInit, AfterViewInit {
           }
         }
       }
-    } catch {
-      /* ignore */
-    }
+    } catch (err: unknown) { swallow('quiz.component.ts', err); /* ignore */ }
 
     this.updateProgressValue();
   }

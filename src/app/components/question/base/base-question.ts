@@ -15,6 +15,7 @@ import { FeedbackService } from '../../../shared/services/features/feedback/feed
 import { QuizService } from '../../../shared/services/data/quiz.service';
 import { QuizStateService } from '../../../shared/services/state/quizstate.service';
 import { SelectedOptionService } from '../../../shared/services/state/selectedoption.service';
+import { swallow } from '../../../shared/utils/error-logging';
 
 /** Event payload emitted when an option is clicked */
 export interface OptionClickEvent {
@@ -194,8 +195,7 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
       const qqc = (this as any).quizQuestionComponent ??
         (this as any)._quizQuestionComponent;
       qqc?._fetEarlyShown?.clear();
-    } catch {
-    }
+    } catch (err: unknown) { swallow('base-question.ts', err); }
 
     if (this.question() && Array.isArray(this.question()!.options) && this.question()!.options.length > 0) {
       this.initializeOptions();

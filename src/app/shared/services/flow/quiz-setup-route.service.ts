@@ -26,6 +26,7 @@ import type { QuizComponent } from '../../../containers/quiz/quiz.component';
 import { withCorrectCountBanner } from '../../utils/correct-count-banner';
 import { isOptionCorrect } from '../../utils/is-option-correct';
 import { norm } from '../../utils/text-norm';
+import { swallow } from '../../utils/error-logging';
 
 type Host = QuizComponent;
 
@@ -400,7 +401,7 @@ export class QuizSetupRouteService {
         ).length;
         if (pc > numCorrect) numCorrect = pc;
       }
-    } catch {}
+    } catch (err: unknown) { swallow('quiz-setup-route.service.ts', err); }
 
     if (numCorrect > 1 && opts.length > 0) {
       const pluralSuffix = numCorrect === 1 ? 'answer is' : 'answers are';

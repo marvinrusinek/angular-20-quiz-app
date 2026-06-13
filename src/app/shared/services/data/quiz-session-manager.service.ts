@@ -13,6 +13,7 @@ import { SK_DOT_CONFIRMED, SK_DISPLAY_MODE, SK_MULTI_PERFECT, SK_SAVED_QUESTION_
 import { QuizOptionsService } from './quiz-options.service';
 import { QuizQuestionResolverService } from './quiz-question-resolver.service';
 import { QuizScoringService } from './quiz-scoring.service';
+import { swallow } from '../../utils/error-logging';
 
 /**
  * Interface describing the QuizService state that the session manager
@@ -85,7 +86,7 @@ export class QuizSessionManagerService {
       for (const key of keysToRemove) {
         sessionStorage.removeItem(key);
       }
-    } catch { /* ignore */ }
+    } catch (err: unknown) { swallow('quiz-session-manager.service.ts', err); /* ignore */ }
   }
 
   /**
@@ -346,7 +347,7 @@ export class QuizSessionManagerService {
       // If you store per-quiz keys, also remove those patterns:
       localStorage.removeItem(`quizState_${quizId}`);
       localStorage.removeItem(`quizResumeIndex_${quizId}`);
-    } catch { }
+    } catch (err: unknown) { swallow('quiz-session-manager.service.ts', err); }
 
     this.clearPerQuestionSessionKeys();
   }
@@ -364,7 +365,7 @@ export class QuizSessionManagerService {
       localStorage.removeItem(SK_SHUFFLED_QUESTIONS);
       localStorage.removeItem(SK_SHUFFLED_QUESTIONS_QUIZ_ID);
       localStorage.removeItem('selectedOptions');
-    } catch { }
+    } catch (err: unknown) { swallow('quiz-session-manager.service.ts', err); }
 
     this.clearPerQuestionSessionKeys();
 
@@ -381,7 +382,7 @@ export class QuizSessionManagerService {
     state.questionPayloadSig.set(null);
     this.scoringService.correctAnswersCountSig.set(0);
     state.userAnswers = [];
-    try { localStorage.removeItem(SK_USER_ANSWERS); } catch { }
+    try { localStorage.removeItem(SK_USER_ANSWERS); } catch (err: unknown) { swallow('quiz-session-manager.service.ts', err); }
     state.badgeTextSig.set('');
     state.resetScore();
     quizResetSource.next();
@@ -410,7 +411,7 @@ export class QuizSessionManagerService {
       localStorage.removeItem(SK_SHUFFLED_QUESTIONS);
       localStorage.removeItem(SK_SELECTED_OPTIONS_MAP);
       localStorage.removeItem('highScore');
-    } catch { /* ignore */ }
+    } catch (err: unknown) { swallow('quiz-session-manager.service.ts', err); /* ignore */ }
 
     this.clearPerQuestionSessionKeys();
 

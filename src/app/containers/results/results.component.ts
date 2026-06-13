@@ -35,6 +35,7 @@ import { StatisticsComponent } from './statistics/statistics.component';
 import { SummaryReportComponent } from './summary-report/summary-report.component';
 
 import { getQuizData } from '../../shared/quiz-data-cache';
+import { swallow } from '../../shared/utils/error-logging';
 
 @Component({
   selector: 'codelab-quiz-results',
@@ -246,7 +247,7 @@ export class ResultsComponent implements OnInit {
       localStorage.removeItem(SK_SELECTED_OPTIONS_MAP);
       localStorage.removeItem(SK_USER_ANSWERS);
       localStorage.removeItem(SK_SHUFFLED_QUESTIONS);
-    } catch {}
+    } catch (err: unknown) { swallow('results.component.ts', err); }
 
     // Reset to light mode when leaving results
     if (this.themeService.isDark()) {
@@ -268,7 +269,7 @@ export class ResultsComponent implements OnInit {
       if (stored === 'score' || stored === 'report' || stored === 'summary' || stored === 'highscores' || stored === 'resources') {
         return stored;
       }
-    } catch {}
+    } catch (err: unknown) { swallow('results.component.ts', err); }
     return 'score';
   }
 
@@ -327,6 +328,6 @@ export class ResultsComponent implements OnInit {
   private persistResultsToSession(result: FinalResult): void {
     try {
       sessionStorage.setItem('finalResult', JSON.stringify(result));
-    } catch {}
+    } catch (err: unknown) { swallow('results.component.ts', err); }
   }
 }

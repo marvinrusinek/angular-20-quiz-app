@@ -20,6 +20,7 @@ import { OptionLockStateService } from './option-lock-state.service';
 import { QuizService } from '../data/quiz.service';
 import { SelectionCrudService } from './selection-crud.service';
 import { SelectionPersistenceService } from './selection-persistence.service';
+import { swallow } from '../../utils/error-logging';
 
 @Injectable({ providedIn: 'root' })
 export class SelectedOptionService {
@@ -269,7 +270,7 @@ export class SelectedOptionService {
           }
         }
       }
-    } catch { /* ignore */ }
+    } catch (err: unknown) { swallow('selectedoption.service.ts', err); /* ignore */ }
 
     // 2. Fall back to in-memory maps only if sel_Q* had nothing.
     //    During live interaction sel_Q* may not be written yet, so
