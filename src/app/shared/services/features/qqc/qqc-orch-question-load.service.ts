@@ -5,6 +5,8 @@ import { debounceTime, take } from 'rxjs/operators';
 import { Option } from '../../../models/Option.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
+import { isOptionCorrect } from '../../../utils/is-option-correct';
+
 import type { QuizQuestionComponent } from '../../../../components/question/quiz-question/quiz-question.component';
 
 type Host = QuizQuestionComponent;
@@ -46,17 +48,33 @@ export class QqcOrchQuestionLoadService {
           host.quizQuestionManagerService.isMultipleAnswerQuestion(question)
         );
       } catch {
-        return;
+        // Do NOT abort the whole render on a transient resolution failure
+        // (firstValueFrom throws EmptyError if the observable completes without
+        // emitting on a cold load). Derive multi-answer synchronously from the
+        // question's correct-option count so the component still renders.
+        console.log('[COLD-DIAG] loadDynamicComponent — isMultipleAnswer FELL BACK');
+        isMultipleAnswer = (question.options ?? []).filter((o: Option) => isOptionCorrect(o)).length > 1;
       }
 
       container.clear();
       await Promise.resolve();
-      const componentRef: ComponentRef<any> = await host.dynamicComponentService.loadComponent(
-        container,
-        isMultipleAnswer,
-        host.onOptionClicked.bind(host)
-      );
+      let componentRef: ComponentRef<any>;
+      try {
+        componentRef = await host.dynamicComponentService.loadComponent(
+          container,
+          isMultipleAnswer,
+          host.onOptionClicked.bind(host)
+        );
+      } catch (err: unknown) {
+        // Creation failed — unlatch so the reactive effect retries on the next
+        // signal change instead of being permanently stuck (the latch was set
+        // by the caller when this was invoked, not when it succeeded).
+        host.containerInitialized = false;
+        console.log('[COLD-DIAG] loadDynamicComponent — loadComponent THREW', err);
+        return;
+      }
       if (!componentRef?.instance) {
+        host.containerInitialized = false;
         console.log('[COLD-DIAG] loadDynamicComponent — NO INSTANCE');
         return;
       }
@@ -86,7 +104,10 @@ export class QqcOrchQuestionLoadService {
         host.shouldRenderOptions.set(true);
       }
       try { componentRef.changeDetectorRef.markForCheck(); } catch {}
-    } catch {
+    } catch (err: unknown) {
+      // Any failure after entry — unlatch so the effect can retry.
+      host.containerInitialized = false;
+      console.log('[COLD-DIAG] loadDynamicComponent — OUTER CATCH', err);
     }
   }
 
