@@ -65,3 +65,39 @@ test.describe('timer — freeze on revisit of a correctly-answered question', ()
     expect(later).toBe(onRevisit);
   });
 });
+
+/**
+ * Timeout-coloring guard (Option A: real countdown, no app changes — so this
+ * test is slow by design). On timeout the correct option(s) are revealed green
+ * and UNSELECTED INCORRECT options stay gray (neither green nor red). Guards the
+ * bug fixed 2026-06-12 where an unselected incorrect option wrongly turned green
+ * on timeout (isCurrentOptionCorrect reading the wrong question). The color
+ * classes (correct-option / incorrect-option) live on `.option-row`.
+ */
+test.describe('timer — timeout option coloring', () => {
+  test('on timeout, correct options turn green and unselected incorrect options stay gray', async ({ page }) => {
+    test.setTimeout(60_000); // the real ~30s countdown must elapse
+    await startTs(page);
+    const rows = page.locator('.option-row');
+
+    // Capture the correct index BEFORE timeout (the heading becomes the FET after).
+    const h = (await page.locator(HEADING).textContent()) ?? '';
+    const correctIdx = correctIndexForHeading(h);
+    expect(correctIdx).toBeGreaterThanOrEqual(0);
+    const optCount = await rows.count();
+
+    // Do NOT answer — let the countdown run out.
+    await expect.poll(async () => readTimerSeconds(page), { timeout: 45_000 }).toBe(0);
+    await page.waitForTimeout(1000); // let the timeout reveal + coloring apply
+
+    // Correct option is revealed green.
+    await expect(rows.nth(correctIdx)).toHaveClass(/correct-option/);
+
+    // Every unselected INCORRECT option is gray: neither green nor red.
+    for (let i = 0; i < optCount; i++) {
+      if (i === correctIdx) continue;
+      await expect(rows.nth(i)).not.toHaveClass(/correct-option/);
+      await expect(rows.nth(i)).not.toHaveClass(/incorrect-option/);
+    }
+  });
+});
