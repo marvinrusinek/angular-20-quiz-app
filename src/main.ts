@@ -7,7 +7,7 @@ import { HttpClient, provideHttpClient, withFetch } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import {
-  inject, isDevMode, provideAppInitializer, provideZonelessChangeDetection
+  ErrorHandler, inject, isDevMode, provideAppInitializer, provideZonelessChangeDetection
 } from '@angular/core';
 import { provideServiceWorker } from '@angular/service-worker';
 import { firstValueFrom } from 'rxjs';
@@ -16,15 +16,18 @@ import { routes } from './app/router/quiz-routing.routes';
 import { AppComponent } from './app/app.component';
 import { AnswerComponent } from './app/components/question/answer/answer-component/answer.component';
 import { ANSWER_COMPONENT } from './app/shared/tokens/answer-component.token';
+import { GlobalErrorHandler, installGlobalErrorLogging } from './app/shared/utils/error-logging';
 import { installGlobalFetWatchdog } from './app/shared/utils/fet-watchdog';
 import { setQuizDataCache } from './app/shared/quiz-data-cache';
 import { Quiz } from './app/shared/models/Quiz.model';
 import { QuizResource } from './app/shared/models/QuizResource.model';
 
 installGlobalFetWatchdog();
+installGlobalErrorLogging();
 
 bootstrapApplication(AppComponent, {
   providers: [
+    { provide: ErrorHandler, useClass: GlobalErrorHandler },
     provideZonelessChangeDetection(),
     // Provide AnswerComponent eagerly (imported here at the bootstrap entry,
     // outside the cyclic graph) so DynamicComponentService creates it without a
