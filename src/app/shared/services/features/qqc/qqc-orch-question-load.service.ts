@@ -25,13 +25,20 @@ export class QqcOrchQuestionLoadService {
   async runLoadDynamicComponent(host: Host, question: QuizQuestion, options: Option[]): Promise<void> {
     try {
       const container = host.dynamicAnswerContainer?.();
+      console.log('[COLD-DIAG] loadDynamicComponent — question=', !!question,
+        'optsLen=', Array.isArray(options) ? options.length : 'n/a',
+        'container=', !!container,
+        'hasQText=', !!question && ('questionText' in question));
       if (
         !question ||
         !Array.isArray(options) ||
         !options.length ||
         !container ||
         !('questionText' in question)
-      ) return;
+      ) {
+        console.log('[COLD-DIAG] loadDynamicComponent EARLY-RETURN');
+        return;
+      }
 
       let isMultipleAnswer = false;
       try {
@@ -49,8 +56,12 @@ export class QqcOrchQuestionLoadService {
         isMultipleAnswer,
         host.onOptionClicked.bind(host)
       );
-      if (!componentRef?.instance) return;
+      if (!componentRef?.instance) {
+        console.log('[COLD-DIAG] loadDynamicComponent — NO INSTANCE');
+        return;
+      }
       const instance = componentRef.instance;
+      console.log('[COLD-DIAG] loadDynamicComponent — INSTANCE CREATED');
 
       const configured = host.questionLoader.configureDynamicInstance({
         instance,
@@ -220,6 +231,8 @@ export class QqcOrchQuestionLoadService {
     host.questionsArray.set(loadResult.questionsArray);
     host.currentQuestion.set(loadResult.currentQuestion);
     host.optionsToDisplay.set(loadResult.optionsToDisplay);
+    console.log('[COLD-DIAG] applyLoadResult — cq=', !!loadResult.currentQuestion,
+      'optsLen=', Array.isArray(loadResult.optionsToDisplay) ? loadResult.optionsToDisplay.length : 'n/a');
     host.updateShouldRenderOptions(host.optionsToDisplay());
 
     const banner = host.feedbackManager.computeCorrectAnswersBanner({

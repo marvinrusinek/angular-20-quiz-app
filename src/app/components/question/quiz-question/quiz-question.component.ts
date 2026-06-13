@@ -229,8 +229,12 @@ export class QuizQuestionComponent extends BaseQuestion
       const container = this.dynamicAnswerContainer();
       const opts = this.optionsToDisplay();
       const cq = this.currentQuestion();
+      console.log('[COLD-DIAG] effect fire — container=', !!container,
+        'cq=', !!cq, 'optsLen=', Array.isArray(opts) ? opts.length : 'n/a',
+        'containerInitialized=', this.containerInitialized);
       if (this.containerInitialized || !container || !cq) return;
       if (!Array.isArray(opts) || opts.length === 0) return;
+      console.log('[COLD-DIAG] effect -> calling loadDynamicComponent');
       this.loadDynamicComponent(cq, opts);
       this.containerInitialized = true;
     });
