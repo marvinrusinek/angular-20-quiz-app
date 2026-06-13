@@ -71,6 +71,42 @@ async function playThroughDi(page: Page, wrongAt: Set<number>) {
   await expect(page).toHaveURL(/\/results\//);
 }
 
+/**
+ * Walk forward in display order (answering each single-answer question to
+ * advance) until the heading resolves to a MULTI-answer question that also has
+ * at least one incorrect option. Returns that question's correct indices.
+ * Order is randomized in shuffle, so the multi-answer question can be anywhere.
+ */
+async function walkToMultiAnswer(page: Page): Promise<number[]> {
+  const rows = page.locator('.option-row');
+  const total = diQuiz.questions.length;
+  for (let pos = 0; pos < total; pos++) {
+    await rows.first().waitFor({ state: 'visible', timeout: 20_000 });
+    await expect
+      .poll(async () =>
+        correctIndicesForHeading(diQuiz, (await page.locator(HEADING).textContent()) ?? '').length,
+        { timeout: 8000 })
+      .toBeGreaterThan(0);
+
+    const heading = (await page.locator(HEADING).textContent()) ?? '';
+    const correct = correctIndicesForHeading(diQuiz, heading);
+    const optCount = await rows.count();
+
+    if (correct.length >= 2 && optCount > correct.length) {
+      return correct; // multi-answer with at least one incorrect option
+    }
+
+    // Single-answer: answer it and advance to keep walking.
+    await rows.nth(correct[0]).click();
+    await page.waitForTimeout(250);
+    if (pos < total - 1) {
+      await page.locator(NEXT_BTN).click();
+      await expect(page).toHaveURL(new RegExp(`/${pos + 2}$`));
+    }
+  }
+  throw new Error('No multi-answer question found in the DI quiz');
+}
+
 async function readScore(page: Page): Promise<{ correct: number; total: number; pct: number }> {
   const scoreTab = page.locator('text=Score Analysis').first();
   if (await scoreTab.count()) {
@@ -135,5 +171,45 @@ test.describe('dependency-injection — multi-answer correctness (shuffle)', () 
     expect(total).toBe(diQuiz.questions.length);
     expect(correct).toBe(total);
     expect(pct).toBe(100);
+  });
+
+  // Regression guard for the cluster of shuffle multi-answer FET bugs fixed
+  // 2026-06-11/13: the "N answers are correct" banner used to vanish on the
+  // first option click, and the FET sometimes failed to appear once all
+  // correct options were selected — both intermittently and specifically when
+  // an INCORRECT option was clicked between the two correct ones. This walks a
+  // shuffled multi-answer question through correct -> incorrect -> correct and
+  // asserts: the banner persists during partial selection, no FET leaks early,
+  // and the FET appears only once every correct option is selected.
+  test('multi-answer FET appears only after correct -> incorrect -> correct completes (banner persists)', async ({ page }) => {
+    await startDi(page, true);
+    const correct = await walkToMultiAnswer(page);
+
+    const rows = page.locator('.option-row');
+    const optCount = await rows.count();
+    const wrongIdx = [...Array(optCount).keys()].find((i) => !correct.includes(i))!;
+
+    // Banner shown before any selection (question text + "N answers are correct").
+    await expect(page.locator('.correct-count')).toBeVisible();
+    await expect(page.locator('.correct-count')).toContainText(/answers are correct/i);
+
+    // 1) First CORRECT click — banner must persist, FET must NOT appear yet.
+    await rows.nth(correct[0]).click();
+    await page.waitForTimeout(300);
+    await expect(page.locator(HEADING)).not.toContainText(/are correct because/i);
+    await expect(page.locator('.correct-count')).toBeVisible();
+
+    // 2) INCORRECT click in the middle — still no FET (the order that broke it).
+    await rows.nth(wrongIdx).click();
+    await page.waitForTimeout(300);
+    await expect(page.locator(HEADING)).not.toContainText(/are correct because/i);
+
+    // 3) Remaining CORRECT click(s) — now every correct option is selected, so
+    // the heading flips to the formatted explanation (FET).
+    for (const idx of correct.slice(1)) {
+      await rows.nth(idx).click();
+      await page.waitForTimeout(250);
+    }
+    await expect(page.locator(HEADING)).toContainText(/are correct because/i, { timeout: 8000 });
   });
 });
