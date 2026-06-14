@@ -1,0 +1,64 @@
+import { DestroyRef, inject, Injectable } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { SwUpdate, VersionReadyEvent } from '@angular/service-worker';
+import { interval } from 'rxjs';
+import { filter } from 'rxjs/operators';
+
+import { reportError } from '../utils/error-logging';
+
+/**
+ * Keeps deployed users on a fresh bundle. The service worker (registered in
+ * main.ts) caches assets for offline/installable use, but that means a redeploy
+ * is invisible until the SW downloads the new version. On VERSION_READY this
+ * prompts the user to reload onto it; it also polls hourly so long-open tabs
+ * pick up a deploy. No-op when the SW is disabled (dev / unsupported).
+ */
+@Injectable({ providedIn: 'root' })
+export class PwaUpdateService {
+  // ----- injects -----
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly swUpdate = inject(SwUpdate);
+
+  // ----- props -----
+  private readonly CHECK_INTERVAL_MS = 60 * 60 * 1000;  // hourly
+
+  // ----- public -----
+  init(): void {
+    if (!this.swUpdate.isEnabled) {
+      return;
+    }
+    this.promptOnVersionReady();
+    this.pollForUpdates();
+  }
+
+  // ----- private -----
+  private promptOnVersionReady(): void {
+    this.swUpdate.versionUpdates
+      .pipe(
+        filter((e): e is VersionReadyEvent => e.type === 'VERSION_READY'),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe(() => this.activateAndReload());
+  }
+
+  private pollForUpdates(): void {
+    interval(this.CHECK_INTERVAL_MS)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.swUpdate
+          .checkForUpdate()
+          .catch((err) => reportError('PwaUpdateService.checkForUpdate', err));
+      });
+  }
+
+  private activateAndReload(): void {
+    const reload = window.confirm('A new version of the quiz is available. Reload to update?');
+    if (!reload) {
+      return;
+    }
+    this.swUpdate
+      .activateUpdate()
+      .then(() => document.location.reload())
+      .catch((err) => reportError('PwaUpdateService.activateUpdate', err));
+  }
+}

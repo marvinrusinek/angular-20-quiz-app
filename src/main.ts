@@ -16,6 +16,7 @@ import { routes } from './app/router/quiz-routing.routes';
 import { AppComponent } from './app/app.component';
 import { AnswerComponent } from './app/components/question/answer/answer-component/answer.component';
 import { ANSWER_COMPONENT } from './app/shared/tokens/answer-component.token';
+import { PwaUpdateService } from './app/shared/services/pwa-update.service';
 import { GlobalErrorHandler, installGlobalErrorLogging } from './app/shared/utils/error-logging';
 import { installHeadingShadow } from './app/shared/utils/heading-shadow';
 import { installGlobalFetWatchdog } from './app/shared/utils/fet-watchdog';
@@ -55,6 +56,8 @@ bootstrapApplication(AppComponent, {
         setQuizDataCache([], []);
       }
     }),
+    // Prompt deployed users to reload onto a freshly-deployed bundle.
+    provideAppInitializer(() => inject(PwaUpdateService).init()),
     provideServiceWorker('ngsw-worker.js', {
       enabled: !isDevMode(),
       registrationStrategy: 'registerWhenStable:30000'
