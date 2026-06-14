@@ -35,6 +35,11 @@ export function installHeadingShadow(injector: Injector): void {
     state = injector.get(QuizStateService);
   } catch { return; }
 
+  // One-time confirmation that the shadow is active (so "no logs" is
+  // distinguishable from "not running"). console.warn is visible by default;
+  // console.debug is hidden under Verbose in most consoles.
+  console.warn('[HEADING-SHADOW] installed — watching the heading for FET-decision mismatches');
+
   let lastKey = '';
 
   const buildInputs = (idx: number): HeadingInputs | null => {
@@ -80,7 +85,7 @@ export function installHeadingShadow(injector: Injector): void {
         const key = `${idx}|${modelSaysFet}|${liveIsFet}`;
         if (key !== lastKey) {                 // throttle: one log per distinct mismatch
           lastKey = key;
-          console.debug('[HEADING-SHADOW] MISMATCH', { idx, modelSaysFet, liveIsFet, inputs });
+          console.warn('[HEADING-SHADOW] MISMATCH', { idx, modelSaysFet, liveIsFet, inputs });
         }
       } else {
         lastKey = '';
