@@ -1129,6 +1129,14 @@ export class CqcFetGuardService {
         return true;
       }
 
+      // DURABLE COMPLETION: a multi-answer question marked perfectly answered
+      // stays "resolved" even after its live selections are cleared (e.g. on
+      // navigate-away/back), so the watchdog keeps the FET instead of reverting
+      // to question + banner. Mirrors restoreFetIfResolved / isResolvedOrConfirmed.
+      if (host.quizService?._multiAnswerPerfect?.get?.(idx) === true) {
+        return true;
+      }
+
       const liveQ = this.getLiveQuestion(host, idx);
       const pristineCorrectTexts = this.getPristineCorrectTexts(host, liveQ);
       if (pristineCorrectTexts.length < 2) return null;
