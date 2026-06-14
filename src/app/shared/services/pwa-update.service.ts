@@ -47,18 +47,17 @@ export class PwaUpdateService {
       .subscribe(() => {
         this.swUpdate
           .checkForUpdate()
-          .catch((err) => reportError('PwaUpdateService.checkForUpdate', err));
+          .catch((err: unknown) => reportError('PwaUpdateService.checkForUpdate', err));
       });
   }
 
   private activateAndReload(): void {
     const reload = window.confirm('A new version of the quiz is available. Reload to update?');
-    if (!reload) {
-      return;
-    }
+    if (!reload) return;
+
     this.swUpdate
       .activateUpdate()
       .then(() => document.location.reload())
-      .catch((err) => reportError('PwaUpdateService.activateUpdate', err));
+      .catch((err: unknown) => reportError('PwaUpdateService.activateUpdate', err));
   }
 }
