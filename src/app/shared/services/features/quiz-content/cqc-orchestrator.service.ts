@@ -29,7 +29,7 @@ import type { CodelabQuizContentComponent } from '../../../../containers/quiz/qu
 type Host = CodelabQuizContentComponent;
 
 /**
- * Orchestrates CodelabQuizContentComponent logic, extracted via host: any pattern.
+ * Orchestrates CodelabQuizContentComponent logic, extracted via the typed host pattern.
  */
 @Injectable({ providedIn: 'root' })
 export class CqcOrchestratorService {
