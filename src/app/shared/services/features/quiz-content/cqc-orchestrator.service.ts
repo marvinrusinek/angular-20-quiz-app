@@ -1,4 +1,4 @@
-﻿﻿import { inject, Injectable } from '@angular/core';
+﻿﻿import { inject, Injectable, isDevMode } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ParamMap } from '@angular/router';
 import {
@@ -23,6 +23,7 @@ import { QuizQuestion } from '../../../models/QuizQuestion.model';
 import { CqcDisplayTextService } from './cqc-display-text.service';
 import { CqcFetGuardService } from './cqc-fet-guard.service';
 import { CqcQuestionNavService } from './cqc-question-nav.service';
+import { QuizDotStatusService } from '../../flow/quiz-dot-status.service';
 
 import type { CodelabQuizContentComponent } from '../../../../containers/quiz/quiz-content/codelab-quiz-content.component';
 
@@ -37,6 +38,7 @@ export class CqcOrchestratorService {
   private readonly fetGuard = inject(CqcFetGuardService);
   private readonly displayText = inject(CqcDisplayTextService);
   private readonly questionNav = inject(CqcQuestionNavService);
+  private readonly dotStatusService = inject(QuizDotStatusService);
 
   async runOnInit(host: Host): Promise<void> {
     await this.runInitialSetup(host);
@@ -191,6 +193,9 @@ export class CqcOrchestratorService {
 
     host.timedOutIdxSig.set(idx);
     host.timedOutIdxSubject.next(idx);
+    // DURABLE timeout record (same idx as timedOutIdxSubject) — survives nav so
+    // the heading re-asserts the FET on revisit for any timed-out question.
+    this.dotStatusService.timedOutFetForced.add(idx);
     (window as any).__quizTimerExpired = true;
 
     const isShuffled = host.quizService.isShuffleEnabled?.() && Array.isArray(host.quizService.shuffledQuestions) && host.quizService.shuffledQuestions.length > 0;
@@ -274,19 +279,28 @@ export class CqcOrchestratorService {
     // incorrect / in-progress / expired-without-getting-it-right keep the
     // banner. buildQuestionDisplayHTML emits the `correct-count` banner only
     // for multi-answer, so single-answer is untouched (FET-in-heading below).
+    // A question whose timer expired shows its FET on (re)display — including on
+    // tab-return via forceStampIfBlank — regardless of completion or interaction.
+    // Mirrors heading-model (isTimedOut -> FET). timedOutFetForced is durable
+    // (survives navigate-away/back and tab hide/show). Single- and multi-answer.
+    const timedOut = this.dotStatusService?.timedOutFetForced?.has(idx) === true;
+
     const banneredQ = this.fetGuard.buildQuestionDisplayHTML(host, idx);
     if (banneredQ && banneredQ.includes('correct-count')) {
       const answeredCorrectly = host.quizService?._multiAnswerPerfect?.get?.(idx) === true;
-      if (!answeredCorrectly) {
+      if (!answeredCorrectly && !timedOut) {
         return banneredQ;
       }
     }
 
     let intended = '';
-    if (this.fetGuard.hasInteractionEvidence(host, idx)) {
+    if (timedOut || this.fetGuard.hasInteractionEvidence(host, idx)) {
       intended = this.resolveCachedFet(host, idx);
       // No (valid) cached FET — try on-the-fly if quiz data is available.
       if (!intended) intended = this.computeOnTheFlyFet(host, idx);
+      if (timedOut && intended && isDevMode()) {
+        console.warn(`[TIMEOUT-FET] computeIntendedQText -> FET for idx=${idx}`);
+      }
     }
     if (!intended) {
       intended = this.fetGuard.buildQuestionDisplayHTML(host, idx);
@@ -358,6 +372,7 @@ export class CqcOrchestratorService {
     if (this.fetGuard.isQuestionResolvedFromStorage(host, idx)) return true;
     if (host.quizService?._multiAnswerPerfect?.get?.(idx) === true) return true;
     if (host.explanationTextService?.fetBypassForQuestion?.get?.(idx) === true) return true;
+    if (this.dotStatusService?.timedOutFetForced?.has(idx) === true) return true;
     return false;
   }
 

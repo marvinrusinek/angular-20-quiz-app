@@ -1,4 +1,4 @@
-import { inject, Injectable } from '@angular/core';
+import { inject, Injectable, isDevMode } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { CqcFetGuardService } from './cqc-fet-guard.service';
@@ -62,6 +62,15 @@ export class CqcDisplayTextService {
    */
   private handleDisplayText(host: Host, text: string): void {
     const early = this.computeEarlyFlags(host, text);
+
+    // DURABLE TIMEOUT FAST-PATH: a question whose timer expired shows its FET on
+    // (re)display, even on revisit — timedOutIdxSubject is transient (reset on
+    // nav), so the question-forcing guards below would otherwise restore the
+    // question. Stamp the cached/computed FET directly so it survives
+    // navigate-away/back, for single- and multi-answer alike.
+    if (this.tryDurableTimeoutFet(host, early.currentIdx, early.lowerText)) {
+      return;
+    }
 
     // FAST-PATH FET writes (SOC-confirmed or timer-expiry) skip all gates.
     if (this.tryFastPathWrites(host, text, early.currentIdx, early.isQuestionText, early.lowerText, early.isTimedOutForIdx, early.fetBypass)) {
@@ -150,6 +159,47 @@ export class CqcDisplayTextService {
     host.qTextHtmlSig?.set(text);
     host._lastDisplayedText = text;
     host._fetLockedForIndex = currentIdx;
+  }
+
+  /**
+   * DURABLE TIMEOUT: when the active question's timer expired (durable flag,
+   * survives navigation) and the incoming text isn't already a FET, stamp the
+   * cached/freshly-formatted FET directly and lock it — so a timed-out question
+   * keeps its explanation across navigate-away/back. No-op for non-timed-out
+   * questions. Returns true when handled. Single- and multi-answer alike.
+   */
+  private tryDurableTimeoutFet(host: Host, currentIdx: number, lowerText: string): boolean {
+    if (currentIdx < 0 || !this.fetGuard.isDurablyTimedOut(currentIdx)) return false;
+    if (lowerText.includes('correct because')) return false;  // already a FET — let normal flow run
+    const fet = this.resolveTimeoutFet(host, currentIdx);
+    if (!fet || !fet.toLowerCase().includes('correct because')) return false;
+    if (isDevMode()) {
+      console.warn(`[TIMEOUT-FET] re-asserting FET on revisit for idx=${currentIdx}`);
+    }
+    this.stampFastPathFet(host, fet, currentIdx);
+    return true;
+  }
+
+  /**
+   * Resolve a timed-out question's FET: the cached explanation (stored at expiry
+   * via storeFormattedExplanation), else format it fresh from the question's
+   * correct indices. Mirrors the cached-then-compute idiom in
+   * applyExplanationSubstitution.
+   */
+  private resolveTimeoutFet(host: Host, idx: number): string {
+    const cached = (host.explanationTextService.formattedExplanations?.[idx]?.explanation ?? '').trim()
+      || (host.explanationTextService.fetByIndex?.get(idx) ?? '').trim();
+    if (cached) return cached;
+    try {
+      const q = host.quizService.getQuestionsInDisplayOrder()?.[idx];
+      if (q?.options?.length > 0 && q.explanation) {
+        const correctIndices = host.explanationTextService.getCorrectOptionIndices(q, q.options, idx);
+        if (correctIndices.length > 0) {
+          return host.explanationTextService.formatExplanation(q, correctIndices, q.explanation);
+        }
+      }
+    } catch { /* ignore */ }
+    return '';
   }
 
   /**

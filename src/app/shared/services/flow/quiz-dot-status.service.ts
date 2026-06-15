@@ -93,6 +93,12 @@ export class QuizDotStatusService {
   pendingDotStatusOverrides = new Map<number, 'correct' | 'wrong'>();
   activeDotClickStatus = new Map<number, 'correct' | 'wrong'>();
   timerExpiredUnanswered = new Set<number>();
+  // Durable record of questions whose timer expired (keyed by the same
+  // CodelabQuizContentComponent display index as timedOutIdxSubject). Unlike
+  // timerExpiredUnanswered it is NEVER deleted by updateDotStatus, and unlike
+  // timedOutIdxSubject it is NOT reset on navigation — so the heading keeps the
+  // FET on revisit for ANY timed-out question. Cleared only on full reset.
+  timedOutFetForced = new Set<number>();
 
   // ═══════════════════════════════════════════════════════════════
   // STATE MAP HELPERS
@@ -103,6 +109,7 @@ export class QuizDotStatusService {
     this.pendingDotStatusOverrides.clear();
     this.activeDotClickStatus.clear();
     this.timerExpiredUnanswered.clear();
+    this.timedOutFetForced.clear();
   }
 
   clearForIndex(index: number): void {

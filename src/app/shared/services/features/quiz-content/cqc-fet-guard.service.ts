@@ -30,6 +30,14 @@ export class CqcFetGuardService {
   // ── injects ─────────────────────────────────────────────────────
   private dotStatusService = inject(QuizDotStatusService);
 
+  /**
+   * Durable "this question's timer expired" check — survives navigation (unlike
+   * the transient timedOutIdxSubject), so the heading re-asserts the FET on
+   * revisit for any timed-out question.
+   */
+  isDurablyTimedOut(idx: number): boolean {
+    return this.dotStatusService?.timedOutFetForced?.has(idx) === true;
+  }
 
   /**
    * Write HTML to qText. Updates the host signal (which the template is
