@@ -159,15 +159,19 @@ export class SelectionMessageService {
   }
 
   // True when the question was force-completed purely by a timer expiry and the
-  // user never made a genuine selection (no durable answered/correct record).
-  // Selections are cleared on revisit, so this relies on durable signals only.
+  // user never made a genuine selection. Selections are cleared on revisit, so
+  // this relies on durable signals only. The "genuinely answered" probe is the
+  // click-confirmed dot status — set ONLY by real option clicks, never by a
+  // timeout — NOT quizStateService.isQuestionAnswered, which a timed-out
+  // question can spuriously pick up on revisit (the Q2-vs-Q6 discrepancy).
   private isTimedOutUnanswered(idx: number): boolean {
     if (this.dotStatusService?.timedOutFetForced?.has(idx) !== true) return false;
     const qs: any = this.quizService;
+    const dot = this.selectedOptionService?.clickConfirmedDotStatus?.get?.(idx);
     const genuinelyAnswered =
-      this.quizStateService.isQuestionAnswered?.(idx) === true
-      || qs?.questionCorrectness?.get?.(idx) === true
-      || qs?._multiAnswerPerfect?.get?.(idx) === true;
+      dot === 'correct' || dot === 'wrong'
+      || qs?._multiAnswerPerfect?.get?.(idx) === true
+      || qs?.questionCorrectness?.get?.(idx) === true;
     return !genuinelyAnswered;
   }
 
