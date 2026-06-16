@@ -14,6 +14,7 @@ import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
 import { ExplanationTextService } from '../explanation/explanation-text.service';
 import { QuizDataService } from '../../data/quizdata.service';
+import { QuizDotStatusService } from '../../flow/quiz-dot-status.service';
 import { QuizService } from '../../data/quiz.service';
 import { QuizStateService } from '../../state/quizstate.service';
 import { ResetBackgroundService } from '../../ui/reset-background.service';
@@ -33,6 +34,7 @@ const H3_I18N_SELECTOR = 'h3[i18n]';
 @Injectable({ providedIn: 'root' })
 export class QqcQlStreamService {
   // ── injects ─────────────────────────────────────────────────────
+  private readonly dotStatusService = inject(QuizDotStatusService);
   private readonly explanationTextService = inject(ExplanationTextService);
   private readonly quizDataService = inject(QuizDataService);
   private readonly quizService = inject(QuizService);
@@ -543,6 +545,15 @@ export class QqcQlStreamService {
     const questionState = this.quizStateService.getQuestionState(quizIdForState, idx);
 
     let isAnswered = validSelections.length > 0;
+
+    // A timed-out question counts as answered even when no selection survives,
+    // so its FET shows and the timer is not restarted on tab return. Single-
+    // answer timeouts have no selection, so the selection-only check below
+    // would otherwise clear answered state and restart the timer.
+    if (this.dotStatusService?.timedOutFetForced?.has(idx) === true) {
+      isAnswered = true;
+    }
+
     if (!isAnswered && questionState?.isAnswered) {
       this.quizStateService.setQuestionState(quizIdForState, idx, {
         ...questionState,

@@ -16,6 +16,7 @@ import { FetchQuestionResult, RouteChangeQuestionResult, RouteQuestionResult }
   from './quiz-content-loader.service';
 import { QqcQuestionLoaderService } from '../features/qqc/qqc-question-loader.service';
 import { QuizDataService } from '../data/quizdata.service';
+import { QuizDotStatusService } from './quiz-dot-status.service';
 import { QuizQuestionDataService } from './quiz-question-data.service';
 import { QuizService } from '../data/quiz.service';
 import { QuizStateService } from '../state/quizstate.service';
@@ -29,6 +30,7 @@ import { SelectionMessageService } from '../features/selection-message/selection
 @Injectable({ providedIn: 'root' })
 export class QclQuestionFetchService {
   // ── injects ─────────────────────────────────────────────────────
+  private dotStatusService = inject(QuizDotStatusService);
   private explanationTextService = inject(ExplanationTextService);
   private quizDataService = inject(QuizDataService);
   private quizQuestionDataService = inject(QuizQuestionDataService);
@@ -234,6 +236,16 @@ export class QclQuestionFetchService {
     );
     const selectedOptions = this.selectedOptionService.getSelectedOptionsForQuestion(questionIndex);
     const validSelections = (selectedOptions ?? []).filter((opt) => optionIdSet.has(opt.optionId ?? -1));
+
+    // A timed-out question counts as answered even when no selection survives,
+    // so the Next button stays enabled and its FET persists on tab return.
+    // Single-answer timeouts have no selection, so the selection-only check
+    // below would otherwise clear their answered/explanation state.
+    if (this.dotStatusService?.timedOutFetForced?.has(questionIndex) === true) {
+      this.quizStateService.setAnswered(true);
+      this.selectedOptionService.setAnswered(true, true);
+      return true;
+    }
 
     const isAnswered = validSelections.length > 0;
     if (!isAnswered && questionState?.isAnswered) {
