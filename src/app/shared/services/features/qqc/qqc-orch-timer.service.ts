@@ -2,7 +2,10 @@ import { afterNextRender, inject, Injectable } from '@angular/core';
 
 import { Option } from '../../../models/Option.model';
 
+import { NextButtonStateService } from '../../state/next-button-state.service';
 import { QuestionHeadingService } from '../quiz-content/question-heading.service';
+import { QuizDotStatusService } from '../../flow/quiz-dot-status.service';
+import { SelectedOptionService } from '../../state/selectedoption.service';
 
 import type { QuizQuestionComponent } from '../../../../components/question/quiz-question/quiz-question.component';
 
@@ -14,7 +17,10 @@ type Host = QuizQuestionComponent;
  */
 @Injectable({ providedIn: 'root' })
 export class QqcOrchTimerService {
+  private dotStatusService = inject(QuizDotStatusService);
+  private nextButtonStateService = inject(NextButtonStateService);
   private questionHeadingService = inject(QuestionHeadingService);
+  private selectedOptionService = inject(SelectedOptionService);
 
   runOnQuestionTimedOut(host: Host, targetIndex?: number): void {
     if (host.timedOut()) return;
@@ -121,6 +127,17 @@ export class QqcOrchTimerService {
 
   async runOnTimerExpiredFor(host: Host, index: number): Promise<void> {
     const i0 = host.normalizeIndex(index);
+
+    // Record the timeout durably and enable Next on EVERY expiry call — before
+    // the handledOnExpiry guard. A background-tab expiry reaches here via the
+    // fast-path (the real timer is throttled, so the cqc expired$ stream that
+    // normally stamps the durable flag never fires) and tab-return re-entry
+    // hits the early-return below. Both must still keep Next enabled so the
+    // user can advance, even when the question was never answered.
+    this.dotStatusService.timedOutFetForced.add(i0);
+    this.selectedOptionService.setAnswered(true, true);
+    this.nextButtonStateService.setNextButtonState(true);
+
     if (host.handledOnExpiry.has(i0)) return;
     host.handledOnExpiry.add(i0);
     host.onQuestionTimedOut(i0);
