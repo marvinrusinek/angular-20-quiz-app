@@ -13,11 +13,9 @@ import { QuizQuestion } from '../../../../shared/models/QuizQuestion.model';
 import { SelectedOption } from '../../../../shared/models/SelectedOption.model';
 import { SharedOptionConfig } from '../../../../shared/models/SharedOptionConfig.model';
 
-import {
-  AnswerBindingsService,
-  AnswerOptionsService,
-  AnswerSelectionService
-} from '../../../../features/answer/';
+import { AnswerBindingsService } from '../../../../shared/services/features/answer/answer-bindings.service';
+import { AnswerOptionsService } from '../../../../shared/services/features/answer/answer-options.service';
+import { AnswerSelectionService } from '../../../../shared/services/features/answer/answer-selection.service';
 
 import { QqcQuestionLoaderService } from '../../../../shared/services/features/qqc/qqc-question-loader.service';
 import { QuizQuestionManagerService } from '../../../../shared/services/flow/quizquestionmgr.service';
