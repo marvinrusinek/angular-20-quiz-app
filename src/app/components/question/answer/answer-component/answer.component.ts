@@ -1,6 +1,6 @@
 import {
-  ChangeDetectionStrategy, Component,
-  effect, inject, input, model, OnInit, output, signal
+  ChangeDetectionStrategy, Component, effect, inject, input, model, OnInit, 
+  output, signal
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
@@ -13,9 +13,6 @@ import { QuizQuestion } from '../../../../shared/models/QuizQuestion.model';
 import { SelectedOption } from '../../../../shared/models/SelectedOption.model';
 import { SharedOptionConfig } from '../../../../shared/models/SharedOptionConfig.model';
 
-/* import { AnswerBindingsService } from '../../../../shared/services/features/answer/answer-bindings.service';
-import { AnswerOptionsService } from '../../../../shared/services/features/answer/answer-options.service';
-import { AnswerSelectionService } from '../../../../shared/services/features/answer/answer-selection.service'; */
 import {
   AnswerBindingsService,
   AnswerOptionsService,
