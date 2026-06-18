@@ -63,6 +63,21 @@ export class CqcDisplayTextService {
   private handleDisplayText(host: Host, text: string): void {
     const early = this.computeEarlyFlags(host, text);
 
+    // REVISIT GUARD: the FET belongs to the CURRENT view only — it shows right
+    // after the user answers (a live selection exists for this index) or when
+    // the timer has just expired (transient timedOutIdxSubject === idx). On ANY
+    // revisit, selections are cleared on navigation and the transient timeout is
+    // reset, so show the question text (+ "N correct answers" banner for
+    // multi-answer) instead of the FET — overriding the durable FET-forcing
+    // fast-paths below.
+    if (this.shouldForceQuestionOnRevisit(host, early)) {
+      const qText = this.fetGuard.buildQuestionDisplayHTML(host, early.currentIdx);
+      if (qText) {
+        this.fetGuard.writeQText(host, qText);
+        return;
+      }
+    }
+
     // DURABLE TIMEOUT FAST-PATH: a question whose timer expired shows its FET on
     // (re)display, even on revisit — timedOutIdxSubject is transient (reset on
     // nav), so the question-forcing guards below would otherwise restore the
@@ -83,6 +98,21 @@ export class CqcDisplayTextService {
     const el = host.qText?.()?.nativeElement;
     if (!el) return;
     this.writeWithDomGuards(host, el, finalText, ctx);
+  }
+
+  /**
+   * REVISIT detection: true when the FET should be suppressed in favor of the
+   * question text. The FET shows only on the current view — right after the user
+   * answers (a live selection exists for this index) or when the timer has just
+   * expired (transient flag, reset on navigation). No live selection means a
+   * fresh question OR a revisit; either way the heading shows the question text.
+   */
+  private shouldForceQuestionOnRevisit(host: Host, early: EarlyDisplayFlags): boolean {
+    if (early.currentIdx < 0) return false;
+    if (early.isTimedOutForIdx) return false;
+    const live =
+      host.selectedOptionService?.getSelectedOptionsForQuestion?.(early.currentIdx) ?? [];
+    return live.length === 0;
   }
 
   /**
