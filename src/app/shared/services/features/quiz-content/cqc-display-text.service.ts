@@ -276,11 +276,26 @@ export class CqcDisplayTextService {
    * substitute the cached or freshly-formatted FET. Extracted verbatim.
    */
   private applyExplanationSubstitution(host: Host, finalText: string, ctx: DisplayTextCtx): string {
+    // On in-app revisit, latestExplanationIndex can still point at a DIFFERENT
+    // index (e.g. after another question timed out) when this question's raw
+    // explanation emits — a timing race that skips FET substitution and lets the
+    // raw explanation through (the tab-return path already resolves it). Accept
+    // either the live-index match OR an existing cached FET for THIS index; both
+    // are keyed to currentIdx, so there's no cross-question leak.
+    const cachedFetForCurr = (
+      (host.explanationTextService.formattedExplanations[ctx.currentIdx]?.explanation ?? '').trim()
+      || (host.explanationTextService.fetByIndex?.get(ctx.currentIdx) ?? '').trim()
+    );
+    const hasCachedFetForCurr = !!cachedFetForCurr
+      && cachedFetForCurr.toLowerCase().includes('correct because');
+    const latestIdx = host.explanationTextService.latestExplanationIndex ?? -1;
+    const explanationForThisIdx =
+      (latestIdx === ctx.currentIdx && latestIdx >= 0) || hasCachedFetForCurr;
+
     const isExplanation = ctx.lowerText.length > 0
       && !ctx.isQuestionText
       && !ctx.lowerText.includes('correct because')
-      && host.explanationTextService.latestExplanationIndex === ctx.currentIdx
-      && host.explanationTextService.latestExplanationIndex >= 0
+      && explanationForThisIdx
       && (ctx.hasRealInteraction || ctx.isTimedOutForIdx)
       && !ctx.multiAnswerBlocked;
     if (isExplanation) {
