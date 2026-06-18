@@ -103,16 +103,19 @@ export class CqcDisplayTextService {
   /**
    * REVISIT detection: true when the FET should be suppressed in favor of the
    * question text. The FET shows only on the current view — right after the user
-   * answers (a live selection exists for this index) or when the timer has just
-   * expired (transient flag, reset on navigation). No live selection means a
-   * fresh question OR a revisit; either way the heading shows the question text.
+   * answers (a genuine click flips questionFresh to false) or when the timer has
+   * just expired (transient flag, reset on navigation). On any navigation the
+   * per-question reset sets questionFresh back to true, and rehydration of a
+   * prior answer's selections does NOT touch it — so questionFresh stays true on
+   * revisit until the user actively clicks again, which is exactly when the
+   * heading should show the question text rather than the FET. (Live selections
+   * can't be used here: they're rehydrated on revisit to show the prior answer.)
    */
   private shouldForceQuestionOnRevisit(host: Host, early: EarlyDisplayFlags): boolean {
     if (early.currentIdx < 0) return false;
     if (early.isTimedOutForIdx) return false;
-    const live =
-      host.selectedOptionService?.getSelectedOptionsForQuestion?.(early.currentIdx) ?? [];
-    return live.length === 0;
+    const fresh = host.quizQuestionComponent?.()?.questionFresh?.() ?? true;
+    return fresh === true;
   }
 
   /**

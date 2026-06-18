@@ -279,22 +279,28 @@ export class CqcOrchestratorService {
     // incorrect / in-progress / expired-without-getting-it-right keep the
     // banner. buildQuestionDisplayHTML emits the `correct-count` banner only
     // for multi-answer, so single-answer is untouched (FET-in-heading below).
-    // A question whose timer expired shows its FET on (re)display — including on
-    // tab-return via forceStampIfBlank — regardless of completion or interaction.
-    // Mirrors heading-model (isTimedOut -> FET). timedOutFetForced is durable
-    // (survives navigate-away/back and tab hide/show). Single- and multi-answer.
-    const timedOut = this.dotStatusService?.timedOutFetForced?.has(idx) === true;
+    // FET shows ONLY on the CURRENT view: a genuine answer this visit
+    // (questionFresh === false, flipped to false by the click orchestrator) or a
+    // live timer expiry (the TRANSIENT timedOutIdxSubject for this idx, which is
+    // reset on navigation). On a REVISIT the per-question reset restores
+    // questionFresh=true and the transient timeout is cleared, so the heading
+    // reverts to the question text (+ banner) — while the cached FET, selections,
+    // scoring and explanation state are all preserved untouched.
+    const fresh = host.quizQuestionComponent?.()?.questionFresh?.() ?? true;
+    const transientTimedOut =
+      host.timedOutIdxSubject?.getValue?.() === idx && idx >= 0;
+    const fetActive = !fresh || transientTimedOut;
 
     const banneredQ = this.fetGuard.buildQuestionDisplayHTML(host, idx);
     if (banneredQ && banneredQ.includes('correct-count')) {
       const answeredCorrectly = host.quizService?._multiAnswerPerfect?.get?.(idx) === true;
-      if (!answeredCorrectly && !timedOut) {
+      if (!answeredCorrectly && !fetActive) {
         return banneredQ;
       }
     }
 
     let intended = '';
-    if (timedOut || this.fetGuard.hasInteractionEvidence(host, idx)) {
+    if (fetActive) {
       intended = this.resolveCachedFet(host, idx);
       // No (valid) cached FET — try on-the-fly if quiz data is available.
       if (!intended) intended = this.computeOnTheFlyFet(host, idx);
