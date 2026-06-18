@@ -114,7 +114,13 @@ export class CqcDisplayTextService {
   private shouldForceQuestionOnRevisit(host: Host, early: EarlyDisplayFlags): boolean {
     if (early.currentIdx < 0) return false;
     if (early.isTimedOutForIdx) return false;
-    const fresh = host.quizQuestionComponent?.()?.questionFresh?.() ?? true;
+    const qqc = host.quizQuestionComponent?.();
+    const fresh = qqc?.questionFresh?.() ?? true;
+    // TEMP DIAGNOSTIC — remove after root-cause confirmed.
+    try {
+      (window as any).__qtDbg = { idx: early.currentIdx, hasQQC: !!qqc, fresh };
+      console.log('[QT-DBG] idx=' + early.currentIdx + ' hasQQC=' + !!qqc + ' questionFresh=' + fresh);
+    } catch { /* ignore */ }
     return fresh === true;
   }
 
