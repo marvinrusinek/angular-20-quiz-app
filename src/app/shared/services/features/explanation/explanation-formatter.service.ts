@@ -334,7 +334,17 @@ export class ExplanationFormatterService {
         : (typeof quizSvc?.getCurrentQuestionIndex === 'function'
           ? quizSvc.getCurrentQuestionIndex()
           : -1);
-      const rawOpts = quizSvc?.questions?.[idx]?.options;
+      // SHUFFLE-AWARE: resolve through the DISPLAYED question so the returned
+      // correct indices are DISPLAY positions — the "Option N" label in the FET
+      // and feedback must match the order the user actually sees. With option
+      // shuffling on, indexing the raw `questions` array (original option order)
+      // would label the correct option by its original position. getDisplayed-
+      // Question returns shuffledQuestions[idx] (option-shuffled, display order)
+      // when shuffling is on, and the original question otherwise.
+      const displayedOpts = quizSvc?.getDisplayedQuestion?.(idx)?.options;
+      const rawOpts = (Array.isArray(displayedOpts) && displayedOpts.length)
+        ? displayedOpts
+        : quizSvc?.questions?.[idx]?.options;
       if (Array.isArray(rawOpts) && rawOpts.length) opts = rawOpts;
     } catch (err: unknown) {
       console.error('ExplanationFormatterService.formatExplanation options fallback lookup failed:', err);

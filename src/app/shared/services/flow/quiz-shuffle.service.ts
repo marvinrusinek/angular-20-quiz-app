@@ -24,22 +24,25 @@ export class QuizShuffleService {
   public prepareShuffle(
     quizId: string,
     questions: QuizQuestion[],
-    opts: PrepareShuffleOpts = { shuffleQuestions: true, shuffleOptions: false }  // Question shuffle ON, Option shuffle OFF for stability
+    // Questions AND options are both shuffled. Option shuffling is safe because
+    // each option's identity travels with its STABLE optionId (assigned by
+    // ORIGINAL position in cloneAndNormalizeOptions before reorderOptions runs),
+    // not its display position. Scoring, feedback, FET and results resolve answers
+    // by optionId/text, never by array index, so the visual order can change
+    // freely.
+    opts: PrepareShuffleOpts = { shuffleQuestions: true, shuffleOptions: true }
   ): void {
-    // Only shuffle ONCE per quiz session.
-    // If we already have a shuffle order for this quiz, DO NOT recreate it!
+    // Shuffle EXACTLY ONCE per quiz session. If an order already exists for this
+    // quiz, keep it untouched so navigation never reshuffles the questions OR
+    // the options (no re-normalization to identity).
     if (this.shuffleByQuizId.has(quizId)) {
-      // Fix any pre-existing option shuffling: normalize option orders to identity
-      this.normalizeOptionOrders(quizId, questions);
       return;
     }
 
-    // Check persistence
+    // Restore a persisted order if one exists — keep its option order as saved.
     if (this.loadState(quizId)) {
       const state = this.shuffleByQuizId.get(quizId);
       if (state && state.questionOrder.length === questions.length) {
-        // Fix any pre-existing option shuffling: normalize option orders to identity
-        this.normalizeOptionOrders(quizId, questions);
         return;
       }
       // Persisted shuffle length mismatch — regenerating
@@ -47,8 +50,7 @@ export class QuizShuffleService {
       localStorage.removeItem(`shuffleState:${quizId}`);
     }
 
-    // Question shuffling enabled, but option shuffling disabled for stability
-    const { shuffleQuestions = true, shuffleOptions = false } = opts;
+    const { shuffleQuestions = true, shuffleOptions = true } = opts;
 
     const qIdx = questions.map((_, i) => i);
     const questionOrder = shuffleQuestions ? Utils.shuffleArray(qIdx) : qIdx;
@@ -258,10 +260,16 @@ export class QuizShuffleService {
   // Make optionId numeric & stable; idempotent. Uses questionIndex to ensure global uniqueness.
   public assignOptionIds(options: Option[], questionIndex: number): Option[] {
     return (options ?? []).map((o, i) => {
-      // Build a globally unique numeric ID like 101, 102, 201, 202, etc.
-      // Format: (QuestionIndex + 1) * 100 + (OptionIndex + 1)
-      // This is stable and idempotent.
-      const uniqueId = (questionIndex + 1) * 100 + (i + 1);
+      // IDEMPOTENT: an option that already carries a valid numeric optionId keeps
+      // it, so re-stamping an already-SHUFFLED array (this method is called at
+      // several pipeline stages) never renumbers an option by its new display
+      // position. Without this, an option's id would change when it moves, and
+      // scoring/feedback/FET — which resolve by optionId — would break. Only
+      // assign a fresh id (by original position) when one is missing.
+      const existing = this.toNum((o as any).optionId);
+      const uniqueId = existing != null && existing > 0
+        ? existing
+        : (questionIndex + 1) * 100 + (i + 1);
 
       return {
         ...o,
@@ -273,28 +281,6 @@ export class QuizShuffleService {
   }
 
   // ── private methods ─────────────────────────────────────────────
-
-  /**
-   * Resets all option orders to identity (no option shuffling).
-   * Called to fix pre-existing shuffle states that had option shuffling enabled.
-   */
-  private normalizeOptionOrders(quizId: string, _questions: QuizQuestion[]): void {
-    const state = this.shuffleByQuizId.get(quizId);
-    if (!state) return;
-
-    let changed = false;
-    for (const [origIdx, order] of state.optionOrder.entries()) {
-      const identity = Array.from({ length: order.length }, (_, i) => i);
-      const isIdentity = order.length === identity.length &&
-        order.every((v, i) => v === i);
-      if (!isIdentity) {
-        state.optionOrder.set(origIdx, identity);
-        changed = true;
-      }
-    }
-
-    if (changed) this.saveState(quizId);
-  }
 
   // Persistence Utilities
   private saveState(quizId: string): void {
