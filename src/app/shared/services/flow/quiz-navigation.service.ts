@@ -28,9 +28,6 @@ import { isOptionCorrect } from '../../utils/is-option-correct';
 import { norm } from '../../utils/text-norm';
 import { swallow } from '../../utils/error-logging';
 
-/** Delay before clearing the backward-navigation signal after a Previous click. */
-const PREVIOUS_NAV_SIGNAL_RESET_DELAY_MS = 500;
-
 /** Duration of the MutationObserver lock that prevents stale FET writes from overwriting the target question text after a Next click. */
 const NAV_LOCK_OBSERVER_DURATION_MS = 1200;
 

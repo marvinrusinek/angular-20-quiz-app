@@ -52,13 +52,6 @@ export class CqcFetGuardService {
   writeQText(host: Host, html: string): void {
     try {
       let safe = html ?? '';
-      // TEMP DIAGNOSTIC — who calls writeQText with FET. Remove after.
-      try {
-        if ((safe ?? '').toLowerCase().includes('correct because')) {
-          console.log('[QT-WQT] incoming FET into writeQText');
-          console.log('[QT-WQT-STACK]', new Error().stack);
-        }
-      } catch { /* ignore */ }
 
       // URL-AUTHORITATIVE GUARD — URL question is the source of truth (null = drop stale write).
       const _urlGuarded = this.applyUrlAuthoritativeGuard(host, safe);
