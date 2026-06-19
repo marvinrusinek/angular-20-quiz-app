@@ -174,31 +174,32 @@ export class CqcQuestionNavService {
     const hasAnswerEvidence =
       hasSelectedOption || quizServiceHasSelections || selectedOptionServiceHasSelections || hasTrackedInteraction;
 
-    const selectedForIdx = (host.selectedOptionService.selectedOptionsMap?.get(idx) ?? []) as Option[];
-    const isActuallyResolved = currentQuestion && host.selectedOptionService.isQuestionResolvedCorrectly(currentQuestion, selectedForIdx);
+    // All navigation to an existing question — forward, backward, Next/Prev,
+    // dot, or arrow key — shows the QUESTION TEXT, never the FET. The FET
+    // belongs to the live answer view only. Previously this re-entered
+    // explanation mode for a "resolved" question UNLESS isNavigatingToPrevious
+    // was set, which is exactly why ArrowLeft/Prev (backward, flag set) showed
+    // the question text while a dot/Next (flag unset) showed the FET. Answer
+    // state (selections/scoring) is preserved — the cleanup below still runs
+    // only when there is no answer evidence at all.
+    host.quizStateService.setDisplayState({ mode: 'question', answered: false });
 
-    if (isActuallyResolved && !host.isNavigatingToPrevious()) {
-      host.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
-    } else {
-      host.quizStateService.setDisplayState({ mode: 'question', answered: false });
+    if (!hasAnswerEvidence) {
+      ets.resetForIndex(idx);
+      ets.latestExplanation = '';
+      ets.latestExplanationIndex = -1;
+      ets.formattedExplanationSig.set('');
 
-      if (!hasAnswerEvidence) {
-        ets.resetForIndex(idx);
-        ets.latestExplanation = '';
-        ets.latestExplanationIndex = -1;
-        ets.formattedExplanationSig.set('');
+      try { (ets as any)._fetSubject?.next({ idx: -1, text: '', token: 0 }); } catch { }
+      try { ets.fetByIndex?.delete(idx); } catch { }
+      try { delete (ets.formattedExplanations as any)[idx]; } catch { }
 
-        try { (ets as any)._fetSubject?.next({ idx: -1, text: '', token: 0 }); } catch { }
-        try { ets.fetByIndex?.delete(idx); } catch { }
-        try { delete (ets.formattedExplanations as any)[idx]; } catch { }
-
-        host._lastQuestionTextByIndex?.delete(idx);
-        host.quizService.selectedOptionsMap?.delete(idx);
-        host.selectedOptionService.selectedOptionsMap?.delete(idx);
-        host._fetDisplayedThisSession?.delete(idx);
-        ets.setShouldDisplayExplanation(false, { force: true });
-        ets.setIsExplanationTextDisplayed(false, { force: true });
-      }
+      host._lastQuestionTextByIndex?.delete(idx);
+      host.quizService.selectedOptionsMap?.delete(idx);
+      host.selectedOptionService.selectedOptionsMap?.delete(idx);
+      host._fetDisplayedThisSession?.delete(idx);
+      ets.setShouldDisplayExplanation(false, { force: true });
+      ets.setIsExplanationTextDisplayed(false, { force: true });
     }
 
     host.resetExplanationView();
