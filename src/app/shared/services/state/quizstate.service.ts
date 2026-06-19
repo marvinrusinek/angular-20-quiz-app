@@ -503,7 +503,7 @@ export class QuizStateService {
       if (currentUrlIdx === null) return;
       // Only seed if sessionStorage says this exact idx was answered.
       // Check multiple evidence sources because QuizStateService.reset()
-      // (triggered by handleQuestionChange → resetAll → quizReset$)
+      // (triggered by a resetAll → quizReset$ cycle)
       // wipes _answeredQuestionIndices and _hasUserInteracted from
       // sessionStorage. The durable sel_Q* and dot_confirmed_* keys
       // survive reset and serve as fallback evidence.
