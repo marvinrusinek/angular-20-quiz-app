@@ -1116,6 +1116,9 @@ export class CqcFetGuardService {
    * only multi-answer + resolved + a real cached FET that looks like a FET.
    */
   private restoreFetIfResolved(host: Host, el: HTMLElement): void {
+    // On navigation / revisit the heading must stay question text — the watchdog
+    // must NOT re-assert the FET (the FET belongs to the live answer view only).
+    if (host.isNavigatingToPrevious?.()) return;
     if (this.isMultiAnswerResolvedNow(host) !== true) return;
     const idx = this.getActiveIdx(host);
     const confirmed =
