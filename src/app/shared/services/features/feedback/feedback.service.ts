@@ -89,20 +89,13 @@ export class FeedbackService {
       this.countSelectedCorrectness(selected, optionsRaw, correctIndices, resolvedQuestion, quizSvc, isMultiMode, targetOption);
 
     const totalCorrectRequired = correctIndices.length > 0 ? correctIndices.length : 1;
-    // Resolved if the correct counts are met (even if incorrects are present).
-    const isMultiResolved = isMultiMode && numCorrectSelected >= totalCorrectRequired;
-    try {
-      console.log('[FBDBG]', {
-        correctIndices,
-        numCorrectSelected,
-        numIncorrectSelected,
-        totalCorrectRequired,
-        isMultiMode,
-        isMultiResolved,
-        target: targetOption ? { text: (targetOption.text ?? '').slice(0, 25), correct: isOptionCorrect(targetOption) } : null,
-        optsCorrectFlags: (optionsRaw || []).map((o: any) => ({ t: (o?.text ?? '').slice(0, 14), c: isOptionCorrect(o), sel: !!o?.selected }))
-      });
-    } catch { /* ignore */ }
+    // Resolved ONLY when every correct option is selected AND no incorrect option
+    // is selected. Selecting any wrong option must yield "Not this one, try
+    // again!", never the win — even if all correct options are also selected (or
+    // a transient all-selected render inflates the correct count).
+    const isMultiResolved = isMultiMode
+      && numCorrectSelected >= totalCorrectRequired
+      && numIncorrectSelected === 0;
     if (isMultiResolved) return this.buildCorrectFeedback(correctIndices);
 
     if (!selected || dedupedSelected.length === 0) return '';
