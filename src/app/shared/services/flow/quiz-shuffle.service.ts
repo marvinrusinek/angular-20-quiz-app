@@ -20,39 +20,46 @@ export class QuizShuffleService {
 
   // ── public methods ──────────────────────────────────────────────
 
-  // Call once starting a quiz session (after fetching questions)
+  // Call once when starting a quiz session (after fetching questions).
   public prepareShuffle(
     quizId: string,
     questions: QuizQuestion[],
-    opts: PrepareShuffleOpts = { shuffleQuestions: true, shuffleOptions: false }  // Question shuffle ON, Option shuffle OFF for stability
+    // Questions AND options are both shuffled by default now. Option shuffling
+    // is safe because each option's identity travels with its STABLE optionId
+    // — assigned by ORIGINAL position before reordering (see assignOptionIds /
+    // cloneAndNormalizeOptions / reorderOptions) — not its display position.
+    // Scoring, feedback and results all resolve answers by optionId/text, never
+    // by array index, so the visual order can change without affecting them.
+    opts: PrepareShuffleOpts = { shuffleQuestions: true, shuffleOptions: true }
   ): void {
-    // Only shuffle ONCE per quiz session.
-    // If we already have a shuffle order for this quiz, DO NOT recreate it!
+    // Shuffle EXACTLY ONCE per quiz session. If an order already exists for this
+    // quiz (in memory), keep it untouched so navigation never reshuffles the
+    // questions OR the options.
     if (this.shuffleByQuizId.has(quizId)) {
-      // Fix any pre-existing option shuffling: normalize option orders to identity
-      this.normalizeOptionOrders(quizId, questions);
       return;
     }
 
-    // Check persistence
+    // Restore a persisted order if one exists — again, keep its option order
+    // exactly as saved (no re-normalization, no reshuffle).
     if (this.loadState(quizId)) {
       const state = this.shuffleByQuizId.get(quizId);
       if (state && state.questionOrder.length === questions.length) {
-        // Fix any pre-existing option shuffling: normalize option orders to identity
-        this.normalizeOptionOrders(quizId, questions);
         return;
       }
-      // Persisted shuffle length mismatch — regenerating
+      // Persisted shuffle length mismatch (question set changed) — regenerate.
       this.shuffleByQuizId.delete(quizId);
       localStorage.removeItem(`shuffleState:${quizId}`);
     }
 
-    // Question shuffling enabled, but option shuffling disabled for stability
-    const { shuffleQuestions = true, shuffleOptions = false } = opts;
+    const { shuffleQuestions = true, shuffleOptions = true } = opts;
 
     const qIdx = questions.map((_, i) => i);
     const questionOrder = shuffleQuestions ? Utils.shuffleArray(qIdx) : qIdx;
 
+    // Per-question option permutation, keyed by ORIGINAL question index so it
+    // stays valid regardless of where the question lands in the display order.
+    // This permutation is computed once here and then persisted, so the same
+    // option order is reused on every revisit.
     const optionOrder = new Map<number, number[]>();
     for (const origIdx of questionOrder) {
       const len = questions[origIdx]?.options?.length ?? 0;
@@ -273,28 +280,6 @@ export class QuizShuffleService {
   }
 
   // ── private methods ─────────────────────────────────────────────
-
-  /**
-   * Resets all option orders to identity (no option shuffling).
-   * Called to fix pre-existing shuffle states that had option shuffling enabled.
-   */
-  private normalizeOptionOrders(quizId: string, _questions: QuizQuestion[]): void {
-    const state = this.shuffleByQuizId.get(quizId);
-    if (!state) return;
-
-    let changed = false;
-    for (const [origIdx, order] of state.optionOrder.entries()) {
-      const identity = Array.from({ length: order.length }, (_, i) => i);
-      const isIdentity = order.length === identity.length &&
-        order.every((v, i) => v === i);
-      if (!isIdentity) {
-        state.optionOrder.set(origIdx, identity);
-        changed = true;
-      }
-    }
-
-    if (changed) this.saveState(quizId);
-  }
 
   // Persistence Utilities
   private saveState(quizId: string): void {
