@@ -418,9 +418,14 @@ export class QuizComponent implements OnInit, AfterViewInit {
   public handleQuizQuestionEvent(event: QuizQuestionEvent): void {
     switch (event.type) {
       case 'answer':
+        // A genuine answer ends the "navigated here" state, so the FET may show
+        // for the current view. The nav flag stays set across navigation (no
+        // timer reset) and is cleared here on a real selection.
+        this.quizNavigationService.setIsNavigatingToPrevious(false);
         this.quizSetupService.selectedAnswer(this, event.payload);
         break;
       case 'optionSelected':
+        this.quizNavigationService.setIsNavigatingToPrevious(false);
         if (event.payload && (event.payload as any).option) {
           void this.onOptionSelected((event.payload as any).option);
         } else {

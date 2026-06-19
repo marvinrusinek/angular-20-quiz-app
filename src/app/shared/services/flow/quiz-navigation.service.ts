@@ -123,8 +123,11 @@ export class QuizNavigationService {
 
     const result = await this.navigateWithOffset(-1);
 
-    // Reset flag after a short delay to allow display pipeline to process
-    setTimeout(() => this.isNavigatingToPreviousSig.set(false), PREVIOUS_NAV_SIGNAL_RESET_DELAY_MS);
+    // The flag is NOT reset on a timer — it stays set so the revisited question
+    // keeps its question text until the user actually answers again (cleared via
+    // setIsNavigatingToPrevious(false) on a genuine option selection). The old
+    // ~500ms reset is what let the FET watchdog re-assert the FET "a second
+    // later" on revisit.
 
     return result;
   }
@@ -171,9 +174,9 @@ export class QuizNavigationService {
       this.isNavigating = false;
       this.quizStateService.setNavigating(false);
       this.quizStateService.setLoading(false);
-      // Mirror advanceToPreviousQuestion's deferred reset so the flag clears
-      // after the display pipeline has processed the navigation.
-      setTimeout(() => this.isNavigatingToPreviousSig.set(false), PREVIOUS_NAV_SIGNAL_RESET_DELAY_MS);
+      // The nav flag is intentionally NOT reset here — it stays set so the
+      // revisited question keeps its question text until the user answers again
+      // (cleared in setIsNavigatingToPrevious(false) on a genuine selection).
     }
   }
 
