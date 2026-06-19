@@ -120,7 +120,13 @@ export class FeedbackService {
       if (m) {
         const urlIdx = Number(m[1]) - 1;
         const quizSvcEarly: any = this.injector.get(QuizService, null);
-        const urlQ: any = (quizSvcEarly?.questions ?? [])[urlIdx];
+        // SHUFFLE-AWARE: urlIdx is a DISPLAY index. Indexing the raw `questions`
+        // array (original order) by it resolves the wrong question in shuffled
+        // mode, so the correct/incorrect text sets below would be for a different
+        // question — making an incorrect pick go unrecognized and firing a
+        // premature "You're right!". Resolve the displayed question instead.
+        const urlQ: any = quizSvcEarly?.getDisplayedQuestion?.(urlIdx)
+          ?? (quizSvcEarly?.questions ?? [])[urlIdx];
         const urlOpts: any[] = urlQ?.options ?? [];
         if (urlOpts.length > 0) {
           const { correctIdxsURL, correctTextsURL, allTextsURL } = this.buildUrlCorrectSets(urlOpts);
@@ -220,9 +226,14 @@ export class FeedbackService {
         const m = window.location.pathname.match(QUESTION_ROUTE_REGEX);
         if (m) {
           const urlIdx = Number(m[1]) - 1;
-          if (urlIdx >= 0 && allQs[urlIdx]?.options?.length) {
+          // SHUFFLE-AWARE: resolve the DISPLAYED question at this display index so
+          // the correct-option numbers in the feedback match the order the user
+          // sees. allQs (original order) indexed by a display index is the wrong
+          // question once questions/options are shuffled.
+          const displayedQ: QuizQuestion = quizSvc?.getDisplayedQuestion?.(urlIdx) ?? allQs[urlIdx];
+          if (urlIdx >= 0 && displayedQ?.options?.length) {
             resolvedIdx = urlIdx;
-            resolvedQuestion = allQs[urlIdx];
+            resolvedQuestion = displayedQ;
           }
         }
       } catch { /* non-browser env */ }
@@ -357,9 +368,16 @@ export class FeedbackService {
       const m = window.location.pathname.match(QUESTION_ROUTE_REGEX);
       if (m) {
         const urlIdx = Number(m[1]) - 1;
+        // SHUFFLE-AWARE: text-match selections against the DISPLAYED question's
+        // options. Indexing the raw `questions` array by a display index gives a
+        // different question in shuffled mode, so a correct pick would be tallied
+        // against the wrong correct-set and the "select N more" count comes out
+        // wrong (or a correct pick reads as incorrect).
+        const displayedQ: any = quizSvc?.getDisplayedQuestion?.(urlIdx);
         const allQs: any[] = quizSvc?.questions ?? [];
-        if (urlIdx >= 0 && allQs[urlIdx]?.options?.length) {
-          canonicalOptionsForMatch = allQs[urlIdx].options as Option[];
+        const srcOpts: any[] = (displayedQ?.options?.length ? displayedQ.options : allQs[urlIdx]?.options) ?? [];
+        if (urlIdx >= 0 && srcOpts.length) {
+          canonicalOptionsForMatch = srcOpts as Option[];
         }
       }
     } catch { /* non-browser env */ }
