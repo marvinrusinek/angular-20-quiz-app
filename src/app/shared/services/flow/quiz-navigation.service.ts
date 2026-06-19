@@ -141,6 +141,19 @@ export class QuizNavigationService {
   }
 
   public async navigateToQuestion(index: number): Promise<boolean> {
+    // Suppress the FET / explanation on EVERY navigation. This is exactly what
+    // advanceToPreviousQuestion did, which is why ArrowLeft/Previous showed the
+    // question text while a dot (which calls navigateToQuestion directly) showed
+    // the FET. Doing it here — the common funnel for Prev/Next buttons, dots and
+    // both arrow keys — makes all navigation methods behave identically: the
+    // heading reverts to question text on revisit. The FET belongs to the live
+    // answer view only; selections/scoring state is untouched.
+    try {
+      (this as any).displayExplanation = false;
+      (this as any).explanationToDisplay = '';
+      this.explanationTextService.setShouldDisplayExplanation(false);
+    } catch (err: unknown) { swallow('quiz-navigation.service.ts', err); }
+
     // HARD reset render state before route change
     this.resetRenderStateBeforeNavigation(index);
 
