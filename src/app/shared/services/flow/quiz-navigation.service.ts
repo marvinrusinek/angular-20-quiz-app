@@ -149,6 +149,11 @@ export class QuizNavigationService {
     // heading reverts to question text on revisit. The FET belongs to the live
     // answer view only; selections/scoring state is untouched.
     try {
+      // Set the same backward-nav flag advanceToPreviousQuestion sets — the
+      // displayText pipeline reads it (resolveDisplayText) to render question
+      // text instead of the FET. Setting it here for EVERY navigation is what
+      // makes dots and Next behave like ArrowLeft/Previous.
+      this.isNavigatingToPreviousSig.set(true);
       (this as any).displayExplanation = false;
       (this as any).explanationToDisplay = '';
       this.explanationTextService.setShouldDisplayExplanation(false);
@@ -166,6 +171,9 @@ export class QuizNavigationService {
       this.isNavigating = false;
       this.quizStateService.setNavigating(false);
       this.quizStateService.setLoading(false);
+      // Mirror advanceToPreviousQuestion's deferred reset so the flag clears
+      // after the display pipeline has processed the navigation.
+      setTimeout(() => this.isNavigatingToPreviousSig.set(false), PREVIOUS_NAV_SIGNAL_RESET_DELAY_MS);
     }
   }
 

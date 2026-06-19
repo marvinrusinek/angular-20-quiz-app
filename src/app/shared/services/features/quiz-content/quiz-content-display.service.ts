@@ -165,7 +165,15 @@ export class QuizContentDisplayService {
     if (!hasInteracted && !isTimedOut) shouldShowExplanation = false;
 
     const hasPriorAnswer = wasPreviouslyAnswered || isResolved || safeSelections.length > 0;
-    if (isNavBack && !hasPriorAnswer) shouldShowExplanation = false;
+    // Suppress the FET on ANY navigation to a question — the FET belongs to the
+    // live answer view only. Previously this only fired for NEVER-answered
+    // questions (!hasPriorAnswer), so a dot/Next to an ALREADY-answered question
+    // re-showed its FET, while ArrowLeft/Prev (which set the nav flag) reverted
+    // to question text. Making it unconditional — plus setting the nav flag for
+    // every navigation method — reverts the heading to question text on every
+    // revisit. The live answer view has the flag cleared, so the FET still shows
+    // the moment a question is answered/timed-out.
+    if (isNavBack) shouldShowExplanation = false;
 
     shouldShowExplanation = this.applyOisBypass(shouldShowExplanation, safeIdx, qObj, safeSelections, hasInteracted);
 
