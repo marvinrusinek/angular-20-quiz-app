@@ -196,6 +196,17 @@ export class QuizContentDisplayService {
 
     shouldShowExplanation = this.applyAbsolutePristineGate(shouldShowExplanation, safeIdx, qObj, safeSelections, isTimedOut, _socConfirmed);
 
+    // TEMP DIAGNOSTIC — why does the FET show only for Q1? Remove after.
+    try {
+      console.log('[FET-DBG] idx=' + safeIdx
+        + ' navBack=' + isNavBack
+        + ' resolved=' + isResolved
+        + ' interacted=' + hasInteracted
+        + ' clicked=' + hasClickedThisIdx
+        + ' sel=' + safeSelections.length
+        + ' show=' + shouldShowExplanation);
+    } catch { /* ignore */ }
+
     return this.resolveExplanationOrQuestion(shouldShowExplanation, safeIdx, qObj, fetText, qDisplay);
   }
 
