@@ -165,15 +165,13 @@ export class QuizContentDisplayService {
     if (!hasInteracted && !isTimedOut) shouldShowExplanation = false;
 
     const hasPriorAnswer = wasPreviouslyAnswered || isResolved || safeSelections.length > 0;
-    // Suppress the FET on ANY navigation to a question — the FET belongs to the
-    // live answer view only. Previously this only fired for NEVER-answered
-    // questions (!hasPriorAnswer), so a dot/Next to an ALREADY-answered question
-    // re-showed its FET, while ArrowLeft/Prev (which set the nav flag) reverted
-    // to question text. Making it unconditional — plus setting the nav flag for
-    // every navigation method — reverts the heading to question text on every
-    // revisit. The live answer view has the flag cleared, so the FET still shows
-    // the moment a question is answered/timed-out.
-    if (isNavBack) shouldShowExplanation = false;
+    // Only suppress the FET on backward navigation to a NEVER-answered question.
+    // An ANSWERED question (hasPriorAnswer) always shows its FET — this is the
+    // essential "answer → FET" behavior. (The stricter `if (isNavBack)` form,
+    // which suppressed the FET on every revisit for the "revisit shows question
+    // text" feature, also hid the FET on forward-navigated answered questions
+    // whenever the nav-flag clear didn't land — i.e. FET only showed on Q1.)
+    if (isNavBack && !hasPriorAnswer) shouldShowExplanation = false;
 
     shouldShowExplanation = this.applyOisBypass(shouldShowExplanation, safeIdx, qObj, safeSelections, hasInteracted);
 
@@ -195,17 +193,6 @@ export class QuizContentDisplayService {
     }
 
     shouldShowExplanation = this.applyAbsolutePristineGate(shouldShowExplanation, safeIdx, qObj, safeSelections, isTimedOut, _socConfirmed);
-
-    // TEMP DIAGNOSTIC — why does the FET show only for Q1? Remove after.
-    try {
-      console.log('[FET-DBG] idx=' + safeIdx
-        + ' navBack=' + isNavBack
-        + ' resolved=' + isResolved
-        + ' interacted=' + hasInteracted
-        + ' clicked=' + hasClickedThisIdx
-        + ' sel=' + safeSelections.length
-        + ' show=' + shouldShowExplanation);
-    } catch { /* ignore */ }
 
     return this.resolveExplanationOrQuestion(shouldShowExplanation, safeIdx, qObj, fetText, qDisplay);
   }
