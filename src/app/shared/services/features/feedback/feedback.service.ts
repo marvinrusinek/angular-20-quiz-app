@@ -91,6 +91,18 @@ export class FeedbackService {
     const totalCorrectRequired = correctIndices.length > 0 ? correctIndices.length : 1;
     // Resolved if the correct counts are met (even if incorrects are present).
     const isMultiResolved = isMultiMode && numCorrectSelected >= totalCorrectRequired;
+    try {
+      console.log('[FBDBG]', {
+        correctIndices,
+        numCorrectSelected,
+        numIncorrectSelected,
+        totalCorrectRequired,
+        isMultiMode,
+        isMultiResolved,
+        target: targetOption ? { text: (targetOption.text ?? '').slice(0, 25), correct: isOptionCorrect(targetOption) } : null,
+        optsCorrectFlags: (optionsRaw || []).map((o: any) => ({ t: (o?.text ?? '').slice(0, 14), c: isOptionCorrect(o), sel: !!o?.selected }))
+      });
+    } catch { /* ignore */ }
     if (isMultiResolved) return this.buildCorrectFeedback(correctIndices);
 
     if (!selected || dedupedSelected.length === 0) return '';
