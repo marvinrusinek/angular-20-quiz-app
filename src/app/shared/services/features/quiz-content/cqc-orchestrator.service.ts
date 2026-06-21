@@ -120,6 +120,9 @@ export class CqcOrchestratorService {
         }
         let debounceTimer: any = null;
         const observer = new MutationObserver(() => {
+          // PHASE 3 step 3b: the single-source computed refills the heading, so
+          // this empty-heading recompute watchdog stands down when the flag is on.
+          if ((globalThis as any).__headingSingleSource === true) return;
           const innerNow = (el.innerHTML ?? '').trim();
           if (innerNow) return;
           if (debounceTimer) clearTimeout(debounceTimer);
@@ -252,6 +255,10 @@ export class CqcOrchestratorService {
           // would let stale Q(N) writes leak into Q(N+1).
           const expectedIdx = idx;
           const write = () => {
+            // PHASE 3 step 3b: the single-source computed reacts to the timer
+            // signal and renders the expiry FET itself, so this direct-innerHTML
+            // timer write (and its retry cascade) stands down when the flag is on.
+            if ((globalThis as any).__headingSingleSource === true) return;
             const liveIdx = host.questionIndex?.() ?? host.currentIndex ?? 0;
             if (liveIdx !== expectedIdx) return;
             el.innerHTML = fetHtml;
