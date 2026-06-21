@@ -1082,7 +1082,13 @@ export class CqcFetGuardService {
       // watchdog's corrective writes. Default OFF = current behavior. Set
       // window.__fetWatchdogDisabled = true in the console to test whether the
       // watchdog is still load-bearing before removing it in Stage 3.
-      if ((globalThis as any).__fetWatchdogDisabled === true) {
+      //
+      // PHASE 3 step 3a: when the single-source binding owns the heading
+      // (__headingSingleSource), this watchdog must NOT correct the DOM — the
+      // `headingHtml` computed is the only writer. So treat single-source as an
+      // implicit watchdog-disable. Flag off => unchanged (watchdog active).
+      if ((globalThis as any).__fetWatchdogDisabled === true
+          || (globalThis as any).__headingSingleSource === true) {
         return;
       }
       const html = el.innerHTML ?? '';
