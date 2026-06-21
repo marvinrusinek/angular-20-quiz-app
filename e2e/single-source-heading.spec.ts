@@ -135,4 +135,19 @@ test.describe('single-source heading (flag on)', () => {
     await page.waitForTimeout(500);
     await expect(page.locator(HEADING)).not.toContainText(/is correct because/i);
   });
+
+  test('reload of an answered question keeps the heading populated (no blank)', async ({ page }) => {
+    await startTs(page);
+    const rows = page.locator('.option-row');
+    const h = (await page.locator(HEADING).textContent()) ?? '';
+    const correct = await correctRowsForHeading(rows, tsQuiz, h);
+    await rows.nth(correct[0]).click();
+    await expect(page.locator(HEADING)).toContainText(/is correct because/i);
+    await page.reload();
+    await rows.first().waitFor({ state: 'visible', timeout: 20_000 });
+    await page.waitForTimeout(500);
+    // After F5 the heading must render real content (question or FET), never blank.
+    const after = (await page.locator(HEADING).textContent())?.trim() ?? '';
+    expect(after.length).toBeGreaterThan(0);
+  });
 });

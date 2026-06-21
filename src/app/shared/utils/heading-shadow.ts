@@ -4,6 +4,7 @@ import { QuizService } from '../services/data/quiz.service';
 import { ExplanationTextService } from '../services/features/explanation/explanation-text.service';
 import { TimerService } from '../services/features/timer/timer.service';
 import { QuizNavigationService } from '../services/flow/quiz-navigation.service';
+import { QuizQuestionManagerService } from '../services/flow/quizquestionmgr.service';
 import { SelectedOptionService } from '../services/state/selectedoption.service';
 import { QuizStateService } from '../services/state/quizstate.service';
 
@@ -27,7 +28,8 @@ export function installHeadingShadow(injector: Injector): void {
   if (typeof document === 'undefined') return;
 
   let quiz: QuizService, ets: ExplanationTextService, timer: TimerService,
-      sel: SelectedOptionService, state: QuizStateService, nav: QuizNavigationService;
+      sel: SelectedOptionService, state: QuizStateService, nav: QuizNavigationService,
+      qqm: QuizQuestionManagerService;
   try {
     quiz = injector.get(QuizService);
     ets = injector.get(ExplanationTextService);
@@ -35,6 +37,7 @@ export function installHeadingShadow(injector: Injector): void {
     sel = injector.get(SelectedOptionService);
     state = injector.get(QuizStateService);
     nav = injector.get(QuizNavigationService);
+    qqm = injector.get(QuizQuestionManagerService);
   } catch { return; }
 
   // One-time confirmation that the shadow is active (so "no logs" is
@@ -53,6 +56,7 @@ export function installHeadingShadow(injector: Injector): void {
       selectedOptionService: sel,
       quizStateService: state,
       quizNavigationService: nav,
+      quizQuestionManagerService: qqm,
     });
 
   setInterval(() => {

@@ -1,3 +1,4 @@
+import { withCorrectCountBanner } from './correct-count-banner';
 import { HeadingInputs } from './heading-model';
 import { norm } from './text-norm';
 
@@ -18,6 +19,7 @@ export interface HeadingInputDeps {
   selectedOptionService: any;
   quizStateService: any;
   quizNavigationService: any;
+  quizQuestionManagerService: any;
 }
 
 /**
@@ -43,8 +45,19 @@ export function buildHeadingInputs(d: HeadingInputDeps): HeadingInputs | null {
   const selectedCorrect = pristine.filter((t) => selectedTexts.has(t));
   const ets = d.explanationTextService;
 
+  // Compose the multi-answer "(N answers are correct)" banner into the question
+  // markup, byte-identical to the legacy buildQuestionDisplay path (same helper +
+  // formatter). Required now that the computed drives the DOM directly: without
+  // this the banner span is missing in single-source mode.
+  let questionHtml = qText;
+  const totalOpts = (dq.options?.length ?? 0);
+  if (isMultiAnswer && totalOpts > 0) {
+    const banner = d.quizQuestionManagerService.getNumberOfCorrectAnswersText(pristine.length, totalOpts);
+    questionHtml = withCorrectCountBanner(qText, banner);
+  }
+
   return {
-    questionHtml: qText,
+    questionHtml,
     fetHtml: (ets.formattedExplanations?.[idx]?.explanation ?? '')
           || (ets.fetByIndex?.get?.(idx) ?? ''),
     isMultiAnswer,

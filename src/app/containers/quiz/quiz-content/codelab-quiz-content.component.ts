@@ -145,7 +145,8 @@ export class CodelabQuizContentComponent implements OnInit {
       timerService: this.timerService,
       selectedOptionService: this.selectedOptionService,
       quizStateService: this.quizStateService,
-      quizNavigationService: this.quizNavigationService
+      quizNavigationService: this.quizNavigationService,
+      quizQuestionManagerService: this.quizQuestionManagerService
     });
     return inputs ? deriveHeadingHtml(inputs) : '';
   });
@@ -224,14 +225,12 @@ export class CodelabQuizContentComponent implements OnInit {
     effect(() => {
       const el = this.qText()?.nativeElement;
       if (!el) return;
-      // PHASE 3 step 2: behind a DEFAULT-OFF flag, drive the heading from the
-      // single-source `headingHtml` computed instead of htmlSig. With the flag
-      // off (production default) this reads htmlSig exactly as before — the
-      // computed is never read, so behavior is byte-identical. With the flag on
-      // (`window.__headingSingleSource = true`) the heading is decided by the one
-      // pure model. Old writers stay in place this step; they are removed one at
-      // a time in later steps once this path is validated.
-      const useSingleSource = (globalThis as any).__headingSingleSource === true;
+      // PHASE 3 cutover: the heading is driven by the single-source `headingHtml`
+      // computed by DEFAULT. Escape hatch: set `window.__headingSingleSource =
+      // false` at runtime to fall back to the legacy htmlSig path (kept until the
+      // old writers are deleted). The setHtml writers still run and feed htmlSig,
+      // which the computed reads as a reactivity trigger.
+      const useSingleSource = (globalThis as any).__headingSingleSource !== false;
       const html = useSingleSource
         ? this.headingHtml()
         : this.questionHeadingService.htmlSig();

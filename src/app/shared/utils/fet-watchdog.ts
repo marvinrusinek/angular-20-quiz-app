@@ -63,10 +63,10 @@ function findQuestionTextFromPristine():
 // pristine-correct options aren't all currently selected on screen.
 function enforceFetWatchdog(): void {
   try {
-    // PHASE 3 step 3b: when the single-source headingHtml computed owns the
-    // heading, this global revert watchdog must stand down — the computed is the
-    // only writer. Flag off => watchdog active, production unchanged.
-    if ((window as any).__headingSingleSource === true) return;
+    // PHASE 3 cutover: the single-source headingHtml computed owns the heading by
+    // default, so this global revert watchdog stands down unless the legacy path
+    // is explicitly re-enabled (window.__headingSingleSource = false).
+    if ((window as any).__headingSingleSource !== false) return;
     // Timer-expiry bypass: Angular sets this flag when timer expires
     if ((window as any).__quizTimerExpired === true) return;
 
