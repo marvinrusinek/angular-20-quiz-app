@@ -32,19 +32,39 @@ export interface HeadingInputs {
   isTimedOut: boolean;
   /** A real in-session interaction happened for this question. */
   hasInteracted: boolean;
+  /** Options have rendered for this index. False during a cold load / reload
+   *  before options arrive — we must never show a stale FET then (§5.3). */
+  optionsReady: boolean;
+  /** Navigated here (revisit) and not yet re-answered in this view. While true,
+   *  the heading shows the question text even for an already-resolved question;
+   *  the FET appears ONLY on the live answer view (§5.2, §5.11). Cleared by a
+   *  genuine answer. See memory project_revisit_question_text. */
+  isNavigatingToPrevious: boolean;
 }
 
 /**
  * Decide whether the heading should show the FET (vs the question + banner).
  *
  * Rules distilled from this codebase's behavior (resolveDisplayText /
- * computeIntendedQText / the multi-answer heading rule):
- *  - A timeout always reveals the FET (no interaction required).
+ * computeIntendedQText / the multi-answer heading rule + the §5 contract):
+ *  - Cold load (options not ready) never shows the FET — only the question.
+ *  - On a revisit (navigated here, not re-answered) the FET is suppressed even
+ *    for a resolved/timed-out question; it shows only on the live answer view.
+ *  - A first-time timeout on the live view reveals the FET (no interaction).
  *  - Otherwise the FET shows only after a real interaction AND the question is
  *    "done": multi-answer fully selected, or single-answer answered correctly.
  *  - In-progress / unanswered multi-answer keeps the question + banner.
+ *
+ * Branch order is the precedence: cold-load and revisit both override timeout,
+ * and revisit overrides a still-set resolution flag.
  */
 export function shouldShowFet(i: HeadingInputs): boolean {
+  if (!i.optionsReady) {
+    return false;
+  }
+  if (i.isNavigatingToPrevious) {
+    return false;
+  }
   if (i.isTimedOut) {
     return true;
   }

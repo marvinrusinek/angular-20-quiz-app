@@ -14,6 +14,8 @@ const base: HeadingInputs = {
   isSingleAnswered: false,
   isTimedOut: false,
   hasInteracted: false,
+  optionsReady: true,
+  isNavigatingToPrevious: false,
 };
 
 const inputs = (over: Partial<HeadingInputs>): HeadingInputs => ({ ...base, ...over });
@@ -43,6 +45,26 @@ describe('heading-model: shouldShowFet', () => {
   it('no interaction and no timeout → never FET', () => {
     expect(shouldShowFet(inputs({ isSingleAnswered: true }))).toBe(false);
     expect(shouldShowFet(inputs({ isMultiAnswer: true, isMultiAnswerComplete: true }))).toBe(false);
+  });
+
+  // §5.3 — cold load / options not ready never shows a (stale) FET.
+  it('cold load (options not ready) → never FET, even when otherwise resolved', () => {
+    expect(shouldShowFet(inputs({ optionsReady: false, hasInteracted: true, isSingleAnswered: true }))).toBe(false);
+    expect(shouldShowFet(inputs({ optionsReady: false, isTimedOut: true }))).toBe(false);
+  });
+
+  // §5.2 / §5.11 — on a revisit the FET is suppressed even for a resolved or
+  // timed-out question; it shows only on the live answer view.
+  it('revisit (navigated here, not re-answered) → never FET, even when resolved', () => {
+    expect(shouldShowFet(inputs({ isNavigatingToPrevious: true, hasInteracted: true, isSingleAnswered: true }))).toBe(false);
+    expect(shouldShowFet(inputs({ isNavigatingToPrevious: true, isMultiAnswer: true, hasInteracted: true, isMultiAnswerComplete: true }))).toBe(false);
+    expect(shouldShowFet(inputs({ isNavigatingToPrevious: true, isTimedOut: true }))).toBe(false);
+  });
+
+  // §5.6 — a first-time timeout on the live view (not a revisit) reveals the FET.
+  it('live first-time timeout (not a revisit) → FET', () => {
+    expect(shouldShowFet(inputs({ isTimedOut: true }))).toBe(true);
+    expect(shouldShowFet(inputs({ isTimedOut: true, isNavigatingToPrevious: false }))).toBe(true);
   });
 });
 

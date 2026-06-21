@@ -3,6 +3,7 @@ import { Injector, isDevMode } from '@angular/core';
 import { QuizService } from '../services/data/quiz.service';
 import { ExplanationTextService } from '../services/features/explanation/explanation-text.service';
 import { TimerService } from '../services/features/timer/timer.service';
+import { QuizNavigationService } from '../services/flow/quiz-navigation.service';
 import { SelectedOptionService } from '../services/state/selectedoption.service';
 import { QuizStateService } from '../services/state/quizstate.service';
 
@@ -26,13 +27,14 @@ export function installHeadingShadow(injector: Injector): void {
   if (typeof document === 'undefined') return;
 
   let quiz: QuizService, ets: ExplanationTextService, timer: TimerService,
-      sel: SelectedOptionService, state: QuizStateService;
+      sel: SelectedOptionService, state: QuizStateService, nav: QuizNavigationService;
   try {
     quiz = injector.get(QuizService);
     ets = injector.get(ExplanationTextService);
     timer = injector.get(TimerService);
     sel = injector.get(SelectedOptionService);
     state = injector.get(QuizStateService);
+    nav = injector.get(QuizNavigationService);
   } catch { return; }
 
   // One-time confirmation that the shadow is active (so "no logs" is
@@ -67,6 +69,8 @@ export function installHeadingShadow(injector: Injector): void {
       isSingleAnswered: !isMultiAnswer && selectedCorrect.length > 0,
       isTimedOut: timer.expiredForQuestionIndexSig?.() === idx,
       hasInteracted: state.hasUserInteracted?.(idx) === true,
+      optionsReady: document.querySelectorAll('.option-row').length > 0,
+      isNavigatingToPrevious: nav.isNavigatingToPreviousSig?.() === true,
     };
   };
 
