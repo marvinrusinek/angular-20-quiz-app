@@ -1,7 +1,7 @@
 import { test, expect, Page } from '@playwright/test';
 import {
   diQuiz, HEADING, FEEDBACK, NEXT_BTN, RESULTS_BTN,
-  findQuestionIn, correctIndicesForHeading,
+  findQuestionIn, correctIndicesForHeading, correctRowsForHeading,
 } from './helpers';
 
 /**
@@ -46,7 +46,7 @@ async function playThroughDi(page: Page, wrongAt: Set<number>) {
       .toBeGreaterThan(0);
 
     const heading = (await page.locator(HEADING).textContent()) ?? '';
-    const correct = correctIndicesForHeading(diQuiz, heading);
+    const correct = await correctRowsForHeading(rows, diQuiz, heading);
     const optCount = await rows.count();
 
     if (wrongAt.has(pos)) {
@@ -89,7 +89,7 @@ async function walkToMultiAnswer(page: Page): Promise<number[]> {
       .toBeGreaterThan(0);
 
     const heading = (await page.locator(HEADING).textContent()) ?? '';
-    const correct = correctIndicesForHeading(diQuiz, heading);
+    const correct = await correctRowsForHeading(rows, diQuiz, heading);
     const optCount = await rows.count();
 
     if (correct.length >= 2 && optCount > correct.length) {
@@ -140,7 +140,7 @@ test.describe('dependency-injection — multi-answer correctness (control, non-s
     for (let pos = 0; pos < total; pos++) {
       await rows.first().waitFor({ state: 'visible', timeout: 20_000 });
       const heading = (await page.locator(HEADING).textContent()) ?? '';
-      const correct = correctIndicesForHeading(diQuiz, heading);
+      const correct = await correctRowsForHeading(rows, diQuiz, heading);
 
       if (correct.length > 1) {
         // Select all correct options; the explanation should then appear.

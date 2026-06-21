@@ -1,16 +1,17 @@
 import { test, expect, Page } from '@playwright/test';
 import {
-  HEADING, FEEDBACK, NEXT_BTN, PREV_BTN,
-  findTsQuestion as findQuestionForHeading, correctIndexForHeading,
+  HEADING, FEEDBACK, NEXT_BTN, PREV_BTN, tsQuiz,
+  findTsQuestion as findQuestionForHeading, correctRowsForHeading,
 } from './helpers';
 
 /**
  * Shuffle-mode coverage for the explanation pipeline. The two extractions
  * that previously broke handleOptionClick (browser-only) failed in shuffle
  * mode, so this is the most important safety-net gap to close before any
- * decomposition. Question order is randomized but option order is not, so
- * we resolve the correct option by matching the displayed question text
- * against the quiz data (via the shared, tag-tolerant helpers).
+ * decomposition. Both question AND option order are randomized in shuffle, so
+ * we resolve the correct option by matching the displayed option TEXT against
+ * the quiz data (via correctRowsForHeading) — index-based resolution would
+ * click the wrong, reordered row.
  */
 
 async function enableShuffleAndStart(page: Page) {
@@ -26,11 +27,12 @@ test.describe('shuffle mode — explanation pipeline', () => {
   test('correct click shows the explanation for the displayed question', async ({ page }) => {
     await enableShuffleAndStart(page);
 
+    const rows = page.locator('.option-row');
     const headingText = (await page.locator(HEADING).textContent()) ?? '';
-    const correctIdx = correctIndexForHeading(headingText);
-    expect(correctIdx).toBeGreaterThanOrEqual(0);
+    const correct = await correctRowsForHeading(rows, tsQuiz, headingText);
+    expect(correct.length).toBeGreaterThan(0);
 
-    await page.locator('.option-row').nth(correctIdx).click();
+    await rows.nth(correct[0]).click();
     await expect(page.locator(HEADING)).toContainText(/is correct because/i);
     await expect(page.locator(FEEDBACK)).toContainText(/right/i);
   });
@@ -38,8 +40,10 @@ test.describe('shuffle mode — explanation pipeline', () => {
   test('explanation does not leak across forward navigation in shuffle', async ({ page }) => {
     await enableShuffleAndStart(page);
 
+    const rows = page.locator('.option-row');
     const headingText = (await page.locator(HEADING).textContent()) ?? '';
-    await page.locator('.option-row').nth(correctIndexForHeading(headingText)).click();
+    const correct = await correctRowsForHeading(rows, tsQuiz, headingText);
+    await rows.nth(correct[0]).click();
     await expect(page.locator(HEADING)).toContainText(/is correct because/i);
 
     await page.locator(NEXT_BTN).click();
@@ -72,7 +76,8 @@ test.describe('shuffle mode — explanation pipeline', () => {
 
     // Answer position 1.
     let h = (await page.locator(HEADING).textContent()) ?? '';
-    await rows.nth(correctIndexForHeading(h)).click();
+    let correct = await correctRowsForHeading(rows, tsQuiz, h);
+    await rows.nth(correct[0]).click();
     await expect(next).toBeEnabled();
 
     // Go to position 2 and answer it.
@@ -80,7 +85,8 @@ test.describe('shuffle mode — explanation pipeline', () => {
     await expect(page).toHaveURL(/\/2$/);
     await rows.first().waitFor({ state: 'visible' });
     h = (await page.locator(HEADING).textContent()) ?? '';
-    await rows.nth(correctIndexForHeading(h)).click();
+    correct = await correctRowsForHeading(rows, tsQuiz, h);
+    await rows.nth(correct[0]).click();
     await expect(next).toBeEnabled();
 
     // Bounce: 2 -> 1 -> 2 (2nd visit), then 1 -> 2 (3rd visit).

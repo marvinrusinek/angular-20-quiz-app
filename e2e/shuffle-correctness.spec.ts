@@ -1,6 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
 import {
-  tsQuiz, HEADING, NEXT_BTN, RESULTS_BTN, correctIndexForHeading,
+  tsQuiz, HEADING, NEXT_BTN, RESULTS_BTN, correctRowsForHeading,
 } from './helpers';
 
 /**
@@ -10,8 +10,8 @@ import {
  * known shuffle index mis-attribution corrupts scoring/results (it records
  * clicks under index 0) or only affects the Next-button-on-revisit edge.
  *
- * Question order is randomized; option order is not, so the correct option is
- * resolved by matching the displayed question text to the quiz data.
+ * Both question AND option order are randomized in shuffle, so the correct
+ * option is resolved by matching the displayed option TEXT to the quiz data.
  */
 
 async function startQuiz(page: Page, shuffle: boolean) {
@@ -36,12 +36,16 @@ async function playThroughShuffle(page: Page, wrongAt: Set<number>) {
     const rows = page.locator('.option-row');
     await rows.first().waitFor({ state: 'visible', timeout: 20_000 });
     await expect
-      .poll(async () => correctIndexForHeading((await page.locator(HEADING).textContent()) ?? ''),
+      .poll(async () =>
+        (await correctRowsForHeading(rows, tsQuiz, (await page.locator(HEADING).textContent()) ?? '')).length,
         { timeout: 8000 })
-      .toBeGreaterThanOrEqual(0);
+      .toBeGreaterThan(0);
 
-    const correctIdx = correctIndexForHeading((await page.locator(HEADING).textContent()) ?? '');
-    const clickIdx = wrongAt.has(pos) ? (correctIdx === 0 ? 1 : 0) : correctIdx;
+    const heading = (await page.locator(HEADING).textContent()) ?? '';
+    const correct = await correctRowsForHeading(rows, tsQuiz, heading);
+    const optCount = await rows.count();
+    const wrongIdx = [...Array(optCount).keys()].find((i) => !correct.includes(i)) ?? 0;
+    const clickIdx = wrongAt.has(pos) ? wrongIdx : correct[0];
     await rows.nth(clickIdx).click();
     await page.waitForTimeout(400); // let the click settle (relaxed)
 

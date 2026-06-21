@@ -1,3 +1,4 @@
+import type { Locator } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -64,4 +65,41 @@ export function findTsQuestion(headingText: string): any {
 export function correctIndexForHeading(headingText: string): number {
   const q = findTsQuestion(headingText);
   return q ? correctIndices(q)[0] ?? -1 : -1;
+}
+
+// ─── shuffle-immune option resolution (by visible text, not index) ──────────
+// Option ORDER is randomized at runtime when shuffle is on (prepareShuffle
+// defaults shuffleOptions:true), so resolving the correct row by its JSON index
+// clicks the wrong option. These resolve the DOM rows by matching the visible
+// option text against the quiz data instead, which holds in both modes.
+
+/** Drop the rendered "N. " numbering prefix from an option's visible text. */
+const stripLeadNumber = (s: string) => (s || '').replace(/^\s*\d+\.\s*/, '');
+
+/** Normalized correct option texts for the question shown in the heading. */
+export function correctTextsForHeading(quiz: any, headingText: string): string[] {
+  const q = findQuestionIn(quiz, headingText);
+  return (q?.options ?? []).filter(isCorrect).map((o: any) => norm(o.text));
+}
+
+/**
+ * Resolve the DOM `.option-row` indices for the correct options by matching each
+ * row's visible text to the quiz data. Shuffle-immune (order-independent).
+ */
+export async function correctRowsForHeading(
+  rows: Locator,
+  quiz: any,
+  headingText: string
+): Promise<number[]> {
+  const wanted = correctTextsForHeading(quiz, headingText);
+  const count = await rows.count();
+  const out: number[] = [];
+  for (let i = 0; i < count; i++) {
+    const raw = (await rows.nth(i).locator('.option-text').textContent()) ?? '';
+    const text = norm(stripLeadNumber(raw));
+    if (wanted.some((w) => w !== '' && (text === w || text.startsWith(w)))) {
+      out.push(i);
+    }
+  }
+  return out;
 }
