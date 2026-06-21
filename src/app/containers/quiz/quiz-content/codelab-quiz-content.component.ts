@@ -131,6 +131,13 @@ export class CodelabQuizContentComponent implements OnInit {
   // qTextHtmlSig->innerHTML binding to read this (a later step), it inherits the
   // shadow's proven agreement with the live heading. Intentionally inert for now.
   readonly headingHtml = computed<string>(() => {
+    // Reactivity bridge: every existing heading writer funnels through htmlSig on
+    // each heading-relevant event (option click, navigation, timer expiry), so
+    // reading it here makes this computed recompute at the same cadence even
+    // though buildHeadingInputs also reads non-signal state (selection/FET Maps).
+    // Removed once those inputs are signals. (No-op for the dark/flag-off path —
+    // the computed is still only read when the single-source flag is on.)
+    this.questionHeadingService.htmlSig();
     const inputs = buildHeadingInputs({
       idx: this.quizService.currentQuestionIndex,
       quizService: this.quizService,
@@ -216,8 +223,18 @@ export class CodelabQuizContentComponent implements OnInit {
     // problem where many services fight over the H3.
     effect(() => {
       const el = this.qText()?.nativeElement;
-      const html = this.questionHeadingService.htmlSig();
       if (!el) return;
+      // PHASE 3 step 2: behind a DEFAULT-OFF flag, drive the heading from the
+      // single-source `headingHtml` computed instead of htmlSig. With the flag
+      // off (production default) this reads htmlSig exactly as before — the
+      // computed is never read, so behavior is byte-identical. With the flag on
+      // (`window.__headingSingleSource = true`) the heading is decided by the one
+      // pure model. Old writers stay in place this step; they are removed one at
+      // a time in later steps once this path is validated.
+      const useSingleSource = (globalThis as any).__headingSingleSource === true;
+      const html = useSingleSource
+        ? this.headingHtml()
+        : this.questionHeadingService.htmlSig();
       if ((el.innerHTML ?? '') === html) return;
       this.renderer.setProperty(el, 'innerHTML', html);
     });
