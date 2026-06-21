@@ -35,11 +35,19 @@ export interface HeadingInputs {
   /** Options have rendered for this index. False during a cold load / reload
    *  before options arrive — we must never show a stale FET then (§5.3). */
   optionsReady: boolean;
-  /** Navigated here (revisit) and not yet re-answered in this view. While true,
-   *  the heading shows the question text even for an already-resolved question;
-   *  the FET appears ONLY on the live answer view (§5.2, §5.11). Cleared by a
-   *  genuine answer. See memory project_revisit_question_text. */
+  /** Navigated here (revisit). NOTE: this is a coarse signal — it is NOT reliably
+   *  cleared when the user answers a question reached by navigation, so on its own
+   *  it produces a FALSE NEGATIVE on a genuine completion view. Pair it with
+   *  `interactedThisVisit` (below): a revisit suppresses the FET only when the user
+   *  has NOT interacted this visit (§5.2, §5.11). */
   isNavigatingToPrevious: boolean;
+
+  /** The user made a genuine interaction (option click) with THIS question on
+   *  THIS visit. Race-immune: set synchronously on the click, cleared on
+   *  navigation (QuizStateService.wasInteractedThisVisit). Distinguishes the live
+   *  answer view (FET) from a revisit of an already-answered question (question
+   *  text) even when isNavigatingToPrevious is stale-true. */
+  interactedThisVisit: boolean;
 }
 
 /**
@@ -62,7 +70,7 @@ export function shouldShowFet(i: HeadingInputs): boolean {
   if (!i.optionsReady) {
     return false;
   }
-  if (i.isNavigatingToPrevious) {
+  if (i.isNavigatingToPrevious && !i.interactedThisVisit) {
     return false;
   }
   if (i.isTimedOut) {

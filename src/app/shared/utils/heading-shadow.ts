@@ -71,6 +71,7 @@ export function installHeadingShadow(injector: Injector): void {
       hasInteracted: state.hasUserInteracted?.(idx) === true,
       optionsReady: document.querySelectorAll('.option-row').length > 0,
       isNavigatingToPrevious: nav.isNavigatingToPreviousSig?.() === true,
+      interactedThisVisit: state.wasInteractedThisVisit?.(idx) === true,
     };
   };
 

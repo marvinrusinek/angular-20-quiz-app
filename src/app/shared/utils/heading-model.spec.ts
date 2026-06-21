@@ -16,6 +16,7 @@ const base: HeadingInputs = {
   hasInteracted: false,
   optionsReady: true,
   isNavigatingToPrevious: false,
+  interactedThisVisit: false,
 };
 
 const inputs = (over: Partial<HeadingInputs>): HeadingInputs => ({ ...base, ...over });
@@ -65,6 +66,30 @@ describe('heading-model: shouldShowFet', () => {
   it('live first-time timeout (not a revisit) → FET', () => {
     expect(shouldShowFet(inputs({ isTimedOut: true }))).toBe(true);
     expect(shouldShowFet(inputs({ isTimedOut: true, isNavigatingToPrevious: false }))).toBe(true);
+  });
+
+  // §5.7 — completing a question REACHED BY NAVIGATION still shows the FET, even
+  // though isNavigatingToPrevious can remain stale-true: interactedThisVisit
+  // (set on the genuine click) distinguishes the live completion view from a
+  // revisit. Regression guard for the shadow-sweep false negative.
+  it('completion view reached by nav (isNavigatingToPrevious stale-true + interactedThisVisit) → FET', () => {
+    expect(shouldShowFet(inputs({
+      isMultiAnswer: true, hasInteracted: true, isMultiAnswerComplete: true,
+      isNavigatingToPrevious: true, interactedThisVisit: true,
+    }))).toBe(true);
+    expect(shouldShowFet(inputs({
+      hasInteracted: true, isSingleAnswered: true,
+      isNavigatingToPrevious: true, interactedThisVisit: true,
+    }))).toBe(true);
+  });
+
+  // The revisit suppression still holds when the user has NOT interacted this visit.
+  it('revisit without interaction this visit → no FET (resolved or timed-out)', () => {
+    expect(shouldShowFet(inputs({
+      isMultiAnswer: true, hasInteracted: true, isMultiAnswerComplete: true,
+      isNavigatingToPrevious: true, interactedThisVisit: false,
+    }))).toBe(false);
+    expect(shouldShowFet(inputs({ isTimedOut: true, isNavigatingToPrevious: true, interactedThisVisit: false }))).toBe(false);
   });
 });
 

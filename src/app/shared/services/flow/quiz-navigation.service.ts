@@ -160,6 +160,10 @@ export class QuizNavigationService {
       (this as any).displayExplanation = false;
       (this as any).explanationToDisplay = '';
       this.explanationTextService.setShouldDisplayExplanation(false);
+      // Arriving at a question is a fresh visit: drop any "interacted this visit"
+      // mark for it so a previously-answered question shows its question text on
+      // return (re-set only when the user clicks again this visit).
+      this.quizStateService.clearInteractedThisVisit(index);
     } catch (err: unknown) { swallow('quiz-navigation.service.ts', err); }
 
     // HARD reset render state before route change

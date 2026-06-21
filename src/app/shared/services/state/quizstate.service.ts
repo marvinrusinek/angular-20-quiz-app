@@ -451,6 +451,8 @@ export class QuizStateService {
     // hooking here ensures clicks are captured in _clickedInSession
     // without being polluted by F5 restoration.
     this.markClickedInSession(idx);
+    // ...and as an interaction THIS visit (race-immune live-view marker).
+    this.markInteractedThisVisit(idx);
   }
 
   hasUserInteracted(idx: number): boolean {
@@ -483,6 +485,31 @@ export class QuizStateService {
 
   hasClickedInSession(idx: number): boolean {
     return this._clickedInSession.has(idx);
+  }
+
+  // ───────────────────────────────────────────────────────────────
+  // Visit-scoped interaction flag. Unlike _clickedInSession (which is
+  // session-durable — it stays set for an answered idx across navigation),
+  // this is SET synchronously on a genuine click this visit and CLEARED when
+  // navigating TO a question (a fresh visit). That distinguishes the LIVE
+  // answer view (keep the FET) from a revisit of an already-answered question
+  // (show question text). Race-immune: it does NOT depend on the async
+  // isNavigatingToPrevious clear, so a genuine forward-nav answer still shows
+  // its FET even if that flag has not cleared yet.
+  // ───────────────────────────────────────────────────────────────
+  public _interactedThisVisit = new Set<number>();
+
+  markInteractedThisVisit(idx: number): void {
+    if (!Number.isFinite(idx) || idx < 0) return;
+    this._interactedThisVisit.add(idx);
+  }
+
+  wasInteractedThisVisit(idx: number): boolean {
+    return this._interactedThisVisit.has(idx);
+  }
+
+  clearInteractedThisVisit(idx: number): void {
+    this._interactedThisVisit.delete(idx);
   }
 
   seedClickedInSessionFromRefresh(): void {
@@ -532,6 +559,7 @@ export class QuizStateService {
 
   clearClickedInSession(): void {
     this._clickedInSession.clear();
+    this._interactedThisVisit.clear();
   }
 
   // Reset interaction state (called on Navigation)
