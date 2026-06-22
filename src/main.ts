@@ -19,12 +19,10 @@ import { ANSWER_COMPONENT } from './app/shared/tokens/answer-component.token';
 import { PwaUpdateService } from './app/shared/services/pwa-update.service';
 import { GlobalErrorHandler, installGlobalErrorLogging } from './app/shared/utils/error-logging';
 import { installHeadingShadow } from './app/shared/utils/heading-shadow';
-import { installGlobalFetWatchdog } from './app/shared/utils/fet-watchdog';
 import { setQuizDataCache } from './app/shared/quiz-data-cache';
 import { Quiz } from './app/shared/models/Quiz.model';
 import { QuizResource } from './app/shared/models/QuizResource.model';
 
-installGlobalFetWatchdog();
 installGlobalErrorLogging();
 
 bootstrapApplication(AppComponent, {
