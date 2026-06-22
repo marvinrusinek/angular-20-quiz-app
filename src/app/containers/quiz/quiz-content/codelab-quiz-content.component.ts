@@ -131,13 +131,18 @@ export class CodelabQuizContentComponent implements OnInit {
   // qTextHtmlSig->innerHTML binding to read this (a later step), it inherits the
   // shadow's proven agreement with the live heading. Intentionally inert for now.
   readonly headingHtml = computed<string>(() => {
-    // Reactivity bridge: every existing heading writer funnels through htmlSig on
-    // each heading-relevant event (option click, navigation, timer expiry), so
-    // reading it here makes this computed recompute at the same cadence even
-    // though buildHeadingInputs also reads non-signal state (selection/FET Maps).
-    // Removed once those inputs are signals. (No-op for the dark/flag-off path —
-    // the computed is still only read when the single-source flag is on.)
-    this.questionHeadingService.htmlSig();
+    // Reactivity triggers (Phase 3 step 3c): recompute whenever any heading-
+    // relevant state changes. We read these signals only to establish the
+    // computed's dependencies — the values are gathered fresh by
+    // buildHeadingInputs below (which itself reads currentQuestionIndex, the
+    // timer-expiry signal and the nav-back signal). This replaces the previous
+    // htmlSig trigger, decoupling the heading from the setHtml writers so they
+    // can be removed. Extra triggers are harmless; a missing one is the bug, so
+    // we read every signal that correlates with a heading change.
+    this.currentQuestionSig();                              // question data resolved / changed
+    this.selectedOptionService.selectedOptionSig();         // option selection changed
+    this.quizStateService.lastInteractionTimeSig();         // any genuine option click
+    this.explanationTextService.formattedExplanationSig();  // FET text became available
     const inputs = buildHeadingInputs({
       idx: this.quizService.currentQuestionIndex,
       quizService: this.quizService,
