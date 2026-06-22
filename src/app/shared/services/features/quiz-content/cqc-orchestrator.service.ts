@@ -10,7 +10,6 @@ import {
 } from 'rxjs/operators';
 
 import {
-  FET_WRITE_RETRY_CASCADE_MS,
   VISIBILITY_RESTORE_REPLAY_CASCADE_MS
 } from '../../../constants/timing';
 import { QuestionType } from '../../../models/question-type.enum';
@@ -99,51 +98,7 @@ export class CqcOrchestratorService {
     host._cqcComputeIntendedQText = computeIntendedQText;
     const forceStampIfBlank = (_reason: string): void => this.forceStampIfBlank(host);
 
-    this.setupQTextObserver(host, computeIntendedQText);
     this.setupVisibilityReplayHandler(host, forceStampIfBlank);
-  }
-
-  /**
-   * Persistent MutationObserver safety net. The SCSS rule `h3:empty { display:
-   * none }` means any transient blank collapses the heading; some restore paths
-   * clear qText without routing through a controlled path. Watch qText and,
-   * after an 80ms debounce, restore the intended HTML if it's still empty.
-   * Extracted verbatim from runOnInit.
-   */
-  private setupQTextObserver(host: Host, computeIntendedQText: () => string): void {
-    try {
-      const el = host.qText?.()?.nativeElement;
-      if (el && typeof MutationObserver !== 'undefined') {
-        if (host._qTextObserver) {
-          try { host._qTextObserver.disconnect(); } catch { /* ignore */ }
-          host._qTextObserver = null;
-        }
-        let debounceTimer: any = null;
-        const observer = new MutationObserver(() => {
-          // PHASE 3 cutover: the single-source computed refills the heading by
-          // default, so this empty-heading recompute watchdog stands down unless
-          // the legacy path is explicitly re-enabled (__headingSingleSource=false).
-          if ((globalThis as any).__headingSingleSource !== false) return;
-          const innerNow = (el.innerHTML ?? '').trim();
-          if (innerNow) return;
-          if (debounceTimer) clearTimeout(debounceTimer);
-          debounceTimer = setTimeout(() => {
-            debounceTimer = null;
-            const innerLater = (el.innerHTML ?? '').trim();
-            if (innerLater) return;
-            // Always recompute via computeIntendedQText (which reads the
-            // live index from the input signal). Using the cached
-            // _lastDisplayedText was unsafe across navigation: after Next
-            // from Q(N), if qText briefly emptied, this branch would
-            // restore Q(N)'s FET — exactly the FET->q-txt flash bug.
-            const restore = computeIntendedQText();
-            if (restore) this.fetGuard.writeQText(host, restore);
-          }, 80);
-        });
-        observer.observe(el, { childList: true, characterData: true, subtree: true });
-        host._qTextObserver = observer;
-      }
-    } catch { /* ignore */ }
   }
 
   /**
@@ -226,53 +181,10 @@ export class CqcOrchestratorService {
       host.explanationTextService.storeFormattedExplanation(idx, q.explanation, q, visualOpts);
     }
 
-    this.writeTimerExpiryFetToDom(host, q, idx);
-
+    // Timer expiry no longer writes the heading directly — the single-source
+    // headingHtml computed reacts to the timer-expiry signal and renders the FET
+    // itself. storeFormattedExplanation (above) makes the FET text available to it.
     host.cdRef.markForCheck();
-  }
-
-  /**
-   * DIRECT DOM FET write on timer expiry — bypasses all service/guard layers.
-   * Formats the FET (or falls back to the raw explanation) and writes it to the
-   * qText element now plus on a retry cascade, each write guarded against the
-   * user having navigated away (live index must still match). Extracted verbatim.
-   */
-  private writeTimerExpiryFetToDom(host: Host, q: any, idx: number): void {
-    try {
-      const el = host.qText?.()?.nativeElement;
-      if (el && q) {
-        const opts = q.options ?? host.quizQuestionComponent?.()?.optionsToDisplay ?? [];
-        const correctIndices = host.explanationTextService.getCorrectOptionIndices(q, opts, idx);
-        let fetHtml = '';
-        if (correctIndices.length > 0) {
-          fetHtml = host.explanationTextService.formatExplanation(q, correctIndices, q.explanation);
-        }
-        if (!fetHtml) fetHtml = q.explanation || '';
-        if (fetHtml) {
-          // Guard the delayed writes against the user navigating away
-          // before they fire. Read from the input signal directly —
-          // host.currentIndex is a plain field updated asynchronously
-          // by an effect, so it lags the signal by a microtask and
-          // would let stale Q(N) writes leak into Q(N+1).
-          const expectedIdx = idx;
-          const write = () => {
-            // PHASE 3 cutover: the single-source computed reacts to the timer
-            // signal and renders the expiry FET itself by default, so this
-            // direct-innerHTML timer write (and its retry cascade) stands down
-            // unless the legacy path is re-enabled (__headingSingleSource=false).
-            if ((globalThis as any).__headingSingleSource !== false) return;
-            const liveIdx = host.questionIndex?.() ?? host.currentIndex ?? 0;
-            if (liveIdx !== expectedIdx) return;
-            el.innerHTML = fetHtml;
-            host.qTextHtmlSig?.set(fetHtml);
-            host._lastDisplayedText = fetHtml;
-            host._fetLockedForIndex = idx;
-          };
-          write();
-          for (const delay of FET_WRITE_RETRY_CASCADE_MS) setTimeout(write, delay);
-        }
-      }
-    } catch { /* ignore */ }
   }
 
   /**
