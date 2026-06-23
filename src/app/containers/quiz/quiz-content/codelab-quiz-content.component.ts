@@ -220,25 +220,16 @@ export class CodelabQuizContentComponent implements OnInit {
       }
     });
 
-    // qText DOM-write effect: signal-driven binding from
-    // QuestionHeadingService.htmlSig to the H3 element's innerHTML.
-    // This is the single canonical writer of the heading's DOM state.
-    // All other code should call QuestionHeadingService.setHtml(...) —
-    // never mutate innerHTML directly via renderer.setProperty or
-    // document.querySelector. Centralising here prevents the layered-gates
-    // problem where many services fight over the H3.
+    // qText DOM-write effect: the SINGLE canonical writer of the heading's DOM
+    // state. It binds the single-source `headingHtml` computed to the H3's
+    // innerHTML — one pure function decides the heading, one effect renders it.
+    // (Phase 3 Step 0: the legacy htmlSig branch + __headingSingleSource escape
+    // hatch are removed; the old setHtml/writeQText writers are now fully dead and
+    // are being deleted in the following steps.)
     effect(() => {
       const el = this.qText()?.nativeElement;
       if (!el) return;
-      // PHASE 3 cutover: the heading is driven by the single-source `headingHtml`
-      // computed by DEFAULT. Escape hatch: set `window.__headingSingleSource =
-      // false` at runtime to fall back to the legacy htmlSig path (kept until the
-      // old writers are deleted). The setHtml writers still run and feed htmlSig,
-      // which the computed reads as a reactivity trigger.
-      const useSingleSource = (globalThis as any).__headingSingleSource !== false;
-      const html = useSingleSource
-        ? this.headingHtml()
-        : this.questionHeadingService.htmlSig();
+      const html = this.headingHtml();
       if ((el.innerHTML ?? '') === html) return;
       this.renderer.setProperty(el, 'innerHTML', html);
     });
