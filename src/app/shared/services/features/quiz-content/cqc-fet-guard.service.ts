@@ -49,51 +49,13 @@ export class CqcFetGuardService {
    * remains for immediate synchronous DOM visibility inside the same
    * microtask (before CD has had a chance to run).
    */
-  writeQText(host: Host, html: string): void {
-    try {
-      let safe = html ?? '';
-      // URL-AUTHORITATIVE GUARD — URL question is the source of truth (null = drop stale write).
-      const _urlGuarded = this.applyUrlAuthoritativeGuard(host, safe);
-      if (_urlGuarded === null) return;
-      safe = _urlGuarded;
-
-      // Live index — URL pathname first (only sync-correct source on multi-step URL nav).
-      const _liveIdx = this.resolveLiveIdx(host);
-
-      // TIMER-EXPIRY BYPASS — expired timer must show the explanation regardless of scoring.
-      if (this.applyTimerExpiryBypass(host, safe, _liveIdx)) return;
-
-      // SOC-CONFIRMED — preserve cached FET, or bypass all gates when SOC confirmed correct.
-      const _safeIsFetEarly = (safe ?? '').toLowerCase().includes('correct because');
-      if (this.applySocConfirmedFetPreservation(host, safe, _liveIdx, _safeIsFetEarly)) return;
-      if (this.applySocConfirmedFetBypass(host, safe, _liveIdx, _safeIsFetEarly)) return;
-
-      const rawQs: any[] = host.quizService?.questions ?? [];
-      const safeNorm = norm(safe);
-
-      // NUCLEAR GATE — FET-looking text refused unless the live UI shows all correct selected.
-      const _nuclear = this.applyNuclearGate(host, safe, _liveIdx, safeNorm);
-      if (_nuclear === null) return;
-      safe = _nuclear;
-
-      // HARD FINAL GATE — unresolved multi-answer FET across pristine sources → question text.
-      safe = this.applyHardFinalGate(host, safe, safeNorm, rawQs);
-
-      // ABSOLUTE LAST-LINE GUARD — unresolved multi-answer, non-question text → rebuild.
-      safe = this.applyAbsoluteLastLineGuard(host, safe);
-
-      // FINAL PRISTINE GATE — same resolved-check vs quizInitialState, no outer try/catch.
-      safe = this.applyFinalPristineGate(host, safe);
-
-      // UNIVERSAL BACKSTOP — pristine-explanation / expected-text mismatch (with evidence) → restore.
-      safe = this.applyUniversalBackstop(host, safe);
-
-      // BANNER PRESERVATION — re-attach "N answers are correct" banner to plain question text.
-      safe = this.applyBannerPreservation(host, safe, _liveIdx);
-
-      host.qTextHtmlSig?.set(safe);
-      host._lastDisplayedText = safe;
-    } catch { /* ignore */ }
+  writeQText(_host: Host, _html: string): void {
+    // No-op (Phase 3 Step 2): the heading is rendered solely by the single-source
+    // `headingHtml` computed. writeQText only ever set htmlSig (now unread for the
+    // DOM since Step 0) plus the _lastDisplayedText cache (read only by other
+    // now-dead heading writers). The 6-stage gate chain it ran is therefore dead;
+    // this shim neuters it while the chain + its 12 callers are deleted in the
+    // following steps.
   }
 
   /**
