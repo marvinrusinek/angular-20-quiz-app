@@ -67,46 +67,12 @@ export class QqcOrchTimerService {
     host.explanationToDisplayChange?.emit(result.explanationToDisplay);
     host._timerStoppedForQuestion = result.timerStoppedForQuestion;
 
-    // Write FET to the H3 via QuestionHeadingService. The codelab-quiz-content
-    // component's effect() applies the signal to the DOM through Renderer2.
+    // Timer expiry no longer writes the heading directly — the single-source
+    // headingHtml computed reacts to the timer-expiry signal and renders the FET
+    // itself. __quizTimerExpired is still set: other flows read it as a
+    // timeout marker.
     try {
       (window as any).__quizTimerExpired = true;
-      const i0 = host.normalizeIndex(targetIndex ?? host.currentQuestionIndex() ?? 0);
-      const q = host.questions()?.[i0] ?? host.currentQuestion();
-      // On a REVISIT — the question was already answered before this timeout —
-      // the heading must stay the question text; only a first-time timeout
-      // stamps the FET. A genuine answer sets clickConfirmedDotStatus
-      // ('correct'/'wrong'); a never-answered question's first expiry still
-      // shows the FET as before.
-      const _dot = this.selectedOptionService?.clickConfirmedDotStatus?.get?.(i0);
-      const alreadyAnswered = _dot === 'correct' || _dot === 'wrong'
-        || (host as any).quizService?.questionCorrectness?.get?.(i0) === true;
-      if (q && !alreadyAnswered) {
-        const opts = q.options ?? host.optionsToDisplay() ?? [];
-        const correctIndices = host.explanationTextService.getCorrectOptionIndices(q, opts, i0);
-        let fetHtml = '';
-        if (correctIndices.length > 0) {
-          fetHtml = host.explanationTextService.formatExplanation(q, correctIndices, q.explanation);
-        }
-        if (!fetHtml) fetHtml = q.explanation || '';
-
-        if (fetHtml) {
-          // Guard the delayed writes against the user navigating away
-          // before they fire — without this, a stale Q's FET would land
-          // in the heading after Q(N+1) has already rendered.
-          const expectedIdx = i0;
-          const write = () => {
-            const sigIdx = host.questionIndex?.() ?? host.currentQuestionIndex?.() ?? 0;
-            const liveIdx = host.normalizeIndex(sigIdx);
-            if (liveIdx !== expectedIdx) return;
-            this.questionHeadingService.setHtml(fetHtml);
-          };
-          write();
-          afterNextRender(() => {
-            write();
-          });
-        }
-      }
     } catch { /* ignore */ }
 
     if (soc) {
