@@ -243,7 +243,6 @@ export class CodelabQuizContentComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     this.primeQuestionIndex();
     const result = this.orchestrator.runOnInit(this);
-    this.orchestrator.runInstallFetWatchdog(this);
     return result;
   }
 

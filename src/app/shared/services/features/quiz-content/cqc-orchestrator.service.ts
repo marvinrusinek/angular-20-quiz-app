@@ -371,12 +371,7 @@ export class CqcOrchestratorService {
       for (const t of host._questionStampRetryTimers) clearTimeout(t);
       host._questionStampRetryTimers = [];
     }
-    this.fetGuard.uninstallFetWatchdog(host);
     host.combinedSub?.unsubscribe();
-  }
-
-  runInstallFetWatchdog(host: Host): void {
-    this.fetGuard.installFetWatchdog(host);
   }
 
   runQuestionIndexSet(host: Host, idx: number): void {
