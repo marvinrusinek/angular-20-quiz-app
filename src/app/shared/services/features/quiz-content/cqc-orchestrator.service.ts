@@ -19,7 +19,6 @@ import { Option } from '../../../models/Option.model';
 import { QuestionPayload } from '../../../models/QuestionPayload.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
-import { CqcDisplayTextService } from './cqc-display-text.service';
 import { CqcFetGuardService } from './cqc-fet-guard.service';
 import { CqcQuestionNavService } from './cqc-question-nav.service';
 import { QuizDotStatusService } from '../../flow/quiz-dot-status.service';
@@ -35,7 +34,6 @@ type Host = CodelabQuizContentComponent;
 export class CqcOrchestratorService {
   // ── injects ─────────────────────────────────────────────────────
   private readonly fetGuard = inject(CqcFetGuardService);
-  private readonly displayText = inject(CqcDisplayTextService);
   private readonly questionNav = inject(CqcQuestionNavService);
   private readonly dotStatusService = inject(QuizDotStatusService);
 
@@ -73,7 +71,6 @@ export class CqcOrchestratorService {
     host.setupFetToDisplay();
 
     host.initDisplayTextPipeline();
-    host.subscribeToDisplayText();
     host.setupContentAvailability();
 
     host.emitContentAvailableState();
@@ -402,10 +399,6 @@ export class CqcOrchestratorService {
             });
         }
       });
-  }
-
-  runSubscribeToDisplayText(host: Host): void {
-    this.displayText.runSubscribeToDisplayText(host);
   }
 
   runSetupContentAvailability(host: Host): void {

@@ -298,10 +298,6 @@ export class CodelabQuizContentComponent implements OnInit {
     });
   }
 
-  subscribeToDisplayText(): void {
-    this.orchestrator.runSubscribeToDisplayText(this);
-  }
-
   setupContentAvailability(): void {
     this.orchestrator.runSetupContentAvailability(this);
   }
