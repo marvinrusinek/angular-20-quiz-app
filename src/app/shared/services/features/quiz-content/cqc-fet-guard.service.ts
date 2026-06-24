@@ -40,25 +40,6 @@ export class CqcFetGuardService {
   }
 
   /**
-   * Write HTML to qText. Updates the host signal (which the template is
-   * bound to via [innerHTML]) AND the imperative Renderer2 mirror AND the
-   * _lastDisplayedText cache. The signal is the durable source of truth
-   * for Angular's change detection — writing it means visibility flips
-   * and async restores can't leave the heading blank, because CD will
-   * keep re-stamping from the signal on every pass. The Renderer2 write
-   * remains for immediate synchronous DOM visibility inside the same
-   * microtask (before CD has had a chance to run).
-   */
-  writeQText(_host: Host, _html: string): void {
-    // No-op (Phase 3 Step 2): the heading is rendered solely by the single-source
-    // `headingHtml` computed. writeQText only ever set htmlSig (now unread for the
-    // DOM since Step 0) plus the _lastDisplayedText cache (read only by other
-    // now-dead heading writers). The 6-stage gate chain it ran is therefore dead;
-    // this shim neuters it while the chain + its 12 callers are deleted in the
-    // following steps.
-  }
-
-  /**
    * Build the question display HTML for a given index. Shuffled-aware —
    * reads from host.quizService.shuffledQuestions when shuffle is on,
    * otherwise host.quizService.questions. Adds the "select N" banner

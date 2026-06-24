@@ -53,7 +53,6 @@ export class CqcQuestionNavService {
         // buildQuestionDisplayHTML returned empty
         return false;
       }
-      this.fetGuard.writeQText(host, display);
       return true;
     } catch {
       return false;
@@ -141,7 +140,6 @@ export class CqcQuestionNavService {
     if (!stamped && host.qText?.()?.nativeElement && 
       !this.fetGuard.hasInteractionEvidence(host, idx)
     ) {
-      this.fetGuard.writeQText(host, '');
     }
 
     if (!Array.isArray(host._questionStampRetryTimers)) {
@@ -319,7 +317,6 @@ export class CqcQuestionNavService {
       if (hasClicked) {
         const display = this.fetGuard.buildQuestionDisplayHTML(host, zeroBasedIndex);
         if (display && host.currentIndex === zeroBasedIndex) {
-          this.fetGuard.writeQText(host, display);
         }
       }
     } catch {
@@ -409,7 +406,6 @@ export class CqcQuestionNavService {
           try {
             ets.storeFormattedExplanation(zeroBasedIndex, question.explanation, question, question.options, true);
           } catch { /* ignore */ }
-          this.fetGuard.writeQText(host, formattedFet);
         };
         injectNow();
         if (!Array.isArray(host._eagerFetRetryTimers)) {

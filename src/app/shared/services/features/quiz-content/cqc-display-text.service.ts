@@ -73,7 +73,6 @@ export class CqcDisplayTextService {
     if (this.shouldForceQuestionOnRevisit(host, early)) {
       const qText = this.fetGuard.buildQuestionDisplayHTML(host, early.currentIdx);
       if (qText) {
-        this.fetGuard.writeQText(host, qText);
         return;
       }
     }
@@ -424,7 +423,6 @@ export class CqcDisplayTextService {
       if (enriched) finalText = enriched;
     }
 
-    this.fetGuard.writeQText(host, finalText);
   }
 
   /**
@@ -436,13 +434,11 @@ export class CqcDisplayTextService {
       return;
     }
     if (cached) {
-      this.fetGuard.writeQText(host, cached);
       return;
     }
     try {
       const rebuilt = this.fetGuard.buildQuestionDisplayHTML(host, ctx.currentIdx);
       if (rebuilt) {
-        this.fetGuard.writeQText(host, rebuilt);
         return;
       }
     } catch { /* ignore */ }
@@ -467,7 +463,6 @@ export class CqcDisplayTextService {
           const rawQ = (qForCurrent?.questionText ?? '').trim();
           const incomingStartsWithQ = incoming.length > 0 && incoming.startsWith(rawQ);
           if (!incomingStartsWithQ) {
-            this.fetGuard.writeQText(host, forcedQText);
             return true;
           }
         }
@@ -487,7 +482,6 @@ export class CqcDisplayTextService {
         (host.explanationTextService.formattedExplanations[ctx.currentIdx]?.explanation ?? '').trim()
         || (host.explanationTextService.fetByIndex?.get(ctx.currentIdx) ?? '').trim();
       if (fetCached && fetCached.toLowerCase().includes('correct because')) {
-        this.fetGuard.writeQText(host, fetCached);
         return true;
       }
       const lastText = (host._lastDisplayedText ?? '').trim();
@@ -570,7 +564,6 @@ export class CqcDisplayTextService {
     if (!this.fetGuard.isScoredCorrectAtDisplay(host, ctx.currentIdx) && !ctx.fetBypassActive && !ctx.fetConfirmed) {
       const qText = this.fetGuard.buildQuestionDisplayHTML(host, ctx.currentIdx);
       if (qText) {
-        this.fetGuard.writeQText(host, qText);
         return true;
       }
     }

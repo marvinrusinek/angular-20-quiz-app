@@ -354,7 +354,6 @@ export class CqcOrchestratorService {
       if (current && current.includes('correct-count') && !intended.includes('correct-count')) {
         return;
       }
-      this.fetGuard.writeQText(host, intended);
     }
   }
 
