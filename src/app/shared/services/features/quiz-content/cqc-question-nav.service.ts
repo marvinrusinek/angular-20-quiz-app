@@ -253,21 +253,8 @@ export class CqcQuestionNavService {
   private runEagerFetRegeneration(host: Host, question: QuizQuestion, zeroBasedIndex: number): void {
     try {
       this.applyPostRefreshCleanup(host, zeroBasedIndex);
-
-      const hasClicked = host.quizStateService.hasClickedInSession?.(zeroBasedIndex) ?? false;
-
-      // A previously-clicked question being (re)loaded is a REVISIT — show the
-      // question text, never re-inject the FET. The FET belongs to the current
-      // answer view only; this eager FET injection on navigation was the writer
-      // that re-displayed the FET on revisited answered questions. Resolved- and
-      // unresolved-from-persistence now both render the question text.
-      if (hasClicked) {
-        const display = this.fetGuard.buildQuestionDisplayHTML(host, zeroBasedIndex);
-        if (display && host.currentIndex === zeroBasedIndex) {
-        }
-      }
     } catch {
-      // Eager FET regeneration failed
+      // post-refresh cleanup failed
     }
   }
 
