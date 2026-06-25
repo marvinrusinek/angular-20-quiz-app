@@ -153,14 +153,6 @@ export class CqcOrchestratorService {
 
 
   runOnDestroy(host: Host): void {
-    if (host._qTextObserver) {
-      try { host._qTextObserver.disconnect(); } catch { /* ignore */ }
-      host._qTextObserver = null;
-    }
-    if (Array.isArray(host._questionStampRetryTimers)) {
-      for (const t of host._questionStampRetryTimers) clearTimeout(t);
-      host._questionStampRetryTimers = [];
-    }
     host.combinedSub?.unsubscribe();
   }
 

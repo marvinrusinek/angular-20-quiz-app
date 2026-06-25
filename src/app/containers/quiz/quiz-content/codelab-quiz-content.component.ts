@@ -171,13 +171,7 @@ export class CodelabQuizContentComponent implements OnInit {
   combinedText$!: Observable<string>;
   combinedSub?: Subscription;
   _lastDisplayedText = '';
-  _fetWatchdog: MutationObserver | null = null;
-  _fetWatchdogClick: ((this: Document, ev: MouseEvent) => any) | null = null;
-  _cqcComputeIntendedQText?: () => string;
-  _qTextObserver: MutationObserver | null = null;
-  _cqcVisibilityHandler?: () => void;
   _fetLockedForIndex = -1;
-  _questionStampRetryTimers: any[] = [];
   _eagerFetRetryTimers: any[] = [];
   _refreshInitialIdx: number | null = null;
   _refreshInitialLoadConsumed: boolean | null = null;

@@ -328,30 +328,4 @@ export class CqcQuestionNavService {
     return isResolvedFromPersistence;
   }
 
-  private injectEagerFet(host: Host, question: QuizQuestion, zeroBasedIndex: number): void {
-    const ets = host.explanationTextService;
-    const correctIndices = ets.getCorrectOptionIndices(question, question.options, zeroBasedIndex);
-    if (correctIndices.length > 0) {
-      const formattedFet = ets.formatExplanation(question, correctIndices, question.explanation);
-      if (formattedFet) {
-        host._fetLockedForIndex = zeroBasedIndex;
-        const injectNow = () => {
-          if (host.currentIndex !== zeroBasedIndex) return;
-          try {
-            ets.storeFormattedExplanation(zeroBasedIndex, question.explanation, question, question.options, true);
-          } catch { /* ignore */ }
-        };
-        injectNow();
-        if (!Array.isArray(host._eagerFetRetryTimers)) {
-          host._eagerFetRetryTimers = [];
-        }
-        host._eagerFetRetryTimers.push(setTimeout(injectNow, 0));
-        for (const delay of FET_WRITE_RETRY_LONG_CASCADE_MS) {
-          host._eagerFetRetryTimers.push(setTimeout(injectNow, delay));
-        }
-      }
-    } else {
-      // No correct indices found — cannot format FET
-    }
-  }
 }
