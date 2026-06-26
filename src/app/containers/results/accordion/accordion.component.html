@@ -1,5 +1,5 @@
 <h3 class="summary-header" i18n>
-  Detailed Summary <i>({{ accordionHeaderLabel() }})</i>
+  Quiz Review <i>({{ accordionHeaderLabel() }})</i>
 </h3>
 
 @if (timedOutCount > 0) {
@@ -13,8 +13,43 @@
   <p i18n>No questions available to display. Please verify quiz data.</p>
 }
 
+@if (questions().length > 0) {
+  <div class="review-filter" role="group" aria-label="Filter reviewed questions" i18n-aria-label>
+    <button
+      type="button"
+      class="review-filter-btn"
+      [class.active]="reviewFilter() === 'all'"
+      [attr.aria-pressed]="reviewFilter() === 'all'"
+      (click)="setReviewFilter('all')"
+      i18n
+    >All ({{ questions().length }})</button>
+    <button
+      type="button"
+      class="review-filter-btn"
+      [class.active]="reviewFilter() === 'correct'"
+      [attr.aria-pressed]="reviewFilter() === 'correct'"
+      (click)="setReviewFilter('correct')"
+      i18n
+    >Correct ({{ correctCount() }})</button>
+    <button
+      type="button"
+      class="review-filter-btn"
+      [class.active]="reviewFilter() === 'incorrect'"
+      [attr.aria-pressed]="reviewFilter() === 'incorrect'"
+      (click)="setReviewFilter('incorrect')"
+      i18n
+    >Incorrect ({{ incorrectCount() }})</button>
+  </div>
+}
+
+@if (questions().length > 0 && filteredQuestions().length === 0) {
+  <p class="no-filter-matches" i18n>No {{ reviewFilter() }} questions to review.</p>
+}
+
 <mat-accordion multi="true" #accordion="matAccordion">
-  @for (question of questions(); track question.questionText; let i = $index) {
+  @for (item of filteredQuestions(); track item.question.questionText) {
+    @let question = item.question;
+    @let i = item.index;
     <mat-expansion-panel #panel class="quiz-summary-question" hideToggle="true">
       <mat-expansion-panel-header>
         <mat-panel-description>

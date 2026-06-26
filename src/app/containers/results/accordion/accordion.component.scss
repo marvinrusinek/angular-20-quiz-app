@@ -247,3 +247,43 @@ mat-accordion {
     }
   }
 }
+// ── Quiz Review filter (All / Incorrect / Correct) ──────────────────
+.review-filter {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 16px;
+  flex-wrap: wrap;
+}
+
+.review-filter-btn {
+  padding: 6px 18px;
+  border: 2px solid vars.$dark-blue;
+  border-radius: 20px;
+  background: transparent;
+  color: vars.$dark-blue;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    border-color: vars.$vivid-blue;
+    color: vars.$vivid-blue;
+  }
+
+  &.active {
+    background: vars.$dark-blue;
+    border-color: vars.$dark-blue;
+    color: #fff;
+  }
+
+  &:focus-visible {
+    outline: 2px solid vars.$dodger-blue;
+    outline-offset: 2px;
+  }
+}
+
+.no-filter-matches {
+  margin: 8px 0 16px;
+  color: vars.$dark-blue;
+  font-style: italic;
+}

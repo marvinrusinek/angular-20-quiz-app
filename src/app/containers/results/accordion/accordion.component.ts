@@ -1,5 +1,5 @@
 import {
-  ChangeDetectionStrategy, Component, DestroyRef, effect,
+  ChangeDetectionStrategy, Component, computed, DestroyRef, effect,
   inject, input, OnInit, signal
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -22,6 +22,8 @@ import { TimerService } from '../../../shared/services/features/timer/timer.serv
 
 import { norm } from '../../../shared/utils/text-norm';
 import { swallow } from '../../../shared/utils/error-logging';
+
+export type ReviewFilter = 'all' | 'incorrect' | 'correct';
 
 @Component({
   selector: 'codelab-results-accordion',
@@ -48,6 +50,42 @@ export class AccordionComponent implements OnInit {
 
   // ── remaining variables ─────────────────────────────────────────
   readonly questions = signal<QuizQuestion[]>([]);
+
+  // ── review filter ───────────────────────────────────────────────
+  readonly reviewFilter = signal<ReviewFilter>('all');
+
+  // Questions for the current review filter, each paired with its ORIGINAL
+  // index. The accordion's correctness/selection lookups are index-keyed, so
+  // the original index must be preserved rather than re-derived from the
+  // filtered array's position. Correctness uses the same
+  // checkIfAnswersAreCorrectFromService that drives the done/clear icons, so
+  // the filter always matches what's shown.
+  readonly filteredQuestions = computed<{ question: QuizQuestion; index: number }[]>(() => {
+    const filter = this.reviewFilter();
+    const withIndex = this.questions().map((question, index) => ({ question, index }));
+    switch (filter) {
+      case 'correct':
+        return withIndex.filter(({ question, index }) =>
+          this.checkIfAnswersAreCorrectFromService(question, index));
+      case 'incorrect':
+        return withIndex.filter(({ question, index }) =>
+          !this.checkIfAnswersAreCorrectFromService(question, index));
+      default:
+        return withIndex;
+    }
+  });
+
+  // Counts shown on the filter buttons (e.g. "Correct (7)").
+  readonly correctCount = computed(() =>
+    this.questions().filter((question, index) =>
+      this.checkIfAnswersAreCorrectFromService(question, index)
+    ).length
+  );
+  readonly incorrectCount = computed(() => this.questions().length - this.correctCount());
+
+  setReviewFilter(filter: ReviewFilter): void {
+    this.reviewFilter.set(filter);
+  }
 
   results: Result = {
     userAnswers: [],
