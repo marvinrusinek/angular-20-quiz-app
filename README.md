@@ -20,6 +20,10 @@ A feature-rich quiz platform built with <strong>Angular 20</strong> that demonst
 
 <hr>
 
+<img alt="image" src="https://github.com/user-attachments/assets/c4269843-bde3-45c8-bd47-2410e72546c3" />
+
+<hr>
+
 <h2>🎯 Goal / Purpose</h2>
 
 <p>
