@@ -9,7 +9,6 @@ import { Option } from '../../models/Option.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 
 import { NextButtonStateService } from '../state/next-button-state.service';
-import { QuestionHeadingService } from '../features/quiz-content/question-heading.service';
 import { QuizContentLoaderService } from './quiz-content-loader.service';
 import { QuizDotStatusService } from './quiz-dot-status.service';
 import { QuizNavigationService } from './quiz-navigation.service';
@@ -25,7 +24,6 @@ import { TimerService } from '../features/timer/timer.service';
 import type { QuizComponent } from '../../../containers/quiz/quiz.component';
 import { withCorrectCountBanner } from '../../utils/correct-count-banner';
 import { isOptionCorrect } from '../../utils/is-option-correct';
-import { norm } from '../../utils/text-norm';
 import { swallow } from '../../utils/error-logging';
 
 type Host = QuizComponent;
@@ -39,7 +37,6 @@ export class QuizSetupRouteService {
   // ── injects ─────────────────────────────────────────────────────
   private dotStatusService = inject(QuizDotStatusService);
   private nextButtonStateService = inject(NextButtonStateService);
-  private questionHeadingService = inject(QuestionHeadingService);
   private quizContentLoaderService = inject(QuizContentLoaderService);
   private quizNavigationService = inject(QuizNavigationService);
   private quizPersistence = inject(QuizPersistenceService);

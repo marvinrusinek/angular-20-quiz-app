@@ -1,9 +1,8 @@
-import { afterNextRender, inject, Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 
 import { Option } from '../../../models/Option.model';
 
 import { NextButtonStateService } from '../../state/next-button-state.service';
-import { QuestionHeadingService } from '../quiz-content/question-heading.service';
 import { QuizDotStatusService } from '../../flow/quiz-dot-status.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 
@@ -19,7 +18,6 @@ type Host = QuizQuestionComponent;
 export class QqcOrchTimerService {
   private dotStatusService = inject(QuizDotStatusService);
   private nextButtonStateService = inject(NextButtonStateService);
-  private questionHeadingService = inject(QuestionHeadingService);
   private selectedOptionService = inject(SelectedOptionService);
 
   runOnQuestionTimedOut(host: Host, targetIndex?: number): void {

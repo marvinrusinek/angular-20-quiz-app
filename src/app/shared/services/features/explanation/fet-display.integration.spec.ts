@@ -23,48 +23,10 @@ import { Option } from '../../../models/Option.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
 import { ExplanationFormatterService } from './explanation-formatter.service';
-import { QuestionHeadingService } from '../quiz-content/question-heading.service';
 import { QuizService } from '../../data/quiz.service';
 import { QuizShuffleService } from '../../flow/quiz-shuffle.service';
 
 describe('FET display integration', () => {
-  // ── QuestionHeadingService ───────────────────────────────────
-
-  describe('QuestionHeadingService', () => {
-    let service: QuestionHeadingService;
-
-    beforeEach(() => {
-      TestBed.configureTestingModule({ providers: [QuestionHeadingService] });
-      service = TestBed.inject(QuestionHeadingService);
-    });
-
-    it('initializes with empty html', () => {
-      expect(service.get()).toBe('');
-      expect(service.htmlSig()).toBe('');
-    });
-
-    it('setHtml updates the signal', () => {
-      service.setHtml('<b>Option 1 is correct because foo</b>');
-      expect(service.get()).toBe('<b>Option 1 is correct because foo</b>');
-    });
-
-    it('setHtml is idempotent (no signal write when value unchanged)', () => {
-      service.setHtml('same');
-      const first = service.htmlSig();
-      service.setHtml('same');
-      // Signal returns same reference / same value; no observable churn
-      expect(service.htmlSig()).toBe(first);
-    });
-
-    it('treats null/undefined as empty string', () => {
-      service.setHtml('first');
-      service.setHtml(null as any);
-      expect(service.get()).toBe('');
-      service.setHtml(undefined as any);
-      expect(service.get()).toBe('');
-    });
-  });
-
   // ── ExplanationFormatterService ──────────────────────────────
 
   describe('ExplanationFormatterService', () => {

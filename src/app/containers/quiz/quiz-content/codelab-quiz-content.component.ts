@@ -15,7 +15,6 @@ import { QuizQuestion } from '../../../shared/models/QuizQuestion.model';
 import { CqcOrchestratorService } from '../../../shared/services/features/quiz-content/cqc-orchestrator.service';
 import { ExplanationTextService, FETPayload } from
       '../../../shared/services/features/explanation/explanation-text.service';
-import { QuestionHeadingService } from '../../../shared/services/features/quiz-content/question-heading.service';
 import { QuizContentDisplayService } from '../../../shared/services/features/quiz-content/quiz-content-display.service';
 import { QuizDataService } from '../../../shared/services/data/quizdata.service';
 import { QuizNavigationService } from '../../../shared/services/flow/quiz-navigation.service';
@@ -44,7 +43,6 @@ export class CodelabQuizContentComponent implements OnInit {
   private readonly displayService = inject(QuizContentDisplayService);
   public readonly explanationTextService = inject(ExplanationTextService);
   private readonly orchestrator = inject(CqcOrchestratorService);
-  public readonly questionHeadingService = inject(QuestionHeadingService);
   public readonly quizDataService = inject(QuizDataService);
   private readonly quizNavigationService = inject(QuizNavigationService);
   public readonly quizQuestionManagerService = inject(QuizQuestionManagerService);
@@ -118,18 +116,9 @@ export class CodelabQuizContentComponent implements OnInit {
 
   isContentAvailable$!: Observable<boolean>;
 
-  // Single owner of the qText heading's innerHTML: QuestionHeadingService.
-  // qTextHtmlSig is now a direct reference to the service's signal so that
-  // legacy callers (`host.qTextHtmlSig?.set(x)`) keep working unchanged while
-  // new code can inject QuestionHeadingService directly and call setHtml().
-  readonly qTextHtmlSig = this.questionHeadingService.htmlSig;
-
-  // PHASE 3 (DARK — not bound, not read): the single-source heading decision as
-  // one reactive computed. Angular computeds are lazy, so this never evaluates
-  // in production until something reads it; nothing does yet. It uses the same
-  // gatherer the dev shadow validates (heading-inputs.ts), so once we flip the
-  // qTextHtmlSig->innerHTML binding to read this (a later step), it inherits the
-  // shadow's proven agreement with the live heading. Intentionally inert for now.
+  // The single-source heading decision: one pure computed that decides the <h3>
+  // contents (question text + banner, or the FET) from quiz state. Bound to the
+  // heading's innerHTML by the lone DOM-write effect in the constructor.
   readonly headingHtml = computed<string>(() => {
     // Reactivity triggers (Phase 3 step 3c): recompute whenever any heading-
     // relevant state changes. We read these signals only to establish the

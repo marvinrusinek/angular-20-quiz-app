@@ -9,9 +9,6 @@ import {
   take, tap, withLatestFrom
 } from 'rxjs/operators';
 
-import {
-  VISIBILITY_RESTORE_REPLAY_CASCADE_MS
-} from '../../../constants/timing';
 import { QuestionType } from '../../../models/question-type.enum';
 
 import { CombinedQuestionDataType } from '../../../models/CombinedQuestionDataType.model';
@@ -19,7 +16,6 @@ import { Option } from '../../../models/Option.model';
 import { QuestionPayload } from '../../../models/QuestionPayload.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
-import { CqcFetGuardService } from './cqc-fet-guard.service';
 import { CqcQuestionNavService } from './cqc-question-nav.service';
 import { QuizDotStatusService } from '../../flow/quiz-dot-status.service';
 
@@ -33,7 +29,6 @@ type Host = CodelabQuizContentComponent;
 @Injectable({ providedIn: 'root' })
 export class CqcOrchestratorService {
   // ── injects ─────────────────────────────────────────────────────
-  private readonly fetGuard = inject(CqcFetGuardService);
   private readonly questionNav = inject(CqcQuestionNavService);
   private readonly dotStatusService = inject(QuizDotStatusService);
 

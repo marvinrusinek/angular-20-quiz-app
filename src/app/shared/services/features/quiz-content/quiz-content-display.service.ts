@@ -1,21 +1,10 @@
 import { inject, Injectable, signal } from '@angular/core';
 import { combineLatest, Observable } from 'rxjs';
 import {
-  distinctUntilChanged, filter, map, shareReplay, startWith, switchMap
+  distinctUntilChanged, map, shareReplay, startWith
 } from 'rxjs/operators';
 
-import { Option } from '../../../models/Option.model';
-import { QuizQuestion } from '../../../models/QuizQuestion.model';
-
 import { ExplanationTextService, FETPayload } from '../explanation/explanation-text.service';
-import { QuizNavigationService } from '../../flow/quiz-navigation.service';
-import { QuizQuestionManagerService } from '../../flow/quizquestionmgr.service';
-import { QuizService } from '../../data/quiz.service';
-import { QuizStateService } from '../../state/quizstate.service';
-import { SelectedOptionService } from '../../state/selectedoption.service';
-import { withCorrectCountBanner } from '../../../utils/correct-count-banner';
-import { isOptionCorrect } from '../../../utils/is-option-correct';
-import { norm } from '../../../utils/text-norm';
 
 @Injectable({ providedIn: 'root' })
 export class QuizContentDisplayService {
@@ -34,11 +23,6 @@ export class QuizContentDisplayService {
 
   // ── injects ─────────────────────────────────────────────────────
   private readonly explanationTextService = inject(ExplanationTextService);
-  private readonly quizService = inject(QuizService);
-  private readonly quizNavigationService = inject(QuizNavigationService);
-  private readonly quizQuestionManagerService = inject(QuizQuestionManagerService);
-  private readonly quizStateService = inject(QuizStateService);
-  private readonly selectedOptionService = inject(SelectedOptionService);
 
   // ═══════════════════════════════════════════════════════════════════════
   // Formatted Explanation Observables (factory methods)

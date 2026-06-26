@@ -5,7 +5,6 @@ import { debounceTime, tap } from 'rxjs/operators';
 
 import { QUESTION_ROUTE_REGEX } from '../../../constants/route-patterns';
 import { SK_SEL_Q } from '../../../constants/session-keys';
-import { FET_WRITE_RETRY_LONG_CASCADE_MS } from '../../../constants/timing';
 
 import { Option } from '../../../models/Option.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
@@ -303,29 +302,5 @@ export class CqcQuestionNavService {
     } catch { /* ignore */ }
   }
 
-  private resolveIsResolvedFromPersistence(host: Host, question: QuizQuestion, zeroBasedIndex: number): boolean {
-    let isResolvedFromPersistence = false;
-    try {
-      let storedSelections: any[] = [];
-      try {
-        const raw = sessionStorage.getItem(SK_SEL_Q + zeroBasedIndex);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) storedSelections = parsed;
-        }
-      } catch { /* ignore */ }
-      if (storedSelections.length === 0) {
-        storedSelections =
-          host.selectedOptionService.getSelectedOptionsForQuestion?.(zeroBasedIndex)
-          ?? [];
-      }
-      if (storedSelections.length > 0 && question) {
-        isResolvedFromPersistence =
-          host.selectedOptionService.isQuestionResolvedLeniently?.(question, storedSelections)
-          ?? false;
-      }
-    } catch { /* ignore */ }
-    return isResolvedFromPersistence;
-  }
 
 }

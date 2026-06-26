@@ -14,7 +14,6 @@ import { ExplanationTextService } from '../../features/explanation/explanation-t
 import { FeedbackService } from '../../features/feedback/feedback.service';
 import { NextButtonStateService } from '../../state/next-button-state.service';
 import { OptionClickHandlerService } from './option-click-handler.service';
-import { QuestionHeadingService } from '../../features/quiz-content/question-heading.service';
 import { QuizService } from '../../data/quiz.service';
 import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
@@ -37,7 +36,6 @@ export class SocAnswerProcessingService {
   private explanationTextService = inject(ExplanationTextService);
   private feedbackService = inject(FeedbackService);
   private nextButtonStateService = inject(NextButtonStateService);
-  private questionHeadingService = inject(QuestionHeadingService);
   private quizService = inject(QuizService);
   private quizStateService = inject(QuizStateService);
   private selectedOptionService = inject(SelectedOptionService);

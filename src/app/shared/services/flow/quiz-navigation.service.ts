@@ -16,23 +16,12 @@ import { QqcQuestionLoaderService } from '../features/qqc/qqc-question-loader.se
 import { QuizDataService } from '../data/quizdata.service';
 import { QuizQuestionManagerService } from '../flow/quizquestionmgr.service';
 import { QuizService } from '../data/quiz.service';
-import { QuestionHeadingService } from '../features/quiz-content/question-heading.service';
 import { QuizStateService } from '../state/quizstate.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
-import { SelectionMessageService } from '../features/selection-message/selection-message.service';
 import { TimerService } from '../features/timer/timer.service';
 import { SK_CORRECT_ANSWERS_COUNT, SK_SAVED_QUESTION_INDEX, SK_SELECTED_OPTIONS_MAP, SK_USER_ANSWERS } from '../../constants/session-keys';
 
-import { withCorrectCountBanner } from '../../utils/correct-count-banner';
-import { isOptionCorrect } from '../../utils/is-option-correct';
-import { norm } from '../../utils/text-norm';
 import { swallow } from '../../utils/error-logging';
-
-/** Delay before clearing the backward-navigation signal after a Previous click. */
-const PREVIOUS_NAV_SIGNAL_RESET_DELAY_MS = 500;
-
-/** Duration of the MutationObserver lock that prevents stale FET writes from overwriting the target question text after a Next click. */
-const NAV_LOCK_OBSERVER_DURATION_MS = 1200;
 
 @Injectable({ providedIn: 'root' })
 export class QuizNavigationService {
@@ -44,12 +33,10 @@ export class QuizNavigationService {
   private quizDataService = inject(QuizDataService);
   private quizQuestionLoaderService = inject(QqcQuestionLoaderService);
   private quizQuestionManagerService = inject(QuizQuestionManagerService);
-  private questionHeadingService = inject(QuestionHeadingService);
   private quizService = inject(QuizService);
   private quizStateService = inject(QuizStateService);
   private router = inject(Router);
   private selectedOptionService = inject(SelectedOptionService);
-  private selectionMessageService = inject(SelectionMessageService);
   private timerService = inject(TimerService);
 
   // ── signals ─────────────────────────────────────────────────────
