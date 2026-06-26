@@ -20,7 +20,11 @@ A feature-rich quiz platform built with <strong>Angular 20</strong> that demonst
 
 <hr>
 
-<img alt="image" src="https://github.com/user-attachments/assets/c4269843-bde3-45c8-bd47-2410e72546c3" />
+<h2>📸 Screenshot</h2>
+
+<p align="center">
+<img src="screenshots/ss01.jpg" alt="Dependency Injection Quiz — Question 1 of 6" width="420">
+</p>
 
 <hr>
 
