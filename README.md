@@ -168,6 +168,7 @@ src/
 │   └── animations/     # Reusable animations
 </code></pre>
 
+<pre><code>
 shared/
 ├── services/
 │   ├── quiz/
@@ -175,6 +176,7 @@ shared/
 │   ├── feedback/
 │   ├── navigation/
 │   └── timer/
+</code></pre>
 
 <hr>
 
