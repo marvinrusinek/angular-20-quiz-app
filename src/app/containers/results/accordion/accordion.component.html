@@ -43,7 +43,11 @@
 }
 
 @if (questions().length > 0 && filteredQuestions().length === 0) {
-  <p class="no-filter-matches" i18n>No {{ reviewFilter() }} questions to review.</p>
+  @if (reviewFilter() === 'incorrect') {
+    <p class="no-filter-matches" i18n>No incorrect answers — perfect score! 🎉</p>
+  } @else {
+    <p class="no-filter-matches" i18n>No {{ reviewFilter() }} questions to review.</p>
+  }
 }
 
 <mat-accordion multi="true" #accordion="matAccordion">
