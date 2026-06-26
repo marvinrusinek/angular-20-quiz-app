@@ -100,14 +100,20 @@ describe('PwaUpdateService', () => {
     expect(swUpdateMock.activateUpdate).not.toHaveBeenCalled();
   });
 
+  it('checks for an update immediately on init', () => {
+    service.init();
+    expect(swUpdateMock.checkForUpdate).toHaveBeenCalledTimes(1);
+  });
+
   it('checks for updates on the hourly interval', () => {
     service.init();
-    expect(swUpdateMock.checkForUpdate).not.toHaveBeenCalled();
-
-    jest.advanceTimersByTime(HOUR_MS);
+    // One immediate check fires on init; the interval adds one per hour.
     expect(swUpdateMock.checkForUpdate).toHaveBeenCalledTimes(1);
 
     jest.advanceTimersByTime(HOUR_MS);
     expect(swUpdateMock.checkForUpdate).toHaveBeenCalledTimes(2);
+
+    jest.advanceTimersByTime(HOUR_MS);
+    expect(swUpdateMock.checkForUpdate).toHaveBeenCalledTimes(3);
   });
 });

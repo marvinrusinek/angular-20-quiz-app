@@ -10,8 +10,9 @@ import { reportError } from '../utils/error-logging';
  * Keeps deployed users on a fresh bundle. The service worker (registered in
  * main.ts) caches assets for offline/installable use, but that means a redeploy
  * is invisible until the SW downloads the new version. On VERSION_READY this
- * prompts the user to reload onto it; it also polls hourly so long-open tabs
- * pick up a deploy. No-op when the SW is disabled (dev / unsupported).
+ * prompts the user to reload onto it. It checks once immediately on init so a
+ * fresh deploy is caught on load, and polls hourly so long-open tabs pick up a
+ * later deploy. No-op when the SW is disabled (dev / unsupported).
  */
 @Injectable({ providedIn: 'root' })
 export class PwaUpdateService {
@@ -29,6 +30,7 @@ export class PwaUpdateService {
     }
     this.promptOnVersionReady();
     this.pollForUpdates();
+    this.checkNow();
   }
 
   // ----- private -----
@@ -39,6 +41,12 @@ export class PwaUpdateService {
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe(() => this.activateAndReload());
+  }
+
+  private checkNow(): void {
+    this.swUpdate
+      .checkForUpdate()
+      .catch((err: unknown) => reportError('PwaUpdateService.checkNow', err));
   }
 
   private pollForUpdates(): void {
