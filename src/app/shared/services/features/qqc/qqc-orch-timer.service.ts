@@ -6,6 +6,8 @@ import { NextButtonStateService } from '../../state/next-button-state.service';
 import { QuizDotStatusService } from '../../flow/quiz-dot-status.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 
+import { swallow } from '../../../utils/error-logging';
+
 import type { QuizQuestionComponent } from '../../../../components/question/quiz-question/quiz-question.component';
 
 type Host = QuizQuestionComponent;
@@ -71,7 +73,7 @@ export class QqcOrchTimerService {
     // timeout marker.
     try {
       (window as any).__quizTimerExpired = true;
-    } catch { /* ignore */ }
+    } catch (err: unknown) { swallow('qqc-orch-timer.service.ts set __quizTimerExpired', err); }
 
     if (soc) {
       soc.cdRef.markForCheck();

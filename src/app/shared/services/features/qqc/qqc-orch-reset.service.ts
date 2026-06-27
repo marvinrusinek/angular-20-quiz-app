@@ -3,6 +3,7 @@ import { Injectable } from '@angular/core';
 import type { QuizQuestionComponent } from '../../../../components/question/quiz-question/quiz-question.component';
 
 import { delay } from '../../../utils/delay';
+import { swallow } from '../../../utils/error-logging';
 
 type Host = QuizQuestionComponent;
 
@@ -97,7 +98,7 @@ export class QqcOrchResetService {
 
     try {
       host.questionForm?.enable({ emitEvent: false });
-    } catch { }
+    } catch (err: unknown) { swallow('qqc-orch-reset.service.ts questionForm.enable', err); }
     queueMicrotask(() => host.emitPassiveNow(index));
     host.cdRef.markForCheck();
   }

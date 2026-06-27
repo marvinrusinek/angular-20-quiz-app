@@ -6,7 +6,7 @@ import { Option } from '../../../models/Option.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
 import { isOptionCorrect } from '../../../utils/is-option-correct';
-import { reportError } from '../../../utils/error-logging';
+import { reportError, swallow } from '../../../utils/error-logging';
 
 import type { QuizQuestionComponent } from '../../../../components/question/quiz-question/quiz-question.component';
 
@@ -97,7 +97,7 @@ export class QqcOrchQuestionLoadService {
       if (host.displayStateManager.computeRenderReadiness(instance.optionsToDisplay())) {
         host.shouldRenderOptions.set(true);
       }
-      try { componentRef.changeDetectorRef.markForCheck(); } catch {}
+      try { componentRef.changeDetectorRef.markForCheck(); } catch (err: unknown) { swallow('qqc-orch-question-load.service.ts markForCheck', err); }
     } catch (err: unknown) {
       // Any failure after entry — unlatch so the effect can retry.
       reportError('loadDynamicComponent', err);
