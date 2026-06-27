@@ -22,6 +22,7 @@ import { SelectedOptionService } from '../../state/selectedoption.service';
 import { TimerService } from '../../features/timer/timer.service';
 
 import { norm } from '../../../utils/text-norm';
+import { swallow } from '../../../utils/error-logging';
 
 /**
  * Interface representing the component surface area that the init service needs.
@@ -184,7 +185,7 @@ export class SharedOptionInitService {
         html.style.pointerEvents = '';
         el.classList.remove('correct-option');
       }
-    } catch { /* ignore — non-browser env */ }
+    } catch (err: unknown) { swallow('shared-option-init.service.ts option-row DOM strip (non-browser env)', err); }
     comp.selectedOptions.clear();
     comp.selectedOptionMap.clear();
     comp._multiSelectByQuestion.clear();
@@ -452,7 +453,7 @@ export class SharedOptionInitService {
     try {
       const persisted = this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
       hasPersistedForIdx = persisted.length > 0;
-    } catch { /* ignore */ }
+    } catch (err: unknown) { swallow('shared-option-init.service.ts applyQuestionChangeReset', err); }
 
     // Always reset interaction flags so generateOptionBindings doesn't early-return.
     comp.hasUserClicked.set(false);
@@ -476,7 +477,7 @@ export class SharedOptionInitService {
     try {
       const m = window.location.pathname.match(QUESTION_ROUTE_REGEX);
       if (m) urlQuestionIdx = Number(m[1]) - 1;
-    } catch { /* ignore */ }
+    } catch (err: unknown) { swallow('shared-option-init.service.ts isStaleBehaviorSubjectIdx', err); }
     return urlQuestionIdx >= 0 && idx !== urlQuestionIdx;
   }
 
