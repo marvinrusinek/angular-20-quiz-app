@@ -20,6 +20,7 @@ import { SelectedOptionService } from '../../state/selectedoption.service';
 import { SelectionMessageService } from '../../features/selection-message/selection-message.service';
 import { isOptionCorrect } from '../../../utils/is-option-correct';
 import { norm } from '../../../utils/text-norm';
+import { swallow } from '../../../utils/error-logging';
 
 export interface OptionUiSyncContext {
   form: any;
@@ -160,7 +161,7 @@ export class OptionUiSyncService {
             ctx.selectedOptionHistory.push(pos);
           }
         }
-      } catch { /* ignore */ }
+      } catch (err: unknown) { swallow('option-ui-sync.service.ts selection-history resolve', err); }
       const historySet = new Set(ctx.selectedOptionHistory);
 
       // RESOLVE: ctx.optionBindings may be a signal (-clean) or array (-main)
@@ -770,7 +771,7 @@ export class OptionUiSyncService {
           }
         }
       }
-    } catch { /* ignore */ }
+    } catch (err: unknown) { swallow('option-ui-sync.service.ts pristine-correct match', err); }
 
     return { correctOptions, correctTextSet };
   }
@@ -877,7 +878,7 @@ export class OptionUiSyncService {
       try {
         sessionStorage.setItem(SK_IS_ANSWERED, 'true');
         sessionStorage.setItem(SK_DISPLAY_MODE + questionIndex, 'explanation');
-      } catch { /* ignore */ }
+      } catch (err: unknown) { swallow('option-ui-sync.service.ts FET-ready persist', err); }
       this.nextButtonStateService.setNextButtonState(true);
       // Emit FET — the shared-option-click path handles this when
       // clickState.remaining === 0, but when that path doesn't fire,
