@@ -7,6 +7,7 @@ import { Option } from '../../../models/Option.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
 import { isOptionCorrect } from '../../../utils/is-option-correct';
+import { swallow } from '../../../utils/error-logging';
 
 import { ExplanationTextService } from '../explanation/explanation-text.service';
 import { NextButtonStateService } from '../../state/next-button-state.service';
@@ -128,7 +129,7 @@ export class QqcResetManagerService {
     try {
       const dotStored = sessionStorage.getItem(SK_DOT_CONFIRMED + i0);
       dotConfirmed = dotStored === 'correct' || dotStored === 'wrong';
-    } catch { /* ignore */ }
+    } catch (err: unknown) { swallow('qqc-reset-manager.service.ts dot-confirmed read', err); }
     return existingSelections.length > 0 || scoredCorrect || dotConfirmed;
   }
 
@@ -145,13 +146,13 @@ export class QqcResetManagerService {
     // selectedOptionService.isAnswered$, so flip that here; the
     // forceEnable buys 1500ms of held-enable to outlast any
     // navigation-end resets that fire after this point.
-    try { this.selectedOptionService.setAnswered?.(true, true); } catch { }
-    try { this.nextButtonStateService.forceEnable?.(1500); } catch { }
+    try { this.selectedOptionService.setAnswered?.(true, true); } catch (err: unknown) { swallow('qqc-reset-manager.service.ts setAnswered', err); }
+    try { this.nextButtonStateService.forceEnable?.(1500); } catch (err: unknown) { swallow('qqc-reset-manager.service.ts forceEnable', err); }
     // Re-apply after the next macrotask in case a downstream reset path
     // disables the button between now and the end of navigation.
     setTimeout(() => {
-      try { this.selectedOptionService.setAnswered?.(true, true); } catch { }
-      try { this.nextButtonStateService.forceEnable?.(1500); } catch { }
+      try { this.selectedOptionService.setAnswered?.(true, true); } catch (err: unknown) { swallow('qqc-reset-manager.service.ts setAnswered (deferred)', err); }
+      try { this.nextButtonStateService.forceEnable?.(1500); } catch (err: unknown) { swallow('qqc-reset-manager.service.ts forceEnable (deferred)', err); }
     }, 0);
   }
 
