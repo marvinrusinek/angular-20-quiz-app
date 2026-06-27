@@ -6,6 +6,8 @@ import { take } from 'rxjs/operators';
 import { Option } from '../../../models/Option.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
+import { swallow } from '../../../utils/error-logging';
+
 import type { QuizQuestionComponent } from '../../../../components/question/quiz-question/quiz-question.component';
 
 type Host = QuizQuestionComponent;
@@ -58,7 +60,8 @@ export class QqcOrchLifecycleService {
       this.pushInitialSelectionMessage(host);
 
       this.wirePostLoadSubscriptions(host);
-    } catch {
+    } catch (err: unknown) {
+      swallow('qqc-orch-lifecycle.service.ts runOnInit', err);
     }
   }
 
@@ -310,7 +313,7 @@ export class QqcOrchLifecycleService {
         try {
           const question = await firstValueFrom(host.quizService.getQuestionByIndex(questionIndex));
           if (!question) return;
-        } catch {}
+        } catch (err: unknown) { swallow('qqc-orch-lifecycle.service.ts getQuestionByIndex', err); }
       }
     });
   }
@@ -428,7 +431,7 @@ export class QqcOrchLifecycleService {
   }
 
   runOnDestroy(host: Host): void {
-    try { document.removeEventListener('visibilitychange', host.onVisibilityChange.bind(host)); } catch {}
-    try { host.nextButtonStateService.cleanupNextButtonStateStream(); } catch {}
+    try { document.removeEventListener('visibilitychange', host.onVisibilityChange.bind(host)); } catch (err: unknown) { swallow('qqc-orch-lifecycle.service.ts removeEventListener', err); }
+    try { host.nextButtonStateService.cleanupNextButtonStateStream(); } catch (err: unknown) { swallow('qqc-orch-lifecycle.service.ts cleanupNextButtonStateStream', err); }
   }
 }
