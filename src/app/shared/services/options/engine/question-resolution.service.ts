@@ -8,6 +8,7 @@ import { SelectedOptionService } from '../../state/selectedoption.service';
 
 import { isOptionCorrect } from '../../../utils/is-option-correct';
 import { norm } from '../../../utils/text-norm';
+import { swallow } from '../../../utils/error-logging';
 
 export interface QuestionResolutionResult {
   fullyResolvedCorrect: boolean;
@@ -85,7 +86,7 @@ export class QuestionResolutionService {
       try {
         const stored = sessionStorage.getItem(SK_DOT_CONFIRMED + qIdx);
         if (stored === 'correct' || stored === 'wrong') dot = stored;
-      } catch { /* ignore */ }
+      } catch (err: unknown) { swallow('question-resolution.service.ts resolveDotSignal', err); }
     }
     return dot;
   }
@@ -110,7 +111,7 @@ export class QuestionResolutionService {
     }
     let effectiveQuizId = qs?.quizId || '';
     if (!effectiveQuizId) {
-      try { effectiveQuizId = localStorage.getItem('lastQuizId') || ''; } catch { /* ignore */ }
+      try { effectiveQuizId = localStorage.getItem('lastQuizId') || ''; } catch (err: unknown) { swallow('question-resolution.service.ts resolveScoredCorrect', err); }
     }
     if (!effectiveQuizId) return false;
     const origIdx = qs?.scoringService?.quizShuffleService?.toOriginalIndex?.(effectiveQuizId, qIdx);
@@ -138,7 +139,7 @@ export class QuestionResolutionService {
           (o: any) => isOptionCorrect(o)
         );
       }
-    } catch { /* ignore */ }
+    } catch (err: unknown) { swallow('question-resolution.service.ts resolvePristineCorrectOpts', err); }
     if (correctOpts.length === 0) {
       correctOpts = optsForQ.filter(
         (o: any) => isOptionCorrect(o)
@@ -159,7 +160,7 @@ export class QuestionResolutionService {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) sel = parsed;
       }
-    } catch { /* ignore */ }
+    } catch (err: unknown) { swallow('question-resolution.service.ts resolveSelectionSignals', err); }
     if (sel.length === 0) {
       sel = this.selectedOptionService.getSelectedOptionsForQuestion?.(qIdx) ?? [];
     }
