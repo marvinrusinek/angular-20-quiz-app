@@ -15,8 +15,8 @@ import {
   styleUrls: ['./scroll-down-indicator.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    '(window:scroll)': 'onScroll()',
-    '(window:resize)': 'onResize()'
+    '(window:scroll)': 'onWindowScroll()',
+    '(window:resize)': 'onWindowResize()'
   }
 })
 export class ScrollDownIndicatorComponent implements OnInit {
@@ -27,11 +27,11 @@ export class ScrollDownIndicatorComponent implements OnInit {
     setTimeout(() => this.check(), 300);
   }
 
-  onScroll(): void {
+  onWindowScroll(): void {
     this.check();
   }
 
-  onResize(): void {
+  onWindowResize(): void {
     this.check();
   }
 
