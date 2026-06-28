@@ -4,6 +4,8 @@ import { distinctUntilChanged, map, startWith } from 'rxjs/operators';
 
 import { ExplanationFormatterService } from './explanation-formatter.service';
 
+import { swallow } from '../../../utils/error-logging';
+
 /**
  * Owns the per-question reactive storage that drives explanation/FET
  * rendering: text streams (`_textMap`, `_byIndex`) and visibility gates
@@ -90,7 +92,7 @@ export class ExplanationGateService {
   closePrimaryGate(index: number): void {
     try {
       this._gate.get(index)?.next(false);
-    } catch { /* ignore */ }
+    } catch (err: unknown) { swallow('explanation-gate.service.ts closePrimaryGate', err); }
   }
 
   // Drop the text-stream entry for a single index (used by purge flows).

@@ -4,6 +4,7 @@ import { QuestionType } from '../../../../shared/models/question-type.enum';
 
 import { SK_DOT_CONFIRMED, SK_MULTI_PERFECT } from '../../../../shared/constants/session-keys';
 import { writeSessionString } from '../../../../shared/utils/session-storage';
+import { swallow } from '../../../../shared/utils/error-logging';
 
 import { Option } from '../../../../shared/models/Option.model';
 import { OptionClickedPayload } from '../../../../shared/models/OptionClickedPayload.model';
@@ -179,6 +180,6 @@ export class AnswerSelectionService {
 
     try {
       sessionStorage.setItem(SK_DOT_CONFIRMED + activeQuestionIndex, dotStatus);
-    } catch {}
+    } catch (err: unknown) { swallow('answer-selection.service.ts dot-confirmed persist', err); }
   }
 }

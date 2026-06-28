@@ -13,6 +13,7 @@ import { QuizService } from '../../data/quiz.service';
 import { QuizShuffleService } from '../../flow/quiz-shuffle.service';
 import { isOptionCorrect } from '../../../utils/is-option-correct';
 import { norm } from '../../../utils/text-norm';
+import { swallow } from '../../../utils/error-logging';
 
 @Injectable({ providedIn: 'root' })
 export class ExplanationFormatterService {
@@ -183,7 +184,7 @@ export class ExplanationFormatterService {
             opts = questions[index].options ?? [];
           }
         }
-      } catch { /* ignore */ }
+      } catch (err: unknown) { swallow('explanation-formatter.service.ts display-opts resolve', err); }
     }
     if (opts.length === 0) return [];
 
