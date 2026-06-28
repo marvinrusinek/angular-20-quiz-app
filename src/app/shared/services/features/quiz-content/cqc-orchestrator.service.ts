@@ -19,6 +19,8 @@ import { QuizQuestion } from '../../../models/QuizQuestion.model';
 import { CqcQuestionNavService } from './cqc-question-nav.service';
 import { QuizDotStatusService } from '../../flow/quiz-dot-status.service';
 
+import { swallow } from '../../../utils/error-logging';
+
 import type { CodelabQuizContentComponent } from '../../../../containers/quiz/quiz-content/codelab-quiz-content.component';
 
 type Host = CodelabQuizContentComponent;
@@ -53,7 +55,7 @@ export class CqcOrchestratorService {
     try {
       const navEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
       isPageRefresh = navEntries.length > 0 && navEntries[0].type === 'reload';
-    } catch { /* ignore */ }
+    } catch (err: unknown) { swallow('cqc-orchestrator.service.ts page-refresh detect', err); }
     if (!isPageRefresh) host.quizStateService._hasUserInteracted?.clear();
 
     host.quizStateService.resetInteraction();
@@ -249,7 +251,8 @@ export class CqcOrchestratorService {
       host.explanationTextService.explanationsInitialized = true;
 
       host.initializeCurrentQuestionIndex();
-    } catch {
+    } catch (err: unknown) {
+      swallow('cqc-orchestrator.service.ts initialization', err);
     }
   }
 
