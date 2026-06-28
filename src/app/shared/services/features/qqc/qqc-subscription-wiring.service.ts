@@ -13,6 +13,8 @@ import { QuizService } from '../../data/quiz.service';
 import { ResetStateService } from '../../state/reset-state.service';
 import { SharedVisibilityService } from '../../ui/shared-visibility.service';
 
+import { swallow } from '../../../utils/error-logging';
+
 /**
  * Subscription factory service for QQC.
  * Creates and returns Subscription objects that the component owns and tears down.
@@ -310,7 +312,7 @@ export class QqcSubscriptionWiringService {
 
       try {
         await params.onRouteChange(zeroBasedIndex, displayIndex);
-      } catch { }
+      } catch (err: unknown) { swallow('qqc-subscription-wiring.service.ts onRouteChange', err); }
     });
   }
 }
