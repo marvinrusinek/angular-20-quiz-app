@@ -24,8 +24,7 @@ import { SelectionMessageService } from '../selection-message/selection-message.
 import { TimerService } from '../timer/timer.service';
 
 import { delay } from '../../../utils/delay';
-
-const H3_I18N_SELECTOR = 'h3[i18n]';
+import { swallow } from '../../../utils/error-logging';
 
 /**
  * Manages reactive streams, DOM freeze/thaw, and legacy question-loading pipeline.
@@ -886,7 +885,7 @@ export class QqcQlStreamService {
       this.questionToDisplaySig.set('');
       this._lastQuestionText = '';
       this._lastRenderedIndex = -1;
-    } catch { }
+    } catch (err: unknown) { swallow('qqc-ql-stream.service.ts clearQuestionTextBeforeNavigation', err); }
   }
 
   public freezeQuestionStream(durationMs = 120): void {
@@ -897,8 +896,6 @@ export class QqcQlStreamService {
 
     const EXTENSION_MS = 40;
     this._renderFreezeUntil = performance.now() + durationMs + EXTENSION_MS;
-    const el = document.querySelector(H3_I18N_SELECTOR);
-    if (el) (el as HTMLElement).style.opacity = '0';
 
     if (this._freezeTimer != null) clearTimeout(this._freezeTimer);
     this._freezeTimer = setTimeout(
@@ -917,19 +914,12 @@ export class QqcQlStreamService {
     if (now < this._renderFreezeUntil) {
       const delay = this._renderFreezeUntil - now;
       this._isVisualFrozen = true;
-      const el = document.querySelector(H3_I18N_SELECTOR);
-      if (el) (el as HTMLElement).style.opacity = '0';
 
       if (this._freezeTimer != null) clearTimeout(this._freezeTimer);
       this._freezeTimer = setTimeout(() => {
         this._isVisualFrozen = false;
         this._frozen = false;
         this._quietUntil = performance.now() + QUIET_WINDOW_MS;
-
-        requestAnimationFrame(() => {
-          const el2 = document.querySelector(H3_I18N_SELECTOR);
-          if (el2) (el2 as HTMLElement).style.visibility = 'visible';
-        });
       }, delay + 12);
 
       return;
@@ -938,11 +928,6 @@ export class QqcQlStreamService {
     this._isVisualFrozen = false;
     this._frozen = false;
     this._quietUntil = now + QUIET_WINDOW_MS;
-
-    requestAnimationFrame(() => {
-      const el = document.querySelector(H3_I18N_SELECTOR);
-      if (el) (el as HTMLElement).style.opacity = '1';
-    });
   }
 
   public isNavBarrierActive(): boolean {
