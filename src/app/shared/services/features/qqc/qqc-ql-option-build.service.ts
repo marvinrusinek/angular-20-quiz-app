@@ -7,6 +7,7 @@ import { SharedOptionConfig } from '../../../models/SharedOptionConfig.model';
 
 import { QuizService } from '../../data/quiz.service';
 import { isOptionCorrect } from '../../../utils/is-option-correct';
+import { swallow } from '../../../utils/error-logging';
 
 /**
  * Handles option building, enrichment, bindings, and dynamic component configuration for QQC.
@@ -221,23 +222,23 @@ export class QqcQlOptionBuildService {
 
     try {
       if (componentRef?.setInput) {
-        try { componentRef.setInput('question', { ...question }); } catch {}
-        try { componentRef.setInput('optionsToDisplay', clonedOptions); } catch {}
-        try { componentRef.setInput('questionData', { ...question, options: clonedOptions }); } catch {}
-        try { componentRef.setInput('optionBindings', builtBindings); } catch {}
+        try { componentRef.setInput('question', { ...question }); } catch (err: unknown) { swallow('qqc-ql-option-build.service.ts setInput question', err); }
+        try { componentRef.setInput('optionsToDisplay', clonedOptions); } catch (err: unknown) { swallow('qqc-ql-option-build.service.ts setInput optionsToDisplay', err); }
+        try { componentRef.setInput('questionData', { ...question, options: clonedOptions }); } catch (err: unknown) { swallow('qqc-ql-option-build.service.ts setInput questionData', err); }
+        try { componentRef.setInput('optionBindings', builtBindings); } catch (err: unknown) { swallow('qqc-ql-option-build.service.ts setInput optionBindings', err); }
       }
       // Also set directly via signal API as a guaranteed write path.
-      try { instance.question.set({ ...question }); } catch {}
-      try { instance.optionsToDisplay.set(clonedOptions); } catch {}
-      try { instance.optionBindings.set(builtBindings); } catch {}
-      try { if (instance.questionData?.set) instance.questionData.set({ ...question, options: clonedOptions }); } catch {}
-      try { componentRef?.changeDetectorRef?.markForCheck(); } catch {}
+      try { instance.question.set({ ...question }); } catch (err: unknown) { swallow('qqc-ql-option-build.service.ts set question', err); }
+      try { instance.optionsToDisplay.set(clonedOptions); } catch (err: unknown) { swallow('qqc-ql-option-build.service.ts set optionsToDisplay', err); }
+      try { instance.optionBindings.set(builtBindings); } catch (err: unknown) { swallow('qqc-ql-option-build.service.ts set optionBindings', err); }
+      try { if (instance.questionData?.set) instance.questionData.set({ ...question, options: clonedOptions }); } catch (err: unknown) { swallow('qqc-ql-option-build.service.ts set questionData', err); }
+      try { componentRef?.changeDetectorRef?.markForCheck(); } catch (err: unknown) { swallow('qqc-ql-option-build.service.ts markForCheck', err); }
     } catch {
       try {
         instance.question.set({ ...question });
         instance.optionsToDisplay.set(clonedOptions);
         instance.optionBindings.set(builtBindings);
-      } catch {}
+      } catch (err: unknown) { swallow('qqc-ql-option-build.service.ts fallback set', err); }
     }
 
     instance.sharedOptionConfig = this.buildSharedOptionConfig({
