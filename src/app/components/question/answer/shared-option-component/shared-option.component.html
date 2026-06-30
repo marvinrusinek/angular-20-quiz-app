@@ -1,6 +1,6 @@
 @let opts = optionBindings() || [];
+@let mode = isMultiMode ? 'multiple' : 'single';
 
-<!-- Reusable feedback block (rendered below the last selected option) -->
 <ng-template #feedbackBlock let-b="b" let-i="i">
   @if (shouldShowFeedbackAfter(b, i)) {
     @if (getInlineFeedbackConfig(b, i); as inlineFeedback) {
@@ -11,50 +11,34 @@
   }
 </ng-template>
 
+<ng-template #optionsList let-type="type">
+  @for (b of opts; let i = $index; track trackByOptionId(b, i)) {
+    <app-option-item
+      [binding]="b"
+      [displayIndex]="i"
+      [type]="type"
+      [form]="form"
+      [shouldResetBackground]="shouldResetBackground()"
+      [currentQuestionIndex]="getActiveQuestionIndex()"
+      [feedbackConfig]="feedbackConfigs[keyOf(b.option, i)]"
+      [sharedOptionConfig]="buildSharedOptionConfig(b, i)"
+      [timerExpired]="timerExpiredForQuestion()"
+      (optionUI)="onOptionUI($event)"
+    />
+    <ng-container *ngTemplateOutlet="feedbackBlock; context: { b: b, i: i }" />
+  }
+</ng-template>
+
 @if (canShowOptions()) {
-  <!-- OPTIONS ARE READY -->
   <form [formGroup]="form" class="options-form">
-    @switch (isMultiMode ? 'multiple' : 'single') {
-      <!-- SINGLE-ANSWER (RADIO) -->
-      @case ('single') {
-        <mat-radio-group class="options-group options" formControlName="selectedOptionId">
-          @for (b of opts; let i = $index; track trackByOptionId(b, i)) {
-            <app-option-item
-              [binding]="b"
-              [displayIndex]="i"
-              [type]="'single'"
-              [form]="form"
-              [shouldResetBackground]="shouldResetBackground()"
-              [currentQuestionIndex]="getActiveQuestionIndex()"
-              [feedbackConfig]="feedbackConfigs[keyOf(b.option, i)]"
-              [sharedOptionConfig]="buildSharedOptionConfig(b, i)"
-              [timerExpired]="timerExpiredForQuestion()"
-              (optionUI)="onOptionUI($event)"
-            />
-            <ng-container *ngTemplateOutlet="feedbackBlock; context: { b: b, i: i }" />
-          }
-        </mat-radio-group>
-      }
-      <!-- MULTIPLE-ANSWER (CHECKBOX) -->
-      @case ('multiple') {
-        <div class="options-group options" role="group" aria-label="Select one or more options" i18n-aria-label>
-          @for (b of opts; let i = $index; track trackByOptionId(b, i)) {
-            <app-option-item
-              [binding]="b"
-              [displayIndex]="i"
-              [type]="'multiple'"
-              [form]="form"
-              [shouldResetBackground]="shouldResetBackground()"
-              [currentQuestionIndex]="getActiveQuestionIndex()"
-              [feedbackConfig]="feedbackConfigs[keyOf(b.option, i)]"
-              [sharedOptionConfig]="buildSharedOptionConfig(b, i)"
-              [timerExpired]="timerExpiredForQuestion()"
-              (optionUI)="onOptionUI($event)"
-            />
-            <ng-container *ngTemplateOutlet="feedbackBlock; context: { b: b, i: i }" />
-          }
-        </div>
-      }
+    @if (mode === 'single') {
+      <mat-radio-group class="options-group options" formControlName="selectedOptionId">
+        <ng-container *ngTemplateOutlet="optionsList; context: { type: 'single' }" />
+      </mat-radio-group>
+    } @else {
+      <div class="options-group options" role="group" aria-label="Select one or more options" i18n-aria-label>
+        <ng-container *ngTemplateOutlet="optionsList; context: { type: 'multiple' }" />
+      </div>
     }
   </form>
 } @else if (opts.length === 0) {
