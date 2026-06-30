@@ -1,10 +1,11 @@
 @let qa = combinedQuestionDataView();
+@let questionIndex = currentQuestionIndex();
 @let progress = progressSig();
 
 <ng-container>
   @if (qa && qa.options && qa.options.length > 0) {
     <div class="animation-shell">
-      <div class="anim-host" [@changeRoute]="currentQuestionIndex()">
+      <div class="anim-host" [@changeRoute]="questionIndex">
         <div class="quiz-card-wrapper">
           <mat-card class="quiz-card">
             <codelab-theme-toggle />
@@ -16,7 +17,7 @@
               <ng-content></ng-content>
 
               <codelab-quiz-content
-                [questionIndex]="currentQuestionIndex()"
+                [questionIndex]="questionIndex"
                 [questionToDisplay$]="questionToDisplay$"
                 [explanationToDisplay]="explanationToDisplay()"
                 [displayState$]="displayState$" />
@@ -26,7 +27,7 @@
                 [question]="qa.question"
                 [options]="qa.options"
                 [explanation]="qa.explanation ?? ''"
-                [currentQuestionIndex]="currentQuestionIndex()"
+                [currentQuestionIndex]="questionIndex"
                 [displayState$]="displayState$"
                 [shouldRenderOptions]="shouldRenderOptions()"
                 [questionToDisplay$]="questionToDisplay$"
@@ -91,7 +92,7 @@
                           [attr.tabindex]="isDotClickable($index) ? 0 : -1"
                           [attr.aria-disabled]="!isDotClickable($index)"
                           [attr.aria-label]="'Go to question ' + ($index + 1)"
-                          [attr.aria-current]="currentQuestionIndex() === $index ? 'step' : null"
+                          [attr.aria-current]="questionIndex === $index ? 'step' : null"
                           (keydown.enter)="navigateToDot($index)"
                           (keydown.space)="$event.preventDefault(); navigateToDot($index)">
                         </div>
