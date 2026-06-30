@@ -45,9 +45,7 @@ export class FeedbackComponent {
     // initial undefined value is just ignored until the parent provides one.
     effect(() => {
       const cfg = this.feedbackConfig();
-      if (cfg) {
-        this.updateFeedback();
-      }
+      if (cfg) this.updateFeedback();
     });
   }
 
