@@ -21,9 +21,7 @@ export class ResetBackgroundDirective {
     this.resetBackgroundService.shouldResetBackground$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((value) => {
-        if (value) {
-          this.resetBackground();
-        }
+        if (value) this.resetBackground();
       });
   }
 
