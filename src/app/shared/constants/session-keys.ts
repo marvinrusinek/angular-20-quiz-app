@@ -16,3 +16,6 @@ export const SK_SHUFFLED_QUESTIONS = 'shuffledQuestions';
 export const SK_SHUFFLED_QUESTIONS_QUIZ_ID = 'shuffledQuestionsQuizId';
 export const SK_STARTED_QUIZ_IDS = 'startedQuizIds';
 export const SK_USER_ANSWERS = 'userAnswers';
+
+// ── durable preferences (localStorage) ───────────────────────────
+export const SK_QUIZ_SORT_DIRECTION = 'quizSortDirection';

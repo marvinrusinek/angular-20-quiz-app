@@ -8,8 +8,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-import { SK_COMPLETED_QUIZ_IDS, SK_STARTED_QUIZ_IDS } from '../../shared/constants/session-keys';
+import { SK_COMPLETED_QUIZ_IDS, SK_QUIZ_SORT_DIRECTION, SK_STARTED_QUIZ_IDS } from '../../shared/constants/session-keys';
 import { readSessionJson, writeSessionJson } from '../../shared/utils/session-storage';
+import { readLocalString, writeLocalString } from '../../shared/utils/local-storage';
 
 import { QuizRoutes } from '../../shared/models/quiz-routes.enum';
 import { QuizStatus } from '../../shared/models/quiz-status.enum';
@@ -246,9 +247,11 @@ export class QuizSelectionComponent implements OnInit {
 
   // Set the difficulty sort direction from an arrow button. The active arrow
   // is disabled in the template, so a direction only changes when the user
-  // clicks the OTHER (currently-enabled) arrow.
+  // clicks the OTHER (currently-enabled) arrow. Persisted so the choice is
+  // remembered on the user's next visit.
   setSort(direction: Exclude<QuizSortDirection, 'default'>): void {
     this.sortDirection.set(direction);
+    writeLocalString(SK_QUIZ_SORT_DIRECTION, direction);
   }
 
   // True when the given direction is active (drives the arrow's highlighted +
@@ -264,9 +267,18 @@ export class QuizSelectionComponent implements OnInit {
   }
 
   private initializeQuizSelection(): void {
+    this.restoreSortPreference();
     this.restoreSessionAccessState();
     this.selectionParams.set(this.quizService.returnQuizSelectionParams());
     this.loadQuizCatalog();
+  }
+
+  // Restore the difficulty sort choice from a previous visit (localStorage).
+  private restoreSortPreference(): void {
+    const saved = readLocalString(SK_QUIZ_SORT_DIRECTION);
+    if (saved === 'asc' || saved === 'desc' || saved === 'default') {
+      this.sortDirection.set(saved);
+    }
   }
 
   // Restore quiz statuses from sessionStorage (one-time consumption)
