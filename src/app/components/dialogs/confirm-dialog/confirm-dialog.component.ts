@@ -1,10 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
-import {
-  MAT_DIALOG_DATA,
-  MatDialogModule,
-  MatDialogRef,
-} from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 
 export interface ConfirmDialogData {
   title?: string;
@@ -20,7 +16,10 @@ export interface ConfirmDialogData {
   imports: [MatButtonModule, MatDialogModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <h2 mat-dialog-title class="confirm-title">
+    <h2
+      mat-dialog-title
+      class="confirm-title"
+    >
       {{ data.title ?? 'Are you sure?' }}
     </h2>
 
@@ -28,7 +27,10 @@ export interface ConfirmDialogData {
       {{ data.message }}
     </mat-dialog-content>
 
-    <mat-dialog-actions align="end" class="confirm-actions">
+    <mat-dialog-actions
+      align="end"
+      class="confirm-actions"
+    >
       <button
         mat-stroked-button
         class="confirm-cancel"
@@ -46,28 +48,30 @@ export interface ConfirmDialogData {
       </button>
     </mat-dialog-actions>
   `,
-  styles: [`
-    .confirm-title {
-      color: var(--text-primary);
-      font-weight: 600;
-    }
+  styles: [
+    `
+      .confirm-title {
+        color: var(--text-primary);
+        font-weight: 600;
+      }
 
-    .confirm-message {
-      color: var(--text-secondary);
-      font-size: 15px;
-      line-height: 1.5;
-    }
+      .confirm-message {
+        color: var(--text-secondary);
+        font-size: 15px;
+        line-height: 1.5;
+      }
 
-    .confirm-actions {
-      gap: 8px;
-      padding: 8px 24px 16px;
-    }
+      .confirm-actions {
+        gap: 8px;
+        padding: 8px 24px 16px;
+      }
 
-    .confirm-cancel {
-      color: var(--text-primary);
-      border-color: var(--border-color);
-    }
-  `]
+      .confirm-cancel {
+        color: var(--text-primary);
+        border-color: var(--border-color);
+      }
+    `,
+  ],
 })
 export class ConfirmDialogComponent {
   // ── injects ─────────────────────────────────────────────────────
