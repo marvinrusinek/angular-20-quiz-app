@@ -7,8 +7,8 @@ import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-import { SK_COMPLETED_QUIZ_IDS, SK_QUIZ_SORT_ALPHA, SK_QUIZ_SORT_DIFFICULTY, SK_STARTED_QUIZ_IDS } from '../../shared/constants/session-keys';
-import { readSessionJson, writeSessionJson } from '../../shared/utils/session-storage';
+import { SK_COMPLETED_QUIZ_IDS, SK_QUIZ_SEARCH_TERM, SK_QUIZ_SORT_ALPHA, SK_QUIZ_SORT_DIFFICULTY, SK_STARTED_QUIZ_IDS } from '../../shared/constants/session-keys';
+import { readSessionJson, readSessionString, writeSessionJson, writeSessionString } from '../../shared/utils/session-storage';
 import { readLocalString, writeLocalString } from '../../shared/utils/local-storage';
 
 import { QuizRoutes } from '../../shared/models/quiz-routes.enum';
@@ -85,6 +85,13 @@ export class QuizSelectionComponent implements OnInit {
   private readonly persistSortEffect = effect(() => {
     writeLocalString(SK_QUIZ_SORT_DIFFICULTY, this.sortDifficulty());
     writeLocalString(SK_QUIZ_SORT_ALPHA, this.sortAlpha());
+  });
+
+  // Persist the search term for THIS session (sessionStorage) so navigating
+  // away to a quiz and back restores the filtered list. Clears when the
+  // browser/tab closes, so a fresh visit starts with all quizzes.
+  private readonly persistSearchEffect = effect(() => {
+    writeSessionString(SK_QUIZ_SEARCH_TERM, this.searchTerm());
   });
 
   // The grid renders this: filter the full list by the search term, then sort
@@ -302,7 +309,8 @@ export class QuizSelectionComponent implements OnInit {
     this.loadQuizCatalog();
   }
 
-  // Restore both sort dimensions from a previous visit (localStorage).
+  // Restore the sort dimensions (localStorage, cross-visit) and the search
+  // term (sessionStorage, this session only) from a previous visit.
   private restoreSortPreference(): void {
     const savedDifficulty = readLocalString(SK_QUIZ_SORT_DIFFICULTY);
     if (savedDifficulty === 'asc' || savedDifficulty === 'desc') {
@@ -313,6 +321,9 @@ export class QuizSelectionComponent implements OnInit {
     if (savedAlpha === 'az' || savedAlpha === 'za') {
       this.sortAlpha.set(savedAlpha);
     }
+
+    const savedSearch = readSessionString(SK_QUIZ_SEARCH_TERM);
+    if (savedSearch) this.searchTerm.set(savedSearch);
   }
 
   // Restore quiz statuses from sessionStorage (one-time consumption)
