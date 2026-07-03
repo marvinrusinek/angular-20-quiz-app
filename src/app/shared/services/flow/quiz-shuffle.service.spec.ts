@@ -129,66 +129,6 @@ describe('QuizShuffleService', () => {
     });
   });
 
-  // ── "All of the above" pinning ──────────────────────────────
-  // An "All of the above"-style option must always render LAST, even after a
-  // shuffle moves it. Options keep their stable optionId, so scoring is safe.
-  describe('"All of the above" pinning', () => {
-    const aggregateQuestions: QuizQuestion[] = [
-      {
-        questionText: 'Which are true?',
-        options: [
-          { text: 'All of the above.', correct: true, value: 1 },  // deliberately FIRST in source
-          { text: 'Alpha', correct: false, value: 2 },
-          { text: 'Bravo', correct: false, value: 3 },
-          { text: 'Charlie', correct: false, value: 4 }
-        ],
-        explanation: 'x',
-        type: QuestionType.SingleAnswer
-      }
-    ];
-
-    it('pins "All of the above" last after shuffling (many trials)', () => {
-      for (let i = 0; i < 30; i++) {
-        const quizId = `aota-${i}`;
-        service.clear(quizId);
-        service.prepareShuffle(quizId, aggregateQuestions, {
-          shuffleQuestions: false,
-          shuffleOptions: true
-        });
-        const options = service.buildShuffledQuestions(quizId, aggregateQuestions)[0].options;
-        expect(options.length).toBe(4);  // nothing lost
-        expect(options[options.length - 1].text).toBe('All of the above.');
-        expect(options.filter(o => o.text === 'All of the above.').length).toBe(1);
-        expect(options[options.length - 1].correct).toBe(true);  // still flagged correct
-      }
-    });
-
-    it('detects the aggregate option case-insensitively / ignoring trailing punctuation', () => {
-      const q: QuizQuestion[] = [{
-        questionText: 'Q',
-        options: [
-          { text: 'ALL OF THE ABOVE', correct: true, value: 1 },  // no period, upper-case, FIRST
-          { text: 'Alpha', correct: false, value: 2 },
-          { text: 'Bravo', correct: false, value: 3 }
-        ],
-        explanation: 'x',
-        type: QuestionType.SingleAnswer
-      }];
-      service.prepareShuffle('aota-case', q, { shuffleQuestions: false, shuffleOptions: false });
-      const options = service.buildShuffledQuestions('aota-case', q)[0].options;
-      expect(options[options.length - 1].text).toBe('ALL OF THE ABOVE');
-    });
-
-    it('leaves questions without an aggregate option unchanged in membership', () => {
-      service.prepareShuffle('no-aota', mockQuestions, {
-        shuffleQuestions: false,
-        shuffleOptions: true
-      });
-      const options = service.buildShuffledQuestions('no-aota', mockQuestions)[0].options;
-      expect(options.map(o => o.text).sort()).toEqual(['Option A', 'Option B', 'Option C', 'Option D']);
-    });
-  });
-
   // ── assignOptionIds ─────────────────────────────────────────
 
   describe('assignOptionIds', () => {

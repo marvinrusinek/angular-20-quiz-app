@@ -341,16 +341,8 @@ export class QuizShuffleService {
         } as Option;  // if displayOrder isn't in Option, use a local type if you need it
       });
 
-    // "All of the above"-style options are always pinned LAST — even after a
-    // shuffle moved them — right before display-order stamping. This is the
-    // single display-reorder chokepoint, so the rule holds for both fresh and
-    // persisted shuffle orders. Safe for scoring: options keep their stable
-    // optionId/text, so answer resolution is unaffected.
-    const finalize = (opts: Option[]): Option[] =>
-      normalizeForDisplay(this.pinAllOfTheAboveLast(opts));
-
     if (!Array.isArray(order) || order.length !== options.length) {
-      return finalize(options.map((option) => ({ ...option })));
+      return normalizeForDisplay(options.map((option) => ({ ...option })));
     }
 
     const reordered = order
@@ -362,10 +354,10 @@ export class QuizShuffleService {
       .filter((option): option is Option => option !== null);
 
     if (reordered.length !== options.length) {
-      return finalize(options.map((option) => ({ ...option })));
+      return normalizeForDisplay(options.map((option) => ({ ...option })));
     }
 
-    return finalize(reordered);
+    return normalizeForDisplay(reordered);
   }
 
   private normalize(val: unknown): string {
@@ -415,26 +407,6 @@ export class QuizShuffleService {
     if (typeof v === 'number' && Number.isFinite(v)) return v;
     const n = Number(String(v));
     return Number.isFinite(n) ? n : null;
-  }
-
-  // True for an "All of the above"-style aggregate option (trailing punctuation
-  // ignored, e.g. "All of the above.").
-  private isAllOfTheAbove(text: unknown): boolean {
-    const normalized = this.normalize(text).replace(/[.!?]+$/, '').trim();
-    return normalized === 'all of the above';
-  }
-
-  // Move any "All of the above"-style option(s) to the END of the list while
-  // preserving the relative order of everything else. Returns the input
-  // unchanged when there's nothing to pin. Options keep their stable
-  // optionId/text/value, so answer resolution and scoring are unaffected.
-  private pinAllOfTheAboveLast(options: Option[]): Option[] {
-    if (!Array.isArray(options) || options.length < 2) return options;
-    if (!options.some((option) => this.isAllOfTheAbove(option?.text))) return options;
-
-    const rest = options.filter((option) => !this.isAllOfTheAbove(option?.text));
-    const pinned = options.filter((option) => this.isAllOfTheAbove(option?.text));
-    return [...rest, ...pinned];
   }
 
   private cloneAndNormalizeOptions(
