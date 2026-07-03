@@ -102,6 +102,27 @@ export class QuizSelectionComponent implements OnInit {
     return this.sortQuizzes(filtered, difficultyDir, alphaDir);
   });
 
+  // Summary stats for the catalog row: total quizzes, total questions, and a
+  // difficulty breakdown (e.g. "4 Beginner / 5 Intermediate"). Computed from the
+  // FULL catalog (not the filtered/searched view).
+  readonly quizStats = computed(() => {
+    const list = this.quizzes() ?? [];
+    const quizCount = list.length;
+    const questionCount = list.reduce((sum, quiz) => sum + (quiz.questions?.length ?? 0), 0);
+
+    const counts = new Map<string, number>();
+    for (const quiz of list) {
+      const difficulty = (quiz.difficulty ?? '').toLowerCase();
+      if (difficulty) counts.set(difficulty, (counts.get(difficulty) ?? 0) + 1);
+    }
+    const difficultyText = ['beginner', 'intermediate', 'advanced']
+      .filter(difficulty => counts.has(difficulty))
+      .map(difficulty => `${counts.get(difficulty)} ${difficulty[0].toUpperCase()}${difficulty.slice(1)}`)
+      .join(' / ');
+
+    return { quizCount, questionCount, difficultyText };
+  });
+
   readonly accessedCount = signal(0);
   readonly totalQuizCountSig = signal(0);
   readonly hasAccessedQuizzes = computed(() => this.accessedCount() > 0);

@@ -88,6 +88,19 @@
     -->
   </div>
 
+  <!-- Catalog summary stats -->
+  @if (quizzes().length > 0) {
+    <div class="quiz-stats" role="status" aria-live="polite">
+      <span class="stat">{{ quizStats().quizCount }} Quizzes</span>
+      <span class="stat-divider" aria-hidden="true">|</span>
+      <span class="stat">{{ quizStats().questionCount }} Questions</span>
+      @if (quizStats().difficultyText) {
+        <span class="stat-divider" aria-hidden="true">|</span>
+        <span class="stat">{{ quizStats().difficultyText }}</span>
+      }
+    </div>
+  }
+
   @if (hasAccessedQuizzes()) {
     <div class="accessed-banner">
       {{ accessedBannerMessage() }}
