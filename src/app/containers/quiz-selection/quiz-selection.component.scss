@@ -74,13 +74,12 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 24px;
+    gap: 32px;
     flex-wrap: wrap;
     width: fit-content;
     padding-bottom: 15px;
     margin: 35px auto 0;
     position: relative;
-    background-color: white;
 
     button {
       &:hover {
