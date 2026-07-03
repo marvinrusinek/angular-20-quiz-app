@@ -28,4 +28,21 @@
       </mat-card-subtitle>
     </div>
   }
+
+  <div class="header-actions">
+    <button
+      type="button"
+      class="keyboard-shortcuts-btn"
+      (click)="openKeyboardShortcuts()"
+      matTooltip="Keyboard shortcuts"
+      i18n-matTooltip
+      matTooltipPosition="below"
+      aria-label="Open keyboard shortcuts"
+      i18n-aria-label
+    >
+      <mat-icon>keyboard</mat-icon>
+    </button>
+
+    <codelab-theme-toggle />
+  </div>
 </mat-card-header>

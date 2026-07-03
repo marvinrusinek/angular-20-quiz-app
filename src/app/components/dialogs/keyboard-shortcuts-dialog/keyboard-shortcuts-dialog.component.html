@@ -1,0 +1,83 @@
+<h2 mat-dialog-title id="ksd-title" class="ksd-title">
+  <mat-icon aria-hidden="true">keyboard</mat-icon>
+  <span i18n>Keyboard Shortcuts</span>
+</h2>
+
+<mat-dialog-content class="ksd-content">
+  <p id="ksd-desc" class="ksd-subtitle" i18n>
+    Use these keyboard shortcuts to answer questions and move through the quiz.
+  </p>
+
+  <!-- Number Keys -->
+  <section class="ksd-section" aria-labelledby="ksd-number-heading">
+    <h3 id="ksd-number-heading" class="ksd-section-heading">
+      <mat-icon aria-hidden="true">keyboard</mat-icon>
+      <span i18n>Number Keys</span>
+    </h3>
+
+    <dl class="ksd-shortcuts">
+      <div class="ksd-row">
+        <dt><kbd>1</kbd></dt>
+        <dd i18n>Select option 1</dd>
+      </div>
+      <div class="ksd-row">
+        <dt><kbd>2</kbd></dt>
+        <dd i18n>Select option 2</dd>
+      </div>
+      <div class="ksd-row">
+        <dt><kbd>3</kbd></dt>
+        <dd i18n>Select option 3</dd>
+      </div>
+      <div class="ksd-row">
+        <dt><kbd>4</kbd></dt>
+        <dd i18n>Select option 4</dd>
+      </div>
+    </dl>
+  </section>
+
+  <!-- Navigation -->
+  <section class="ksd-section" aria-labelledby="ksd-nav-heading">
+    <h3 id="ksd-nav-heading" class="ksd-section-heading">
+      <mat-icon aria-hidden="true">arrow_forward</mat-icon>
+      <span i18n>Navigation</span>
+    </h3>
+
+    <dl class="ksd-shortcuts">
+      <div class="ksd-row">
+        <dt><kbd aria-label="Left arrow key" i18n-aria-label>&larr;</kbd></dt>
+        <dd>
+          <mat-icon class="ksd-inline-icon" aria-hidden="true">arrow_back</mat-icon>
+          <span i18n>Previous Question</span>
+        </dd>
+      </div>
+      <div class="ksd-row">
+        <dt><kbd aria-label="Right arrow key" i18n-aria-label>&rarr;</kbd></dt>
+        <dd>
+          <mat-icon class="ksd-inline-icon" aria-hidden="true">arrow_forward</mat-icon>
+          <span i18n>Next Question</span>
+        </dd>
+      </div>
+    </dl>
+  </section>
+
+  <!-- General -->
+  <section class="ksd-section" aria-labelledby="ksd-general-heading">
+    <h3 id="ksd-general-heading" class="ksd-section-heading">
+      <mat-icon aria-hidden="true">close</mat-icon>
+      <span i18n>General</span>
+    </h3>
+
+    <dl class="ksd-shortcuts">
+      <div class="ksd-row">
+        <dt><kbd>Esc</kbd></dt>
+        <dd i18n>Close dialog</dd>
+      </div>
+    </dl>
+  </section>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end" class="ksd-actions">
+  <button mat-flat-button color="primary" mat-dialog-close i18n>
+    Close
+  </button>
+</mat-dialog-actions>

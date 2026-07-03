@@ -1,5 +1,8 @@
 mat-card-header {
-  display: block;
+  // Flex row so the logo, titles and action icons never overlap.
+  display: flex;
+  align-items: center;
+  gap: 12px;
   position: relative;
   background: transparent !important;
   box-shadow: none !important;
@@ -7,29 +10,71 @@ mat-card-header {
   border-radius: 0 !important;
   overflow: visible !important;
   min-height: 80px;
+  padding: 8px 12px 8px 12px;
 
   .header-image {
-    position: absolute;
-    top: 5px;
-    left: 25px;
+    flex: 0 0 auto;
+    width: 150px;
+    height: 84px;
   }
 
   .header-titles {
-    margin-left: 130px;
-    padding-top: 10px;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-top: 6px;   // nudge the titles down, clear of the top-right icons
 
     mat-card-title {
       display: block;
-      font-size: 40px;
-      padding-top: 15px;
-      padding-bottom: 10px;
-      white-space: nowrap;
+      font-size: 30px;
+      line-height: 1.15;
+      padding-bottom: 6px;
+      overflow-wrap: break-word;   // wrap to show the FULL title (no "…")
     }
 
     mat-card-subtitle {
       display: block;
-      margin-top: -10px !important;
-      white-space: nowrap;
+      margin-top: 2px !important;
+      margin-left: -30px;   // shift the subtitle left
+      line-height: 1.3;
+      white-space: nowrap;   // fits on one line at the subtitle font size
+    }
+  }
+
+  .header-actions {
+    flex: 0 0 auto;
+    margin-left: auto;      // push to the right edge
+    margin-right: -10px;    // nudge the icons 10px further right
+    align-self: flex-start;  // pin to the top while the title wraps below
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    // Circular icon button matching the theme toggle (shares its CSS vars).
+    .keyboard-shortcuts-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      border: 1px solid var(--border-color, #e0e0e0);
+      border-radius: 50%;
+      background: var(--theme-toggle-bg);
+      color: var(--theme-toggle-color);
+      cursor: pointer;
+      transition: background 0.3s ease, color 0.3s ease, transform 0.2s ease;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+
+      &:hover {
+        transform: scale(1.1);
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+      }
+
+      mat-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+      }
     }
   }
 }

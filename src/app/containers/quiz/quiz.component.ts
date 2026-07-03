@@ -38,11 +38,10 @@ import { TimerService } from '../../shared/services/features/timer/timer.service
 
 import { CodelabQuizContentComponent } from './quiz-content/codelab-quiz-content.component';
 import { CodelabQuizHeaderComponent } from './quiz-header/quiz-header.component';
-import { ConfirmDialogComponent, ConfirmDialogData } from '../../shared/components/confirm-dialog/confirm-dialog.component';
+import { ConfirmDialogComponent, ConfirmDialogData } from '../../components/dialogs/confirm-dialog/confirm-dialog.component';
 import { QuizQuestionComponent } from '../../components/question/quiz-question/quiz-question.component';
 import { ScoreboardComponent } from '../scoreboard/scoreboard.component';
 import { SharedOptionComponent } from '../../components/question/answer/shared-option-component/shared-option.component';
-import { ThemeToggleComponent } from '../../components/theme-toggle/theme-toggle.component';
 
 import { QUESTION_ROUTE_REGEX } from '../../shared/constants/route-patterns';
 
@@ -67,8 +66,7 @@ type AnimationState = 'animationStarted' | 'none';
     QuizQuestionComponent,
     CodelabQuizHeaderComponent,
     CodelabQuizContentComponent,
-    ScoreboardComponent,
-    ThemeToggleComponent
+    ScoreboardComponent
   ],
   templateUrl: './quiz.component.html',
   styleUrls: ['./quiz.component.scss'],

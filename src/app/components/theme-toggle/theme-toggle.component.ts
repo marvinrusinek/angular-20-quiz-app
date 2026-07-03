@@ -22,11 +22,9 @@ import { ThemeService } from '../../shared/services/ui/theme.service';
   `,
   styles: [`
     :host {
-      display: block;
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      z-index: 10;
+      /* Flows inline within its parent (e.g. the header actions row).
+         The parent is responsible for positioning. */
+      display: inline-flex;
     }
 
     .theme-toggle-btn {
