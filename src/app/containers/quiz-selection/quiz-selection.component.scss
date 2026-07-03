@@ -141,6 +141,7 @@
 
   // Empty state shown when a search filters out every quiz.
   .no-results {
+    display: block;
     text-align: center;
     padding: 24px 20px;
     margin: 10px auto 0;
@@ -180,6 +181,7 @@
   }
 
   .accessed-banner {
+    display: block;
     text-align: center;
     padding: 10px 20px;
     margin: 0 auto 5px;
