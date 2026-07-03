@@ -547,7 +547,9 @@ button.mat-mdc-menu-trigger {
       visibility: visible !important;
       opacity: 1 !important;
       position: relative !important;
-      z-index: 9999 !important;
+      // Keep a minimal stacking bump for the header, but stay BELOW the CDK
+      // dialog overlay (~1000) so this subtitle can't render over open dialogs.
+      z-index: 1 !important;
     }
   }
 
@@ -681,6 +683,29 @@ button.mat-mdc-menu-trigger {
   color: var(--text-primary) !important;
   border: 1px solid var(--border-card);
   border-radius: 12px;
+}
+
+// Keyboard shortcuts dialog (same overlay theming approach as above).
+// Make the surface solidly opaque (Material can leave it transparent, which
+// lets the dimmed page behind — e.g. the quiz header — show through).
+.keyboard-shortcuts-dialog {
+  .mat-mdc-dialog-container,
+  .mat-mdc-dialog-surface,
+  .mdc-dialog__surface {
+    background-color: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+  }
+
+  .mat-mdc-dialog-surface {
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+  }
+
+  // Material sets explicit colors on the title/content, so force them themed.
+  .mat-mdc-dialog-title,
+  .mat-mdc-dialog-content {
+    color: var(--text-primary) !important;
+  }
 }
 
 // Mobile: scoreboard overrides
