@@ -213,3 +213,51 @@ mat-card-actions {
     object-fit: contain !important;
   }
 }
+
+// Quiz image + meta side by side, centered as a group
+.image-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;   // padding between the image and the meta
+
+  .quiz-topic-image {
+    margin: 0;   // the row centers the group now (was auto-centered)
+  }
+}
+
+@media (max-width: 600px) {
+  .image-meta-row {
+    flex-direction: column;   // stack image over meta on small screens
+    gap: 12px;
+  }
+}
+
+// Quiz meta: difficulty · # of questions · estimated time (stacked)
+.quiz-meta {
+  display: flex;
+  flex-direction: column;   // each item on its own line
+  align-items: center;
+  gap: 8px;
+
+  .meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 15px;
+    font-weight: 700;
+    color: vars.$chambray-blue;
+
+    mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+  }
+
+  .meta-difficulty {
+    &.difficulty-beginner { color: vars.$green-angular-leaf; }
+    &.difficulty-intermediate { color: vars.$fuel-yellow; }
+    &.difficulty-advanced { color: vars.$fire-red; }
+  }
+}

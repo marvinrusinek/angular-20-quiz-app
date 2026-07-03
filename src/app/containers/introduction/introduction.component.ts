@@ -25,6 +25,7 @@ import { QuizPersistenceService } from '../../shared/services/state/quiz-persist
 import { QuizService } from '../../shared/services/data/quiz.service';
 import { QuizShuffleService } from '../../shared/services/flow/quiz-shuffle.service';
 import { SelectedOptionService } from '../../shared/services/state/selectedoption.service';
+import { TimerService } from '../../shared/services/features/timer/timer.service';
 import { swallow } from '../../shared/utils/error-logging';
 
 @Component({
@@ -53,6 +54,7 @@ export class IntroductionComponent implements OnInit {
   private readonly quizService = inject(QuizService);
   private readonly quizShuffleService = inject(QuizShuffleService);
   private readonly selectedOptionService = inject(SelectedOptionService);
+  private readonly timerService = inject(TimerService);
   private readonly activatedRoute = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   private readonly fb = inject(FormBuilder);
@@ -68,6 +70,15 @@ export class IntroductionComponent implements OnInit {
   readonly questionLabelSig = computed(() =>
     this.questionCountSig() === 1 ? 'question' : 'questions'
   );
+
+  // Rough completion-time estimate: question count × per-question seconds
+  // (TimerService.timePerQuestion, default 30s), rounded up to whole minutes.
+  readonly estimatedMinutesSig = computed(() => {
+    const count = this.questionCountSig();
+    if (count <= 0) return 0;
+    const seconds = count * this.timerService.timePerQuestion;
+    return Math.max(1, Math.ceil(seconds / 60));
+  });
   readonly introImgSig = signal('');
 
   constructor() {

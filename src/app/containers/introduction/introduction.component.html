@@ -25,13 +25,35 @@
       </mat-card-title-group>
     </mat-card-header>
 
-    <img
-      mat-card-image
-      class="quiz-topic-image"
-      [src]="introImgSig() || 'assets/default-image.jpg'"
-      alt="Quiz topic image"
-      loading="lazy"
-    />
+    <!-- Quiz image with the meta (difficulty · # questions · ~time) on its right -->
+    <div class="image-meta-row">
+      <img
+        mat-card-image
+        class="quiz-topic-image"
+        [src]="introImgSig() || 'assets/default-image.jpg'"
+        alt="Quiz topic image"
+        loading="lazy"
+      />
+
+      <div class="quiz-meta">
+        @if (quiz.difficulty; as difficulty) {
+          <span class="meta-item meta-difficulty" [ngClass]="'difficulty-' + difficulty">
+            <mat-icon aria-hidden="true">signal_cellular_alt</mat-icon>
+            <span>{{ difficulty | titlecase }}</span>
+          </span>
+        }
+
+        <span class="meta-item">
+          <mat-icon aria-hidden="true">quiz</mat-icon>
+          <span>{{ questionCountSig() }} {{ questionLabelSig() | titlecase }}</span>
+        </span>
+
+        <span class="meta-item">
+          <mat-icon aria-hidden="true">schedule</mat-icon>
+          <span>~{{ estimatedMinutesSig() }} min</span>
+        </span>
+      </div>
+    </div>
 
     <mat-card-content>
       <div class="intro-text" i18n>
