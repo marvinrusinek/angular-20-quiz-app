@@ -1,7 +1,12 @@
 <div class="container">
   <header class="row">
     <div class="logo">
-      <a href="https://www.codelab.fun" title="Angular Codelab" i18n-title target="_blank">
+      <a
+        href="https://www.codelab.fun"
+        title="Angular Codelab"
+        i18n-title
+        target="_blank"
+      >
         <img
           mat-card-avatar
           class="header-image"
@@ -53,28 +58,45 @@
 
   <!-- Catalog summary stats -->
   @if (quizzes().length > 0) {
-    <div class="quiz-stats" role="status" aria-live="polite">
+    <div
+      class="quiz-stats"
+      role="status"
+      aria-live="polite"
+    >
       <span class="stat">{{ quizStats().quizCount }} Quizzes</span>
-      <span class="stat-divider" aria-hidden="true">|</span>
+      <span
+        class="stat-divider"
+        aria-hidden="true"
+      >
+        |
+      </span>
       <span class="stat">{{ quizStats().questionCount }} Questions</span>
       @if (quizStats().difficultyText) {
-        <span class="stat-divider" aria-hidden="true">|</span>
+        <span
+          class="stat-divider"
+          aria-hidden="true"
+        >
+          |
+        </span>
         <span class="stat">{{ quizStats().difficultyText }}</span>
       }
     </div>
   }
 
   @if (hasAccessedQuizzes()) {
-    <div class="accessed-banner">
-      {{ accessedBannerMessage() }}
-    </div>
+    <span class="accessed-banner">{{ accessedBannerMessage() }}</span>
   }
 
   <!-- Empty state: quizzes are loaded but none match the search -->
   @if (quizzes().length > 0 && displayedQuizzes().length === 0) {
-    <p class="no-results" role="status" aria-live="polite" i18n>
+    <span
+      class="no-results"
+      role="status"
+      aria-live="polite"
+      i18n
+    >
       No quizzes match your search.
-    </p>
+    </span>
   }
 
   <!-- Quiz Tiles Grid -->
@@ -90,11 +112,17 @@
         [ngStyle]="getQuizTileStyles(quiz)"
       >
         <summary class="quiz-info">
-          <h5 class="quiz-title" i18n>
+          <h5
+            class="quiz-title"
+            i18n
+          >
             {{ quiz?.milestone || 'Milestone not found' }}
           </h5>
 
-          <h6 class="quiz-summary" i18n>
+          <h6
+            class="quiz-summary"
+            i18n
+          >
             {{ quiz?.summary || 'Summary not found' }}
           </h6>
         </summary>
@@ -131,7 +159,12 @@
   <footer>
     <h3 i18n>
       Copyright © 2026
-      <a target="_blank" href="https://www.codelab.fun">codelab.fun</a>
+      <a
+        target="_blank"
+        href="https://www.codelab.fun"
+      >
+        codelab.fun
+      </a>
     </h3>
   </footer>
 </div>
