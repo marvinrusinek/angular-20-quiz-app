@@ -7,7 +7,7 @@ import { QuizQuestion } from '../../../models/QuizQuestion.model';
 import { SelectedOption } from '../../../models/SelectedOption.model';
 
 import { QUESTION_ROUTE_REGEX } from '../../../constants/route-patterns';
-import { pinAllOfTheAboveLast } from '../../../utils/all-of-the-above';
+import { pinAllOfTheAboveLast, pinnedIndex1Based } from '../../../utils/all-of-the-above';
 import { isOptionCorrect } from '../../../utils/is-option-correct';
 import { norm } from '../../../utils/text-norm';
 
@@ -478,11 +478,31 @@ export class FeedbackService {
 
   /** Format the "The correct answer(s) is/are Option(s) …" reveal clause. Extracted verbatim. */
   private formatRevealMessage(indices: number[]): string {
-    const deduped = Array.from(new Set(indices)).sort((a, b) => a - b);
+    // The incoming indices are positions in the displayed (shuffled) question.
+    // Renumber them to the pinned display order ("All of the above" last) so the
+    // revealed "Option N" matches the visible position — an AOTA question always
+    // reads Option 4. Resolved via the same displayed-question source the rest of
+    // the numbering uses; no-op when there's no AOTA option.
+    const pinned = this.toPinnedRevealIndices(indices);
+    const deduped = Array.from(new Set(pinned)).sort((a, b) => a - b);
     if (deduped.length === 0) return '';
     if (deduped.length === 1) return `The correct answer is Option ${deduped[0]}.`;
     const list = `${deduped.slice(0, -1).join(', ')} and ${deduped[deduped.length - 1]}`;
     return `The correct answers are Options ${list}.`;
+  }
+
+  /** Map 1-based reveal indices to the pinned (AOTA-last) display order. */
+  private toPinnedRevealIndices(indices: number[]): number[] {
+    try {
+      const quizSvc: any = this.injector.get(QuizService, null);
+      const idx = quizSvc?.currentQuestionIndex;
+      const displayOpts: Option[] =
+        (quizSvc?.getDisplayedQuestion?.(idx)?.options) ?? [];
+      if (!displayOpts.length) return indices;
+      return indices.map((n) => pinnedIndex1Based(displayOpts, n, (o: any) => o?.text));
+    } catch {
+      return indices;
+    }
   }
 
   /** "You're right!" plus the reveal clause. Extracted verbatim (shared by every correct path). */
