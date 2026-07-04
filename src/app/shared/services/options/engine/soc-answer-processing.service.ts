@@ -398,6 +398,7 @@ export class SocAnswerProcessingService {
     const isClickedCorrect = new Set(effectiveCorrectIndices).has(index);
     comp._feedbackDisplay = {
       idx: index,
+      optionId: freshOption?.optionId,
       config: {
         feedback: feedbackText,
         showFeedback: true,

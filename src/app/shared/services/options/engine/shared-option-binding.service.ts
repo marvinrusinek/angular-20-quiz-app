@@ -17,6 +17,7 @@ import { QuestionResolutionService } from './question-resolution.service';
 import { QuizService } from '../../data/quiz.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 
+import { feedbackAnchorMatches } from '../../../utils/feedback-anchor';
 import { isOptionCorrect } from '../../../utils/is-option-correct';
 import { norm } from '../../../utils/text-norm';
 
@@ -838,6 +839,7 @@ export class SharedOptionBindingService {
         }
         comp._feedbackDisplay = {
           idx: targetIdx,
+          optionId: targetBinding.option?.optionId,
           config: {
             feedback: feedbackText,
             showFeedback: true,
@@ -1035,11 +1037,10 @@ export class SharedOptionBindingService {
   getInlineFeedbackConfig(comp: any, b: OptionBindings, i: number): FeedbackProps | null {
     let config: FeedbackProps | null = null;
 
-    if (comp._feedbackDisplay?.idx === i && comp._feedbackDisplay.config?.showFeedback) {
+    if (feedbackAnchorMatches(comp._feedbackDisplay, b.option?.optionId, i) && comp._feedbackDisplay.config?.showFeedback) {
       config = comp._feedbackDisplay.config;
     } else if (comp.timerExpiredForQuestion()) {
-      const key = comp.keyOf(b.option, i);
-      const cfg = comp.feedbackConfigs?.[key];
+      const cfg = comp.feedbackConfigs?.[b.option?.optionId ?? -1] ?? comp.feedbackConfigs?.[comp.keyOf(b.option, i)];
       if (cfg?.showFeedback) config = cfg;
     }
 

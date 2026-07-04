@@ -1,4 +1,4 @@
-@let opts = optionBindings() || [];
+@let opts = displayedBindings();
 @let mode = isMultiMode ? 'multiple' : 'single';
 
 <ng-template #feedbackBlock let-b="b" let-i="i">
@@ -20,7 +20,7 @@
       [form]="form"
       [shouldResetBackground]="shouldResetBackground()"
       [currentQuestionIndex]="getActiveQuestionIndex()"
-      [feedbackConfig]="feedbackConfigs[keyOf(b.option, i)]"
+      [feedbackConfig]="feedbackConfigFor(b, i)"
       [sharedOptionConfig]="buildSharedOptionConfig(b, i)"
       [timerExpired]="timerExpiredForQuestion()"
       (optionUI)="onOptionUI($event)"

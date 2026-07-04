@@ -41,9 +41,16 @@ export class SharedOptionClickService {
   onOptionUI(comp: any, ev: any): void {
     if (ev == null || ev.optionId == null) return;
 
-    const index = ev.displayIndex ?? comp.findBindingByOptionId(ev.optionId)?.i;
+    // Resolve the clicked option by IDENTITY (optionId) first, so it maps to the
+    // correct canonical binding + index in optionBindings() regardless of the
+    // rendered order. The render layer pins "All of the above" LAST, so a clicked
+    // option's displayIndex can differ from its canonical index — trusting
+    // displayIndex here would resolve to the wrong binding. Fall back to
+    // displayIndex only when identity lookup fails.
+    const found = comp.findBindingByOptionId(ev.optionId);
+    const index = found?.i ?? ev.displayIndex;
     if (index === undefined || index < 0) return;
-    const binding = comp.optionBindings()[index];
+    const binding = found?.b ?? comp.optionBindings()[index];
     if (!binding) return;
 
     comp.cdRef.markForCheck();
@@ -500,7 +507,7 @@ export class SharedOptionClickService {
 
         console.log('[FB-DIAG] post-click idx:', index, 'key:', key, 'byKey?.showFeedback:', byKey?.showFeedback, 'byIdx:', !!byIdx, 'activeCfg?.showFeedback:', activeCfg?.showFeedback, 'cfg?.showFeedback:', cfg?.showFeedback, 'configKeys:', Object.keys(comp.feedbackConfigs || {}));
         if (cfg?.showFeedback) {
-          comp._feedbackDisplay = { idx: index, config: cfg };
+          comp._feedbackDisplay = { idx: index, optionId: clickedBinding.option?.optionId, config: cfg };
         }
       } else {
         console.log('[FB-DIAG] no clickedBinding at idx:', index, 'bindingsLen:', comp.optionBindings()?.length);

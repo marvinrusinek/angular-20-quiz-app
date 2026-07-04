@@ -61,7 +61,7 @@ export interface SharedOptionComponentLike {
   currentFeedbackConfig: FeedbackProps;
   feedbackConfigs: { [key: string]: FeedbackProps };
   activeFeedbackConfig: WritableSignal<FeedbackProps | null>;
-  _feedbackDisplay: { idx: number; config: FeedbackProps } | null;
+  _feedbackDisplay: { idx: number; optionId?: number | null; config: FeedbackProps } | null;
   selectedOptions: Set<number | string>;
   clickedOptionIds: Set<number | string>;
   selectedOptionHistory: (number | string)[];

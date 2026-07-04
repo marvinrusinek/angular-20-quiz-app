@@ -1,5 +1,5 @@
 import {
-  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef,
+  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, computed, DestroyRef,
   DoCheck, inject, input, OnInit, output, signal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -28,6 +28,7 @@ import { OptionUiContextBuilderService } from '../../../../shared/services/optio
 import { OptionUiSyncContext } from '../../../../shared/services/options/engine/option-ui-sync.service';
 import { OptionUiSyncEffectsService } from '../../../../shared/services/features/shared-option/option-ui-sync-effects.service';
 import { QuestionResolutionService } from '../../../../shared/services/options/engine/question-resolution.service';
+import { pinAllOfTheAboveLast } from '../../../../shared/utils/all-of-the-above';
 import { QuizService } from '../../../../shared/services/data/quiz.service';
 import { SelectedOptionService } from '../../../../shared/services/state/selectedoption.service';
 import { SharedOptionBindingService } from '../../../../shared/services/options/engine/shared-option-binding.service';
@@ -141,6 +142,13 @@ export class SharedOptionComponent
   readonly showFeedback = signal<boolean>(false);
   readonly shouldResetBackground = signal<boolean>(false);
   readonly optionBindings = signal<OptionBindings[]>([]);
+  // Render-layer view of the bindings with any "All of the above" option pinned
+  // LAST. This is the single render chokepoint (the template iterates this),
+  // downstream of every option setter, so the displayed order is always
+  // AOTA-last regardless of which setter won — and idempotent, so it can't churn.
+  readonly displayedBindings = computed<OptionBindings[]>(() =>
+    pinAllOfTheAboveLast(this.optionBindings() ?? [], (b) => b?.option?.text)
+  );
   readonly selectedOptionIndex = signal<number | null>(null);
   readonly isNavigatingBackwards = signal<boolean>(false);
   public selectedOptionMap = new Map<number | string, boolean>();
@@ -154,7 +162,7 @@ export class SharedOptionComponent
   // Simple, bulletproof feedback tracker: set synchronously at the end of runOptionContentClick.
   // Bypasses complex service pipeline; cleared on question change.
   // Must be public for template access.
-  public _feedbackDisplay: { idx: number; config: FeedbackProps } | null = null;
+  public _feedbackDisplay: { idx: number; optionId?: number | null; config: FeedbackProps } | null = null;
   selectedOptions: Set<number | string> = new Set();
   clickedOptionIds: Set<number | string> = new Set();
   selectedOptionHistory: (number | string)[] = [];
@@ -562,6 +570,15 @@ export class SharedOptionComponent
   // Stable per-row key: prefer numeric optionId; fallback to stableKey + index
   public keyOf(o: Option, i: number): string {
     return this.optionService.keyOf(o, i);
+  }
+
+  // Feedback config for a rendered binding, resolved by optionId (identity)
+  // first so it survives the render-layer AOTA pin (display index differs from
+  // canonical index), falling back to the positional keyOf key.
+  public feedbackConfigFor(b: OptionBindings, i: number): FeedbackProps {
+    const id = b.option?.optionId;
+    const byId = (id != null) ? this.feedbackConfigs[id] : undefined;
+    return byId ?? this.feedbackConfigs[this.keyOf(b.option, i)];
   }
 
   public shouldShowFeedbackAfter(b: OptionBindings, i: number): boolean {

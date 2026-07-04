@@ -14,6 +14,7 @@ import { OptionService } from '../../options/view/option.service';
 import { QuizService } from '../../data/quiz.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 
+import { feedbackAnchorMatches } from '../../../utils/feedback-anchor';
 import { isOptionCorrect } from '../../../utils/is-option-correct';
 import { isValidOption } from '../../../utils/option-utils';
 
@@ -37,7 +38,7 @@ export interface FeedbackContext {
   isMultiMode: boolean;
 
   /** For getInlineFeedbackConfig */
-  _feedbackDisplay: { idx: number; config: FeedbackProps } | null;
+  _feedbackDisplay: { idx: number; optionId?: number | null; config: FeedbackProps } | null;
   _multiSelectByQuestion: Map<number, Set<number>>;
   _correctIndicesByQuestion: Map<number, number[]>;
 }
@@ -552,7 +553,7 @@ export class SharedOptionFeedbackService {
   ): FeedbackProps | null {
     // ONLY use _feedbackDisplay -- it is the single source of truth for
     // which option shows feedback and what that feedback content is.
-    if (ctx._feedbackDisplay?.idx === i && ctx._feedbackDisplay.config?.showFeedback) {
+    if (feedbackAnchorMatches(ctx._feedbackDisplay, _b.option?.optionId, i) && ctx._feedbackDisplay?.config?.showFeedback) {
       let config = ctx._feedbackDisplay.config;
 
       // AUTHORITATIVE MULTI-ANSWER OVERRIDE using durable tracker.
