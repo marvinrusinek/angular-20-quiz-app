@@ -275,7 +275,10 @@ export class QuizSelectionComponent implements OnInit {
   private matchesSearch(quiz: Quiz, term: string): boolean {
     const needle = term.trim().toLowerCase();
     if (!needle) return true;
-    return (quiz?.milestone ?? '').toString().toLowerCase().includes(needle);
+    // Match at the START of any word in the title, so "ang" finds "Angular" but
+    // NOT "chANGe detection". A plain substring includes() matched mid-word noise.
+    const title = (quiz?.milestone ?? '').toString().toLowerCase();
+    return title.split(/[^a-z0-9]+/).some(word => word.startsWith(needle));
   }
 
   // Return a NEW sorted array (never mutates the input). Two-dimensional:
