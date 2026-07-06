@@ -132,6 +132,69 @@ test('completing a multi-answer ON REVISIT credits the score ON THE CLICK', asyn
   await expect(page.locator(SCORE).first()).toContainText('2/');
 });
 
+test('Q4 (idx3) completing a multi-answer ON REVISIT credits the score ON THE CLICK', async ({ page }) => {
+  // Reach Q4 by FULL FORWARD navigation so accumulated state matches a real run.
+  await page.goto('/quiz/question/dependency-injection/1');
+  const rows = page.locator('.option-row');
+  await rows.first().waitFor({ state: 'visible', timeout: 20_000 });
+
+  // Q1 (single) correct -> score 1.
+  let heading = (await page.locator(HEADING).first().textContent()) ?? '';
+  let corrects = await correctRowsForHeading(rows, diQuiz, heading);
+  await rows.nth(corrects[0]).click();
+  await expect(page.locator(SCORE).first()).toContainText('1/', { timeout: 5000 });
+
+  // Q1 -> Q2. Skip (don't answer). -> Q3 -> Q4.
+  await page.locator(NEXT_BTN).click();
+  await expect(page).toHaveURL(/\/2$/);
+  await rows.first().waitFor({ state: 'visible' });
+  await page.locator(NEXT_BTN).click();
+  await expect(page).toHaveURL(/\/3$/);
+  await rows.first().waitFor({ state: 'visible' });
+  await page.locator(NEXT_BTN).click();
+  await expect(page).toHaveURL(/\/4$/);
+  await rows.first().waitFor({ state: 'visible' });
+
+  const q4Heading = (await page.locator(HEADING).first().textContent()) ?? '';
+  corrects = await correctRowsForHeading(rows, diQuiz, q4Heading);
+  expect(corrects.length).toBe(2);
+
+  // Select ONLY the first correct (partial). Score stays 1.
+  const firstPickText = await optText(rows.nth(corrects[0]));
+  await rows.nth(corrects[0]).click();
+  await expect(page.locator(SCORE).first()).toContainText('1/');
+
+  // Leave to Q5, then return to Q4 (revisit). Score still 1.
+  await page.locator(NEXT_BTN).click();
+  await expect(page).toHaveURL(/\/5$/);
+  await rows.first().waitFor({ state: 'visible' });
+  await expect(page.locator(SCORE).first()).toContainText('1/');
+  await page.locator(PREV_BTN).click();
+  await expect(page).toHaveURL(/\/4$/);
+  await rows.first().waitFor({ state: 'visible' });
+
+  // On revisit, complete: click the correct option that isn't the first pick.
+  corrects = await correctRowsForHeading(rows, diQuiz, q4Heading);
+  for (const c of corrects) {
+    if ((await optText(rows.nth(c))) !== firstPickText) {
+      await rows.nth(c).click();
+      break;
+    }
+  }
+
+  // Must credit ON THE CLICK + show win feedback.
+  await expect(page.locator(SCORE).first()).toContainText('2/', { timeout: 5000 });
+  await expect(
+    page.locator('.feedback-message').filter({ hasText: "You're right!" }).first()
+  ).toBeVisible({ timeout: 5000 });
+
+  // Navigating away must NOT change the score.
+  await page.locator(NEXT_BTN).click();
+  await expect(page).toHaveURL(/\/5$/);
+  await rows.first().waitFor({ state: 'visible' });
+  await expect(page.locator(SCORE).first()).toContainText('2/');
+});
+
 test('revisiting a PARTIAL multi-answer WITHOUT completing must NOT credit', async ({ page }) => {
   await page.goto('/quiz/question/dependency-injection/1');
   const rows = page.locator('.option-row');
@@ -166,4 +229,95 @@ test('revisiting a PARTIAL multi-answer WITHOUT completing must NOT credit', asy
   await expect(page).toHaveURL(/\/3$/);
   await rows.first().waitFor({ state: 'visible' });
   await expect(page.locator(SCORE).first()).toContainText('1/', { timeout: 5000 });
+});
+
+// ── SHUFFLE-MODE revisit scoring ────────────────────────────────────────────
+// In shuffle mode the SOC path (soc-answer-processing.computeAllCorrectInDurable)
+// owns multi-answer scoring — the non-shuffle checkAndScoreMultiAnswer is skipped.
+// That path counted correct selections only from the durable set, which resets on
+// navigation, so COMPLETING a multi-answer on REVISIT scored the win feedback but
+// left the score un-incremented. The fix folds the cross-visit uiSelectedTexts
+// union (live bindings ∪ first-visit snapshot) into the all-correct count.
+async function startShuffledDI(page: import('@playwright/test').Page) {
+  await page.goto('/quiz/intro/dependency-injection');
+  const toggle = page.locator('mat-slide-toggle button[role="switch"]');
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-checked', 'true');
+  await page.locator('.start-btn').click();
+  await page.locator('.option-row').first().waitFor({ state: 'visible', timeout: 20_000 });
+}
+
+// Walk forward until a 2-correct (multi-answer) question is shown; return its heading.
+async function walkToMultiHeading(page: import('@playwright/test').Page): Promise<string> {
+  const rows = page.locator('.option-row');
+  for (let pos = 1; pos <= 6; pos++) {
+    const heading = (await page.locator(HEADING).first().textContent()) ?? '';
+    const corrects = await correctRowsForHeading(rows, diQuiz, heading);
+    if (corrects.length === 2) return heading;
+    if (pos < 6) {
+      await page.locator(NEXT_BTN).click();
+      await rows.first().waitFor({ state: 'visible' });
+      await page.waitForTimeout(300);
+    }
+  }
+  return '';
+}
+
+const baseScore = async (page: import('@playwright/test').Page): Promise<number> => {
+  const m = ((await page.locator(SCORE).first().textContent()) ?? '').match(/(\d+)\//);
+  return m ? Number(m[1]) : 0;
+};
+
+test('SHUFFLE: completing a multi-answer ON REVISIT credits the score ON THE CLICK', async ({ page }) => {
+  await startShuffledDI(page);
+  const rows = page.locator('.option-row');
+  const heading = await walkToMultiHeading(page);
+  expect(heading).not.toBe('');
+  const base = await baseScore(page);
+
+  // Partial: click first correct only -> no credit.
+  let corrects = await correctRowsForHeading(rows, diQuiz, heading);
+  const firstPickText = await optText(rows.nth(corrects[0]));
+  await rows.nth(corrects[0]).click();
+  await page.waitForTimeout(300);
+  await expect(page.locator(SCORE).first()).toContainText(`${base}/`);
+
+  // Leave then return (revisit).
+  await page.locator(NEXT_BTN).click();
+  await rows.first().waitFor({ state: 'visible' });
+  await page.waitForTimeout(300);
+  await page.locator(PREV_BTN).click();
+  await rows.first().waitFor({ state: 'visible' });
+  await page.waitForTimeout(300);
+
+  // Complete: click the OTHER correct -> credit ON THE CLICK + win feedback.
+  const backHeading = (await page.locator(HEADING).first().textContent()) ?? '';
+  corrects = await correctRowsForHeading(rows, diQuiz, backHeading);
+  for (const c of corrects) {
+    if ((await optText(rows.nth(c))) !== firstPickText) { await rows.nth(c).click(); break; }
+  }
+  await expect(page.locator(SCORE).first()).toContainText(`${base + 1}/`, { timeout: 5000 });
+  await expect(
+    page.locator('.feedback-message').filter({ hasText: "You're right!" }).first()
+  ).toBeVisible({ timeout: 5000 });
+});
+
+test('SHUFFLE: revisiting a PARTIAL multi-answer WITHOUT completing must NOT credit', async ({ page }) => {
+  await startShuffledDI(page);
+  const rows = page.locator('.option-row');
+  const heading = await walkToMultiHeading(page);
+  expect(heading).not.toBe('');
+  const base = await baseScore(page);
+
+  const corrects = await correctRowsForHeading(rows, diQuiz, heading);
+  await rows.nth(corrects[0]).click();  // partial only
+  await page.waitForTimeout(300);
+  await page.locator(NEXT_BTN).click();
+  await rows.first().waitFor({ state: 'visible' });
+  await page.waitForTimeout(300);
+  await page.locator(PREV_BTN).click();
+  await rows.first().waitFor({ state: 'visible' });
+  await page.waitForTimeout(500);
+  // A partial that was never completed must NEVER credit, even on revisit.
+  await expect(page.locator(SCORE).first()).toContainText(`${base}/`);
 });

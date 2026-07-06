@@ -453,12 +453,26 @@ export class SocAnswerProcessingService {
         const pristineCorrectTextsAC =
           this.quizService.getPristineCorrectTextsForQuestion(liveQAC?.questionText);
         if (pristineCorrectTextsAC.size > 0) {
-          let selectedCorrectCount = 0;
+          // Count DISTINCT correct texts selected — from the live durable set AND
+          // the cross-visit UI union (live bindings ∪ first-visit _revisitDisplay
+          // snapshot). durableSet resets on navigation, so on REVISIT it holds
+          // only the just-clicked option; folding in uiSelectedTexts lets a
+          // COMPLETING click on revisit register as all-correct (mirrors the
+          // non-shuffle checkAndScoreMultiAnswer union). Counting distinct texts
+          // (not a raw counter) keeps a partial from ever reaching the full count.
+          const selectedCorrectTexts = new Set<string>();
           for (const selIdx of durableSet) {
             const txt = norm(bindingsAC[selIdx]?.option?.text);
-            if (pristineCorrectTextsAC.has(txt)) selectedCorrectCount++;
+            if (pristineCorrectTextsAC.has(txt)) selectedCorrectTexts.add(txt);
           }
-          allCorrectInDurable = selectedCorrectCount >= pristineCorrectTextsAC.size;
+          const uiSelected = this.selectedOptionService.uiSelectedTextsForQuestion(displayIdx);
+          if (uiSelected) {
+            for (const t of uiSelected) {
+              const n = norm(t);
+              if (pristineCorrectTextsAC.has(n)) selectedCorrectTexts.add(n);
+            }
+          }
+          allCorrectInDurable = selectedCorrectTexts.size >= pristineCorrectTextsAC.size;
         }
       }
     } catch (err: unknown) { console.error('processMultiAnswerClick allCorrectInDurable check failed:', err); }
