@@ -461,18 +461,27 @@ export class SocAnswerProcessingService {
           // non-shuffle checkAndScoreMultiAnswer union). Counting distinct texts
           // (not a raw counter) keeps a partial from ever reaching the full count.
           const selectedCorrectTexts = new Set<string>();
+          let hasIncorrectSelected = false;
           for (const selIdx of durableSet) {
             const txt = norm(bindingsAC[selIdx]?.option?.text);
+            if (!txt) continue;
             if (pristineCorrectTextsAC.has(txt)) selectedCorrectTexts.add(txt);
+            else hasIncorrectSelected = true;
           }
           const uiSelected = this.selectedOptionService.uiSelectedTextsForQuestion(displayIdx);
           if (uiSelected) {
             for (const t of uiSelected) {
               const n = norm(t);
+              if (!n) continue;
               if (pristineCorrectTextsAC.has(n)) selectedCorrectTexts.add(n);
+              else hasIncorrectSelected = true;
             }
           }
-          allCorrectInDurable = selectedCorrectTexts.size >= pristineCorrectTextsAC.size;
+          // Require ALL pristine-correct selected AND no incorrect selected. Without
+          // the no-incorrect guard, a "2 correct + 1 wrong" selection reads as
+          // fully-resolved-correct, which drops the red 'incorrect-option' repaint of
+          // the clicked wrong on revisit (mirrors the hasIncorrect guard the other gates use).
+          allCorrectInDurable = selectedCorrectTexts.size >= pristineCorrectTextsAC.size && !hasIncorrectSelected;
         }
       }
     } catch (err: unknown) { console.error('processMultiAnswerClick allCorrectInDurable check failed:', err); }
