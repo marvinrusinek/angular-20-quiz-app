@@ -193,7 +193,7 @@ export class OptionClickHandlerService {
     if (state.isClickedCorrect) {
       if (state.remaining === 0) {
         const optsList = state.correctIndices1Based.length > 1
-          ? `Options ${state.correctIndices1Based.slice(0, -1).join(', ')} and ${state.correctIndices1Based[state.correctIndices1Based.length - 1]}`
+          ? `Options ${state.correctIndices1Based.slice(0, -1).join(', ')}${state.correctIndices1Based.length > 2 ? ',' : ''} and ${state.correctIndices1Based[state.correctIndices1Based.length - 1]}`
           : `Option ${state.correctIndices1Based[0]}`;
         return state.correctIndices1Based.length > 1
           ? `You're right! The correct answers are ${optsList}.`
@@ -341,7 +341,7 @@ export class OptionClickHandlerService {
     if (isClickedCorrect) {
       if (remaining === 0 && incorrectSelected === 0) {
         const optionsList = correctIdxs.length > 1
-          ? `Options ${correctIdxs.slice(0, -1).join(', ')} and ${correctIdxs[correctIdxs.length - 1]}`
+          ? `Options ${correctIdxs.slice(0, -1).join(', ')}${correctIdxs.length > 2 ? ',' : ''} and ${correctIdxs[correctIdxs.length - 1]}`
           : `Option ${correctIdxs[0]}`;
         return {
           ...cfg,

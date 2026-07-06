@@ -170,7 +170,7 @@ describe('FET display integration', () => {
           explanation: 'Primes have exactly two divisors.'
         };
         const result = service.formatExplanation(q, [1, 2, 4], q.explanation, 0);
-        expect(result).toBe('Options 1, 2 and 4 are correct because Primes have exactly two divisors.');
+        expect(result).toBe('Options 1, 2, and 4 are correct because Primes have exactly two divisors.');
       });
 
       it('returns the raw explanation when correctIndices is empty', () => {

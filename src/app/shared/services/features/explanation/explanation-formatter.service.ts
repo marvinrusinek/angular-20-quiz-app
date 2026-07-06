@@ -667,7 +667,7 @@ export class ExplanationFormatterService {
 
       const optionsText =
         indices.length > 2
-          ? `${indices.slice(0, -1).join(', ')} and ${indices.slice(-1)}`
+          ? `${indices.slice(0, -1).join(', ')}, and ${indices.slice(-1)}`
           : indices.join(' and ');
 
       const result = `Options ${optionsText} are correct because ${e}`;

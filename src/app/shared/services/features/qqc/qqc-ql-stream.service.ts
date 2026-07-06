@@ -802,7 +802,7 @@ export class QqcQlStreamService {
         .sort((a, b) => a - b);
       const correctLabel = correctIndices.length === 1
         ? `The correct answer is Option ${correctIndices[0]}.`
-        : `The correct answers are Options ${correctIndices.slice(0, -1).join(', ')} and ${correctIndices.slice(-1)}.`;
+        : `The correct answers are Options ${correctIndices.slice(0, -1).join(', ')}${correctIndices.length > 2 ? ',' : ''} and ${correctIndices.slice(-1)}.`;
 
       const finalOpts = opts.map((o, i) => ({
         ...o,

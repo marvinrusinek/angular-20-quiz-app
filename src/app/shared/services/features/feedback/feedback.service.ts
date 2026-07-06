@@ -495,7 +495,7 @@ export class FeedbackService {
     const deduped = Array.from(new Set(pinned)).sort((a, b) => a - b);
     if (deduped.length === 0) return '';
     if (deduped.length === 1) return `The correct answer is Option ${deduped[0]}.`;
-    const list = `${deduped.slice(0, -1).join(', ')} and ${deduped[deduped.length - 1]}`;
+    const list = `${deduped.slice(0, -1).join(', ')}${deduped.length > 2 ? ',' : ''} and ${deduped[deduped.length - 1]}`;
     return `The correct answers are Options ${list}.`;
   }
 
@@ -615,7 +615,7 @@ export class FeedbackService {
 
     const optionsText = deduped.length === 1 ? 'answer is Option' : 'answers are Options';
     const optionStrings = deduped.length > 1
-      ? `${deduped.slice(0, -1).join(', ')} and ${deduped.slice(-1)}`
+      ? `${deduped.slice(0, -1).join(', ')}${deduped.length > 2 ? ',' : ''} and ${deduped.slice(-1)}`
       : `${deduped[0]}`;
 
     return `The correct ${optionsText} ${optionStrings}.`;
