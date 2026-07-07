@@ -409,6 +409,9 @@ export class SocAnswerProcessingService {
         idx: index
       } as FeedbackProps
     };
+    // Deterministic render: _feedbackDisplay is a plain field; force CD so the
+    // multi-answer FET re-renders regardless of machine timing (zoneless).
+    comp.cdRef?.markForCheck();
   }
 
   /** Push the multi-answer selection message (built from pristine correctness). Verbatim. */

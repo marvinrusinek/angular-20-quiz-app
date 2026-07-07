@@ -515,6 +515,13 @@ export class SharedOptionClickService {
     } else {
       console.log('[FB-DIAG] showFeedback() is false');
     }
+    // DETERMINISTIC RENDER: _feedbackDisplay is a PLAIN field, so in this zoneless
+    // app setting it does NOT schedule change detection. When this runs async
+    // (after the click's CD), the template's feedback/FET predicates never
+    // re-evaluate and the FET silently fails to render on some machines/browsers
+    // (the [FB-DIAG] logs were only incidentally nudging the timing). Force a CD
+    // pass so the FET shows deterministically regardless of machine speed.
+    comp.cdRef?.markForCheck();
   }
 
   /**
