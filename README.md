@@ -1,7 +1,7 @@
 <h1 align="center">🚀 Angular Quiz App</h1>
 
 <p align="center">
-A feature-rich quiz platform built with <strong>Angular 20</strong> that demonstrates modern frontend engineering through <strong>Signals</strong>, <strong>RxJS</strong>, reactive state management, and a modular service-oriented architecture.
+A feature-rich quiz platform built with <strong>Angular 20</strong> that showcases <strong>Angular Signals, RxJS-based reactive state management</strong>, standalone components, and a modular service-oriented architecture.
 </p>
 
 <p align="center">
