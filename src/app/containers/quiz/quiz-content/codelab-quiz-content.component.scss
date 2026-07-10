@@ -17,6 +17,11 @@ h3 {
   line-height: 1.35;
   position: relative;
   z-index: 1;
+  // Break long unbreakable tokens (e.g. code identifiers in a FET like
+  // "provideHttpClient(withInterceptors([...]))") so they wrap inside the box
+  // instead of spilling past the border.
+  overflow-wrap: break-word;
+  word-break: break-word;
 
   &:empty {
     display: none;

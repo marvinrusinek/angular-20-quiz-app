@@ -17,11 +17,16 @@ mat-card-header {
   border-radius: 0 !important;
 
   .header-image {
-    margin: 5px 0 0 15px;
+    margin: 5px 0 0 0;
   }
 
   mat-card-title {
-    margin-left: -100px;
+    margin-left: 0;
+    text-align: center;
+  }
+
+  mat-card-subtitle {
+    text-align: center;
   }
 }
 
@@ -44,6 +49,14 @@ mat-card-content {
   }
 
   .intro-centered-text {
+    text-align: center;
+  }
+
+  // Constrain the description block so a long quiz summary wraps onto multiple
+  // lines (centered) instead of stretching across the full width of the card.
+  .intro-text {
+    max-width: 680px;
+    margin: 0 auto;
     text-align: center;
   }
 }
@@ -163,6 +176,9 @@ mat-card-actions {
 /* Force header padding through Material encapsulation */
 :host ::ng-deep .mat-mdc-card-header {
   padding-top: 15px !important;
+  /* Center the avatar + title/subtitle group horizontally in the card. */
+  justify-content: center;
+  align-items: center;
 }
 
 :host ::ng-deep mat-card.quiz-card {
