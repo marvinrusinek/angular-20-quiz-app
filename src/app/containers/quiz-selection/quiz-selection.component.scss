@@ -405,7 +405,7 @@
         // last lines of text on mobile.
         height: auto !important;
         min-height: 375px !important;
-        padding-bottom: 14px !important;
+        padding-bottom: 8px !important;
         margin: 0 !important;
         background-size: 300px 210px !important;
         background-position: center 10px !important;
@@ -414,11 +414,12 @@
           margin: 230px 0 0 5px !important;
           width: calc(100% - 10px) !important;
           height: auto !important;
-          padding: 10px !important;
+          padding: 10px 10px 2px !important;
           box-sizing: border-box;
 
           .quiz-summary {
             width: 100% !important;
+            margin-bottom: 0 !important;
           }
         }
 
@@ -428,7 +429,7 @@
           position: static !important;
           display: block !important;
           width: fit-content !important;
-          margin: 12px 6px 0 auto !important;
+          margin: 6px 6px 0 auto !important;
           bottom: auto !important;
           right: auto !important;
         }
