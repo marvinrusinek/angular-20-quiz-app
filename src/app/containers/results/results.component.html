@@ -106,6 +106,9 @@
 
   <mat-card-content>
     <section class="results">
+      <!-- Achievement(s) unlocked by this completed quiz (renders nothing if none) -->
+      <codelab-achievement-unlocked [achievements]="newlyEarnedAchievements()" />
+
       @if (activeSection() === 'score') {
         <h3 class="section-heading" i18n>Score Analysis</h3>
 

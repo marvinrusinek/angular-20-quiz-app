@@ -20,6 +20,8 @@ export const SK_USER_ANSWERS = 'userAnswers';
 // ── durable preferences (localStorage) ───────────────────────────
 export const SK_QUIZ_SORT_DIFFICULTY = 'quizSortDifficulty';
 export const SK_QUIZ_SORT_ALPHA = 'quizSortAlpha';
+export const SK_QUIZ_BEST_SCORES = 'quizBestScores';
+export const SK_QUIZ_ACHIEVEMENTS = 'quizAchievements';
 
 // ── per-session state (sessionStorage) ───────────────────────────
 export const SK_QUIZ_SEARCH_TERM = 'quizSearchTerm';

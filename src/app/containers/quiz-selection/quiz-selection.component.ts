@@ -22,13 +22,16 @@ import { QuizTileStyles } from '../../shared/models/QuizTileStyles.model';
 
 import { QuizDataService } from '../../shared/services/data/quizdata.service';
 import { QuizService } from '../../shared/services/data/quiz.service';
+import { AchievementService } from '../../shared/services/achievements/achievement.service';
 
 import { BackToTopComponent } from '../../components/back-to-top/back-to-top.component';
+import { AchievementsSummaryComponent } from '../../components/achievements-summary/achievements-summary.component';
 import { QuizSearchComponent } from '../../components/quiz-search/quiz-search.component';
 import { QuizSortComponent } from '../../components/quiz-sort/quiz-sort.component';
 import { ScrollDownIndicatorComponent } from '../../components/scroll-down-indicator/scroll-down-indicator.component';
 import { CountUpDirective } from '../../directives/count-up.directive';
 
+import { getQuizData } from '../../shared/quiz-data-cache';
 import { SlideLeftToRightAnimation } from '../../animations/animations';
 import { swallow } from '../../shared/utils/error-logging';
 
@@ -46,6 +49,7 @@ import { swallow } from '../../shared/utils/error-logging';
     QuizSortComponent,
     ScrollDownIndicatorComponent,
     BackToTopComponent,
+    AchievementsSummaryComponent,
     CountUpDirective
   ],
   templateUrl: './quiz-selection.component.html',
@@ -58,7 +62,14 @@ export class QuizSelectionComponent implements OnInit {
   // ── injects ─────────────────────────────────────────────────────
   private readonly quizDataService = inject(QuizDataService);
   private readonly quizService = inject(QuizService);
+  private readonly achievementService = inject(AchievementService);
   private readonly router = inject(Router);
+
+  // Compact "Achievements X / N" progress for the catalog header. Populated
+  // silently on init (evaluating any achievements the user's existing progress
+  // already qualifies for — NO "Unlocked" celebration on this screen).
+  readonly achievementsEarned = signal(0);
+  readonly achievementsTotal = signal(0);
 
   // ── remaining variables ─────────────────────────────────────────
   readonly quizzes = this.quizDataService.quizzesSig;
@@ -315,6 +326,18 @@ export class QuizSelectionComponent implements OnInit {
     this.restoreSessionAccessState();
     this.selectionParams.set(this.quizService.returnQuizSelectionParams());
     this.loadQuizCatalog();
+    this.refreshAchievementsSummary();
+  }
+
+  // Silently evaluate achievements from existing progress (persists any newly
+  // qualified, but shows no celebration here) and publish the X / N summary.
+  private refreshAchievementsSummary(): void {
+    try {
+      this.achievementService.evaluate(getQuizData());  // silent: return value ignored
+      const { earned, total } = this.achievementService.summary();
+      this.achievementsEarned.set(earned);
+      this.achievementsTotal.set(total);
+    } catch (err: unknown) { swallow('quiz-selection.component.ts', err); }
   }
 
   // Restore the sort dimensions (localStorage, cross-visit) and the search

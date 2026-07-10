@@ -27,7 +27,11 @@ import { QuizStateService } from '../../shared/services/state/quizstate.service'
 import { SelectedOptionService } from '../../shared/services/state/selectedoption.service';
 import { ThemeService } from '../../shared/services/ui/theme.service';
 
+import { AchievementService } from '../../shared/services/achievements/achievement.service';
+import { AchievementDefinition } from '../../shared/models/achievement.model';
+
 import { AccordionComponent } from './accordion/accordion.component';
+import { AchievementUnlockedComponent } from '../../components/achievement-unlocked/achievement-unlocked.component';
 import { BackToTopComponent } from '../../components/back-to-top/back-to-top.component';
 import { QuizFactComponent } from '../../components/quiz-fact/quiz-fact.component';
 import { ChallengeComponent } from './challenge/challenge.component';
@@ -48,6 +52,7 @@ import { swallow } from '../../shared/utils/error-logging';
     MatIconModule,
     MatTooltipModule,
     NgOptimizedImage,
+    AchievementUnlockedComponent,
     BackToTopComponent,
     QuizFactComponent,
     AccordionComponent,
@@ -70,6 +75,7 @@ export class ResultsComponent implements OnInit {
   private readonly quizService = inject(QuizService);
   private readonly quizStateService = inject(QuizStateService);
   private readonly selectedOptionService = inject(SelectedOptionService);
+  private readonly achievementService = inject(AchievementService);
   private readonly themeService = inject(ThemeService);
   private readonly activatedRoute = inject(ActivatedRoute);
   private readonly cdRef = inject(ChangeDetectorRef);
@@ -92,6 +98,10 @@ export class ResultsComponent implements OnInit {
   readonly scoreAnalysis = computed<ScoreAnalysisItem[]>(
     () => this.finalResult()?.analysis ?? []
   );
+
+  // Achievements newly earned by THIS completed quiz (shown once, not after refresh).
+  readonly newlyEarnedAchievements = signal<AchievementDefinition[]>([]);
+  private achievementsProcessed = false;
 
   // Facts (0-3) for the completed quiz; QuizFactComponent shows one at random.
   readonly currentQuizFacts = computed<string[]>(
@@ -118,6 +128,7 @@ export class ResultsComponent implements OnInit {
       this.applyFinalResultSnapshot(r);
       this.updateHeaderLabel(r.total);
       this.persistResultsToSession(r);
+      this.processAchievements(r);
     });
   }
 
@@ -162,6 +173,7 @@ export class ResultsComponent implements OnInit {
       this.applyFinalResultSnapshot(snapshot);
       this.updateHeaderLabel(snapshot.total);
       this.persistResultsToSession(snapshot);
+      this.processAchievements(snapshot);
     }
     // No snapshot: the constructor effect picks up finalResult$ emissions.
   }
@@ -330,6 +342,24 @@ export class ResultsComponent implements OnInit {
         ? `${questionCount} questions, SHUFFLED`
         : `${questionCount} questions`
     );
+  }
+
+  /**
+   * Records this quiz's best score, then evaluates achievements once. Runs at
+   * most once per Results visit (whichever result path fires first), so a later
+   * duplicate emission or a refresh can't re-announce. The service itself is
+   * idempotent — evaluate() persists + returns only genuinely NEW achievements,
+   * so a refresh that re-runs the flow yields [] and shows nothing.
+   */
+  private processAchievements(result: FinalResult): void {
+    if (this.achievementsProcessed) return;
+    if (!result?.quizId) return;
+    this.achievementsProcessed = true;
+    this.achievementService.recordQuizResult(result.quizId, result.percentage);
+    this.newlyEarnedAchievements.set(
+      this.achievementService.evaluate(this.quizData)
+    );
+    this.cdRef.markForCheck();
   }
 
   private persistResultsToSession(result: FinalResult): void {

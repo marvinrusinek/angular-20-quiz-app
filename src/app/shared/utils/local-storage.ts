@@ -23,3 +23,21 @@ export function writeLocalString(key: string, value: string): void {
     localStorage.setItem(key, value);
   } catch (err: unknown) { swallow('local-storage.ts', err); /* ignore */ }
 }
+
+/** Read a JSON-serializable value from localStorage. Returns `fallback` on miss / parse error. */
+export function readLocalJson<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw == null) return fallback;
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+/** Write a JSON-serializable value to localStorage. Errors are swallowed. */
+export function writeLocalJson(key: string, value: unknown): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (err: unknown) { swallow('local-storage.ts', err); /* ignore */ }
+}

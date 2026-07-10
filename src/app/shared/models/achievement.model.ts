@@ -1,0 +1,21 @@
+/** Stable string identifiers for the achievements (never numeric IDs). */
+export type AchievementId =
+  | 'perfect-score'
+  | 'angular-explorer'
+  | 'beginner-complete'
+  | 'intermediate-complete'
+  | 'advanced-complete'
+  | 'angular-master';
+
+/** UI + evaluation metadata for a single achievement. */
+export interface AchievementDefinition {
+  id: AchievementId;
+  name: string;
+  description: string;
+}
+
+/** The minimal durable record persisted when an achievement is earned. */
+export interface EarnedAchievement {
+  id: AchievementId;
+  earnedAt: string;  // ISO 8601 timestamp
+}

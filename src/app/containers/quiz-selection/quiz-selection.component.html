@@ -68,6 +68,14 @@
     </div>
   }
 
+  <!-- Compact achievements progress (renders nothing until total > 0) -->
+  <div class="achievements-summary-row">
+    <codelab-achievements-summary
+      [earned]="achievementsEarned()"
+      [total]="achievementsTotal()"
+    />
+  </div>
+
   @if (hasAccessedQuizzes()) {
     <span class="accessed-banner">{{ accessedBannerMessage() }}</span>
   }

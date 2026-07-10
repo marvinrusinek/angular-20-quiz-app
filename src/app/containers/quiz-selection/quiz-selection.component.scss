@@ -158,6 +158,12 @@
     color: vars.$gray;
   }
 
+  .achievements-summary-row {
+    display: flex;
+    justify-content: center;
+    margin: 0 auto 14px;
+  }
+
   // Catalog summary stats row
   .quiz-stats {
     display: flex;
