@@ -5,6 +5,7 @@ import { Option } from '../../../models/Option.model';
 import { NextButtonStateService } from '../../state/next-button-state.service';
 import { QuizDotStatusService } from '../../flow/quiz-dot-status.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
+import { TimerService } from '../timer/timer.service';
 
 import { swallow } from '../../../utils/error-logging';
 
@@ -21,6 +22,7 @@ export class QqcOrchTimerService {
   private dotStatusService = inject(QuizDotStatusService);
   private nextButtonStateService = inject(NextButtonStateService);
   private selectedOptionService = inject(SelectedOptionService);
+  private timerService = inject(TimerService);
 
   runOnQuestionTimedOut(host: Host, targetIndex?: number): void {
     if (host.timedOut()) return;
@@ -66,6 +68,17 @@ export class QqcOrchTimerService {
     host.explanationToDisplay.set(result.explanationToDisplay);
     host.explanationToDisplayChange?.emit(result.explanationToDisplay);
     host._timerStoppedForQuestion = result.timerStoppedForQuestion;
+
+    // Persist the resolved FET AT the timed-out index so the single-source heading's
+    // fetHtml (formattedExplanations[idx] / fetByIndex.get(idx)) is populated. The
+    // fast-path (Q2+) resolved the text but never stored it by index, so the heading
+    // fell back to the question even once isTimedOut became true.
+    const timedOutIdx = (typeof targetIndex === 'number' && targetIndex >= 0)
+      ? targetIndex
+      : host.currentQuestionIndex();
+    if (timedOutIdx >= 0 && result.explanationToDisplay && host.explanationTextService?.timeoutFetByIndex?.set) {
+      host.explanationTextService.timeoutFetByIndex.set(timedOutIdx, result.explanationToDisplay);
+    }
 
     // Timer expiry no longer writes the heading directly — the single-source
     // headingHtml computed reacts to the timer-expiry signal and renders the FET
@@ -115,6 +128,11 @@ export class QqcOrchTimerService {
     if (host.handledOnExpiry.has(i0)) return;
     host.handledOnExpiry.add(i0);
     host.onQuestionTimedOut(i0);
+    // Q2+ time out via this fast-path, which (unlike the normal timer expiry)
+    // never recorded the expired index — so the single-source heading's
+    // `expiredForQuestionIndexSig === idx` gate stayed false and the FET never
+    // showed. Record it here for every expired question.
+    this.timerService.expiredForQuestionIndexSig.set(i0);
 
     const expiryState = host.timerEffect.applyTimerExpiryState({
       i0,
@@ -137,7 +155,11 @@ export class QqcOrchTimerService {
       updateExplanationText: (idx: number) => host.updateExplanationText(idx)
     });
 
-    if (formattedText) host.applyExplanationTextInZone(formattedText);
+    if (formattedText) {
+      host.applyExplanationTextInZone(formattedText);
+      // Durable FET store (survives the purge that races the heading render).
+      host.explanationTextService?.timeoutFetByIndex?.set(i0, formattedText);
+    }
     if (needsAsyncRepair) {
       host.timerEffect
         .repairExplanationAsync({
@@ -149,7 +171,10 @@ export class QqcOrchTimerService {
           updateExplanationText: (idx: number) => host.updateExplanationText(idx)
         })
         .then((repaired: string | null) => {
-          if (repaired) host.applyExplanationTextInZone(repaired);
+          if (repaired) {
+            host.applyExplanationTextInZone(repaired);
+            host.explanationTextService?.timeoutFetByIndex?.set(i0, repaired);
+          }
         })
         .catch(() => {});
     }

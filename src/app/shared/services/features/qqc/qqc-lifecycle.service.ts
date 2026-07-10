@@ -3,7 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { Observable, Subscription } from 'rxjs';
 import {
-  distinctUntilChanged, filter, map, switchMap, take, tap
+  distinctUntilChanged, filter, map, skipWhile, switchMap, take, tap
 } from 'rxjs/operators';
 
 import { Option } from '../../../models/Option.model';
@@ -66,6 +66,13 @@ export class QqcLifecycleService {
       // When it reaches the duration once, expire this question.
       switchMap((i0: number) =>
         params.elapsedTime$.pipe(
+          // `elapsedTime$` (toObservable of the elapsed signal) replays its
+          // CURRENT value on subscribe. When we arrive from a question that just
+          // timed out, that value is still the previous question's max elapsed,
+          // so the filter below would fire IMMEDIATELY and expire this fresh
+          // question on arrival (FET shown before the question). Skip the stale
+          // high value(s) until the timer resets below the duration, then arm.
+          skipWhile((elapsed: number) => elapsed >= params.timePerQuestion),
           filter((elapsed: number) => elapsed >= params.timePerQuestion),
           take(1),
           map((): number => i0)

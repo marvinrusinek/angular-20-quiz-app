@@ -158,6 +158,13 @@ export class ExplanationTextService {
     return this.formatter.fetByIndex;
   }
 
+  // DURABLE per-question FET for TIMED-OUT questions. The primary fetByIndex /
+  // formattedExplanations are purged/deferred by the async explanation pipeline
+  // (purgeAndDefer), which races the heading render on timeout for Q2+ and leaves
+  // the heading with an empty FET. This map is never purged, so the single-source
+  // heading can fall back to it for an expired question.
+  public readonly timeoutFetByIndex = new Map<number, string>();
+
   get explanationsInitialized(): boolean {
     return this.formatter.explanationsInitializedSig();
   }

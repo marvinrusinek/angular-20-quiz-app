@@ -56,10 +56,12 @@ export function buildHeadingInputs(d: HeadingInputDeps): HeadingInputs | null {
     questionHtml = withCorrectCountBanner(qText, banner);
   }
 
+  const _fetHtml = (ets.formattedExplanations?.[idx]?.explanation ?? '')
+        || (ets.fetByIndex?.get?.(idx) ?? '')
+        || (ets.timeoutFetByIndex?.get?.(idx) ?? '');   // durable timeout FET (purge-proof)
   return {
     questionHtml,
-    fetHtml: (ets.formattedExplanations?.[idx]?.explanation ?? '')
-          || (ets.fetByIndex?.get?.(idx) ?? ''),
+    fetHtml: _fetHtml,
     isMultiAnswer,
     isMultiAnswerComplete:
       (pristine.length > 0 && selectedCorrect.length >= pristine.length)

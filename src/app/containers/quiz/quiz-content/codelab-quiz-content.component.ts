@@ -210,9 +210,9 @@ export class CodelabQuizContentComponent implements OnInit {
     // hatch are removed; the old setHtml/writeQText writers are now fully dead and
     // are being deleted in the following steps.)
     effect(() => {
+      const html = this.headingHtml();
       const el = this.qText()?.nativeElement;
       if (!el) return;
-      const html = this.headingHtml();
       if ((el.innerHTML ?? '') === html) return;
       this.renderer.setProperty(el, 'innerHTML', html);
     });

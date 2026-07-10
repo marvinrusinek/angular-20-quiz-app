@@ -70,7 +70,14 @@ export function shouldShowFet(i: HeadingInputs): boolean {
   if (!i.optionsReady) {
     return false;
   }
-  if (i.isNavigatingToPrevious && !i.interactedThisVisit) {
+  // A LIVE timeout overrides the revisit guard. `isTimedOut`
+  // (expiredForQuestionIndexSig === idx) is reset on every nav away from a
+  // question, so it is only ever true for the question that just timed out on
+  // this visit — never a genuine backward revisit (which reads isTimedOut=false
+  // and is still suppressed by the branches below). Without this exclusion the
+  // fast-path (Q2+) timeout was blocked because isNavigatingToPrevious can remain
+  // stale-true after a forward Next and interactedThisVisit is false on a timeout.
+  if (i.isNavigatingToPrevious && !i.interactedThisVisit && !i.isTimedOut) {
     return false;
   }
   if (i.isTimedOut) {

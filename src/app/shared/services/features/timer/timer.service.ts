@@ -457,6 +457,15 @@ export class TimerService implements OnDestroy {
       return;
     }
 
+    // An already-timed-out question stays expired: a spurious restart for the
+    // SAME question must not wipe its expiry — that erased the timeout FET on
+    // every question after the first (the FET only shows while
+    // expiredForQuestionIndexSig === the displayed index). Mirrors the
+    // answered-correct freeze/return guard above.
+    if (this.expiredForQuestionIndexSig() === questionIndex) {
+      return;
+    }
+
     this._runningForQuestion = questionIndex;
     // Clear expiry/start guards so this fresh question can run
     this.hasExpiredForRun = false;

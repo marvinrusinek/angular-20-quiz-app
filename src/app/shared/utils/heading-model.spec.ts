@@ -54,12 +54,13 @@ describe('heading-model: shouldShowFet', () => {
     expect(shouldShowFet(inputs({ optionsReady: false, isTimedOut: true }))).toBe(false);
   });
 
-  // §5.2 / §5.11 — on a revisit the FET is suppressed even for a resolved or
-  // timed-out question; it shows only on the live answer view.
-  it('revisit (navigated here, not re-answered) → never FET, even when resolved', () => {
+  // §5.2 / §5.11 — on a revisit the FET is suppressed for a RESOLVED (answered)
+  // question; it shows only on the live answer view. A live timeout is the one
+  // exception (see the live-timeout case below): isTimedOut is reset on nav, so a
+  // true isTimedOut always means the current question just timed out this visit.
+  it('revisit (navigated here, not re-answered) → never FET when resolved by answering', () => {
     expect(shouldShowFet(inputs({ isNavigatingToPrevious: true, hasInteracted: true, isSingleAnswered: true }))).toBe(false);
     expect(shouldShowFet(inputs({ isNavigatingToPrevious: true, isMultiAnswer: true, hasInteracted: true, isMultiAnswerComplete: true }))).toBe(false);
-    expect(shouldShowFet(inputs({ isNavigatingToPrevious: true, isTimedOut: true }))).toBe(false);
   });
 
   // §5.6 — a first-time timeout on the live view (not a revisit) reveals the FET.
@@ -83,13 +84,21 @@ describe('heading-model: shouldShowFet', () => {
     }))).toBe(true);
   });
 
-  // The revisit suppression still holds when the user has NOT interacted this visit.
-  it('revisit without interaction this visit → no FET (resolved or timed-out)', () => {
+  // The revisit suppression still holds for an ANSWER-resolved question when the
+  // user has NOT interacted this visit.
+  it('revisit without interaction this visit → no FET for an answer-resolved question', () => {
     expect(shouldShowFet(inputs({
       isMultiAnswer: true, hasInteracted: true, isMultiAnswerComplete: true,
       isNavigatingToPrevious: true, interactedThisVisit: false,
     }))).toBe(false);
-    expect(shouldShowFet(inputs({ isTimedOut: true, isNavigatingToPrevious: true, interactedThisVisit: false }))).toBe(false);
+  });
+
+  // A live timeout on Q2+ reaches the heading via the fast-path, where
+  // isNavigatingToPrevious is stale-true and interactedThisVisit is false (no
+  // click). The FET must STILL show — isTimedOut overrides the revisit guard.
+  it('live timeout with stale isNavigatingToPrevious + no interaction → FET', () => {
+    expect(shouldShowFet(inputs({ isTimedOut: true, isNavigatingToPrevious: true }))).toBe(true);
+    expect(shouldShowFet(inputs({ isTimedOut: true, isNavigatingToPrevious: true, interactedThisVisit: false }))).toBe(true);
   });
 });
 
