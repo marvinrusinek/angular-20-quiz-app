@@ -28,10 +28,11 @@ import { SelectedOptionService } from '../../shared/services/state/selectedoptio
 import { ThemeService } from '../../shared/services/ui/theme.service';
 
 import { AchievementService } from '../../shared/services/achievements/achievement.service';
-import { AchievementDefinition } from '../../shared/models/achievement.model';
+import { AchievementDefinition, AchievementView } from '../../shared/models/achievement.model';
 
 import { AccordionComponent } from './accordion/accordion.component';
 import { AchievementUnlockedComponent } from '../../components/achievement-unlocked/achievement-unlocked.component';
+import { AchievementsCatalogComponent } from '../../components/achievements-catalog/achievements-catalog.component';
 import { BackToTopComponent } from '../../components/back-to-top/back-to-top.component';
 import { QuizFactComponent } from '../../components/quiz-fact/quiz-fact.component';
 import { ChallengeComponent } from './challenge/challenge.component';
@@ -53,6 +54,7 @@ import { swallow } from '../../shared/utils/error-logging';
     MatTooltipModule,
     NgOptimizedImage,
     AchievementUnlockedComponent,
+    AchievementsCatalogComponent,
     BackToTopComponent,
     QuizFactComponent,
     AccordionComponent,
@@ -101,6 +103,8 @@ export class ResultsComponent implements OnInit {
 
   // Achievements newly earned by THIS completed quiz (shown once, not after refresh).
   readonly newlyEarnedAchievements = signal<AchievementDefinition[]>([]);
+  // Every achievement + earned/locked state, for the expandable catalog section.
+  readonly achievementsCatalog = signal<AchievementView[]>([]);
   private achievementsProcessed = false;
 
   // Facts (0-3) for the completed quiz; QuizFactComponent shows one at random.
@@ -176,6 +180,10 @@ export class ResultsComponent implements OnInit {
       this.processAchievements(snapshot);
     }
     // No snapshot: the constructor effect picks up finalResult$ emissions.
+
+    // Always show the catalog with the current earned/locked state (even on a
+    // refresh, when no new achievement is being announced).
+    this.achievementsCatalog.set(this.achievementService.catalog());
   }
 
   onWindowScroll(): void {
@@ -359,6 +367,8 @@ export class ResultsComponent implements OnInit {
     this.newlyEarnedAchievements.set(
       this.achievementService.evaluate(this.quizData)
     );
+    // Refresh the catalog so any just-earned achievement flips to "Earned".
+    this.achievementsCatalog.set(this.achievementService.catalog());
     this.cdRef.markForCheck();
   }
 

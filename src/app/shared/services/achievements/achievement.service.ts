@@ -4,6 +4,7 @@ import { Quiz } from '../../models/Quiz.model';
 import {
   AchievementDefinition,
   AchievementId,
+  AchievementView,
   EarnedAchievement
 } from '../../models/achievement.model';
 import { ACHIEVEMENT_DEFINITIONS } from '../../constants/achievements';
@@ -76,6 +77,12 @@ export class AchievementService {
   /** Compact progress summary for the catalog UI (e.g. "3 / 6"). */
   summary(): { earned: number; total: number } {
     return { earned: this.earnedIds().size, total: this.definitions.length };
+  }
+
+  /** Every achievement paired with its earned/locked state, for catalog display. */
+  catalog(): AchievementView[] {
+    const earned = this.earnedIds();
+    return this.definitions.map(def => ({ ...def, earned: earned.has(def.id) }));
   }
 
   // ── rules ──────────────────────────────────────────────────────

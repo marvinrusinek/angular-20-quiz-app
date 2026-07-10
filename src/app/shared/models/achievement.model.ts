@@ -19,3 +19,8 @@ export interface EarnedAchievement {
   id: AchievementId;
   earnedAt: string;  // ISO 8601 timestamp
 }
+
+/** A definition paired with the user's earned/locked state — for catalog display. */
+export interface AchievementView extends AchievementDefinition {
+  earned: boolean;
+}
