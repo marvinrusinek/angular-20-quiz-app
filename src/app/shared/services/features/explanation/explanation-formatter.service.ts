@@ -693,7 +693,18 @@ export class ExplanationFormatterService {
       }
 
       question.type = QuestionType.SingleAnswer;
-      const result = `Option ${targetIndex} is correct because ${e}`;
+      // True/false questions (2 options whose correct answer is literally
+      // "True"/"False") read as "The statement is true/false because ..." using
+      // the correct option's value, instead of "Option N is correct because ...".
+      // Only the displayed prefix changes; the question stays single-answer.
+      const tfOpts = question?.options ?? [];
+      const tfCorrect = String(tfOpts.find((o: any) => isOptionCorrect(o))?.text ?? '')
+        .trim()
+        .toLowerCase();
+      const isTrueFalse = tfOpts.length === 2 && (tfCorrect === 'true' || tfCorrect === 'false');
+      const result = isTrueFalse
+        ? `The statement is ${tfCorrect} because ${e}`
+        : `Option ${targetIndex} is correct because ${e}`;
       return result;
     }
 
