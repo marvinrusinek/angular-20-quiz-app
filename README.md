@@ -188,6 +188,12 @@ shared/
 
 <hr>
 
+<h2>⭐ Support</h2>
+
+<p> If you enjoyed exploring this project or found it helpful, a ⭐ on GitHub is greatly appreciated. It helps others discover the project and supports its ongoing development. </p>
+
+<hr>
+
 <h2>⚙️ Getting Started</h2>
 
 <h3>Prerequisites</h3>
@@ -227,12 +233,6 @@ npm install
 <li>Enhance accessibility, responsive design, and touch interactions</li>
 <li>Expand performance insights and post-quiz analytics</li>
 </ul>
-
-<hr>
-
-<h2>⭐ Support</h2>
-
-<p> If you enjoyed exploring this project or found it helpful, a ⭐ on GitHub is greatly appreciated. It helps others discover the project and supports its ongoing development. </p>
 
 <hr>
 
