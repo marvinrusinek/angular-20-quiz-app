@@ -184,8 +184,16 @@
       white-space: nowrap;
 
       .stat-num {
+        display: inline-block;
         font-size: 30px;
         font-weight: 800;
+        font-variant-numeric: tabular-nums;
+        min-width: 1ch;
+
+        // Scale-bounce added by CountUpDirective when the number finishes counting.
+        &.count-up-pop {
+          animation: stat-count-pop 380ms ease-out;
+        }
       }
 
       .stat-label {
@@ -493,3 +501,10 @@
   }
 }
 
+
+// Scale-bounce for a stat number as it lands (toggled by CountUpDirective).
+@keyframes stat-count-pop {
+  0%   { transform: scale(1); }
+  45%  { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}

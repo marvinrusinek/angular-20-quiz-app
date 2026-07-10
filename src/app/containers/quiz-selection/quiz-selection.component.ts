@@ -27,6 +27,7 @@ import { BackToTopComponent } from '../../components/back-to-top/back-to-top.com
 import { QuizSearchComponent } from '../../components/quiz-search/quiz-search.component';
 import { QuizSortComponent } from '../../components/quiz-sort/quiz-sort.component';
 import { ScrollDownIndicatorComponent } from '../../components/scroll-down-indicator/scroll-down-indicator.component';
+import { CountUpDirective } from '../../shared/directives/count-up.directive';
 
 import { SlideLeftToRightAnimation } from '../../animations/animations';
 import { swallow } from '../../shared/utils/error-logging';
@@ -44,7 +45,8 @@ import { swallow } from '../../shared/utils/error-logging';
     QuizSearchComponent,
     QuizSortComponent,
     ScrollDownIndicatorComponent,
-    BackToTopComponent
+    BackToTopComponent,
+    CountUpDirective
   ],
   templateUrl: './quiz-selection.component.html',
   styleUrls: ['./quiz-selection.component.scss'],

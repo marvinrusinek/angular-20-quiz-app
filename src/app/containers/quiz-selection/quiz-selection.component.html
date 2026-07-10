@@ -50,18 +50,18 @@
       aria-live="polite"
     >
       <span class="stat">
-        <span class="stat-num">{{ quizStats().quizCount }}</span>
+        <span class="stat-num" [appCountUp]="quizStats().quizCount" [countUpDelay]="0"></span>
         <span class="stat-label" i18n>Quizzes</span>
       </span>
       <span class="stat-divider" aria-hidden="true"></span>
       <span class="stat">
-        <span class="stat-num">{{ quizStats().questionCount }}</span>
+        <span class="stat-num" [appCountUp]="quizStats().questionCount" [countUpDelay]="140"></span>
         <span class="stat-label" i18n>Questions</span>
       </span>
-      @for (level of quizStats().levels; track level.key) {
+      @for (level of quizStats().levels; track level.key; let i = $index) {
         <span class="stat-divider" aria-hidden="true"></span>
         <span class="stat" [class]="'level-' + level.key">
-          <span class="stat-num">{{ level.count }}</span>
+          <span class="stat-num" [appCountUp]="level.count" [countUpDelay]="(i + 2) * 140"></span>
           <span class="stat-label">{{ level.label }}</span>
         </span>
       }
