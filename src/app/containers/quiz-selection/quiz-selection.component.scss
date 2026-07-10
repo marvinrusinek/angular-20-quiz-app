@@ -199,13 +199,18 @@
 
     .quiz-tile {
       position: relative;
+      // Flex column so the difficulty badge can be pinned to the bottom of every
+      // tile (via margin-top:auto) and line up across the row, regardless of how
+      // long each summary is.
+      display: flex;
+      flex-direction: column;
       margin: 0 10px 20px 0;
       width: 320px;
       // Grow to fit longer summaries + the badge instead of a fixed 375px, which
       // let long summaries run underneath the absolutely-positioned badge.
       min-height: 375px;
       height: auto;
-      padding-bottom: 12px;
+      padding-bottom: 6px;
       background-color: vars.$off-white;
       border: 1px solid vars.$black;
       border-radius: 10px;
@@ -252,15 +257,19 @@
           line-height: 1.35;
           width: 280px;
           margin-top: -15px;
+          // Trim the default h6 bottom margin (~32px) so the difficulty badge
+          // sits closer under the summary text.
+          margin-bottom: 6px;
         }
       }
 
       .difficulty-badge {
-        // Flow below the summary (right-aligned) rather than pinning to the
-        // bottom-right, so it never overlaps a long summary.
+        // Pinned to the bottom-right of the tile (margin-top:auto pushes it down),
+        // so every tile's badge lines up regardless of summary length, and it
+        // still never overlaps the summary because it sits below it.
         display: block;
         width: fit-content;
-        margin: 10px 10px 0 auto;
+        margin: auto 10px 8px auto;
         z-index: 2;
         padding: 3px 11px;
         border-radius: 12px;

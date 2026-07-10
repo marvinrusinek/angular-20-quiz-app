@@ -1681,6 +1681,118 @@
           "explanation": "Playwright runs real-browser end-to-end tests — ideal for critical user flows, routing, and cross-page behavior, but slower than unit tests. Small, isolated logic belongs in fast Jest unit tests; choose the lowest practical test level that gives useful confidence."
         }
       ]
+    },
+    {
+      "quizId": "performance",
+      "milestone": "Angular Performance",
+      "summary": "Build faster Angular apps — change detection and OnPush, signals, @for track, lazy loading, @defer, image and template optimization, and smaller bundles.",
+      "image": "assets/images/performance.svg",
+      "difficulty": "intermediate",
+      "facts": [
+        "Hydration lets a server-rendered Angular app become interactive without re-rendering the whole page, reducing flicker and work on load.",
+        "Zoneless change detection (dropping Zone.js) lets Angular schedule updates from signals, cutting the overhead of patched async APIs.",
+        "Standalone components with the modern esbuild-based builder produce smaller, faster builds than legacy NgModule setups."
+      ],
+      "questions": [
+        {
+          "questionText": "Why does front-end performance matter for an Angular application?",
+          "options": [
+            { "text": "It only matters for the development build, not production." },
+            { "text": "It affects TypeScript compile time but not the end user." },
+            { "text": "Faster load and response times improve user experience, engagement, and conversion.", "correct": true },
+            { "text": "It changes the app's business logic and features." }
+          ],
+          "explanation": "performance directly shapes the user experience — faster startup and interaction keep users engaged and improve conversion. It is a runtime, user-facing concern, and optimizing it does not change the app's features."
+        },
+        {
+          "questionText": "How does the OnPush change detection strategy help performance?",
+          "options": [
+            { "text": "It disables change detection entirely for the whole app." },
+            { "text": "It skips checking a component unless an @Input reference changes, an event fires in it, or an async pipe emits.", "correct": true },
+            { "text": "It guarantees every app becomes faster with no trade-offs." },
+            { "text": "It re-renders the component on every browser animation frame." }
+          ],
+          "explanation": "OnPush limits a component's checks to new @Input references, events inside it, and async-pipe emissions, so Angular skips large parts of the tree. It is not a guaranteed win — it relies on immutable data, so mutating an object in place can cause a missed update."
+        },
+        {
+          "questionText": "Which statements about Angular Signals and performance are correct? Select all that apply.",
+          "options": [
+            { "text": "Signals replace RxJS for all asynchronous streams and HTTP." },
+            { "text": "A signal notifies only the consumers that read it, enabling fine-grained updates.", "correct": true },
+            { "text": "computed() derives a value that recalculates only when its signal dependencies change.", "correct": true },
+            { "text": "Signals make change detection more targeted than checking whole component trees.", "correct": true }
+          ],
+          "explanation": "a signal notifies only the consumers that read it, and computed() recalculates lazily when its dependencies change — far more targeted than checking whole trees. But signals model synchronous state and do not replace RxJS for streams like HTTP."
+        },
+        {
+          "questionText": "In a large @for list that updates often, what does a track expression (e.g. @for (item of items; track item.id)) do for performance?",
+          "options": [
+            { "text": "It lets Angular match items by identity and reuse existing DOM instead of recreating every row.", "correct": true },
+            { "text": "It sorts the list automatically on each change." },
+            { "text": "It caches the list in localStorage." },
+            { "text": "It disables change detection for the list." }
+          ],
+          "explanation": "a track expression gives each item a stable identity, so Angular re-uses and moves existing DOM nodes instead of recreating every row when the array changes. Without it, a new array reference can force Angular to rebuild the whole list."
+        },
+        {
+          "questionText": "What is the main performance benefit of lazy loading a feature route with loadComponent or loadChildren?",
+          "options": [
+            { "text": "It makes every subsequent navigation instant." },
+            { "text": "It removes the need for a production build." },
+            { "text": "It eliminates change detection for that feature." },
+            { "text": "It keeps that feature's code out of the initial bundle, so the app starts faster.", "correct": true }
+          ],
+          "explanation": "lazy loading splits a feature's code into a separate chunk that downloads on demand, shrinking the initial bundle and speeding up startup. It does not make later navigations instant — the chunk still downloads the first time it is needed."
+        },
+        {
+          "questionText": "What does wrapping a heavy component in @defer (on viewport) { ... } do?",
+          "options": [
+            { "text": "It renders the component immediately but hides it with CSS." },
+            { "text": "It delays loading and rendering that component until it enters the viewport, improving initial render.", "correct": true },
+            { "text": "It runs the component on a web worker." },
+            { "text": "It permanently disables the component's change detection." }
+          ],
+          "explanation": "@defer postpones loading and rendering its content until a trigger fires (here, entering the viewport), so heavy or below-the-fold content does not block the first paint and its code can be split out. It defers real work, not just hides it."
+        },
+        {
+          "questionText": "How do you optimize images in Angular 20 using the built-in directive?",
+          "options": [
+            { "text": "Add loading='eager' to every img so they all load up front." },
+            { "text": "Inline every image as a base64 data URL in the template." },
+            { "text": "Use NgOptimizedImage with the ngSrc attribute to enable lazy loading, sizing, and priority hints.", "correct": true },
+            { "text": "Replace all images with CSS background-image for speed." }
+          ],
+          "explanation": "NgOptimizedImage (via the ngSrc attribute) adds lazy loading, prevents layout shift by requiring width and height, and supports a priority hint for the LCP image. Loading every image eagerly or inlining base64 URLs bloats the initial payload."
+        },
+        {
+          "questionText": "Which practices help avoid unnecessary template work during change detection? Select all that apply.",
+          "options": [
+            { "text": "Move expensive calculations out of the template into a computed() or a memoized value.", "correct": true },
+            { "text": "Put complex getters in bindings so they recompute on every change detection cycle." },
+            { "text": "Avoid calling functions that do heavy work directly in template bindings.", "correct": true },
+            { "text": "Use the async pipe or signals so values update only when the data changes.", "correct": true }
+          ],
+          "explanation": "template expressions run on every change detection cycle, so heavy functions or getters in bindings repeat that work constantly. Precompute with computed(), keep heavy functions out of bindings, and use the async pipe or signals so work happens only when the data changes."
+        },
+        {
+          "questionText": "Which of these reduce an Angular app's bundle size? Select all that apply.",
+          "options": [
+            { "text": "Building with the production configuration so tree shaking and minification run.", "correct": true },
+            { "text": "Code splitting via lazy-loaded routes and @defer.", "correct": true },
+            { "text": "Removing unused code and dependencies (dead-code elimination).", "correct": true },
+            { "text": "Importing a whole utility library just to use a single function." }
+          ],
+          "explanation": "production builds enable tree shaking and minification, lazy routes and @defer split code into on-demand chunks, and removing unused code trims the payload. Importing a whole library for one function does the opposite, pulling in dead weight."
+        },
+        {
+          "questionText": "True or False: You should measure and profile an app's performance to find the real bottlenecks before optimizing, rather than guessing.",
+          "options": [
+            { "text": "True", "correct": true },
+            { "text": "False" }
+          ],
+          "explanation": "measuring with the browser profiler, Lighthouse, or Angular DevTools shows where time is actually spent, so you fix real bottlenecks instead of guessing. Premature optimization from assumptions adds complexity without improving the metrics that matter."
+        }
+      ]
     }
   ],
   "resources": [
