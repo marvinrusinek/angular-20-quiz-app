@@ -190,7 +190,7 @@ shared/
 
 <h2>⭐ Support</h2>
 
-<p> If you enjoyed exploring this project or found it helpful, a ⭐ on GitHub is greatly appreciated. It helps others discover the project and supports its ongoing development. </p>
+<p> If you enjoyed exploring this project or found it helpful, a ⭐ on GitHub is greatly appreciated - it helps support its on-going development. </p>
 
 <hr>
 
