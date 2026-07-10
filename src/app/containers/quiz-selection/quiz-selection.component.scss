@@ -201,7 +201,11 @@
       position: relative;
       margin: 0 10px 20px 0;
       width: 320px;
-      height: 375px;
+      // Grow to fit longer summaries + the badge instead of a fixed 375px, which
+      // let long summaries run underneath the absolutely-positioned badge.
+      min-height: 375px;
+      height: auto;
+      padding-bottom: 12px;
       background-color: vars.$off-white;
       border: 1px solid vars.$black;
       border-radius: 10px;
@@ -230,7 +234,8 @@
         margin: 65% 0 0 5px;
         padding: 10px;
         width: 370px;
-        height: 110px;
+        height: auto;
+        min-height: 110px;
 
         .quiz-title {
           font-size: 18px;
@@ -251,9 +256,11 @@
       }
 
       .difficulty-badge {
-        position: absolute;
-        bottom: 10px;
-        right: 10px;
+        // Flow below the summary (right-aligned) rather than pinning to the
+        // bottom-right, so it never overlaps a long summary.
+        display: block;
+        width: fit-content;
+        margin: 10px 10px 0 auto;
         z-index: 2;
         padding: 3px 11px;
         border-radius: 12px;
