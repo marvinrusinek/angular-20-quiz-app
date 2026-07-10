@@ -1793,6 +1793,118 @@
           "explanation": "measuring with the browser profiler, Lighthouse, or Angular DevTools shows where time is actually spent, so you fix real bottlenecks instead of guessing. Premature optimization from assumptions adds complexity without improving the metrics that matter."
         }
       ]
+    },
+    {
+      "quizId": "rxjs",
+      "milestone": "RxJS",
+      "summary": "Think reactively in Angular — Observables and operators, subjects, combining streams, error handling, and preventing memory leaks with the async pipe and takeUntil.",
+      "image": "assets/images/rxjs.svg",
+      "difficulty": "advanced",
+      "facts": [
+        "Cold Observables (like HttpClient calls) start a fresh execution for each subscriber, while hot Observables (like a Subject) share one execution among all subscribers.",
+        "shareReplay() lets multiple subscribers share a single underlying execution and replays the last result, avoiding duplicate HTTP requests.",
+        "RxJS operators are pure, pipeable functions that return a new Observable, so unused operators are tree-shaken out of the production bundle."
+      ],
+      "questions": [
+        {
+          "questionText": "What best describes an Observable in RxJS?",
+          "options": [
+            { "text": "A value that is computed once and stored synchronously." },
+            { "text": "A lazy stream of values over time that does nothing until you subscribe.", "correct": true },
+            { "text": "A JavaScript Promise with a few extra methods." },
+            { "text": "A global event bus shared across the whole app." }
+          ],
+          "explanation": "an Observable is a lazy stream of values over time — it does nothing until you subscribe, then emits zero or more values, an error, or completion. Unlike a Promise (eager, single value, not cancellable), it is lazy, can emit many values, and is cancellable; it is not a stored value or a global event bus."
+        },
+        {
+          "questionText": "You have an array [1, 2, 3]. Which creation function emits each element as a separate value?",
+          "options": [
+            { "text": "of([1, 2, 3])" },
+            { "text": "interval([1, 2, 3])" },
+            { "text": "from([1, 2, 3])", "correct": true },
+            { "text": "timer([1, 2, 3])" }
+          ],
+          "explanation": "from() turns an array (or Promise/iterable) into an Observable that emits each element in turn — 1, then 2, then 3. of([1,2,3]) emits the whole array as one value, while interval and timer produce time-based emissions and do not take an array of values."
+        },
+        {
+          "questionText": "Which pipe keeps only the even numbers and then doubles them?",
+          "options": [
+            { "text": "pipe(filter(n => n % 2 === 0), map(n => n * 2))", "correct": true },
+            { "text": "pipe(map(n => n * 2), filter(n => n % 2 === 0))" },
+            { "text": "pipe(tap(n => n % 2 === 0), map(n => n * 2))" },
+            { "text": "pipe(switchMap(n => n * 2))" }
+          ],
+          "explanation": "operators in pipe() run in order, so filter drops the odd numbers first and map then doubles the survivors. Option 2 doubles first, making every value even, so the filter removes nothing; tap only runs side effects and cannot filter; and switchMap must return an Observable, not a number."
+        },
+        {
+          "questionText": "What is the correct use of the tap() operator?",
+          "options": [
+            { "text": "To transform each emitted value into a new value." },
+            { "text": "To filter out unwanted values." },
+            { "text": "To flatten an inner Observable into the outer stream." },
+            { "text": "To perform a side effect (like logging) without changing the emitted values.", "correct": true }
+          ],
+          "explanation": "tap() runs a side effect — logging, debugging, updating something external — for each emission while passing the value through unchanged. Transforming values is map(), removing values is filter(), and flattening an inner Observable is a higher-order operator such as switchMap or mergeMap."
+        },
+        {
+          "questionText": "Which statements about RxJS Subjects are correct? Select all that apply.",
+          "options": [
+            { "text": "A Subject is both an Observable and an Observer, so it can multicast values to many subscribers.", "correct": true },
+            { "text": "A plain Subject replays its last value to any subscriber that arrives late." },
+            { "text": "A BehaviorSubject requires an initial value and gives new subscribers the current value immediately.", "correct": true },
+            { "text": "A ReplaySubject can re-emit a buffer of previous values to new subscribers.", "correct": true }
+          ],
+          "explanation": "a Subject is both an Observable and an Observer, so it multicasts to many subscribers; a BehaviorSubject holds a current value (needing an initial one) and hands it to new subscribers immediately; and a ReplaySubject buffers and re-emits past values. A plain Subject does NOT replay — a late subscriber only receives values emitted after it subscribes."
+        },
+        {
+          "questionText": "Why is the async pipe (data$ | async) usually preferred over manually subscribing in a component?",
+          "options": [
+            { "text": "It makes the Observable emit its values faster." },
+            { "text": "It subscribes for you and automatically unsubscribes when the component is destroyed, preventing leaks.", "correct": true },
+            { "text": "It converts the Observable into a Promise." },
+            { "text": "It caches the last value in localStorage." }
+          ],
+          "explanation": "the async pipe subscribes to the Observable, renders each emitted value, and automatically unsubscribes when the component is destroyed — removing a common memory-leak source and a lot of boilerplate. It does not speed up emissions, turn the Observable into a Promise, or persist values to localStorage."
+        },
+        {
+          "questionText": "A type-ahead search fires an HTTP request on each keystroke. Which operator cancels the previous in-flight request when a new keystroke arrives?",
+          "options": [
+            { "text": "mergeMap" },
+            { "text": "concatMap" },
+            { "text": "switchMap", "correct": true },
+            { "text": "exhaustMap" }
+          ],
+          "explanation": "switchMap unsubscribes from the previous inner Observable when a new value arrives, cancelling the outdated request — ideal for type-ahead search. mergeMap runs every request concurrently with no cancellation, concatMap queues them in order, and exhaustMap ignores new input until the current request finishes."
+        },
+        {
+          "questionText": "Which statements about combining Observables are correct? Select all that apply.",
+          "options": [
+            { "text": "forkJoin waits for all source Observables to complete, then emits their last values once.", "correct": true },
+            { "text": "combineLatest emits an array of the latest values whenever any source emits.", "correct": true },
+            { "text": "zip pairs values by index, emitting only when every source has produced the next item.", "correct": true },
+            { "text": "forkJoin emits a new combined value every time any single source emits." }
+          ],
+          "explanation": "forkJoin is like Promise.all — it waits for every source to complete and emits their final values once, great for firing several HTTP requests in parallel; combineLatest emits the latest values whenever any source emits; and zip pairs values by index. forkJoin does NOT emit continuously — that behavior belongs to combineLatest."
+        },
+        {
+          "questionText": "Which are correct ways to handle errors and prevent memory leaks with RxJS in Angular? Select all that apply.",
+          "options": [
+            { "text": "Rely on Angular to automatically unsubscribe from every manual .subscribe() call." },
+            { "text": "Use catchError to intercept an error and return a fallback Observable such as of([]).", "correct": true },
+            { "text": "Use takeUntil(this.destroy$) so subscriptions complete when the component is destroyed.", "correct": true },
+            { "text": "Prefer the async pipe so subscription and cleanup are handled for you.", "correct": true }
+          ],
+          "explanation": "catchError intercepts a failed stream and lets you recover by returning a fallback Observable; takeUntil(destroy$) completes subscriptions when the component is destroyed; and the async pipe subscribes and unsubscribes automatically. Angular does NOT auto-unsubscribe from manual .subscribe() calls — leaving them open is a common memory-leak source."
+        },
+        {
+          "questionText": "True or False: Nesting .subscribe() calls inside one another is the recommended way to chain dependent Observable requests in Angular.",
+          "options": [
+            { "text": "True" },
+            { "text": "False", "correct": true }
+          ],
+          "explanation": "nested subscriptions are hard to read, error-prone, and leak easily. The reactive approach chains dependent requests with a higher-order operator like switchMap (or concatMap), keeping a single subscription; that also cancels stale inner requests and lets the async pipe manage cleanup."
+        }
+      ]
     }
   ],
   "resources": [
