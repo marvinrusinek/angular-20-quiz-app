@@ -569,10 +569,9 @@
           }
         }
 
-        // Line the progress text up with the summary text on mobile (needs a
-        // touch more indent than desktop).
+        // Line the progress text up with the summary text on mobile.
         .quiz-card-footer .quiz-card-progress-line {
-          margin-left: 10px !important;
+          margin-left: 5px !important;
         }
 
         // On mobile the badge flows BELOW the summary (right-aligned) instead
