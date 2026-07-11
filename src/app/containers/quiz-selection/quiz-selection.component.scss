@@ -491,6 +491,29 @@
       }
     }
 
+    // Keep all five stats (incl. the 4 / 8 / 3 difficulty counts) on ONE line by
+    // compressing gap, padding, and font sizes so they don't wrap on phones.
+    .quiz-stats {
+      flex-wrap: nowrap !important;
+      gap: 7px !important;
+      padding: 8px 8px !important;
+      max-width: 100% !important;
+
+      .stat-num {
+        font-size: 17px !important;
+      }
+
+      .stat-label {
+        font-size: 8px !important;
+        letter-spacing: 0.2px !important;
+      }
+
+      .stat-divider {
+        width: 1px !important;
+        height: 26px !important;
+      }
+    }
+
     .toolbar {
       margin-top: 0;
       left: 0 !important;
@@ -533,6 +556,12 @@
             width: 100% !important;
             margin-bottom: 0 !important;
           }
+        }
+
+        // Line the progress text up with the summary text on mobile (needs a
+        // touch more indent than desktop).
+        .quiz-card-footer .quiz-card-progress-line {
+          margin-left: 10px !important;
         }
 
         // On mobile the badge flows BELOW the summary (right-aligned) instead
