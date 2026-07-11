@@ -178,11 +178,13 @@
 
 <!-- === REUSABLE RESOURCES TEMPLATE === -->
 <ng-template #resourcesTemplate>
-  <details
-    class="resources-section"
-    open
-  >
-    <summary class="resources-header">
+  <div class="resources-section" [class.open]="resourcesExpanded()">
+    <button
+      type="button"
+      class="resources-header"
+      (click)="toggleResources()"
+      [attr.aria-expanded]="resourcesExpanded()"
+    >
       <span i18n>
         Brush up your knowledge of
         <strong>
@@ -190,22 +192,24 @@
         </strong>
         with these resources:
       </span>
-      <span class="summary-caret" aria-hidden="true"></span>
-    </summary>
+      <span class="resources-caret" aria-hidden="true">{{ resourcesExpanded() ? '▲' : '▼' }}</span>
+    </button>
 
-    <ul>
-      @for (resource of resources(); track resource.url) {
-        <li>
-          <a
-            [href]="resource.url"
-            target="_blank"
-            rel="noopener"
-          >
-            <span class="resource-title">{{ resource.title }}</span>
-          </a>
-          <span class="resource-host">— {{ resource.host }}</span>
-        </li>
-      }
-    </ul>
-  </details>
+    @if (resourcesExpanded()) {
+      <ul>
+        @for (resource of resources(); track resource.url) {
+          <li>
+            <a
+              [href]="resource.url"
+              target="_blank"
+              rel="noopener"
+            >
+              <span class="resource-title">{{ resource.title }}</span>
+            </a>
+            <span class="resource-host">— {{ resource.host }}</span>
+          </li>
+        }
+      </ul>
+    }
+  </div>
 </ng-template>

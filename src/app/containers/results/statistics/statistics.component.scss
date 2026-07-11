@@ -313,33 +313,28 @@
     margin-top: 16px;
     text-align: left;
 
-    // No icon on the summary — hide the native <summary> disclosure triangle.
-    summary {
-      cursor: pointer;
-      list-style: none;
-    }
-    summary::-webkit-details-marker {
-      display: none;
-    }
-
+    // Signal-controlled toggle button (replaces a native <details>/<summary>).
     .resources-header {
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-bottom: 12px;
+      width: 100%;
+      margin: 0 0 12px;
+      padding: 0;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font: inherit;
+      text-align: left;
+      color: vars.$dark-blue;
 
-      // Right-side caret matching the Achievements catalog chevron: ▼ when
-      // collapsed, ▲ when expanded.
-      .summary-caret {
+      // Right-side caret: ▼ collapsed, ▲ expanded (interpolated in the template).
+      .resources-caret {
         flex: 0 0 auto;
-        margin-left: auto;  // push to the right-hand side
+        margin-left: auto;
         font-size: 12px;
         line-height: 1;
         color: vars.$dark-blue;
-
-        &::before {
-          content: '▼';
-        }
       }
 
       h4 {
@@ -347,10 +342,6 @@
         font-size: 16px;
         color: vars.$dark-blue;
       }
-    }
-
-    &[open] .resources-header .summary-caret::before {
-      content: '▲';
     }
   }
 

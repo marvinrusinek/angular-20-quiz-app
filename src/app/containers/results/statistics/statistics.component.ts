@@ -49,6 +49,15 @@ export class StatisticsComponent implements OnInit {
 
   readonly quizMetadata = signal<Partial<QuizMetadata>>({});
   readonly resources = signal<Resource[]>([]);
+
+  // Signal-controlled expand/collapse for the resources panel (replaces a native
+  // <details>, whose [open] CSS didn't flip the caret reliably here). COLLAPSED by
+  // default — starts with a ▼, and the first click reveals the resources.
+  readonly resourcesExpanded = signal(false);
+  toggleResources(): void {
+    this.resourcesExpanded.update(open => !open);
+    this.cdRef.markForCheck();
+  }
   readonly completionTimeSig = signal(0);
   readonly elapsedMinutes = computed(() => Math.floor(this.completionTimeSig() / 60));
   readonly elapsedSeconds = computed(() => this.completionTimeSig() % 60);
