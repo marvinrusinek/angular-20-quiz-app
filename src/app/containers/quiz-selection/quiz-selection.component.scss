@@ -354,6 +354,9 @@
 
         .quiz-card-progress-line {
           min-width: 0;  // truncate rather than grow the row
+          // Nudge right to line up with the summary text, which starts ~5px
+          // further in (the info block has a 5px left margin the footer lacks).
+          margin-left: 5px;
         }
       }
 
