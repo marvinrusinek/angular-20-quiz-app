@@ -287,8 +287,10 @@
         margin: 65% 0 0 5px;
         padding: 10px;
         width: 370px;
-        height: auto;
-        min-height: 110px;
+        // Fixed height + clip so the title/summary region can NEVER grow and
+        // push the footer (difficulty + progress) up over the summary text.
+        height: 110px;
+        overflow: hidden;
 
         .quiz-title {
           font-size: 18px;
@@ -317,11 +319,10 @@
           // Trim the default h6 bottom margin (~32px) so the difficulty badge
           // sits closer under the summary text.
           margin-bottom: 6px;
-          // Clamp long summaries to 4 lines so every tile fits the fixed height
-          // uniformly (tall advanced tiles shrink instead of overflowing).
-          display: -webkit-box;
-          -webkit-line-clamp: 4;
-          -webkit-box-orient: vertical;
+          // Clip long summaries at a clean 3-line boundary WITHOUT an ellipsis
+          // (user preference — no "…"). The fixed .quiz-info height clips as a
+          // backstop so the footer row never gets pushed over the summary.
+          max-height: 4.05em;  // 3 lines at line-height 1.35
           overflow: hidden;
         }
 
