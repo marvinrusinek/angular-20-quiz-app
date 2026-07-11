@@ -328,9 +328,11 @@
       gap: 8px;
       margin-bottom: 12px;
 
-      // CSS-drawn triangle: points DOWN when collapsed, rotates to UP when open.
+      // CSS-drawn triangle at the RIGHT of the summary text: points DOWN when
+      // collapsed, rotates to UP when open.
       .summary-caret {
         flex: 0 0 auto;
+        margin-left: auto;  // push to the right-hand side
         width: 0;
         height: 0;
         border-left: 6px solid transparent;
