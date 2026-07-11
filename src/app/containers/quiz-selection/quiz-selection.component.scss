@@ -253,10 +253,11 @@
       flex-direction: column;
       margin: 0 10px 20px 0;
       width: 320px;
-      // Grow to fit longer summaries + the badge instead of a fixed 375px, which
-      // let long summaries run underneath the absolutely-positioned badge.
-      min-height: 375px;
-      height: auto;
+      // Fixed height so EVERY tile is the same size (long-summary quizzes like
+      // RxJS/Testing/Signals no longer grow taller). The summary is line-clamped
+      // to fit; the footer row is pinned to the bottom via margin-top:auto.
+      height: 375px;
+      overflow: hidden;
       padding-bottom: 6px;
       background-color: vars.$off-white;
       border: 1px solid vars.$black;
@@ -308,6 +309,12 @@
           // Trim the default h6 bottom margin (~32px) so the difficulty badge
           // sits closer under the summary text.
           margin-bottom: 6px;
+          // Clamp long summaries to 4 lines so every tile fits the fixed height
+          // uniformly (tall advanced tiles shrink instead of overflowing).
+          display: -webkit-box;
+          -webkit-line-clamp: 4;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
         }
 
       }
