@@ -496,21 +496,22 @@
     // all five across won't fit on a phone.
     .quiz-stats {
       flex-wrap: wrap !important;
-      gap: 6px 14px !important;
-      padding: 10px 12px !important;
+      gap: 6px 8px !important;
+      padding: 10px 10px !important;
       max-width: 100% !important;
 
       .stat-num {
-        font-size: 22px !important;
+        font-size: 20px !important;
       }
 
       .stat-label {
-        font-size: 9px !important;
-        letter-spacing: 0.3px !important;
+        font-size: 8px !important;
+        letter-spacing: 0.2px !important;
       }
 
       .stat-divider {
-        height: 30px !important;
+        width: 1px !important;
+        height: 28px !important;
       }
 
       // The divider before the first difficulty (4th child) becomes an invisible
