@@ -146,7 +146,9 @@ mat-accordion {
 }
 
 .summary-header {
-  margin: 0 0 15px 40px;
+  // Left-aligned to 0 (was 40px) so the header lines up with the review filters
+  // directly below it.
+  margin: 0 0 15px 0;
   font-family: vars.$font-stack;
   color: vars.$dark-blue;
 }
@@ -155,7 +157,8 @@ mat-accordion {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin: -6px 0 15px 40px;
+  // Left-aligned to 0 (was 40px) to match the header + filters.
+  margin: -6px 0 15px 0;
   font-family: vars.$font-stack;
   font-weight: 600;
   color: #b26a00;
