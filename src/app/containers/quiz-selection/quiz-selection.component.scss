@@ -293,7 +293,8 @@
           font-size: 18px;
           font-weight: vars.$font-weight-max;
           color: vars.$fire-red;
-          margin-top: 20px;
+          // Lifted 5px (was 20px) so the tile's first row clears the fold.
+          margin-top: 15px;
         }
 
         .quiz-summary {
@@ -321,7 +322,8 @@
         justify-content: space-between;
         gap: 8px;
         margin-top: auto;
-        padding: 0 10px 8px;
+        // Lifted 5px off the bottom (was 8px) so the progress row sits higher.
+        padding: 0 10px 13px;
 
         .quiz-card-progress-line {
           min-width: 0;  // truncate rather than grow the row
