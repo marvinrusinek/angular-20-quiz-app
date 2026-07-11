@@ -67,7 +67,9 @@ import { swallow } from '../../shared/utils/error-logging';
   styleUrls: ['./results.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    '(window:scroll)': 'onWindowScroll()'
+    '(window:scroll)': 'onWindowScroll()',
+    '(document:click)': 'onDocumentClick($event)',
+    '(document:keydown.escape)': 'onEscapeKey()'
   }
 })
 export class ResultsComponent implements OnInit {
@@ -196,6 +198,25 @@ export class ResultsComponent implements OnInit {
 
   closeMenu(): void {
     this.menuOpen.set(false);
+  }
+
+  /**
+   * Dismiss the hamburger menu on a click anywhere outside the hamburger button
+   * and its dropdown panel (both live under `.hamburger-menu`). Pure dismissal:
+   * it does NOT navigate, scroll, or change the active section — the user stays
+   * exactly where they were. The button's own click bubbles here too, but it's
+   * inside `.hamburger-menu`, so opening the menu never immediately closes it.
+   */
+  onDocumentClick(event: MouseEvent): void {
+    if (!this.menuOpen()) return;
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('.hamburger-menu')) return;
+    this.closeMenu();
+  }
+
+  /** Escape closes the open menu (keyboard accessibility), nothing more. */
+  onEscapeKey(): void {
+    if (this.menuOpen()) this.closeMenu();
   }
 
   setActiveSection(section: 'score' | 'report' | 'summary' | 'highscores' | 'resources'): void {
