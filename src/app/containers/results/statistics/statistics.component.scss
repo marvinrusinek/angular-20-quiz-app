@@ -328,17 +328,18 @@
       gap: 8px;
       margin-bottom: 12px;
 
-      // CSS-drawn triangle at the RIGHT of the summary text: points DOWN when
-      // collapsed, rotates to UP when open.
+      // Right-side caret matching the Achievements catalog chevron: ▼ when
+      // collapsed, ▲ when expanded.
       .summary-caret {
         flex: 0 0 auto;
         margin-left: auto;  // push to the right-hand side
-        width: 0;
-        height: 0;
-        border-left: 6px solid transparent;
-        border-right: 6px solid transparent;
-        border-top: 7px solid vars.$dark-blue;
-        transition: transform 0.2s ease;
+        font-size: 12px;
+        line-height: 1;
+        color: vars.$dark-blue;
+
+        &::before {
+          content: '▼';
+        }
       }
 
       h4 {
@@ -348,8 +349,8 @@
       }
     }
 
-    &[open] .summary-caret {
-      transform: rotate(180deg);
+    &[open] .summary-caret::before {
+      content: '▲';
     }
   }
 
