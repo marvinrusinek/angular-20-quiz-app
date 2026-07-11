@@ -328,11 +328,26 @@
       gap: 8px;
       margin-bottom: 12px;
 
+      // CSS-drawn triangle: points DOWN when collapsed, rotates to UP when open.
+      .summary-caret {
+        flex: 0 0 auto;
+        width: 0;
+        height: 0;
+        border-left: 6px solid transparent;
+        border-right: 6px solid transparent;
+        border-top: 7px solid vars.$dark-blue;
+        transition: transform 0.2s ease;
+      }
+
       h4 {
         margin: 0;
         font-size: 16px;
         color: vars.$dark-blue;
       }
+    }
+
+    &[open] .summary-caret {
+      transform: rotate(180deg);
     }
   }
 
