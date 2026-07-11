@@ -491,26 +491,36 @@
       }
     }
 
-    // Keep all five stats (incl. the 4 / 8 / 3 difficulty counts) on ONE line by
-    // compressing gap, padding, and font sizes so they don't wrap on phones.
+    // Two rows on mobile: "Quizzes | Questions" on the top line, then the three
+    // difficulty levels (Beginner | Intermediate | Advanced) on one line below —
+    // all five across won't fit on a phone.
     .quiz-stats {
-      flex-wrap: nowrap !important;
-      gap: 7px !important;
-      padding: 8px 8px !important;
+      flex-wrap: wrap !important;
+      gap: 6px 14px !important;
+      padding: 10px 12px !important;
       max-width: 100% !important;
 
       .stat-num {
-        font-size: 17px !important;
+        font-size: 22px !important;
       }
 
       .stat-label {
-        font-size: 8px !important;
-        letter-spacing: 0.2px !important;
+        font-size: 9px !important;
+        letter-spacing: 0.3px !important;
       }
 
       .stat-divider {
-        width: 1px !important;
-        height: 26px !important;
+        height: 30px !important;
+      }
+
+      // The divider before the first difficulty (4th child) becomes an invisible
+      // full-width break, dropping the three levels onto their own row.
+      .stat-divider:nth-child(4) {
+        flex-basis: 100% !important;
+        width: 100% !important;
+        height: 0 !important;
+        margin: 0 !important;
+        background: transparent !important;
       }
     }
 
