@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 
 import { Quiz } from '../../models/Quiz.model';
 import {
@@ -8,11 +8,9 @@ import {
   EarnedAchievement
 } from '../../models/achievement.model';
 import { ACHIEVEMENT_DEFINITIONS } from '../../constants/achievements';
-import { SK_QUIZ_ACHIEVEMENTS, SK_QUIZ_BEST_SCORES } from '../../constants/session-keys';
+import { SK_QUIZ_ACHIEVEMENTS } from '../../constants/session-keys';
 import { readLocalJson, writeLocalJson } from '../../utils/local-storage';
-
-/** quizId -> best score (0-100). A key's presence means the quiz was completed. */
-type BestScores = Record<string, number>;
+import { BestScores, BestScoreService } from '../progress/best-score.service';
 
 /**
  * Centralized, backend-free achievement engine. It owns the ONLY durable state
@@ -27,17 +25,15 @@ type BestScores = Record<string, number>;
 export class AchievementService {
   readonly definitions: readonly AchievementDefinition[] = ACHIEVEMENT_DEFINITIONS;
 
+  private readonly bestScoreService = inject(BestScoreService);
+
   /**
    * Record a completed quiz's score, keeping the BEST per quiz. A later, lower
-   * attempt never lowers a previously stored higher score.
+   * attempt never lowers a previously stored higher score. Delegates to the
+   * shared best-score store (the single source of completion + best-score data).
    */
   recordQuizResult(quizId: string, scorePercent: number): void {
-    if (!quizId) return;
-    const score = this.clampPercent(scorePercent);
-    const best = this.readBestScores();
-    const previous = best[quizId];
-    best[quizId] = previous == null ? score : Math.max(previous, score);
-    writeLocalJson(SK_QUIZ_BEST_SCORES, best);
+    this.bestScoreService.recordBestScore(quizId, scorePercent);
   }
 
   /**
@@ -46,9 +42,7 @@ export class AchievementService {
    * earned by THIS evaluation (so a repeat call returns []).
    */
   evaluate(quizzes: Quiz[]): AchievementDefinition[] {
-    this.seedFromLegacyIfEmpty();
-
-    const best = this.readBestScores();
+    const best = this.bestScoreService.getBestScores();
     const earned = this.readEarned();
     const earnedIds = new Set<AchievementId>(earned.map(e => e.id));
 
@@ -112,16 +106,6 @@ export class AchievementService {
   }
 
   // ── persisted state (safe reads) ───────────────────────────────
-  private readBestScores(): BestScores {
-    const raw = readLocalJson<unknown>(SK_QUIZ_BEST_SCORES, {});
-    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
-    const out: BestScores = {};
-    for (const [quizId, value] of Object.entries(raw as Record<string, unknown>)) {
-      if (typeof value === 'number' && Number.isFinite(value)) out[quizId] = this.clampPercent(value);
-    }
-    return out;
-  }
-
   private readEarned(): EarnedAchievement[] {
     const raw = readLocalJson<unknown>(SK_QUIZ_ACHIEVEMENTS, []);
     if (!Array.isArray(raw)) return [];
@@ -139,31 +123,5 @@ export class AchievementService {
       });
     }
     return out;
-  }
-
-  /**
-   * One-time best-effort migration: if no best scores are stored yet, seed them
-   * from the legacy `highScoresLocal` recent-scores list so users with existing
-   * progress get credit without retaking quizzes.
-   */
-  private seedFromLegacyIfEmpty(): void {
-    if (Object.keys(this.readBestScores()).length > 0) return;
-    const legacy = readLocalJson<unknown[]>('highScoresLocal', []);
-    if (!Array.isArray(legacy) || legacy.length === 0) return;
-    const best: BestScores = {};
-    for (const entry of legacy) {
-      const quizId = (entry as { quizId?: unknown })?.quizId;
-      const score = (entry as { score?: unknown })?.score;
-      if (typeof quizId === 'string' && typeof score === 'number' && Number.isFinite(score)) {
-        const pct = this.clampPercent(score);
-        best[quizId] = best[quizId] == null ? pct : Math.max(best[quizId], pct);
-      }
-    }
-    if (Object.keys(best).length > 0) writeLocalJson(SK_QUIZ_BEST_SCORES, best);
-  }
-
-  private clampPercent(n: number): number {
-    if (!Number.isFinite(n)) return 0;
-    return Math.max(0, Math.min(100, Math.round(n)));
   }
 }

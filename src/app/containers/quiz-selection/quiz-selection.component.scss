@@ -308,6 +308,14 @@
           // sits closer under the summary text.
           margin-bottom: 6px;
         }
+
+        // Compact single-line progress badge under the summary. One line in
+        // every state keeps card height consistent across Not Started / In
+        // Progress / Completed.
+        .quiz-card-progress-line {
+          display: block;
+          margin-top: 2px;
+        }
       }
 
       .difficulty-badge {

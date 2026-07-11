@@ -23,9 +23,17 @@ import { QuizTileStyles } from '../../shared/models/QuizTileStyles.model';
 import { QuizDataService } from '../../shared/services/data/quizdata.service';
 import { QuizService } from '../../shared/services/data/quiz.service';
 import { AchievementService } from '../../shared/services/achievements/achievement.service';
+import { ProgressService } from '../../shared/services/progress/progress.service';
+
+import { ProgressSummary, QuizProgress } from '../../shared/models/progress.model';
 
 import { BackToTopComponent } from '../../components/back-to-top/back-to-top.component';
 import { AchievementsSummaryComponent } from '../../components/achievements-summary/achievements-summary.component';
+import { ProgressPanelComponent } from '../../components/progress-panel/progress-panel.component';
+import {
+  QuizCardProgressComponent,
+  QuizCardProgressState
+} from '../../components/quiz-card-progress/quiz-card-progress.component';
 import { QuizSearchComponent } from '../../components/quiz-search/quiz-search.component';
 import { QuizSortComponent } from '../../components/quiz-sort/quiz-sort.component';
 import { ScrollDownIndicatorComponent } from '../../components/scroll-down-indicator/scroll-down-indicator.component';
@@ -50,6 +58,8 @@ import { swallow } from '../../shared/utils/error-logging';
     ScrollDownIndicatorComponent,
     BackToTopComponent,
     AchievementsSummaryComponent,
+    ProgressPanelComponent,
+    QuizCardProgressComponent,
     CountUpDirective
   ],
   templateUrl: './quiz-selection.component.html',
@@ -63,6 +73,7 @@ export class QuizSelectionComponent implements OnInit {
   private readonly quizDataService = inject(QuizDataService);
   private readonly quizService = inject(QuizService);
   private readonly achievementService = inject(AchievementService);
+  private readonly progressService = inject(ProgressService);
   private readonly router = inject(Router);
 
   // Compact "Achievements X / N" progress for the catalog header. Populated
@@ -141,6 +152,45 @@ export class QuizSelectionComponent implements OnInit {
 
     return { quizCount, questionCount, levels };
   });
+
+  // ── progress tracking (derived; reuses the shared best-score store) ─────
+  // Recomputes whenever the quiz list changes. Reads completion + best scores
+  // from ProgressService (single source), never from localStorage directly here.
+  readonly progressSummary = computed<ProgressSummary>(() =>
+    this.progressService.getProgressSummary(this.quizzes() ?? [])
+  );
+
+  // Per-quiz card state. 'completed' (durable best-score store, or an existing
+  // completed status) wins; otherwise an existing STARTED/CONTINUE status →
+  // 'in-progress'; otherwise 'not-started'. Best score shows only when recorded.
+  readonly quizCardProgress = computed<Map<string, { state: QuizCardProgressState; bestScore: number | null }>>(() => {
+    const list = this.quizzes() ?? [];
+    const completedIds = this.completedQuizIds();
+    const byQuiz = new Map<string, QuizProgress>();
+    for (const progress of this.progressService.getQuizProgress(list)) {
+      byQuiz.set(progress.quizId, progress);
+    }
+
+    const map = new Map<string, { state: QuizCardProgressState; bestScore: number | null }>();
+    for (const quiz of list) {
+      const progress = byQuiz.get(quiz.quizId);
+      let state: QuizCardProgressState;
+      if (progress?.completed || quiz.status === QuizStatus.COMPLETED || completedIds.has(quiz.quizId)) {
+        state = 'completed';
+      } else if (quiz.status === QuizStatus.STARTED || quiz.status === QuizStatus.CONTINUE) {
+        state = 'in-progress';
+      } else {
+        state = 'not-started';
+      }
+      map.set(quiz.quizId, { state, bestScore: progress?.bestScore ?? null });
+    }
+    return map;
+  });
+
+  // Flat list of card states — drives the progress panel's "has activity" guard.
+  readonly cardStateList = computed<QuizCardProgressState[]>(() =>
+    Array.from(this.quizCardProgress().values()).map(entry => entry.state)
+  );
 
   readonly accessedCount = signal(0);
   readonly totalQuizCountSig = signal(0);
