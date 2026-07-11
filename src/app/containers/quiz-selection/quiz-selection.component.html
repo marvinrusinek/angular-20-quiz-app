@@ -139,13 +139,6 @@
           >
             {{ quiz?.summary || 'Summary not found' }}
           </h6>
-
-          @let cardProgress = quizCardProgress().get(quiz.quizId);
-          <codelab-quiz-card-progress
-            class="quiz-card-progress-line"
-            [state]="cardProgress?.state ?? 'not-started'"
-            [bestScore]="cardProgress?.bestScore ?? null"
-          />
         </summary>
 
         <div class="status-icon">
@@ -164,14 +157,25 @@
           </mat-card-actions>
         </div>
 
-        @if (quiz?.difficulty; as difficulty) {
-          <span
-            class="difficulty-badge"
-            [ngClass]="'difficulty-' + difficulty"
-          >
-            {{ difficulty | titlecase }}
-          </span>
-        }
+        <!-- Bottom row: progress (left) + difficulty (right) share one line so
+             the tile height stays fixed and content stays above the fold. -->
+        <div class="quiz-card-footer">
+          @let cardProgress = quizCardProgress().get(quiz.quizId);
+          <codelab-quiz-card-progress
+            class="quiz-card-progress-line"
+            [state]="cardProgress?.state ?? 'not-started'"
+            [bestScore]="cardProgress?.bestScore ?? null"
+          />
+
+          @if (quiz?.difficulty; as difficulty) {
+            <span
+              class="difficulty-badge"
+              [ngClass]="'difficulty-' + difficulty"
+            >
+              {{ difficulty | titlecase }}
+            </span>
+          }
+        </div>
       </div>
     }
   </div>

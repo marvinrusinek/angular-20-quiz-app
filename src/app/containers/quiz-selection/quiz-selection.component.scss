@@ -309,22 +309,31 @@
           margin-bottom: 6px;
         }
 
-        // Compact single-line progress badge under the summary. One line in
-        // every state keeps card height consistent across Not Started / In
-        // Progress / Completed.
+      }
+
+      // Bottom row shared by the progress text (left) and the difficulty badge
+      // (right). margin-top:auto pins it to the bottom so every tile's row lines
+      // up regardless of summary length — keeping tile height fixed (one line,
+      // in every progress state) and content above the fold.
+      .quiz-card-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-top: auto;
+        padding: 0 10px 8px;
+
         .quiz-card-progress-line {
-          display: block;
-          margin-top: 2px;
+          min-width: 0;  // truncate rather than grow the row
         }
       }
 
       .difficulty-badge {
-        // Pinned to the bottom-right of the tile (margin-top:auto pushes it down),
-        // so every tile's badge lines up regardless of summary length, and it
-        // still never overlaps the summary because it sits below it.
+        // Sits at the right of the shared bottom row (see .quiz-card-footer).
         display: block;
         width: fit-content;
-        margin: auto 10px 8px auto;
+        margin: 0;
+        flex: 0 0 auto;
         z-index: 2;
         padding: 3px 11px;
         border-radius: 12px;
