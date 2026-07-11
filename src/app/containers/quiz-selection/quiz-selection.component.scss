@@ -497,42 +497,31 @@
       }
     }
 
-    // Two rows on mobile: "Quizzes | Questions" on the top line, then the three
-    // difficulty levels (Beginner | Intermediate | Advanced) on one line below —
-    // all five across won't fit on a phone.
+    // All five stats on ONE line on mobile — compressed gap, padding, and fonts
+    // so Quizzes | Questions | Beginner | Intermediate | Advanced fit without
+    // wrapping (the difficulty group flows inline via display: contents).
     .quiz-stats {
-      flex-wrap: wrap !important;
-      gap: 6px 8px !important;
-      padding: 10px 10px !important;
+      flex-wrap: nowrap !important;
+      gap: 5px !important;
+      padding: 8px 6px !important;
       max-width: 100% !important;
 
       .stat-num {
-        font-size: 20px !important;
+        font-size: 18px !important;
       }
 
       .stat-label {
         font-size: 8px !important;
-        letter-spacing: 0.2px !important;
+        letter-spacing: 0 !important;
       }
 
       .stat-divider {
         width: 1px !important;
-        height: 28px !important;
-      }
-
-      // Drop the whole difficulty group onto its own line (full-width flex row,
-      // no-wrap so all three levels stay together), and hide the now-dangling
-      // divider that separated Questions from the levels.
-      .stat-divider--before-levels {
-        display: none !important;
+        height: 26px !important;
       }
 
       .difficulty-stats {
-        display: flex !important;
-        flex-basis: 100% !important;
-        justify-content: center !important;
-        align-items: center !important;
-        gap: 8px !important;
+        display: contents !important;
       }
     }
 
