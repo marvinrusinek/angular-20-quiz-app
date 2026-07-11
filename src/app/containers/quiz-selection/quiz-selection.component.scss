@@ -290,17 +290,19 @@
         // Fixed height + clip so the title/summary region can NEVER grow and
         // push the footer up. Sized (border-box) to fit a 1-line title + a
         // 4-line summary without slicing the last line.
-        height: 124px;
+        height: 132px;
         overflow: hidden;
 
         .quiz-title {
           font-size: 18px;
           font-weight: vars.$font-weight-max;
           color: vars.$fire-red;
-          // Keep clear of the background image: the image bottom is ~220px and
-          // the info block starts ~208px, so the title must stay a little below
-          // it — moving it higher would overlap the image.
-          margin-top: 15px;
+          // Up 5px (15→10) with 5px of breathing room beneath the title. Zeroing
+          // the default h5 bottom margin (~30px) earlier freed the summary's 4th
+          // line; this keeps a deliberate 5px title-to-summary gap. (Watch the bg
+          // image: its bottom is ~220px and the info block starts ~208px.)
+          margin: 10px 0 5px 0;
+          line-height: 1.2;
           // Keep the title on ONE line so a long milestone can't wrap to two
           // lines and push the summary + footer past the fixed tile height
           // (which is what crowded the footer up against the summary).
@@ -314,9 +316,12 @@
             700 14px 'Helvetica Neue',
             sans-serif;
           text-align: justify;
-          line-height: 19px;
+          line-height: 17px;
           width: 280px;
-          margin-top: -15px;
+          // Sit directly under the title (the title's default bottom margin is
+          // now zeroed, so no negative pull is needed — a negative margin here
+          // would overlap the title).
+          margin-top: 0;
           // Trim the default h6 bottom margin (~32px) so the difficulty badge
           // sits closer under the summary text.
           margin-bottom: 6px;
