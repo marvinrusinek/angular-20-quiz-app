@@ -313,16 +313,18 @@
             700 14px 'Helvetica Neue',
             sans-serif;
           text-align: justify;
-          line-height: 1.35;
+          // Integer px line-height so N lines divide evenly into max-height —
+          // otherwise a fractional line-height clips the 3rd line mid-glyph.
+          line-height: 19px;
           width: 280px;
           margin-top: -15px;
           // Trim the default h6 bottom margin (~32px) so the difficulty badge
           // sits closer under the summary text.
           margin-bottom: 6px;
-          // Clip long summaries at a clean 3-line boundary WITHOUT an ellipsis
-          // (user preference — no "…"). The fixed .quiz-info height clips as a
-          // backstop so the footer row never gets pushed over the summary.
-          max-height: 4.05em;  // 3 lines at line-height 1.35
+          // Show exactly 3 full lines, then clip cleanly — NO ellipsis (the full
+          // summary is shown in the Introduction screen). The fixed .quiz-info
+          // height also clips as a backstop so the footer never gets pushed up.
+          max-height: 57px;  // 3 × 19px
           overflow: hidden;
         }
 
