@@ -1,11 +1,11 @@
 <h1 align="center">🚀 Angular Quiz App</h1>
 
 <p align="center">
-A feature-rich quiz platform built with <strong>Angular 20</strong> that demonstrates modern frontend engineering through <strong>Angular Signals</strong> and <strong>RxJS</strong> for reactive state management, together with a modular service-oriented architecture.
+A feature-rich quiz platform built with <strong>Angular 21</strong> that demonstrates modern frontend engineering through <strong>Angular Signals</strong> and <strong>RxJS</strong> for reactive state management, together with a modular service-oriented architecture.
 </p>
 
 <p align="center">
-<img src="https://img.shields.io/badge/Angular-20-red">
+<img src="https://img.shields.io/badge/Angular-21-red">
 <img src="https://img.shields.io/badge/TypeScript-Enabled-blue">
 <img src="https://img.shields.io/badge/RxJS-Reactive-purple">
 <img src="https://img.shields.io/badge/Signals-Integrated-orange">
@@ -32,7 +32,7 @@ A feature-rich quiz platform built with <strong>Angular 20</strong> that demonst
 
 <p>
 This project demonstrates modern Angular application architecture through a feature-rich quiz platform built with
-<strong>Angular 20</strong>, <strong>Signals</strong>, <strong>RxJS</strong>, and a
+<strong>Angular 21</strong>, <strong>Signals</strong>, <strong>RxJS</strong>, and a
 <strong>modular service-oriented architecture</strong>.
 </p>
 
@@ -51,7 +51,7 @@ increase testability, and organize quiz behavior into focused services and reusa
 <h2>🏆 Engineering Highlights</h2>
 
 <ul>
-<li>Built with <strong>Angular 20</strong>, <strong>TypeScript</strong>, <strong>RxJS</strong>, and <strong>Angular Signals</strong></li>
+<li>Built with <strong>Angular 21</strong>, <strong>TypeScript</strong>, <strong>RxJS</strong>, and <strong>Angular Signals</strong></li>
 <li>Architected using a <strong>modular service-oriented design</strong> with standalone components and clear separation of concerns</li>
 <li>Combines <strong>Signals</strong> for reactive UI state with <strong>RxJS</strong> for asynchronous and event-driven workflows</li>
 <li>Supports <strong>single-answer</strong> and <strong>multiple-answer</strong> quiz modes with distinct interaction, scoring, and feedback logic</li>
@@ -149,7 +149,7 @@ Score • Feedback • Quiz Review • Results
 <h2>🛠️ Technology Stack</h2>
 
 <ul>
-<li><strong>Framework:</strong> Angular 20</li>
+<li><strong>Framework:</strong> Angular 21</li>
 <li><strong>Language:</strong> TypeScript</li>
 <li><strong>State Management:</strong> Angular Signals, RxJS</li>
 <li><strong>UI:</strong> Angular Material, SCSS</li>
