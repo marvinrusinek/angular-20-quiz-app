@@ -489,6 +489,10 @@ export class QuizComponent implements OnInit, AfterViewInit {
 
     ref.afterClosed().subscribe((confirmed) => {
       if (!confirmed) return;
+      // Restart = a NEW attempt → new attempt id so the retake records its own
+      // High Scores row. This only resets the active attempt; the persistent
+      // highScoresLocal history is intentionally left untouched.
+      this.quizService.startNewAttempt();
       this.quizSetupService.restartQuiz(this);
     });
   }

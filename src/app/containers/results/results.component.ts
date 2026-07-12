@@ -193,6 +193,19 @@ export class ResultsComponent implements OnInit {
       this.updateHeaderLabel(snapshot.total);
       this.persistResultsToSession(snapshot);
       this.processAchievements(snapshot);
+
+      // Record this completed attempt in the High Scores list ONCE, here at the
+      // single results-load convergence point (alongside achievements). The
+      // write used to live in SummaryReportComponent.initComponent(), which is
+      // re-created on every results-section switch, so it appended a duplicate
+      // row each time. recordCompletedQuizScore is idempotent, so re-viewing /
+      // refreshing the results does not duplicate the row.
+      this.quizService.recordCompletedQuizScore(
+        snapshot.quizId,
+        snapshot.percentage,
+        snapshot.total,
+        this.quizService.getCurrentAttemptId()
+      );
     }
     // No snapshot: the constructor effect picks up finalResult$ emissions.
 

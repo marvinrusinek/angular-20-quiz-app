@@ -712,6 +712,18 @@ export class QuizService {
     this.scoringService.saveHighScores(this.quizId, this.totalQuestions());
   }
 
+  recordCompletedQuizScore(quizId: string, score: number, totalQuestions: number, attemptId: string): void {
+    this.scoringService.recordCompletedQuizScore(quizId, score, totalQuestions, attemptId);
+  }
+
+  startNewAttempt(): string {
+    return this.scoringService.startNewAttempt();
+  }
+
+  getCurrentAttemptId(): string {
+    return this.scoringService.getCurrentAttemptId();
+  }
+
   calculatePercentageOfCorrectlyAnsweredQuestions(): number {
     return this.scoringService.calculatePercentageOfCorrectlyAnsweredQuestions(this.totalQuestions());
   }

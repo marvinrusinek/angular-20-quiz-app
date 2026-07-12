@@ -237,6 +237,9 @@ export class IntroductionComponent implements OnInit {
   // Prevents stale state (e.g. 1/6 score) leaking from a prior attempt.
   // Storage cleanup is delegated to QuizPersistenceService.
   private resetQuizForFreshStart(targetQuizId: string): void {
+    // A fresh start is a NEW attempt → mint a new attempt id so its completion
+    // records a distinct High Scores row (even if it scores the same as before).
+    this.quizService.startNewAttempt();
     this.quizService.resetScore();
     this.quizService.questionCorrectness.clear();
     this.quizService.selectedOptionsMap.clear();

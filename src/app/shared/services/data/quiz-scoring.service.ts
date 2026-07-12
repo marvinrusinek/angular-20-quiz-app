@@ -30,8 +30,17 @@ export class QuizScoringService {
   public questionCorrectness = new Map<number, boolean>();
 
   quizScore: QuizScore | null = null;
-  highScores: QuizScore[] = [];
+  // Persisted list loaded first so `highScores` (the read-only view source)
+  // mirrors it from the start — the High Scores table then shows the stored list
+  // even before/without a fresh completion re-recording (e.g. on a refresh).
   highScoresLocal = JSON.parse(localStorage.getItem('highScoresLocal') ?? '[]');
+  highScores: QuizScore[] = this.highScoresLocal;
+
+  // Stable id for the CURRENT quiz attempt. Minted at attempt start / Restart
+  // Quiz (startNewAttempt) and persisted to sessionStorage so it survives the
+  // start → complete → Results flow AND a Results refresh (same-tab), which is
+  // what lets the High Scores write dedup by attempt instead of by score.
+  private currentAttemptId = sessionStorage.getItem('currentAttemptId') ?? '';
 
   // Tracks confirmed correct clicks per question. Each call to recordCorrectClick
   // adds the option text; the pristine gate only allows scoring when the count
@@ -396,17 +405,84 @@ export class QuizScoringService {
   // High Scores
   // ═══════════════════════════════════════════════════════════════════════
 
+  /**
+   * Mint a NEW attempt id (called when a quiz attempt starts and on Restart
+   * Quiz). Persisted so it survives navigation to Results and a Results refresh.
+   */
+  startNewAttempt(): string {
+    const id = `att_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    this.currentAttemptId = id;
+    try {
+      sessionStorage.setItem('currentAttemptId', id);
+    } catch (err: unknown) {
+      // Storage unavailable — the in-memory id still works for this session.
+      swallow('quiz-scoring.service.ts#startNewAttempt', err);
+    }
+    return id;
+  }
+
+  /** The current attempt's id (reused across Results open/refresh — NOT re-minted). */
+  getCurrentAttemptId(): string {
+    if (!this.currentAttemptId) {
+      try {
+        this.currentAttemptId = sessionStorage.getItem('currentAttemptId') ?? '';
+      } catch (err: unknown) {
+        swallow('quiz-scoring.service.ts#getCurrentAttemptId', err);
+      }
+    }
+    return this.currentAttemptId;
+  }
+
   saveHighScores(quizId: string, totalQuestions: number): void {
-    this.quizScore = {
-      quizId: quizId,
-      attemptDateTime: new Date(),
-      score: this.calculatePercentageOfCorrectlyAnsweredQuestions(totalQuestions),
-      totalQuestions: totalQuestions
-    };
+    this.recordCompletedQuizScore(
+      quizId,
+      this.calculatePercentageOfCorrectlyAnsweredQuestions(totalQuestions),
+      totalQuestions,
+      this.getCurrentAttemptId()
+    );
+  }
+
+  /**
+   * Record ONE High Scores row for a COMPLETED quiz attempt.
+   *
+   * Dedup is by ATTEMPT identity (`attemptId`), NOT by quiz+score+total — so two
+   * genuine retakes that happen to score the same remain SEPARATE rows, while
+   * re-opening / refreshing the SAME attempt's Results (which re-runs this) does
+   * not append a duplicate. Called once per results-page load (the single
+   * convergence point); the write itself no longer lives in the results VIEW.
+   * The persistent list is never cleared here (Restart Quiz must not wipe it).
+   */
+  recordCompletedQuizScore(
+    quizId: string,
+    score: number,
+    totalQuestions: number,
+    attemptId: string
+  ): void {
+    if (!quizId) return;
+
+    this.highScoresLocal = this.highScoresLocal ?? [];
+
+    // Skip the WRITE when this attempt is already recorded (Results reopen /
+    // refresh) or when there's no attempt to attribute (e.g. viewing old results
+    // without starting one). DON'T early-return: we still normalize + publish
+    // below so the read-only view reflects the stored list (otherwise
+    // `highScores` could render an unnormalized/blank list).
+    const alreadyRecorded =
+      !!attemptId &&
+      this.highScoresLocal.some((entry: QuizScore) => entry.attemptId === attemptId);
+
+    if (attemptId && !alreadyRecorded) {
+      this.quizScore = {
+        quizId: quizId,
+        attemptDateTime: new Date(),
+        score: score,
+        totalQuestions: totalQuestions,
+        attemptId: attemptId
+      };
+      this.highScoresLocal.push(this.quizScore);
+    }
 
     const MAX_HIGH_SCORES = 10;  // show results of the last 10 quizzes
-    this.highScoresLocal = this.highScoresLocal ?? [];
-    this.highScoresLocal.push(this.quizScore);
 
     // Sort descending by date
     this.highScoresLocal.sort((a: any, b: any) => {
@@ -417,8 +493,8 @@ export class QuizScoringService {
     // Filter out scores older than 7 days
     const oneWeekAgo = new Date();
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-    this.highScoresLocal = this.highScoresLocal.filter((score: any) => {
-      const scoreDate = new Date(score.attemptDateTime);
+    this.highScoresLocal = this.highScoresLocal.filter((entry: any) => {
+      const scoreDate = new Date(entry.attemptDateTime);
       return scoreDate >= oneWeekAgo;
     });
 

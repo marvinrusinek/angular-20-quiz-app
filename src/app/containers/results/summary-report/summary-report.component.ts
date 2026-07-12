@@ -111,7 +111,10 @@ export class SummaryReportComponent implements OnInit {
 
       this.checkedShuffle.set(this.quizService.isShuffleEnabled());
       this.calculateElapsedTime();
-      this.quizService.saveHighScores();
+      // READ-ONLY: this view only displays the High Scores. The record itself is
+      // written once at completion in ResultsComponent.ngOnInit
+      // (quizService.recordCompletedQuizScore). Writing here re-fired on every
+      // section switch and produced duplicate rows.
       this.highScores.set(this.quizService.highScores);
 
       // Create current score object for display
