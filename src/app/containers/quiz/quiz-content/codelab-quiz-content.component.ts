@@ -41,7 +41,7 @@ import { TimerService } from '../../../shared/services/features/timer/timer.serv
 import { QuizQuestionComponent } from '../../../components/question/quiz-question/quiz-question.component';
 
 import { buildHeadingInputs } from '../../../shared/utils/heading-inputs';
-import { deriveHeadingHtml } from '../../../shared/utils/heading-model';
+import { deriveHeadingHtml, shouldShowFet } from '../../../shared/utils/heading-model';
 
 @Component({
   selector: 'codelab-quiz-content',
@@ -132,6 +132,15 @@ export class CodelabQuizContentComponent implements OnInit {
 
   isContentAvailable$!: Observable<boolean>;
 
+  // Purge-proof, per-index memo of the last non-empty FET html. The FET
+  // pipeline can transiently clear formattedExplanations[idx] for a frame during
+  // the revisit transition (the purge branch in
+  // getFormattedExplanationTextForQuestion), which makes buildHeadingInputs.fetHtml
+  // momentarily empty and would flip the heading question→FET→question = the
+  // revisit flicker (visible only in slower runtimes like StackBlitz). This memo
+  // survives that purge so the heading can hold the FET when it SHOULD be shown.
+  private readonly _lastGoodFetByIndex = new Map<number, string>();
+
   // The single-source heading decision: one pure computed that decides the <h3>
   // contents (question text + banner, or the FET) from quiz state. Bound to the
   // heading's innerHTML by the lone DOM-write effect in the constructor.
@@ -148,8 +157,9 @@ export class CodelabQuizContentComponent implements OnInit {
     this.selectedOptionService.selectedOptionSig(); // option selection changed
     this.quizStateService.lastInteractionTimeSig(); // any genuine option click
     this.explanationTextService.formattedExplanationSig(); // FET text became available
+    const idx = this.quizService.currentQuestionIndex;
     const inputs = buildHeadingInputs({
-      idx: this.quizService.currentQuestionIndex,
+      idx,
       quizService: this.quizService,
       explanationTextService: this.explanationTextService,
       timerService: this.timerService,
@@ -158,7 +168,22 @@ export class CodelabQuizContentComponent implements OnInit {
       quizNavigationService: this.quizNavigationService,
       quizQuestionManagerService: this.quizQuestionManagerService,
     });
-    return inputs ? deriveHeadingHtml(inputs) : '';
+    if (!inputs) return '';
+
+    // Anti-blip: remember the last real FET for this index; when the FET SHOULD
+    // show but its text momentarily blips empty (transient purge during a
+    // revisit), reuse the remembered value so the heading never flips to the
+    // question text and back. Gated by shouldShowFet, so it can only ever hold a
+    // FET that is legitimately due — never resurrect one after nav/reset (those
+    // make shouldShowFet false, and the memo is not consulted).
+    if (inputs.fetHtml.trim().length > 0) {
+      this._lastGoodFetByIndex.set(idx, inputs.fetHtml);
+    } else if (shouldShowFet(inputs)) {
+      const remembered = this._lastGoodFetByIndex.get(idx);
+      if (remembered) inputs.fetHtml = remembered;
+    }
+
+    return deriveHeadingHtml(inputs);
   });
 
   // Signal source of truth + sync BS mirror. The TIMER-EXPIRY FAST PATH
