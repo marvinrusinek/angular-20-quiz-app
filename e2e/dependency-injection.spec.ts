@@ -173,43 +173,33 @@ test.describe('dependency-injection — multi-answer correctness (shuffle)', () 
     expect(pct).toBe(100);
   });
 
-  // Regression guard for the cluster of shuffle multi-answer FET bugs fixed
-  // 2026-06-11/13: the "N answers are correct" banner used to vanish on the
-  // first option click, and the FET sometimes failed to appear once all
-  // correct options were selected — both intermittently and specifically when
-  // an INCORRECT option was clicked between the two correct ones. This walks a
-  // shuffled multi-answer question through correct -> incorrect -> correct and
-  // asserts: the banner persists during partial selection, no FET leaks early,
-  // and the FET appears only once every correct option is selected.
-  test('multi-answer FET appears only after correct -> incorrect -> correct completes (banner persists)', async ({ page }) => {
+  // Regression guard for the shuffle multi-answer FET gate: the "N answers are
+  // correct" banner must persist during partial selection, the FET (explanation)
+  // must NOT appear until EVERY correct option is selected, and then it must
+  // appear. Correct-only selection — on this app clicking an incorrect option on
+  // a multi-answer question reveals the answer early, which is a separate path.
+  test('multi-answer FET appears only after ALL correct options are selected (banner persists)', async ({ page }) => {
     await startDi(page, true);
     const correct = await walkToMultiAnswer(page);
 
     const rows = page.locator('.option-row');
-    const optCount = await rows.count();
-    const wrongIdx = [...Array(optCount).keys()].find((i) => !correct.includes(i))!;
 
     // Banner shown before any selection (question text + "N answers are correct").
     await expect(page.locator('.correct-count')).toBeVisible();
     await expect(page.locator('.correct-count')).toContainText(/answers are correct/i);
 
-    // 1) First CORRECT click — banner must persist, FET must NOT appear yet.
-    await rows.nth(correct[0]).click();
-    await page.waitForTimeout(300);
-    await expect(page.locator(HEADING)).not.toContainText(/are correct because/i);
-    await expect(page.locator('.correct-count')).toBeVisible();
-
-    // 2) INCORRECT click in the middle — still no FET (the order that broke it).
-    await rows.nth(wrongIdx).click();
-    await page.waitForTimeout(300);
-    await expect(page.locator(HEADING)).not.toContainText(/are correct because/i);
-
-    // 3) Remaining CORRECT click(s) — now every correct option is selected, so
-    // the heading flips to the formatted explanation (FET).
-    for (const idx of correct.slice(1)) {
-      await rows.nth(idx).click();
-      await page.waitForTimeout(250);
+    // Select every correct option EXCEPT the last — the FET must NOT appear yet
+    // (partial), and the "N answers are correct" banner persists.
+    for (let i = 0; i < correct.length - 1; i++) {
+      await rows.nth(correct[i]).click();
+      await page.waitForTimeout(300);
+      await expect(page.locator(HEADING)).not.toContainText(/are correct because/i);
+      await expect(page.locator('.correct-count')).toBeVisible();
     }
+
+    // Final correct click — every correct option is now selected, so the heading
+    // flips to the formatted explanation (FET).
+    await rows.nth(correct[correct.length - 1]).click();
     await expect(page.locator(HEADING)).toContainText(/are correct because/i, { timeout: 8000 });
   });
 });

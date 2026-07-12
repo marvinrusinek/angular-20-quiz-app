@@ -1,4 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
+import { formsQuiz, findMultiAnswerQuestion, correctRowsForHeading } from './helpers';
 
 /**
  * Behavioral safety net for OptionInteractionService.handleOptionClick and
@@ -50,23 +51,30 @@ test.describe('single-answer click', () => {
 });
 
 test.describe('multi-answer click', () => {
+  // Resolve the forms multi-answer question from the data (was hardcoded Q4; the
+  // quiz was edited so the multi-answer question is elsewhere now).
+  const MULTI = findMultiAnswerQuestion(formsQuiz);
+
   test('shows the "N answers are correct" banner before any selection', async ({ page }) => {
-    await gotoQuestion(page, 'forms', 4);
+    await gotoQuestion(page, 'forms', MULTI.index);
     await expect(page.locator('.correct-count')).toBeVisible();
-    await expect(page.locator('.correct-count')).toContainText(/2 answers are correct/i);
+    await expect(page.locator('.correct-count'))
+      .toContainText(new RegExp(`${MULTI.correctCount} answers are correct`, 'i'));
   });
 
   test('gates the explanation until ALL correct answers are selected', async ({ page }) => {
-    await gotoQuestion(page, 'forms', 4);
+    await gotoQuestion(page, 'forms', MULTI.index);
     const rows = page.locator('.option-row');
+    const heading = (await page.locator(HEADING).first().textContent()) ?? '';
+    const corrects = await correctRowsForHeading(rows, formsQuiz, heading);
 
-    // Partial: one correct selected — explanation must NOT show yet.
-    await rows.nth(0).click();
+    // Partial: select all-but-one correct — explanation must NOT show yet.
+    for (let i = 0; i < corrects.length - 1; i++) await rows.nth(corrects[i]).click();
     await expect(page.locator(FEEDBACK)).toContainText(/select 1 more/i);
     await expect(page.locator(HEADING)).not.toContainText(/are correct because/i);
 
-    // Complete: second correct selected — explanation now shows.
-    await rows.nth(1).click();
+    // Complete: last correct selected — explanation now shows.
+    await rows.nth(corrects[corrects.length - 1]).click();
     await expect(page.locator(HEADING)).toContainText(/are correct because/i);
     await expect(page.locator(FEEDBACK)).toContainText(/right/i);
   });
@@ -81,7 +89,7 @@ test.describe('FET gate across navigation', () => {
     await page.locator(NEXT_BTN).click();
 
     // Q2 heading shows Q2's question, not Q1's leftover explanation.
-    await expect(page.locator(HEADING)).toContainText(/NOT a type/i);
+    await expect(page.locator(HEADING)).toContainText(/built-in TypeScript type/i);
     await expect(page.locator(HEADING)).not.toContainText(/is correct because/i);
   });
 
@@ -91,7 +99,7 @@ test.describe('FET gate across navigation', () => {
     await expect(page.locator('.option-row').nth(0)).toHaveClass(/selected/);
 
     await page.locator(NEXT_BTN).click();
-    await expect(page.locator(HEADING)).toContainText(/NOT a type/i);
+    await expect(page.locator(HEADING)).toContainText(/built-in TypeScript type/i);
 
     await page.locator(PREV_BTN).click();
     // Back on Q1, the previously-correct option is still highlighted.

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import {
   tsQuiz, formsQuiz, HEADING, NEXT_BTN, PREV_BTN, RESULTS_BTN,
-  correctIndices, correctIndexForHeading,
+  correctIndices, correctIndexForHeading, findMultiAnswerQuestion, correctRowsForHeading,
 } from './helpers';
 
 /**
@@ -32,26 +32,29 @@ test.describe('deeper navigation — highlight persistence', () => {
     await expect(page.locator('.option-row').nth(correctIdx)).toHaveClass(/selected/);
   });
 
-  test('multi-answer selections persist and Next stays enabled on revisit (forms Q4)', async ({ page }) => {
-    await page.goto('/quiz/question/forms/4');
+  test('multi-answer selections persist and Next stays enabled on revisit', async ({ page }) => {
+    // Resolve the forms multi-answer question from the data (was hardcoded Q4).
+    const multi = findMultiAnswerQuestion(formsQuiz);
+    await page.goto(`/quiz/question/forms/${multi.index}`);
     const rows = page.locator('.option-row');
     await rows.first().waitFor({ state: 'visible', timeout: 20_000 });
 
-    const [c0, c1] = correctIndices(formsQuiz.questions[3]);
-    await rows.nth(c0).click();
-    await rows.nth(c1).click();
-    await expect(rows.nth(c0)).toHaveClass(/selected/);
-    await expect(rows.nth(c1)).toHaveClass(/selected/);
+    const heading = (await page.locator(HEADING).first().textContent()) ?? '';
+    const corrects = await correctRowsForHeading(rows, formsQuiz, heading);
+    expect(corrects.length).toBe(multi.correctCount);
+
+    // Select ALL correct options (completes the multi-answer question).
+    for (const c of corrects) await rows.nth(c).click();
+    for (const c of corrects) await expect(rows.nth(c)).toHaveClass(/selected/);
     await expect(page.locator(NEXT_BTN)).toBeEnabled();
 
     await page.locator(NEXT_BTN).click();
-    await expect(page).toHaveURL(/\/5$/);
+    await expect(page).toHaveURL(new RegExp(`/${multi.index + 1}$`));
     await page.locator(PREV_BTN).click();
-    await expect(page).toHaveURL(/\/4$/);
+    await expect(page).toHaveURL(new RegExp(`/${multi.index}$`));
 
     // Both selections rehydrate and Next remains enabled.
-    await expect(page.locator('.option-row').nth(c0)).toHaveClass(/selected/);
-    await expect(page.locator('.option-row').nth(c1)).toHaveClass(/selected/);
+    for (const c of corrects) await expect(rows.nth(c)).toHaveClass(/selected/);
     await expect(page.locator(NEXT_BTN)).toBeEnabled();
   });
 

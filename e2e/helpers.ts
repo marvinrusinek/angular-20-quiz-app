@@ -54,6 +54,20 @@ export function correctIndicesForHeading(quiz: any, headingText: string): number
   return q ? correctIndices(q) : [];
 }
 
+/**
+ * The first multi-answer question (>= 2 correct) in a quiz — resolved from the
+ * data so specs don't hardcode a position/count that drifts when the quiz
+ * changes. Returns its 1-based question index and how many options are correct.
+ */
+export function findMultiAnswerQuestion(quiz: any): { index: number; correctCount: number } {
+  const questions = quiz?.questions ?? [];
+  for (let i = 0; i < questions.length; i++) {
+    const count = correctIndices(questions[i]).length;
+    if (count >= 2) return { index: i + 1, correctCount: count };
+  }
+  return { index: -1, correctCount: 0 };
+}
+
 // ─── typescript-quiz convenience wrappers (kept for existing specs) ─────────
 
 /** Resolve the typescript-quiz question whose text the heading begins with. */
