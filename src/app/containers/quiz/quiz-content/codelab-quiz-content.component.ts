@@ -12,11 +12,13 @@ import {
   OnInit,
   output,
   Renderer2,
+  SecurityContext,
   signal,
   untracked,
   viewChild,
 } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
+import { DomSanitizer } from '@angular/platform-browser';
 
 import { ActivatedRoute, ParamMap } from '@angular/router';
 import { BehaviorSubject, Observable, of, Subscription } from 'rxjs';
@@ -68,6 +70,7 @@ export class CodelabQuizContentComponent implements OnInit {
   public readonly cdRef = inject(ChangeDetectorRef);
   public readonly destroyRef = inject(DestroyRef);
   public readonly renderer = inject(Renderer2);
+  private readonly sanitizer = inject(DomSanitizer);
 
   // ── viewChilds ──────────────────────────────────────────────────
   readonly quizQuestionComponent = viewChild(QuizQuestionComponent);
@@ -256,11 +259,15 @@ export class CodelabQuizContentComponent implements OnInit {
     // hatch are removed; the old setHtml/writeQText writers are now fully dead and
     // are being deleted in the following steps.)
     effect(() => {
-      const html = this.headingHtml();
       const el = this.qText()?.nativeElement;
       if (!el) return;
-      if ((el.innerHTML ?? '') === html) return;
-      this.renderer.setProperty(el, 'innerHTML', html);
+      // Sanitize before the innerHTML write — never trust the raw string. The
+      // sanitizer keeps ordinary formatting (<code>/<strong>/<span>/<em>) and
+      // strips only unsafe constructs (scripts, dangerous URLs, event handlers).
+      const sanitizedHtml =
+        this.sanitizer.sanitize(SecurityContext.HTML, this.headingHtml()) ?? '';
+      if ((el.innerHTML ?? '') === sanitizedHtml) return;
+      this.renderer.setProperty(el, 'innerHTML', sanitizedHtml);
     });
 
     this.destroyRef.onDestroy(() => {
