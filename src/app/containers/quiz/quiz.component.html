@@ -13,13 +13,13 @@
             <mat-card-content>
               <codelab-scoreboard />
 
-              <ng-content></ng-content>
+              <ng-content select="[quiz-projected-content]"></ng-content>
 
-              <codelab-quiz-content
+              <!--<codelab-quiz-content
                 [questionIndex]="questionIndex"
                 [questionToDisplay$]="questionToDisplay$"
                 [explanationToDisplay]="explanationToDisplay()"
-                [displayState$]="displayState$" />
+                [displayState$]="displayState$" />-->
 
               <codelab-quiz-question
                 [questionPayload]="qa"

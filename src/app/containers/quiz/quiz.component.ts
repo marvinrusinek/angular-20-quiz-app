@@ -36,7 +36,7 @@ import { SelectedOptionService } from '../../shared/services/state/selectedoptio
 import { SelectionMessageService } from '../../shared/services/features/selection-message/selection-message.service';
 import { TimerService } from '../../shared/services/features/timer/timer.service';
 
-import { CodelabQuizContentComponent } from './quiz-content/codelab-quiz-content.component';
+//import { CodelabQuizContentComponent } from './quiz-content/codelab-quiz-content.component';
 import { CodelabQuizHeaderComponent } from './quiz-header/quiz-header.component';
 import { ConfirmDialogComponent, ConfirmDialogData } from '../../components/dialogs/confirm-dialog/confirm-dialog.component';
 import { QuizQuestionComponent } from '../../components/question/quiz-question/quiz-question.component';
@@ -65,7 +65,7 @@ type AnimationState = 'animationStarted' | 'none';
     MatTooltipModule,
     QuizQuestionComponent,
     CodelabQuizHeaderComponent,
-    CodelabQuizContentComponent,
+    //CodelabQuizContentComponent,
     ScoreboardComponent
   ],
   templateUrl: './quiz.component.html',
