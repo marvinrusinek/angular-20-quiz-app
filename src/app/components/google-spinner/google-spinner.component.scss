@@ -17,7 +17,7 @@
   gap: 4px;
   transform-origin: center;
   // Calm, steady rotation (slowed down from the earlier snappier spin).
-  animation: google-spinner-rotate 2s linear infinite;
+  animation: google-spinner-rotate 3.5s linear infinite;
 }
 
 .google-spinner__block {
@@ -49,6 +49,6 @@
 // Respect users who prefer reduced motion: even slower, steady rotation.
 @media (prefers-reduced-motion: reduce) {
   .google-spinner {
-    animation-duration: 3.5s;
+    animation-duration: 5s;
   }
 }

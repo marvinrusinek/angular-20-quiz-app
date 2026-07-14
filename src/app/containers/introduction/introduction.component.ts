@@ -119,10 +119,10 @@ export class IntroductionComponent implements OnInit {
 
     this.isStartingQuiz.set(true);
 
-    // Brief, polished "starting the quiz" spinner that fades into Q1. Shown ONLY
-    // on Start — the quiz data is already cached, so this is a transition, not a
-    // data-load indicator.
-    this.startSpinner.showForStart();
+    // Play the "starting the quiz" spinner over the INTRO. We await it before
+    // navigating so Q1 (and its timer) doesn't start behind the overlay — the
+    // spinner completes a full rotation, then fades out into the fresh Q1.
+    const spinnerHold = this.startSpinner.showForStart();
 
     try {
       const targetQuizId = this.resolveTargetQuizId(quizId);
@@ -139,6 +139,10 @@ export class IntroductionComponent implements OnInit {
       this.resetQuizForFreshStart(targetQuizId);
 
       await this.prepareAndSetCurrentQuiz(activeQuiz, targetQuizId);
+
+      // Wait out the spinner's full rotation over the intro, THEN navigate so the
+      // Q1 timer only starts as the overlay fades away.
+      await spinnerHold;
 
       await this.navigateToFirstQuestion(targetQuizId);
     } finally {

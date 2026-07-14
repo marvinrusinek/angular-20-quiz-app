@@ -2,31 +2,43 @@ import { Injectable, signal } from '@angular/core';
 
 /**
  * Drives the brief "starting the quiz" loading overlay. IntroductionComponent
- * calls showForStart() when the user clicks "Start the Quiz!"; AppComponent
- * renders the overlay (the Google spinner) and it auto-hides after a short
- * guaranteed window, fading out to reveal the first question.
+ * calls showForStart() when the user clicks "Start the Quiz!" and awaits it
+ * BEFORE navigating to Q1 — so the overlay plays over the intro and the first
+ * question's timer doesn't start (and tick) behind it. AppComponent renders the
+ * overlay; it fades out over the freshly-loaded Q1 once navigation happens.
  *
- * Deliberately time-boxed: the quiz data is already cached by the time Start is
- * clicked, so there's no real fetch to wait on — this is a polished transition,
- * NOT a data-load indicator. Shown ONLY on Start (not on Next/Previous or while
+ * Deliberately time-boxed to one full spinner rotation: the quiz data is already
+ * cached by the time Start is clicked, so this is a polished transition, NOT a
+ * data-load indicator. Shown ONLY on Start (never on Next/Previous or while
  * browsing the Quiz Selection screen).
  */
 @Injectable({ providedIn: 'root' })
 export class QuizStartSpinnerService {
-  private static readonly DEFAULT_MS = 600;
+  // Hold over the intro for one full spinner rotation (matches the 3.5s CSS
+  // rotation) before the caller navigates to Q1.
+  private static readonly ROTATION_MS = 3500;
 
   private readonly _visible = signal(false);
   readonly visible = this._visible.asReadonly();
   private timer: ReturnType<typeof setTimeout> | null = null;
 
-  showForStart(durationMs: number = QuizStartSpinnerService.DEFAULT_MS): void {
+  /**
+   * Show the spinner (over the intro) and resolve after one full rotation. The
+   * caller navigates to Q1 on resolve; the overlay begins fading out at the same
+   * moment, so it fades away over the fresh question with only a sliver of timer
+   * time spent behind the fade.
+   */
+  showForStart(): Promise<void> {
     this._visible.set(true);
     if (this.timer !== null) {
       clearTimeout(this.timer);
     }
-    this.timer = setTimeout(() => {
-      this._visible.set(false);
-      this.timer = null;
-    }, durationMs);
+    return new Promise<void>((resolve) => {
+      this.timer = setTimeout(() => {
+        this._visible.set(false);  // begin fading out (CSS opacity transition)
+        this.timer = null;
+        resolve();                 // caller navigates to Q1 now
+      }, QuizStartSpinnerService.ROTATION_MS);
+    });
   }
 }
