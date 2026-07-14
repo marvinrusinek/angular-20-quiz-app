@@ -1,5 +1,6 @@
 import { withCorrectCountBanner } from './correct-count-banner';
 import { HeadingInputs } from './heading-model';
+import { withTerminalPeriod } from './terminal-period';
 import { norm } from './text-norm';
 
 /**
@@ -56,9 +57,14 @@ export function buildHeadingInputs(d: HeadingInputDeps): HeadingInputs | null {
     questionHtml = withCorrectCountBanner(qText, banner);
   }
 
-  const _fetHtml = (ets.formattedExplanations?.[idx]?.explanation ?? '')
-        || (ets.fetByIndex?.get?.(idx) ?? '')
-        || (ets.timeoutFetByIndex?.get?.(idx) ?? '');   // durable timeout FET (purge-proof)
+  // End the FET with a period when it has none (any source below). Normalized
+  // here, at the single display read point, so it applies no matter which store
+  // (formattedExplanations / fetByIndex / timeoutFetByIndex) supplied it.
+  const _fetHtml = withTerminalPeriod(
+    (ets.formattedExplanations?.[idx]?.explanation ?? '')
+      || (ets.fetByIndex?.get?.(idx) ?? '')
+      || (ets.timeoutFetByIndex?.get?.(idx) ?? '')   // durable timeout FET (purge-proof)
+  );
   return {
     questionHtml,
     fetHtml: _fetHtml,

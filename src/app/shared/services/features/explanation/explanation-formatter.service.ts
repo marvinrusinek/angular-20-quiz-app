@@ -14,6 +14,7 @@ import { QuizShuffleService } from '../../flow/quiz-shuffle.service';
 import { pinAllOfTheAboveLast, pinnedIndex1Based } from '../../../utils/all-of-the-above';
 import { isOptionCorrect } from '../../../utils/is-option-correct';
 import { norm } from '../../../utils/text-norm';
+import { withTerminalPeriod } from '../../../utils/terminal-period';
 import { swallow } from '../../../utils/error-logging';
 
 @Injectable({ providedIn: 'root' })
@@ -100,9 +101,14 @@ export class ExplanationFormatterService {
 
     // Format explanation (only if not already formatted)
     const correctOptionIndices = this.getCorrectOptionIndices(question, question.options, questionIndex);
-    const formattedExplanation = alreadyFormattedRe.test(rawExplanation)
+    let formattedExplanation = alreadyFormattedRe.test(rawExplanation)
       ? rawExplanation
       : this.formatExplanation(question, correctOptionIndices, rawExplanation, questionIndex);
+
+    // Normalize the terminal period ONCE, up front, so the stored value, the
+    // signal, the coalescing comparison below, and the returned value all agree
+    // (otherwise stored-with-period vs local-without would never coalesce).
+    formattedExplanation = this.ensureTerminalPeriod(formattedExplanation);
 
     // Store and sync (but coalesce to avoid redundant emits)
     const prev =
@@ -158,7 +164,22 @@ export class ExplanationFormatterService {
 
     formattedExplanation = this.revalidateFormattedAgainstVisual(formattedExplanation, index, question, options, trimmedExplanation);
 
+    // End the FET with a period when the sentence doesn't already end in
+    // sentence-ending punctuation (leave it untouched if it does).
+    formattedExplanation = this.ensureTerminalPeriod(formattedExplanation);
+
     this.commitFormattedExplanation(index, question, formattedExplanation, force);
+  }
+
+  /**
+   * Ensure a FET ends with sentence-ending punctuation: append a period when the
+   * (trailing-whitespace-trimmed) text doesn't already end with `.`, `!`, `?` or
+   * `…`. A single trailing closer (`)`, `]`, `}`, quote) is ignored for the
+   * check, so a quoted/parenthesised ending that already has a period isn't
+   * double-punctuated. Idempotent — a no-op when a terminator is already present.
+   */
+  private ensureTerminalPeriod(text: string): string {
+    return withTerminalPeriod(text);
   }
 
   /** 1-based option indices parsed from a formatted FET prefix. */

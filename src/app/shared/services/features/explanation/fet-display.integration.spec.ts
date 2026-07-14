@@ -226,8 +226,9 @@ describe('FET display integration', () => {
         service.storeFormattedExplanation(0, 'first', singleAnswerQ);
         service.storeFormattedExplanation(1, 'second', multiAnswerQ);
         // Each index is formatted using its own question's correct indices
-        expect(service.getFormattedSync(0)).toBe('Option 2 is correct because first');
-        expect(service.getFormattedSync(1)).toBe('Options 2 and 4 are correct because second');
+        // (a terminal period is appended when the FET has none).
+        expect(service.getFormattedSync(0)).toBe('Option 2 is correct because first.');
+        expect(service.getFormattedSync(1)).toBe('Options 2 and 4 are correct because second.');
       });
     });
 
