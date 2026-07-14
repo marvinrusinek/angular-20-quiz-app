@@ -26,6 +26,7 @@ import { QuizService } from '../../shared/services/data/quiz.service';
 import { QuizShuffleService } from '../../shared/services/flow/quiz-shuffle.service';
 import { SelectedOptionService } from '../../shared/services/state/selectedoption.service';
 import { TimerService } from '../../shared/services/features/timer/timer.service';
+import { QuizStartSpinnerService } from '../../shared/services/ui/quiz-start-spinner.service';
 import { swallow } from '../../shared/utils/error-logging';
 
 @Component({
@@ -59,6 +60,7 @@ export class IntroductionComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
+  private readonly startSpinner = inject(QuizStartSpinnerService);
 
   // ── remaining variables ─────────────────────────────────────────
   quizId: string | undefined;
@@ -116,6 +118,11 @@ export class IntroductionComponent implements OnInit {
     if (this.isStartingQuiz()) return;
 
     this.isStartingQuiz.set(true);
+
+    // Brief, polished "starting the quiz" spinner that fades into Q1. Shown ONLY
+    // on Start — the quiz data is already cached, so this is a transition, not a
+    // data-load indicator.
+    this.startSpinner.showForStart();
 
     try {
       const targetQuizId = this.resolveTargetQuizId(quizId);

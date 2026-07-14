@@ -3,16 +3,26 @@ main {
   justify-content: center;
 }
 
-// Navigation loading overlay — the Google spinner shown while a slow
-// quiz-question navigation (route resolver) is in flight.
-.nav-loading {
+// Brief "starting the quiz" overlay. Hidden by default; fades in when the Start
+// spinner is shown and fades out (into Q1) when it hides.
+.start-spinner {
   position: fixed;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.6);
-  z-index: 1000;
+  background: rgba(255, 255, 255, 0.85);
+  z-index: 2000;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.start-spinner.is-visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
 }
 
 @import url('https://fonts.googleapis.com/icon?family=Material+Icons');

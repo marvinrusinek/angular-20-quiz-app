@@ -1,15 +1,15 @@
 <main>
-  @if (navigating()) {
-    <div
-      class="nav-loading"
-      role="status"
-      aria-live="polite"
-      aria-label="Loading"
-      i18n-aria-label
-    >
-      <app-google-spinner />
-    </div>
-  }
+  <!-- Brief "starting the quiz" overlay — fades in on Start, fades out into Q1. -->
+  <div
+    class="start-spinner"
+    [class.is-visible]="startSpinner.visible()"
+    role="status"
+    aria-live="polite"
+    aria-label="Loading"
+    i18n-aria-label
+  >
+    <app-google-spinner />
+  </div>
 
   <router-outlet></router-outlet>
 </main>
