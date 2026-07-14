@@ -229,6 +229,12 @@ export class QuizSelectionComponent implements OnInit {
   readonly selectionParams = signal<QuizSelectionParams | null>(null);
 
   ngOnInit(): void {
+    // Open at the TOP of the page — otherwise navigating here (e.g. "Select
+    // Quiz" from a scrolled-down Results page) inherits the previous scroll
+    // offset and lands partway down the list.
+    if (typeof window !== 'undefined') {
+      window.scrollTo(0, 0);
+    }
     this.initializeQuizSelection();
   }
 
