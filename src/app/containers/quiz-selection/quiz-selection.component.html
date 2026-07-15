@@ -79,17 +79,18 @@
        user starts using a quiz this session (showSelectionProgress). Their own
        inner guards still apply (e.g. renders nothing until there's data). -->
   @if (showSelectionProgress()) {
-    <!-- Compact achievements progress (renders nothing until total > 0) -->
+    <!-- Compact achievements progress (renders nothing until total > 0), with
+         the "You accessed…" note to its right. -->
     <div class="achievements-summary-row">
       <codelab-achievements-summary
         [earned]="achievementsEarned()"
         [total]="achievementsTotal()"
       />
-    </div>
 
-    @if (hasAccessedQuizzes()) {
-      <span class="accessed-banner">{{ accessedBannerMessage() }}</span>
-    }
+      @if (hasAccessedQuizzes()) {
+        <span class="accessed-banner">{{ accessedBannerMessage() }}</span>
+      }
+    </div>
 
     <!-- Your Progress — collapsible; hidden until a quiz is In Progress or Completed -->
     <codelab-progress-panel

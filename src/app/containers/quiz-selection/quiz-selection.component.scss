@@ -161,7 +161,11 @@
 
   .achievements-summary-row {
     display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;   // keep "Achievements X/N" and the accessed note on ONE line
+    align-items: center;
     justify-content: center;
+    gap: 16px;           // space between the badge and the accessed note
     margin: 0 auto 14px;
   }
 
@@ -235,10 +239,10 @@
   }
 
   .accessed-banner {
-    display: block;
-    text-align: center;
-    padding: 10px 20px;
-    margin: 0 auto 5px;
+    // Now sits inline to the right of the achievements summary (see
+    // .achievements-summary-row), so no block/auto-centering or padding.
+    margin: 0;
+    padding: 0;
     font-size: 15px;
     font-weight: 600;
     color: vars.$green-angular-leaf;
