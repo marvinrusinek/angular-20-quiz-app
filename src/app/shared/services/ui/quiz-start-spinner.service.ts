@@ -14,9 +14,10 @@ import { Injectable, signal } from '@angular/core';
  */
 @Injectable({ providedIn: 'root' })
 export class QuizStartSpinnerService {
-  // Hold over the intro for one full spinner rotation (matches the 3.5s CSS
-  // rotation) before the caller navigates to Q1.
-  private static readonly ROTATION_MS = 3500;
+  // Hold over the intro for one full spinner rotation (slightly longer than the
+  // 1.5s CSS rotation) before the caller navigates to Q1. Time-boxed on purpose:
+  // the data's already cached, so this is a brief polished transition.
+  private static readonly ROTATION_MS = 1600;
 
   private readonly _visible = signal(false);
   readonly visible = this._visible.asReadonly();

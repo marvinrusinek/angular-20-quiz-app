@@ -5,10 +5,11 @@
     [class.is-visible]="startSpinner.visible()"
     role="status"
     aria-live="polite"
-    aria-label="Loading"
-    i18n-aria-label
   >
-    <app-google-spinner />
+    <div class="start-spinner__box">
+      <app-google-spinner />
+      <span class="start-spinner__label" i18n>Preparing quiz&hellip;</span>
+    </div>
   </div>
 
   <router-outlet></router-outlet>

@@ -25,6 +25,21 @@ main {
   pointer-events: auto;
 }
 
+// Spinner + "Preparing quiz…" label stacked and centered.
+.start-spinner__box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.start-spinner__label {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: #444;
+}
+
 @import url('https://fonts.googleapis.com/icon?family=Material+Icons');
 
 .material-icons {

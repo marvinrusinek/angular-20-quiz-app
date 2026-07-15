@@ -16,8 +16,8 @@
   grid-template-rows: 1fr 1fr;
   gap: 4px;
   transform-origin: center;
-  // Calm, steady rotation (slowed down from the earlier snappier spin).
-  animation: google-spinner-rotate 3.5s linear infinite;
+  // Moderate, steady rotation — a full turn in ~1.5s (matches the Start hold).
+  animation: google-spinner-rotate 1.5s linear infinite;
 }
 
 .google-spinner__block {
@@ -49,6 +49,6 @@
 // Respect users who prefer reduced motion: even slower, steady rotation.
 @media (prefers-reduced-motion: reduce) {
   .google-spinner {
-    animation-duration: 5s;
+    animation-duration: 2.5s;
   }
 }
