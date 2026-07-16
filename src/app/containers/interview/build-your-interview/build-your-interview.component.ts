@@ -1,0 +1,199 @@
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  signal,
+  Signal,
+  ViewEncapsulation
+} from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { toSignal, takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+
+import {
+  AssessmentConfig,
+  AssessmentQuestionCount,
+  DURATION_SECONDS_BY_COUNT,
+  InterviewDifficulty
+} from '../../../shared/models/AssessmentConfig.model';
+
+import { QuizDataService } from '../../../shared/services/data/quizdata.service';
+import { AssessmentBuilderService } from '../../../shared/services/features/assessment/assessment-builder.service';
+import { InterviewSessionService } from '../../../shared/services/features/interview/interview-session.service';
+import { QuizStartSpinnerService } from '../../../shared/services/ui/quiz-start-spinner.service';
+
+interface TopicOption {
+  id: string;
+  name: string;
+  count: number;
+}
+
+interface DifficultyOption {
+  value: InterviewDifficulty;
+  label: string;
+}
+
+/**
+ * "Build Your Interview" configuration page. Guides the user through
+ * Difficulty → Topics → Question count → Preview → Start. Topics are conditional
+ * on difficulty; validity is DERIVED from the configuration and the eligible
+ * pool (no persisted canStartInterview flag). On Start it builds the assessment,
+ * begins the session, shows the shared spinner, and navigates to the session.
+ */
+@Component({
+  selector: 'codelab-build-your-interview',
+  standalone: true,
+  imports: [CommonModule, ReactiveFormsModule],
+  templateUrl: './build-your-interview.component.html',
+  styleUrls: ['./build-your-interview.component.scss'],
+  encapsulation: ViewEncapsulation.None,
+  changeDetection: ChangeDetectionStrategy.OnPush
+})
+export class BuildYourInterviewComponent {
+  private readonly fb = inject(FormBuilder);
+  private readonly quizDataService = inject(QuizDataService);
+  private readonly builder = inject(AssessmentBuilderService);
+  private readonly session = inject(InterviewSessionService);
+  private readonly spinner = inject(QuizStartSpinnerService);
+  private readonly router = inject(Router);
+
+  private readonly quizzes = this.quizDataService.quizzesSig;
+
+  readonly difficultyOptions: readonly DifficultyOption[] = [
+    { value: 'beginner', label: 'Beginner' },
+    { value: 'intermediate', label: 'Intermediate' },
+    { value: 'advanced', label: 'Advanced' },
+    { value: 'mixed', label: 'Mixed' }
+  ];
+
+  readonly countOptions: readonly AssessmentQuestionCount[] = [10, 20, 30];
+
+  // Difficulty lives in a Reactive Form control (the project's form approach);
+  // topics + count are signals so the dynamic multi-select and per-option
+  // disabling stay simple and testable.
+  readonly form = this.fb.group({
+    difficulty: this.fb.control<InterviewDifficulty | null>(null)
+  });
+
+  readonly difficulty = toSignal(this.form.controls.difficulty.valueChanges, {
+    initialValue: this.form.controls.difficulty.value
+  }) as Signal<InterviewDifficulty | null>;
+
+  readonly selectedTopicIds = signal<ReadonlySet<string>>(new Set());
+  readonly questionCount = signal<AssessmentQuestionCount>(20);
+
+  // Topics eligible for the chosen difficulty (Mixed = all). Empty until a
+  // difficulty is chosen, which hides the topics fieldset.
+  readonly availableTopics = computed<TopicOption[]>(() => {
+    const difficulty = this.difficulty();
+    if (!difficulty) return [];
+    return this.quizzes()
+      .filter((quiz) => difficulty === 'mixed' || quiz.difficulty === difficulty)
+      .map((quiz) => ({
+        id: quiz.quizId,
+        name: quiz.milestone,
+        count: quiz.questions?.length ?? 0
+      }));
+  });
+
+  readonly topicsEnabled = computed(() => this.difficulty() !== null);
+
+  readonly eligiblePool = computed(() =>
+    this.builder.countEligible([...this.selectedTopicIds()])
+  );
+
+  readonly selectedTopicNames = computed(() =>
+    this.availableTopics()
+      .filter((topic) => this.selectedTopicIds().has(topic.id))
+      .map((topic) => topic.name)
+  );
+
+  readonly durationMinutes = computed(
+    () => DURATION_SECONDS_BY_COUNT[this.questionCount()] / 60
+  );
+
+  // Start is enabled only when a difficulty + at least one topic + a valid
+  // count are chosen and the eligible pool can supply the requested count.
+  readonly startDisabled = computed(() => {
+    if (!this.difficulty()) return true;
+    if (this.selectedTopicIds().size === 0) return true;
+    return this.eligiblePool().total < this.questionCount();
+  });
+
+  // Pool-size messaging is shown ONLY to explain an invalid configuration.
+  readonly invalidReason = computed(() => {
+    if (!this.difficulty() || this.selectedTopicIds().size === 0) return '';
+    const total = this.eligiblePool().total;
+    if (total < this.questionCount()) {
+      return `Only ${total} question${total === 1 ? '' : 's'} ${total === 1 ? 'is' : 'are'} available for this selection. ` +
+        'Select another topic or choose a shorter interview.';
+    }
+    return '';
+  });
+
+  constructor() {
+    // Changing difficulty must drop topic selections that are no longer valid —
+    // never retain stale topic ids.
+    this.form.controls.difficulty.valueChanges
+      .pipe(takeUntilDestroyed())
+      .subscribe((difficulty) => {
+        const valid = new Set(
+          difficulty ? this.builder.eligibleTopicIds(difficulty) : []
+        );
+        this.selectedTopicIds.update(
+          (current) => new Set([...current].filter((id) => valid.has(id)))
+        );
+      });
+  }
+
+  isTopicSelected(id: string): boolean {
+    return this.selectedTopicIds().has(id);
+  }
+
+  toggleTopic(id: string, checked: boolean): void {
+    this.selectedTopicIds.update((current) => {
+      const next = new Set(current);
+      if (checked) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  }
+
+  selectAllTopics(): void {
+    this.selectedTopicIds.set(new Set(this.availableTopics().map((t) => t.id)));
+  }
+
+  clearTopics(): void {
+    this.selectedTopicIds.set(new Set());
+  }
+
+  // A count option is disabled when the eligible pool can't supply it.
+  isCountDisabled(count: AssessmentQuestionCount): boolean {
+    return this.eligiblePool().total < count;
+  }
+
+  setCount(count: AssessmentQuestionCount): void {
+    if (this.isCountDisabled(count)) return;
+    this.questionCount.set(count);
+  }
+
+  private currentConfig(): AssessmentConfig {
+    return {
+      difficulty: this.difficulty()!,
+      topicIds: [...this.selectedTopicIds()],
+      questionCount: this.questionCount()
+    };
+  }
+
+  async startInterview(): Promise<void> {
+    if (this.startDisabled()) return;
+    this.session.start(this.currentConfig());
+    await this.spinner.showForStart($localize`Preparing Interview…`);
+    await this.router.navigate(['/interview/session']);
+  }
+}

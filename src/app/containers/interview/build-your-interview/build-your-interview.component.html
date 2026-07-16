@@ -1,0 +1,128 @@
+<div class="interview-builder">
+  <header class="interview-builder__header">
+    <h1 i18n>Build Your Interview</h1>
+    <p class="interview-builder__subtitle" i18n>
+      Configure a timed, mixed-topic Angular interview from the question bank.
+    </p>
+  </header>
+
+  <form [formGroup]="form" (ngSubmit)="startInterview()">
+    <!-- 1. Difficulty -->
+    <fieldset class="builder-section">
+      <legend i18n>Difficulty</legend>
+      <div class="option-row" role="radiogroup" aria-label="Difficulty" i18n-aria-label>
+        @for (option of difficultyOptions; track option.value) {
+          <label class="chip">
+            <input
+              type="radio"
+              formControlName="difficulty"
+              [value]="option.value"
+            />
+            <span>{{ option.label }}</span>
+          </label>
+        }
+      </div>
+    </fieldset>
+
+    <!-- 2. Topics (conditional on difficulty) -->
+    <fieldset
+      class="builder-section"
+      [class.is-disabled]="!topicsEnabled()"
+      [attr.aria-disabled]="!topicsEnabled()"
+    >
+      <legend i18n>Topics</legend>
+
+      @if (!topicsEnabled()) {
+        <p class="builder-hint" i18n>Select a difficulty to choose topics.</p>
+      } @else {
+        <div class="topics-toolbar">
+          <button type="button" class="link-btn" (click)="selectAllTopics()" i18n>
+            Select All
+          </button>
+          <button type="button" class="link-btn" (click)="clearTopics()" i18n>
+            Clear All
+          </button>
+        </div>
+
+        <div class="topics-grid" role="group" aria-label="Topics" i18n-aria-label>
+          @for (topic of availableTopics(); track topic.id) {
+            <label class="topic-check">
+              <input
+                type="checkbox"
+                [checked]="isTopicSelected(topic.id)"
+                (change)="toggleTopic(topic.id, $any($event.target).checked)"
+              />
+              <span class="topic-name">{{ topic.name }}</span>
+              <span class="topic-count" aria-hidden="true">{{ topic.count }}</span>
+            </label>
+          }
+        </div>
+      }
+    </fieldset>
+
+    <!-- 3. Question count -->
+    <fieldset class="builder-section">
+      <legend i18n>Number of questions</legend>
+      <div class="option-row" role="group" aria-label="Number of questions" i18n-aria-label>
+        @for (count of countOptions; track count) {
+          <button
+            type="button"
+            class="chip chip--button"
+            [class.selected]="questionCount() === count && !isCountDisabled(count)"
+            [disabled]="isCountDisabled(count)"
+            [attr.aria-pressed]="questionCount() === count"
+            [attr.title]="isCountDisabled(count) ? 'Not enough questions for this selection' : null"
+            (click)="setCount(count)"
+          >
+            {{ count }}
+          </button>
+        }
+      </div>
+    </fieldset>
+
+    <!-- 4. Preview -->
+    <section class="interview-preview" aria-labelledby="preview-heading">
+      <h2 id="preview-heading" i18n>Interview preview</h2>
+      <dl class="preview-grid">
+        <div class="preview-item">
+          <dt i18n>Difficulty</dt>
+          <dd>{{ difficulty() ? (difficulty() | titlecase) : '—' }}</dd>
+        </div>
+        <div class="preview-item">
+          <dt i18n>Topics</dt>
+          <dd>{{ selectedTopicIds().size }}</dd>
+        </div>
+        <div class="preview-item">
+          <dt i18n>Questions</dt>
+          <dd>{{ questionCount() }}</dd>
+        </div>
+        <div class="preview-item">
+          <dt i18n>Duration</dt>
+          <dd>{{ durationMinutes() }} <span i18n>min</span></dd>
+        </div>
+      </dl>
+
+      @if (selectedTopicNames().length > 0) {
+        <p class="preview-topics">{{ selectedTopicNames().join(', ') }}</p>
+      }
+
+      @if (invalidReason()) {
+        <p class="preview-invalid" role="status" aria-live="polite">
+          {{ invalidReason() }}
+        </p>
+      }
+    </section>
+
+    <!-- 5. Start -->
+    <div class="builder-actions">
+      <button
+        type="submit"
+        class="start-interview-btn"
+        [disabled]="startDisabled()"
+        i18n
+      >
+        Start Interview
+      </button>
+    </div>
+  </form>
+</div>

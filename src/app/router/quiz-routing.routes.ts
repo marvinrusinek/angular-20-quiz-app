@@ -8,6 +8,8 @@ import { QuizComponent } from '../containers/quiz/quiz.component';
 import { QuizSelectionComponent } from
     '../containers/quiz-selection/quiz-selection.component';
 import { ResultsComponent } from '../containers/results/results.component';
+import { BuildYourInterviewComponent } from
+    '../containers/interview/build-your-interview/build-your-interview.component';
 
 import { QuizGuard } from './guards/quiz-guard';
 
@@ -35,6 +37,13 @@ export const routes: Routes = [
   {
     path: 'quiz/results/:quizId',
     component: ResultsComponent
+  },
+
+  // Interview Mode — the Build Your Interview configuration page. The guarded
+  // session + results routes are added in later milestones.
+  {
+    path: 'interview',
+    component: BuildYourInterviewComponent
   },
 
   // Backward compatibility redirects

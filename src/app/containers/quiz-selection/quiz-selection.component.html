@@ -128,6 +128,33 @@
 
   <!-- Quiz Tiles Grid -->
   <div class="quiz-grid">
+    <!-- Featured Interview Mode card. Rendered OUTSIDE the @for so it is not a
+         topic quiz: excluded from quiz counts, difficulty counts, completion
+         totals, and progress/achievements. Always first. -->
+    <div
+      class="quiz-tile interview-tile"
+      role="group"
+      aria-labelledby="interview-card-title"
+    >
+      <div class="interview-tile__body">
+        <span class="interview-tile__eyebrow" i18n>Interview Mode</span>
+        <h5 id="interview-card-title" class="interview-tile__headline" i18n>
+          Are you interview ready?
+        </h5>
+        <p class="interview-tile__sub" i18n>Build your Angular interview.</p>
+      </div>
+      <div class="interview-tile__footer">
+        <button
+          type="button"
+          class="interview-tile__cta"
+          (click)="startBuildingInterview()"
+          i18n
+        >
+          Start Building
+        </button>
+      </div>
+    </div>
+
     @for (quiz of displayedQuizzes(); let i = $index; track quiz?.quizId) {
       <div
         class="quiz-tile"

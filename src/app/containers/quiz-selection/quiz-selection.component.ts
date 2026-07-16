@@ -279,6 +279,14 @@ export class QuizSelectionComponent implements OnInit {
     }
   }
 
+  // Featured Interview Mode card → the Build Your Interview page. Interview Mode
+  // is NOT a topic quiz, so it deliberately bypasses onSelect (no access
+  // tracking, status, or completion state) and touches none of the catalog
+  // counts/progress/achievements.
+  startBuildingInterview(): void {
+    this.router.navigate(['/interview']);
+  }
+
   getQuizTileStyles(quiz: Quiz): QuizTileStyles {
     return {
       background: 'url(' + quiz.image + ') no-repeat center 10px',
