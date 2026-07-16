@@ -191,6 +191,7 @@ shared/
 <h2>⭐ Support</h2>
 
 <p> If you enjoyed exploring this project or found it helpful, please consider giving it a ⭐ on GitHub. Your support helps drive continued improvements, new features, and ongoing maintenance.</p>
+<p>Stay tuned for additional quizzes and exciting new features!</p>
 
 <hr>
 
