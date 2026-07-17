@@ -18,6 +18,7 @@ import { InterviewSessionService } from '../../../shared/services/features/inter
 
 import { InterviewPaginatorComponent } from '../../../components/interview/interview-paginator/interview-paginator.component';
 import { InterviewOptionsComponent } from '../../../components/interview/interview-options/interview-options.component';
+import { ThemeToggleComponent } from '../../../components/theme-toggle/theme-toggle.component';
 
 /**
  * Interview session shell.
@@ -41,7 +42,8 @@ import { InterviewOptionsComponent } from '../../../components/interview/intervi
     CommonModule,
     MatCardModule,
     InterviewPaginatorComponent,
-    InterviewOptionsComponent
+    InterviewOptionsComponent,
+    ThemeToggleComponent
   ],
   templateUrl: './interview-session.component.html',
   styleUrls: ['./interview-session.component.scss'],
