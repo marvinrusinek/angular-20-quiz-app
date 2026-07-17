@@ -691,3 +691,11 @@
     }
   }
 }
+
+// The quiz tiles keep a light card in dark mode, so the app's global dark text
+// color leaves the summary washed out and unreadable. Force it dark. This
+// component uses ViewEncapsulation.None, so a plain global [data-theme] selector
+// (not :host-context) is what actually matches here.
+[data-theme='dark'] .quiz-summary {
+  color: #212121 !important;
+}
