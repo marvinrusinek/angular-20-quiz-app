@@ -36,26 +36,17 @@
     font-variant-numeric: tabular-nums;
   }
 
-  // The question box. The topic quiz uses a glassmorphism card that only reads
-  // over its colored page backdrop; on the interview's plain page that would be
-  // white-on-white (invisible). Use a SOLID, theme-aware surface with a visible
-  // border + shadow so the box always reads, in light and dark.
-  .quiz-card-wrapper {
-    margin: 12px auto;
+  // The question box — a SOLID, theme-aware surface (plain div, no mat-card) so
+  // the question + options always render inside a clearly visible box, in light
+  // and dark. (The topic quiz's glassmorphism card read white-on-white here.)
+  .interview-question-box {
     max-width: 680px;
-    overflow: visible;
-  }
-
-  mat-card.quiz-card {
-    position: relative;
-    width: 100%;
-    margin: 0;
-    padding: 22px !important;
-    background: var(--is-surface) !important;
-    border: 1px solid var(--is-border) !important;
-    border-radius: 14px !important;
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12) !important;
-    overflow: visible !important;
+    margin: 12px auto;
+    padding: 22px;
+    background: var(--is-surface);
+    border: 1px solid var(--is-border);
+    border-radius: 14px;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12);
   }
 }
 

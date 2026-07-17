@@ -28,9 +28,9 @@ describe('InterviewSessionComponent', () => {
   let session: InterviewSessionService;
 
   const questionBox = () =>
-    fixture.nativeElement.querySelector('mat-card.quiz-card') as HTMLElement;
+    fixture.nativeElement.querySelector('.interview-question-box') as HTMLElement;
   const questionHeading = () =>
-    fixture.nativeElement.querySelector('mat-card.quiz-card .interview-question') as HTMLElement;
+    fixture.nativeElement.querySelector('.interview-question-box .interview-question') as HTMLElement;
   const optionRows = () =>
     Array.from(fixture.nativeElement.querySelectorAll('.io-option')) as HTMLElement[];
   const optionInputs = () =>

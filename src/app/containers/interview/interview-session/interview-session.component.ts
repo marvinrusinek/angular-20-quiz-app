@@ -8,7 +8,6 @@ import {
   ViewEncapsulation
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatCardModule } from '@angular/material/card';
 import { Router } from '@angular/router';
 
 import { Option } from '../../../shared/models/Option.model';
@@ -40,7 +39,6 @@ import { ThemeToggleComponent } from '../../../components/theme-toggle/theme-tog
   standalone: true,
   imports: [
     CommonModule,
-    MatCardModule,
     InterviewPaginatorComponent,
     InterviewOptionsComponent,
     ThemeToggleComponent

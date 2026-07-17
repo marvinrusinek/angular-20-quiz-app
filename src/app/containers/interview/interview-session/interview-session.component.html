@@ -6,27 +6,22 @@
       <codelab-theme-toggle class="interview-session__theme" />
     </header>
 
-    <!-- Regular quiz question box (mat-card.quiz-card). Order:
-         question heading → options → pagination. -->
-    <div class="quiz-card-wrapper">
-      <mat-card class="quiz-card">
-        <mat-card-content>
-          <!-- Question text rendered directly (deferred feedback → always the
-               question text, never the FET, never empty). -->
-          <h3
-            class="interview-question"
-            aria-live="polite"
-            aria-atomic="true"
-            [innerHTML]="questionText()"
-          ></h3>
+    <!-- Question box. Order: question heading → options → pagination. -->
+    <div class="interview-question-box">
+      <!-- Question text rendered directly (deferred feedback → always the
+           question text, never the FET, never empty). -->
+      <h3
+        class="interview-question"
+        aria-live="polite"
+        aria-atomic="true"
+        [innerHTML]="questionText()"
+      ></h3>
 
-          <app-interview-options
-            [options]="currentOptions()"
-            [selectedIds]="selectedIds()"
-            (selectionChange)="onSelectionChange($event)"
-          />
-        </mat-card-content>
-      </mat-card>
+      <app-interview-options
+        [options]="currentOptions()"
+        [selectedIds]="selectedIds()"
+        (selectionChange)="onSelectionChange($event)"
+      />
     </div>
 
     <app-interview-paginator
