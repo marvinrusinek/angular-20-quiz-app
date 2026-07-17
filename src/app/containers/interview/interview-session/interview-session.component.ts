@@ -8,39 +8,40 @@ import {
   ViewEncapsulation
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { toObservable } from '@angular/core/rxjs-interop';
+import { MatCardModule } from '@angular/material/card';
 import { Router } from '@angular/router';
-import { of } from 'rxjs';
 
-import { Quiz } from '../../../shared/models/Quiz.model';
-import { QuestionPayload } from '../../../shared/models/QuestionPayload.model';
+import { Option } from '../../../shared/models/Option.model';
+import { QuizQuestion } from '../../../shared/models/QuizQuestion.model';
 
 import { InterviewSessionService } from '../../../shared/services/features/interview/interview-session.service';
-import { QuizService } from '../../../shared/services/data/quiz.service';
-import { SelectedOptionService } from '../../../shared/services/state/selectedoption.service';
 
-import { CodelabQuizContentComponent } from '../../quiz/quiz-content/codelab-quiz-content.component';
-import { QuizQuestionComponent } from '../../../components/question/quiz-question/quiz-question.component';
 import { InterviewPaginatorComponent } from '../../../components/interview/interview-paginator/interview-paginator.component';
+import { InterviewOptionsComponent } from '../../../components/interview/interview-options/interview-options.component';
 
 /**
- * Thin Interview session shell. It does NOT duplicate the quiz UI — it composes
- * the EXISTING renderers (`codelab-quiz-content` heading projection +
- * `codelab-quiz-question` options) by loading the generated assessment into
- * QuizService's question-state, then drives navigation through the shared index
- * signal WITHOUT changing the URL. Feedback is deferred for the whole session
- * (set on mount, reset on destroy) so no FET/correctness ever shows.
+ * Interview session shell.
  *
- * Timer, submission, and sessionStorage resume land in the next milestone.
+ * The question text is rendered directly inside the regular quiz question box
+ * (the topic quizzes' `mat-card.quiz-card` container). We do NOT route it through
+ * `codelab-quiz-content`: that heading component only produces text when the full
+ * `codelab-quiz-question` pipeline runs alongside it (it reads shared state that
+ * pipeline primes), and that pipeline can't drive a synthetic in-memory
+ * assessment. Rendering the text directly guarantees it always shows; deferred
+ * feedback means the heading is always the question text (never FET), by design.
+ *
+ * Options use InterviewOptionsComponent — native radio (single) / checkbox
+ * (multiple), styled neutrally with correctness colors/icons/explanations
+ * suppressed. Navigation moves the session index signal (no URL change).
  */
 @Component({
   selector: 'codelab-interview-session',
   standalone: true,
   imports: [
     CommonModule,
-    CodelabQuizContentComponent,
-    QuizQuestionComponent,
-    InterviewPaginatorComponent
+    MatCardModule,
+    InterviewPaginatorComponent,
+    InterviewOptionsComponent
   ],
   templateUrl: './interview-session.component.html',
   styleUrls: ['./interview-session.component.scss'],
@@ -49,77 +50,44 @@ import { InterviewPaginatorComponent } from '../../../components/interview/inter
 })
 export class InterviewSessionComponent implements OnInit, OnDestroy {
   private readonly session = inject(InterviewSessionService);
-  private readonly quizService = inject(QuizService);
-  private readonly selectedOptionService = inject(SelectedOptionService);
   private readonly router = inject(Router);
 
-  readonly assessment = this.session.assessment;
   readonly currentIndex = this.session.currentIndex;
   readonly total = this.session.total;
   readonly answeredIndices = this.session.answeredIndices;
 
-  // The current question's payload for the shared renderers.
-  readonly payload = computed<QuestionPayload | null>(() => {
-    const q = this.assessment()?.questions?.[this.currentIndex()];
-    return q ? { question: q, options: q.options ?? [], explanation: q.explanation ?? '' } : null;
-  });
+  readonly currentQuestion = computed<QuizQuestion | null>(
+    () => this.session.assessment()?.questions?.[this.currentIndex()] ?? null
+  );
 
-  private readonly questionText = computed(() => this.payload()?.question?.questionText ?? '');
-  readonly questionToDisplay$ = toObservable(this.questionText);
-  // Deferred feedback → the display mode is always 'question' (never explanation).
-  readonly displayState$ = of({ mode: 'question' as const, answered: false });
+  readonly questionText = computed<string>(() => this.currentQuestion()?.questionText ?? '');
+  readonly currentOptions = computed<Option[]>(() => this.currentQuestion()?.options ?? []);
+
+  readonly selectedIds = computed<number[]>(
+    () => this.session.answersByIndex()[this.currentIndex()] ?? []
+  );
 
   ngOnInit(): void {
     if (!this.session.hasActiveSession()) {
       this.router.navigate(['/interview']);
       return;
     }
-    this.loadAssessmentIntoRenderer();
     this.session.activateDeferredFeedback();
   }
 
   ngOnDestroy(): void {
-    // Leaving the interview (navigate away / abandon) tears the session down and
-    // restores immediate feedback so Interview state can't leak into quizzes.
+    // Leaving the interview restores immediate feedback so Interview state can't
+    // leak into normal topic quizzes.
     this.session.clear();
   }
 
-  // Paginator / prev / next → move the shared index (no router navigation).
+  // Paginator / prev / next → move the session index (no router navigation).
   onNavigate(index: number): void {
     this.session.goTo(index);
-    this.quizService.setCurrentQuestionIndex(this.session.currentIndex());
   }
 
-  // Record the user's current selection for this question (paginator answered
-  // state + later scoring). Reads the authoritative selection map by index.
-  handleQuizQuestionEvent(_event: unknown): void {
-    const i = this.session.currentIndex();
-    const selected = (this.selectedOptionService as any).selectedOptionsMap?.get?.(i) ?? [];
-    const ids = selected
-      .map((o: any) => o?.optionId)
-      .filter((x: any): x is number => typeof x === 'number');
-    this.session.setAnswer(i, ids);
-  }
-
-  // Load the generated assessment as the "active quiz" so the shared renderers
-  // display it. shuffledQuestions is cleared first so getQuestionsInDisplayOrder
-  // returns our (already-shuffled) questions WITHOUT toggling the user's global,
-  // persisted shuffle preference.
-  private loadAssessmentIntoRenderer(): void {
-    const assessment = this.assessment();
-    if (!assessment) return;
-
-    const synthetic: Quiz = {
-      quizId: assessment.id,
-      milestone: assessment.title,
-      summary: '',
-      image: '',
-      questions: assessment.questions
-    };
-
-    this.quizService.shuffledQuestions = [];
-    this.quizService.setCurrentQuiz(synthetic);
-    this.quizService.setSelectedQuiz(synthetic);
-    this.quizService.setCurrentQuestionIndex(this.currentIndex());
+  // Persist the current question's selection (drives the answered counter).
+  onSelectionChange(optionIds: number[]): void {
+    this.session.setAnswer(this.currentIndex(), optionIds);
   }
 }

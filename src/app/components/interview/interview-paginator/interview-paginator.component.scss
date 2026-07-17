@@ -3,6 +3,7 @@
   --pg-text: #1a1a1a;
   --pg-muted: #6a6a6a;
   --pg-border: #d0d0d0;
+  --pg-answered-bg: rgba(0, 122, 255, 0.14);
 
   display: flex;
   align-items: center;
@@ -56,14 +57,16 @@
     font-variant-numeric: tabular-nums;
     cursor: pointer;
 
-    // Answered: an underline marker (NOT color alone) so it reads without color.
+    // Answered: a soft filled highlight + accent border (the accessible label
+    // still says "answered", so it doesn't rely on color alone). This is a
+    // NEUTRAL answered color — not the green/red of correctness.
     &.answered {
-      text-decoration: underline;
-      text-underline-offset: 3px;
-      text-decoration-thickness: 2px;
+      background: var(--pg-answered-bg);
+      border-color: var(--pg-accent);
+      font-weight: 600;
     }
 
-    // Current question: filled accent + bold, clearly distinct.
+    // Current question: solid accent + bold, clearly distinct from answered.
     &.current {
       background: var(--pg-accent);
       border-color: var(--pg-accent);
@@ -111,4 +114,5 @@
   --pg-text: #f0f0f0;
   --pg-muted: #9a9a9a;
   --pg-border: #3d3d3d;
+  --pg-answered-bg: rgba(76, 157, 255, 0.24);
 }

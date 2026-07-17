@@ -37,11 +37,12 @@
   }
 }
 
-.interview-card {
-  border: 1px solid var(--is-border);
-  border-radius: 12px;
-  padding: 20px;
-  background: var(--is-surface);
+.interview-question {
+  margin: 0 0 18px;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--is-text);
 }
 
 [data-theme='dark'] .interview-session {

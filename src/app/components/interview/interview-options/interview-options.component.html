@@ -1,0 +1,20 @@
+@if (isMultiSelect()) {
+  <p class="io-hint" i18n>Select all that apply.</p>
+}
+
+<ul class="io-list" role="group" aria-label="Answer options" i18n-aria-label>
+  @for (option of displayOptions(); track option.optionId) {
+    <li>
+      <label class="option-row io-option" [class.io-selected]="isSelected(option)">
+        <input
+          class="io-input"
+          [type]="isMultiSelect() ? 'checkbox' : 'radio'"
+          name="interview-answer"
+          [checked]="isSelected(option)"
+          (change)="onToggle(option)"
+        />
+        <span class="io-text" [innerHTML]="option.text"></span>
+      </label>
+    </li>
+  }
+</ul>

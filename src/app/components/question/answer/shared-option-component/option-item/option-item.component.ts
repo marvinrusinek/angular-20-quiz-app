@@ -237,17 +237,20 @@ export class OptionItemComponent implements OnInit {
   getOptionClasses(): { [key: string]: boolean } {
     const classes = { ...this.binding().cssClasses };
 
-    // Interview Mode: suppress all correctness classes; show only a NEUTRAL
-    // "selected" marker so the user can see their picks without any right/wrong
-    // signal (colors, icons, and the correct/incorrect classes are all off).
+    // Interview Mode: suppress all correctness classes AND any stale highlight/
+    // selection classes carried over from a prior question, then show only a
+    // NEUTRAL "selected" marker for THIS question's saved selection (authoritative
+    // per current index — never the possibly-stale binding flag). No right/wrong
+    // signal (colors, icons, correct/incorrect classes all off).
     if (this.feedbackPolicy.isDeferred()) {
-      const selected = this.binding()?.isSelected === true || this.isSelectedForCurrentQuestion();
       return {
         ...classes,
         'correct-option': false,
         'incorrect-option': false,
+        'selected-option': false,
         highlighted: false,
-        'interview-selected': selected
+        selected: false,
+        'interview-selected': this.isSelectedForCurrentQuestion()
       };
     }
 
