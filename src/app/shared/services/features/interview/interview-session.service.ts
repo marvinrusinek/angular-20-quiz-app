@@ -4,6 +4,7 @@ import { AssessmentConfig } from '../../../models/AssessmentConfig.model';
 import { GeneratedAssessment } from '../../../models/GeneratedAssessment.model';
 
 import { AssessmentBuilderService } from '../assessment/assessment-builder.service';
+import { FeedbackPolicyService } from './feedback-policy.service';
 
 /**
  * Owns the active Interview session. In this milestone it holds the generated
@@ -15,6 +16,7 @@ import { AssessmentBuilderService } from '../assessment/assessment-builder.servi
 @Injectable({ providedIn: 'root' })
 export class InterviewSessionService {
   private readonly builder = inject(AssessmentBuilderService);
+  private readonly feedbackPolicy = inject(FeedbackPolicyService);
 
   private readonly _assessment = signal<GeneratedAssessment | null>(null);
   readonly assessment = this._assessment.asReadonly();
@@ -34,8 +36,19 @@ export class InterviewSessionService {
     return assessment;
   }
 
-  // Tear the session down (on submit or abandon).
+  // Enter the interview: defer correctness feedback. Called by the session
+  // component ON MOUNT (not by start()), so 'deferred' is only ever active while
+  // the interview screen is displayed — it can never get stuck on if navigation
+  // into the session fails.
+  activateDeferredFeedback(): void {
+    this.feedbackPolicy.setMode('deferred');
+  }
+
+  // Tear the session down (on leave, submit, or abandon). ALWAYS restores
+  // immediate feedback so Interview state can never leak into normal topic
+  // quizzes — the session component calls this on destroy, and submission too.
   clear(): void {
     this._assessment.set(null);
+    this.feedbackPolicy.reset();
   }
 }

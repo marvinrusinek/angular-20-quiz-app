@@ -40,6 +40,7 @@ import { QuizService } from '../../../shared/services/data/quiz.service';
 import { QuizStateService } from '../../../shared/services/state/quizstate.service';
 import { SelectedOptionService } from '../../../shared/services/state/selectedoption.service';
 import { TimerService } from '../../../shared/services/features/timer/timer.service';
+import { FeedbackPolicyService } from '../../../shared/services/features/interview/feedback-policy.service';
 
 import { QuizQuestionComponent } from '../../../components/question/quiz-question/quiz-question.component';
 
@@ -66,6 +67,7 @@ export class CodelabQuizContentComponent implements OnInit {
   public readonly quizStateService = inject(QuizStateService);
   public readonly selectedOptionService = inject(SelectedOptionService);
   public readonly timerService = inject(TimerService);
+  public readonly feedbackPolicyService = inject(FeedbackPolicyService);
   public readonly activatedRoute = inject(ActivatedRoute);
   public readonly cdRef = inject(ChangeDetectorRef);
   public readonly destroyRef = inject(DestroyRef);
@@ -164,6 +166,7 @@ export class CodelabQuizContentComponent implements OnInit {
     this.selectedOptionService.selectedOptionSig(); // option selection changed
     this.quizStateService.lastInteractionTimeSig(); // any genuine option click
     this.explanationTextService.formattedExplanationSig(); // FET text became available
+    this.feedbackPolicyService.feedbackMode(); // immediate ↔ deferred (Interview Mode)
     const idx = this.quizService.currentQuestionIndex;
     const inputs = buildHeadingInputs({
       idx,
@@ -174,6 +177,7 @@ export class CodelabQuizContentComponent implements OnInit {
       quizStateService: this.quizStateService,
       quizNavigationService: this.quizNavigationService,
       quizQuestionManagerService: this.quizQuestionManagerService,
+      feedbackPolicyService: this.feedbackPolicyService,
     });
     if (!inputs) return '';
 

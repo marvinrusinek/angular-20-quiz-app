@@ -21,6 +21,9 @@ export interface HeadingInputDeps {
   quizStateService: any;
   quizNavigationService: any;
   quizQuestionManagerService: any;
+  // Optional so existing callers keep working; when present and 'deferred'
+  // (Interview Mode) the heading is forced to the question text.
+  feedbackPolicyService?: any;
 }
 
 /**
@@ -80,5 +83,6 @@ export function buildHeadingInputs(d: HeadingInputDeps): HeadingInputs | null {
       && document.querySelectorAll('.option-row').length > 0,
     isNavigatingToPrevious: d.quizNavigationService.isNavigatingToPreviousSig?.() === true,
     interactedThisVisit: d.quizStateService.wasInteractedThisVisit?.(idx) === true,
+    deferFeedback: d.feedbackPolicyService?.feedbackMode?.() === 'deferred',
   };
 }

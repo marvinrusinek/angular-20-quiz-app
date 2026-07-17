@@ -48,6 +48,12 @@ export interface HeadingInputs {
    *  answer view (FET) from a revisit of an already-answered question (question
    *  text) even when isNavigatingToPrevious is stale-true. */
   interactedThisVisit: boolean;
+
+  /** Interview Mode: feedback is DEFERRED until submission, so the heading must
+   *  ALWAYS show the question text and NEVER the FET, regardless of answered/
+   *  timeout state. Optional so existing (immediate-feedback) callers are
+   *  unaffected — undefined behaves exactly as before. */
+  deferFeedback?: boolean;
 }
 
 /**
@@ -67,6 +73,12 @@ export interface HeadingInputs {
  * and revisit overrides a still-set resolution flag.
  */
 export function shouldShowFet(i: HeadingInputs): boolean {
+  // Interview Mode: correctness feedback is deferred until submission — the
+  // heading stays on the question text for the entire interview. Highest
+  // precedence so it overrides timeout/answered/revisit alike.
+  if (i.deferFeedback) {
+    return false;
+  }
   if (!i.optionsReady) {
     return false;
   }

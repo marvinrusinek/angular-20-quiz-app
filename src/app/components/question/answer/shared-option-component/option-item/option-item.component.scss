@@ -195,3 +195,16 @@
     max-width: 100% !important;
   }
 }
+
+/* Interview Mode: NEUTRAL selected marker (no correctness signal). Applied via
+   getOptionClasses() only while feedback is deferred; a calm accent so the user
+   can see their picks without any right/wrong color. Theme-aware. */
+.option-row.interview-selected {
+  background-color: rgba(0, 122, 255, 0.10) !important;
+  box-shadow: inset 3px 0 0 0 var(--ib-accent, #007aff) !important;
+}
+
+[data-theme='dark'] .option-row.interview-selected {
+  background-color: rgba(76, 157, 255, 0.18) !important;
+  box-shadow: inset 3px 0 0 0 #4c9dff !important;
+}

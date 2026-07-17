@@ -19,6 +19,7 @@ import { QuestionResolutionService } from '../../../../../shared/services/option
 import { QuizService } from '../../../../../shared/services/data/quiz.service';
 import { SelectedOptionService } from '../../../../../shared/services/state/selectedoption.service';
 import { TimerService } from '../../../../../shared/services/features/timer/timer.service';
+import { FeedbackPolicyService } from '../../../../../shared/services/features/interview/feedback-policy.service';
 
 import { OptionItemTimerStateService } from '../../../../../shared/services/options/view/option-item-timer-state.service';
 
@@ -73,6 +74,7 @@ export class OptionItemComponent implements OnInit {
   private readonly selectedOptionService = inject(SelectedOptionService);
   private readonly timerService = inject(TimerService);
   private readonly timerState = inject(OptionItemTimerStateService);
+  private readonly feedbackPolicy = inject(FeedbackPolicyService);
   private readonly cdRef = inject(ChangeDetectorRef);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -212,6 +214,10 @@ export class OptionItemComponent implements OnInit {
   }
 
   getOptionIcon(_option?: any, _i?: number): string {
+    // Interview Mode: never reveal correct/incorrect icons during the interview.
+    if (this.feedbackPolicy.isDeferred()) {
+      return '';
+    }
     // AUTO-REVEAL backup: persistent custom flag wins over any state that
     // might wipe option.showIcon (mirrors the backup in
     // getOptionBackgroundColor that paints the green background).
@@ -230,6 +236,20 @@ export class OptionItemComponent implements OnInit {
 
   getOptionClasses(): { [key: string]: boolean } {
     const classes = { ...this.binding().cssClasses };
+
+    // Interview Mode: suppress all correctness classes; show only a NEUTRAL
+    // "selected" marker so the user can see their picks without any right/wrong
+    // signal (colors, icons, and the correct/incorrect classes are all off).
+    if (this.feedbackPolicy.isDeferred()) {
+      const selected = this.binding()?.isSelected === true || this.isSelectedForCurrentQuestion();
+      return {
+        ...classes,
+        'correct-option': false,
+        'incorrect-option': false,
+        highlighted: false,
+        'interview-selected': selected
+      };
+    }
 
     const revisitClasses = this.getRevisitOptionClasses(classes);
     if (revisitClasses) return revisitClasses;
@@ -595,6 +615,10 @@ export class OptionItemComponent implements OnInit {
   }
 
   shouldShowIcon(_option?: any, _i?: number): boolean {
+    // Interview Mode: no correctness icons during the interview.
+    if (this.feedbackPolicy.isDeferred()) {
+      return false;
+    }
     // AUTO-REVEAL backup: persistent custom flag wins over downstream
     // pipelines that wipe option.showIcon back to false (mirrors the
     // backup in getOptionBackgroundColor that paints the green background).
@@ -659,6 +683,11 @@ export class OptionItemComponent implements OnInit {
   }
 
   getOptionBackgroundColor(): string | null {
+    // Interview Mode: no correctness background color during the interview
+    // (neutral selection is conveyed by the 'interview-selected' class instead).
+    if (this.feedbackPolicy.isDeferred()) {
+      return null;
+    }
     const auto = this.autoRevealColor();
     if (auto !== undefined) return auto;
 
@@ -874,6 +903,8 @@ export class OptionItemComponent implements OnInit {
   }
 
   shouldShowFeedback(): boolean {
+    // Interview Mode: correctness feedback is deferred until submission.
+    if (this.feedbackPolicy.isDeferred()) return false;
     if (this.isTimerStamped()) return true;
     return this.shouldHighlightOption() || this.shouldShowCorrectOnTimeout();
   }

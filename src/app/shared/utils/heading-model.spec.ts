@@ -102,6 +102,35 @@ describe('heading-model: shouldShowFet', () => {
   });
 });
 
+// Interview Mode: feedback deferred → the heading NEVER shows the FET, and this
+// overrides answered/timeout/multi-complete alike. Immediate feedback (the field
+// absent) is unchanged.
+describe('heading-model: deferred feedback (Interview Mode)', () => {
+  it('forces the question text even when single-answered', () => {
+    expect(shouldShowFet(inputs({ deferFeedback: true, hasInteracted: true, isSingleAnswered: true }))).toBe(false);
+  });
+
+  it('forces the question text even on a timeout', () => {
+    expect(shouldShowFet(inputs({ deferFeedback: true, isTimedOut: true }))).toBe(false);
+  });
+
+  it('forces the question text even when a multi-answer is complete', () => {
+    expect(shouldShowFet(inputs({
+      deferFeedback: true, isMultiAnswer: true, hasInteracted: true, isMultiAnswerComplete: true
+    }))).toBe(false);
+  });
+
+  it('deriveHeadingHtml returns the question text while deferred', () => {
+    const i = inputs({ deferFeedback: true, hasInteracted: true, isSingleAnswered: true });
+    expect(deriveHeadingHtml(i)).toBe(i.questionHtml);
+  });
+
+  it('immediate feedback (deferFeedback absent) is unchanged', () => {
+    expect(shouldShowFet(inputs({ hasInteracted: true, isSingleAnswered: true }))).toBe(true);
+    expect(shouldShowFet(inputs({ deferFeedback: false, hasInteracted: true, isSingleAnswered: true }))).toBe(true);
+  });
+});
+
 describe('heading-model: deriveHeadingHtml', () => {
   it('returns the FET when the FET should show and text exists', () => {
     const i = inputs({ hasInteracted: true, isSingleAnswered: true });
