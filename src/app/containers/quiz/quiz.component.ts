@@ -451,11 +451,23 @@ export class QuizComponent implements OnInit, AfterViewInit {
     }
   }
 
-  public advanceToNextQuestion(): Promise<void> {
-    return this.quizSetupService.advanceQuestion(this, 'next');
+  public async advanceToNextQuestion(): Promise<void> {
+    await this.quizSetupService.advanceQuestion(this, 'next');
+    this.scrollToTop();
   }
-  public advanceToPreviousQuestion(): Promise<void> {
-    return this.quizSetupService.advanceQuestion(this, 'previous');
+  public async advanceToPreviousQuestion(): Promise<void> {
+    await this.quizSetupService.advanceQuestion(this, 'previous');
+    this.scrollToTop();
+  }
+
+  // On question navigation, bring the new question to the top of the page (the
+  // user may have scrolled down to the last option before pressing Next/Prev).
+  private scrollToTop(): void {
+    try {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      swallow('quiz.component#scrollToTop', err);
+    }
   }
   public advanceToResults(): void {
     if (this.navigatingToResults()) return;
@@ -604,7 +616,7 @@ export class QuizComponent implements OnInit, AfterViewInit {
     // Route through the navigation service (same path as Next/Prev) so the
     // destination question is fetched and EMITTED — a raw router.navigate only
     // changes the URL and leaves the displayed question unchanged.
-    void this.quizNavigationService.navigateToQuestion(index);
+    void this.quizNavigationService.navigateToQuestion(index).then(() => this.scrollToTop());
   }
 
   isDotClickable(index: number): boolean {

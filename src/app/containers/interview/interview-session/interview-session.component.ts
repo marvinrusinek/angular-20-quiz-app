@@ -8,16 +8,25 @@ import {
   ViewEncapsulation
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { MatDialog } from '@angular/material/dialog';
 import { Router } from '@angular/router';
 
 import { Option } from '../../../shared/models/Option.model';
 import { QuizQuestion } from '../../../shared/models/QuizQuestion.model';
 
+import { swallow } from '../../../shared/utils/error-logging';
+
 import { InterviewSessionService } from '../../../shared/services/features/interview/interview-session.service';
+import { InterviewTimerService } from '../../../shared/services/features/timer/interview-timer.service';
 
 import { InterviewPaginatorComponent } from '../../../components/interview/interview-paginator/interview-paginator.component';
 import { InterviewOptionsComponent } from '../../../components/interview/interview-options/interview-options.component';
 import { ThemeToggleComponent } from '../../../components/theme-toggle/theme-toggle.component';
+import {
+  InterviewSubmitDialogComponent,
+  InterviewSubmitDialogData
+} from '../../../components/dialogs/interview-submit-dialog/interview-submit-dialog.component';
 
 /**
  * Interview session shell.
@@ -50,11 +59,30 @@ import { ThemeToggleComponent } from '../../../components/theme-toggle/theme-tog
 })
 export class InterviewSessionComponent implements OnInit, OnDestroy {
   private readonly session = inject(InterviewSessionService);
+  private readonly timer = inject(InterviewTimerService);
+  private readonly dialog = inject(MatDialog);
   private readonly router = inject(Router);
 
   readonly currentIndex = this.session.currentIndex;
   readonly total = this.session.total;
   readonly answeredIndices = this.session.answeredIndices;
+
+  // Total-assessment countdown (calm typography, NOT the per-question Scoreboard).
+  readonly timeRemaining = this.timer.formatted;
+  readonly isLowTime = this.timer.isLowTime;
+
+  // The "Show Results" (submit) affordance appears on the final question.
+  readonly isLastQuestion = computed(
+    () => this.total() > 0 && this.currentIndex() === this.total() - 1
+  );
+
+  constructor() {
+    // Timer expiry → auto-submit ONCE, no confirmation. Set up before the timer
+    // starts (in ngOnInit) so an expiry can never be missed.
+    this.timer.expired$
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => this.submit(true));
+  }
 
   readonly currentQuestion = computed<QuizQuestion | null>(
     () => this.session.assessment()?.questions?.[this.currentIndex()] ?? null
@@ -73,17 +101,85 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
       return;
     }
     this.session.activateDeferredFeedback();
+    this.startTimer();
   }
 
   ngOnDestroy(): void {
-    // Leaving the interview restores immediate feedback so Interview state can't
-    // leak into normal topic quizzes.
-    this.session.clear();
+    // Stop the countdown, and — only when NOT submitted (i.e. the user abandoned
+    // the assessment) — tear the session down + restore immediate feedback. On
+    // submit, the data is kept for the Results page (submit() already reset the
+    // feedback policy).
+    this.timer.stop();
+    if (this.session.status() !== 'submitted') {
+      this.session.clear();
+    }
+  }
+
+  // Manual (early) submit — from the "Show Results" button. Confirms first.
+  onShowResults(): void {
+    if (this.session.status() !== 'active') return;
+    const answered = this.answeredIndices().size;
+    const ref = this.dialog.open<InterviewSubmitDialogComponent, InterviewSubmitDialogData, boolean>(
+      InterviewSubmitDialogComponent,
+      {
+        width: '360px',
+        panelClass: 'themed-confirm-dialog',
+        autoFocus: 'dialog',
+        data: {
+          answered,
+          unanswered: Math.max(0, this.total() - answered),
+          timeRemaining: this.timeRemaining()
+        }
+      }
+    );
+    ref.afterClosed().subscribe((confirmed) => {
+      if (confirmed) this.submit(false);
+    });
+  }
+
+  // Finalize the assessment: stop the timer, score + store the result, and go to
+  // the Results page. Idempotent via the status guard (a manual submit and a
+  // timer-expiry submit racing produce exactly one result + navigation).
+  private submit(byExpiry: boolean): void {
+    if (this.session.status() !== 'active') return;
+    const timeUsed = this.timer.elapsedSeconds();
+    const timeRemaining = this.timer.remainingSeconds();
+    this.timer.stop();
+    this.session.submit(timeUsed, timeRemaining, byExpiry);
+    this.router.navigate(['/interview/results']);
+  }
+
+  // Start the total-assessment countdown once (survives question navigation).
+  // Duration comes from the generated assessment; a `?interviewSeconds=` query
+  // param overrides it so Playwright can exercise expiry without waiting 30 min.
+  private startTimer(): void {
+    const assessment = this.session.assessment();
+    if (!assessment) return;
+    const override = this.readDurationOverride();
+    this.timer.start(override ?? assessment.durationSeconds);
+  }
+
+  private readDurationOverride(): number | null {
+    try {
+      // Stashed by the builder from a `?interviewSeconds=` query param (test-only
+      // hook so Playwright can exercise expiry without waiting the full duration).
+      const raw = sessionStorage.getItem('__interviewSeconds');
+      const n = raw ? Number(raw) : NaN;
+      return Number.isFinite(n) && n > 0 ? n : null;
+    } catch {
+      return null;
+    }
   }
 
   // Paginator / prev / next → move the session index (no router navigation).
+  // Bring the new question to the top (the user may have scrolled down).
   onNavigate(index: number): void {
     this.session.goTo(index);
+    try {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      swallow('interview-session#onNavigate', err);
+    }
   }
 
   // Persist the current question's selection (drives the answered counter).

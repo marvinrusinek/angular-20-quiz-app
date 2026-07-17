@@ -2,7 +2,11 @@ import { computed, Injectable, inject, signal } from '@angular/core';
 
 import { AssessmentConfig } from '../../../models/AssessmentConfig.model';
 import { GeneratedAssessment } from '../../../models/GeneratedAssessment.model';
+import { InterviewResult } from '../../../models/InterviewResult.model';
 import { InterviewSessionStatus } from '../../../models/InterviewSession.model';
+
+import { getQuizData } from '../../../quiz-data-cache';
+import { computeInterviewResult } from '../../../utils/interview-scoring';
 
 import { AssessmentBuilderService } from '../assessment/assessment-builder.service';
 import { FeedbackPolicyService } from './feedback-policy.service';
@@ -35,6 +39,12 @@ export class InterviewSessionService {
   private readonly _status = signal<InterviewSessionStatus>('active');
   readonly status = this._status.asReadonly();
 
+  private readonly _result = signal<InterviewResult | null>(null);
+  readonly result = this._result.asReadonly();
+
+  // Access to the interview Results route requires a completed result.
+  readonly hasResult = computed(() => this._result() !== null && this._status() === 'submitted');
+
   readonly total = computed(() => this._assessment()?.questions?.length ?? 0);
 
   readonly hasActiveSession = computed(() => this.total() > 0);
@@ -61,6 +71,7 @@ export class InterviewSessionService {
     this._currentIndex.set(0);
     this._answersByIndex.set({});
     this._status.set('active');
+    this._result.set(null);
     return assessment;
   }
 
@@ -96,14 +107,47 @@ export class InterviewSessionService {
     return (this._answersByIndex()[index]?.length ?? 0) > 0;
   }
 
-  // Tear the session down (on leave, submit, or abandon). ALWAYS restores
-  // immediate feedback so Interview state can never leak into normal topic
-  // quizzes — the session component calls this on destroy, and submission too.
+  // ── submission ──────────────────────────────────────────────────
+  // Score + finalize the assessment. Idempotent (double-submit guard): once
+  // submitted it returns the stored result and re-scores nothing — so a manual
+  // submit and a timer-expiry submit racing produce ONE result. Restores
+  // immediate feedback (the interview is over) but KEEPS the assessment/answers/
+  // result so the Results + Review can read them.
+  submit(
+    timeUsedSeconds: number,
+    timeRemainingSeconds: number,
+    submittedByExpiry: boolean
+  ): InterviewResult | null {
+    if (this._status() === 'submitted') {
+      return this._result();
+    }
+    const assessment = this._assessment();
+    if (!assessment) {
+      return null;
+    }
+    const result = computeInterviewResult(
+      assessment,
+      this._answersByIndex(),
+      timeUsedSeconds,
+      timeRemainingSeconds,
+      submittedByExpiry,
+      (quizId) => getQuizData().find((q) => q.quizId === quizId)?.milestone ?? quizId
+    );
+    this._status.set('submitted');
+    this._result.set(result);
+    this.feedbackPolicy.reset();
+    return result;
+  }
+
+  // Tear the session down (on abandon, or when leaving the Results page). ALWAYS
+  // restores immediate feedback so Interview state can never leak into normal
+  // topic quizzes.
   clear(): void {
     this._assessment.set(null);
     this._currentIndex.set(0);
     this._answersByIndex.set({});
     this._status.set('active');
+    this._result.set(null);
     this.feedbackPolicy.reset();
   }
 }

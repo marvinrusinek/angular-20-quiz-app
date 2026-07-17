@@ -1,9 +1,26 @@
 @if (currentQuestion(); as q) {
   <div class="interview-session">
     <header class="interview-session__bar">
-      <h1 class="interview-session__title" i18n>Interview</h1>
-      <!-- Total-countdown timer lands in the next milestone. -->
-      <codelab-theme-toggle class="interview-session__theme" />
+      <h1 class="interview-session__title" i18n>Angular Assessment</h1>
+
+      <div class="interview-session__meta">
+        <span class="interview-progress">
+          <span i18n>Question</span> {{ currentIndex() + 1 }} <span i18n>of</span> {{ total() }}
+        </span>
+
+        <span
+          class="interview-timer"
+          [class.interview-timer--low]="isLowTime()"
+          role="timer"
+          aria-label="Time remaining"
+          i18n-aria-label
+        >
+          <span class="interview-timer__label" i18n>Time Remaining</span>
+          <span class="interview-timer__value">{{ timeRemaining() }}</span>
+        </span>
+
+        <codelab-theme-toggle class="interview-session__theme" />
+      </div>
     </header>
 
     <!-- Question box. Order: question heading → options → pagination. -->
@@ -35,7 +52,17 @@
       <span class="interview-session__progress">
         {{ answeredIndices().size }} / {{ total() }} <span i18n>answered</span>
       </span>
-      <!-- Submit + confirmation dialog land in the next milestone. -->
+
+      @if (isLastQuestion()) {
+        <button
+          type="button"
+          class="show-results-btn"
+          (click)="onShowResults()"
+          i18n
+        >
+          Show Results
+        </button>
+      }
     </footer>
   </div>
 } @else {

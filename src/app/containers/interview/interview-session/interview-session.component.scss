@@ -15,6 +15,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
     margin-bottom: 8px;
   }
 
@@ -25,11 +27,36 @@
     letter-spacing: 0.3px;
   }
 
+  &__meta {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+
   &__footer {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: space-between;
+    gap: 12px;
     margin-top: 12px;
+  }
+
+  .show-results-btn {
+    padding: 10px 22px;
+    border: none;
+    border-radius: 10px;
+    background: vars.$vivid-blue;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+
+    &:hover { filter: brightness(0.95); }
+
+    &:focus-visible {
+      outline: 2px solid vars.$vivid-blue;
+      outline-offset: 2px;
+    }
   }
 
   &__progress {
@@ -37,19 +64,59 @@
     font-size: 14px;
     font-variant-numeric: tabular-nums;
   }
+}
 
-  // The question box — a SOLID, theme-aware surface (plain div, no mat-card) so
-  // the question + options always render inside a clearly visible box, in light
-  // and dark. (The topic quiz's glassmorphism card read white-on-white here.)
-  .interview-question-box {
-    max-width: 680px;
-    margin: 12px auto;
-    padding: 22px;
-    background: var(--is-surface);
-    border: 1px solid var(--is-border);
-    border-radius: 14px;
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12);
+// "Question X of Y" position indicator.
+.interview-progress {
+  color: var(--is-muted, #6a6a6a);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+// Total-assessment countdown. Calm, professional — a restrained monospace for
+// stable digit widths, deliberately NOT the Scoreboard font. No flashing.
+.interview-timer {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.1;
+
+  &__label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--is-muted, #6a6a6a);
   }
+
+  &__value {
+    font-family: 'SFMono-Regular', 'Consolas', 'Roboto Mono', ui-monospace, monospace;
+    font-size: 20px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--is-text, #1a1a1a);
+    transition: color 0.3s ease;
+  }
+
+  // Subtle low-time warning (≤5 min) — a calm amber, no flashing/animation.
+  &--low &__value {
+    color: #d9822b;
+  }
+}
+
+// The question box — a SOLID, theme-aware surface (plain div, no mat-card) so
+// the question + options always render inside a clearly visible box, in light
+// and dark. (The topic quiz's glassmorphism card read white-on-white here.)
+.interview-session .interview-question-box {
+  max-width: 680px;
+  margin: 12px auto;
+  padding: 22px;
+  background: var(--is-surface);
+  border: 1px solid var(--is-border);
+  border-radius: 14px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12);
 }
 
 // Match the topic quiz's question box: a light-blue-bordered box around the

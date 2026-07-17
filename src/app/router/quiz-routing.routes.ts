@@ -12,9 +12,12 @@ import { BuildYourInterviewComponent } from
     '../containers/interview/build-your-interview/build-your-interview.component';
 import { InterviewSessionComponent } from
     '../containers/interview/interview-session/interview-session.component';
+import { InterviewResultsComponent } from
+    '../containers/interview/interview-results/interview-results.component';
 
 import { QuizGuard } from './guards/quiz-guard';
 import { InterviewSessionGuard } from './guards/interview-session-guard';
+import { InterviewResultGuard } from './guards/interview-result-guard';
 
 export const routes: Routes = [
   {
@@ -53,6 +56,13 @@ export const routes: Routes = [
     path: 'interview/session',
     component: InterviewSessionComponent,
     canActivate: [InterviewSessionGuard]
+  },
+  // Interview Results ("Assessment Complete"). Guarded: requires a submitted
+  // result; direct/stale access redirects to the builder.
+  {
+    path: 'interview/results',
+    component: InterviewResultsComponent,
+    canActivate: [InterviewResultGuard]
   },
 
   // Backward compatibility redirects

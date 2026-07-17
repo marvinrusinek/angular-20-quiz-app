@@ -1,6 +1,7 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
+import { of } from 'rxjs';
 
 import { Quiz, QuizDifficulty } from '../../../shared/models/Quiz.model';
 import { setQuizDataCache } from '../../../shared/quiz-data-cache';
@@ -47,7 +48,7 @@ describe('BuildYourInterviewComponent', () => {
     await TestBed.configureTestingModule({
       imports: [BuildYourInterviewComponent],
       providers: [
-        { provide: QuizDataService, useValue: { quizzesSig: signal(CATALOG) } },
+        { provide: QuizDataService, useValue: { quizzesSig: signal(CATALOG), ensureQuizzesLoaded: () => of(CATALOG) } },
         { provide: Router, useValue: router },
         { provide: QuizStartSpinnerService, useValue: spinner }
       ]

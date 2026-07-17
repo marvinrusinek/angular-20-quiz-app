@@ -2,7 +2,9 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   inject,
+  OnInit,
   signal,
   Signal,
   ViewEncapsulation
@@ -23,6 +25,7 @@ import { QuizDataService } from '../../../shared/services/data/quizdata.service'
 import { AssessmentBuilderService } from '../../../shared/services/features/assessment/assessment-builder.service';
 import { InterviewSessionService } from '../../../shared/services/features/interview/interview-session.service';
 import { QuizStartSpinnerService } from '../../../shared/services/ui/quiz-start-spinner.service';
+import { swallow } from '../../../shared/utils/error-logging';
 
 interface TopicOption {
   id: string;
@@ -51,13 +54,14 @@ interface DifficultyOption {
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class BuildYourInterviewComponent {
+export class BuildYourInterviewComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly quizDataService = inject(QuizDataService);
   private readonly builder = inject(AssessmentBuilderService);
   private readonly session = inject(InterviewSessionService);
   private readonly spinner = inject(QuizStartSpinnerService);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   private readonly quizzes = this.quizDataService.quizzesSig;
 
@@ -148,6 +152,16 @@ export class BuildYourInterviewComponent {
       });
   }
 
+  ngOnInit(): void {
+    // Ensure the quiz catalog is loaded so topics appear even on a direct load /
+    // refresh of /interview (quizzesSig is otherwise only filled after visiting
+    // the selection page). Returns cached quizzes immediately when available.
+    this.quizDataService
+      .ensureQuizzesLoaded()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe();
+  }
+
   isTopicSelected(id: string): boolean {
     return this.selectedTopicIds().has(id);
   }
@@ -192,8 +206,25 @@ export class BuildYourInterviewComponent {
 
   async startInterview(): Promise<void> {
     if (this.startDisabled()) return;
+    this.stashTimerOverride();
     this.session.start(this.currentConfig());
     await this.spinner.showForStart($localize`Preparing Interview…`);
     await this.router.navigate(['/interview/session']);
+  }
+
+  // Test-only hook: carry a `?interviewSeconds=` override into the session (via
+  // sessionStorage) so Playwright can exercise timer expiry quickly. No effect
+  // in normal use (the param is never present).
+  private stashTimerOverride(): void {
+    try {
+      const raw = new URLSearchParams(window.location.search).get('interviewSeconds');
+      if (raw && Number(raw) > 0) {
+        sessionStorage.setItem('__interviewSeconds', raw);
+      } else {
+        sessionStorage.removeItem('__interviewSeconds');
+      }
+    } catch (err) {
+      swallow('build-your-interview#stashTimerOverride', err);
+    }
   }
 }

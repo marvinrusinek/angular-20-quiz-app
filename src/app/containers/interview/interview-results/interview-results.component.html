@@ -1,0 +1,54 @@
+@if (result(); as r) {
+  <div class="interview-results">
+    <header class="interview-results__bar">
+      <h1 class="interview-results__title" i18n>Assessment Complete</h1>
+      <codelab-theme-toggle />
+    </header>
+
+    @if (r.submittedByExpiry) {
+      <p class="interview-results__expiry" role="status" i18n>
+        Time's up. Your assessment was submitted automatically.
+      </p>
+    }
+
+    <div class="interview-results__card">
+      <div class="score-hero">
+        <div class="score-pct">{{ r.percentage }}%</div>
+        <div class="score-sub">{{ r.correct }} / {{ r.total }} <span i18n>correct</span></div>
+      </div>
+
+      <dl class="stat-grid">
+        <div><dt i18n>Answered</dt><dd>{{ r.answered }}</dd></div>
+        <div><dt i18n>Unanswered</dt><dd>{{ r.unanswered }}</dd></div>
+        <div><dt i18n>Correct</dt><dd>{{ r.correct }}</dd></div>
+        <div><dt i18n>Incorrect</dt><dd>{{ r.incorrect }}</dd></div>
+        <div><dt i18n>Time used</dt><dd>{{ timeUsed() }}</dd></div>
+        <div><dt i18n>Difficulty</dt><dd>{{ r.difficulty | titlecase }}</dd></div>
+      </dl>
+
+      @if (r.perTopic.length > 0) {
+        <h2 class="topics-heading" i18n>Topic Performance</h2>
+        <ul class="topic-list">
+          @for (t of r.perTopic; track t.quizId) {
+            <li class="topic-row">
+              <span class="topic-name">{{ t.title }}</span>
+              <span class="topic-bar" aria-hidden="true">
+                <span class="topic-bar__fill" [style.width.%]="t.percentage"></span>
+              </span>
+              <span class="topic-score">{{ t.correct }}/{{ t.total }} · {{ t.percentage }}%</span>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+
+    <div class="interview-results__actions">
+      <button type="button" class="ir-btn ir-btn--primary" (click)="buildAnother()" i18n>
+        Build Another Assessment
+      </button>
+      <button type="button" class="ir-btn" (click)="returnToSelection()" i18n>
+        Return to Quiz Selection
+      </button>
+    </div>
+  </div>
+}
