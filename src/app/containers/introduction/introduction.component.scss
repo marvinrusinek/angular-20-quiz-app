@@ -252,6 +252,22 @@ mat-card-actions {
   }
 }
 
+// The intro card is intentionally always white (see `mat-card.quiz-card` above,
+// `background: #fff !important`). In dark mode the app's global light text color
+// therefore leaves the subtitle + summary near-invisible on the white card, so
+// force them to dark. The attribute lives on <html>, an ancestor of this host,
+// so :host-context is required (not a plain [data-theme] selector).
+:host-context([data-theme='dark']) {
+  ::ng-deep mat-card-subtitle,
+  ::ng-deep mat-card-subtitle span,
+  .intro-text,
+  .intro-text p,
+  .intro-text .bold-text,
+  .intro-centered-text {
+    color: #212121 !important;
+  }
+}
+
 // Quiz meta: difficulty · # of questions · estimated time (stacked)
 .quiz-meta {
   display: flex;
