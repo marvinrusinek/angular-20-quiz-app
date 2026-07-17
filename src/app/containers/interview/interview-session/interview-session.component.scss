@@ -1,3 +1,5 @@
+@use '../../../../variables' as vars;
+
 .interview-session {
   --is-surface: #fff;
   --is-border: #e0e0e0;
@@ -60,7 +62,7 @@
   margin: 0 0 18px;
   padding: 10px 15px;
   background-color: var(--bg-option, #f5f5f5);
-  border: 2px solid #3b98fd;
+  border: 2px solid vars.$vivid-blue;
   border-radius: 8px;
   color: var(--text-option, var(--is-text));
   font-size: 22px;
