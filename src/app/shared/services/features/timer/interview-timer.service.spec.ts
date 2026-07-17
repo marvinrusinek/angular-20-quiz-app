@@ -60,6 +60,20 @@ describe('InterviewTimerService', () => {
     expect(service.elapsedSeconds()).toBe(30);
   });
 
+  it('pause() freezes the remaining time; resume() continues from there', () => {
+    service.start(30);
+    advance(5000);
+    expect(service.remainingSeconds()).toBe(25);
+
+    service.pause();
+    advance(10000);                        // time passes while paused
+    expect(service.remainingSeconds()).toBe(25);   // frozen — no drain
+
+    service.resume();
+    advance(5000);
+    expect(service.remainingSeconds()).toBe(20);   // continues from 25
+  });
+
   it('restores remaining time from a persisted expiry timestamp', () => {
     service.restore(now + 20000, 30);
     expect(service.remainingSeconds()).toBe(20);

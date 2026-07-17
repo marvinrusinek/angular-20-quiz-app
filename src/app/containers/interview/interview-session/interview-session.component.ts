@@ -115,9 +115,13 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
     }
   }
 
-  // Manual (early) submit — from the "Show Results" button. Confirms first.
+  // Manual (early) submit — from the "Show Results" button. Confirms first. The
+  // countdown is PAUSED while the dialog is open (the confirmation shouldn't cost
+  // the user time) and resumed if they choose to continue.
   onShowResults(): void {
     if (this.session.status() !== 'active') return;
+    this.timer.pause();
+
     const answered = this.answeredIndices().size;
     const ref = this.dialog.open<InterviewSubmitDialogComponent, InterviewSubmitDialogData, boolean>(
       InterviewSubmitDialogComponent,
@@ -133,7 +137,14 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
       }
     );
     ref.afterClosed().subscribe((confirmed) => {
-      if (confirmed) this.submit(false);
+      if (confirmed) {
+        this.submit(false);
+      } else {
+        // Continue Assessment (or dismissed) → resume the countdown and persist
+        // the new expiry so a refresh keeps the correct remaining time.
+        const expiresAt = this.timer.resume();
+        this.session.setTiming(expiresAt, this.timer.durationSeconds);
+      }
     });
   }
 

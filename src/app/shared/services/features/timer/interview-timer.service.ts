@@ -77,6 +77,25 @@ export class InterviewTimerService implements OnDestroy {
     return Math.max(0, this.totalSeconds - this._remaining());
   }
 
+  // ── pause / resume (e.g. while a confirmation dialog is open) ────
+  // Freeze the countdown WITHOUT finalizing it: remaining stays put.
+  pause(): void {
+    this.clearInterval();
+  }
+
+  // Continue after a pause: recompute the expiry from the frozen remaining so
+  // the countdown resumes exactly where it left off. Returns the new expiry ms
+  // (so callers can persist it for resume-after-refresh).
+  resume(): number {
+    if (this.expiredEmitted || this._remaining() <= 0) {
+      return this.expiresAtMs;
+    }
+    this.expiresAtMs = Date.now() + this._remaining() * 1000;
+    this.clearInterval();
+    this.intervalId = setInterval(() => this.tick(), 1000);
+    return this.expiresAtMs;
+  }
+
   // ── teardown ────────────────────────────────────────────────────
   stop(): void {
     this.clearInterval();
