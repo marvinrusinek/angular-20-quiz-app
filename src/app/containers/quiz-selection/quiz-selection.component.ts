@@ -37,6 +37,7 @@ import {
 } from '../../components/quiz-card-progress/quiz-card-progress.component';
 import { QuizSearchComponent } from '../../components/quiz-search/quiz-search.component';
 import { QuizSortComponent } from '../../components/quiz-sort/quiz-sort.component';
+import { ThemeToggleComponent } from '../../components/theme-toggle/theme-toggle.component';
 import { ScrollDownIndicatorComponent } from '../../components/scroll-down-indicator/scroll-down-indicator.component';
 import { CountUpDirective } from '../../directives/count-up.directive';
 
@@ -56,6 +57,7 @@ import { swallow } from '../../shared/utils/error-logging';
     NgOptimizedImage,
     QuizSearchComponent,
     QuizSortComponent,
+    ThemeToggleComponent,
     ScrollDownIndicatorComponent,
     BackToTopComponent,
     AchievementsSummaryComponent,

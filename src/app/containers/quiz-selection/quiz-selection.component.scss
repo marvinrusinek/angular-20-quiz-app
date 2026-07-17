@@ -65,15 +65,23 @@
     }
 
     .info {
-      margin-top: 20px;
-      margin-left: -100px;
+      display: flex;
+      align-items: center;      // vertically align the info + theme-toggle icons
+      gap: 14px;
+      margin-top: -50px;
+      margin-left: -125px;
 
-      i {
-        font-size: 40px;
+      mat-icon {
+        // Match the dark-mode toggle's footprint (36px button) so the two icons
+        // read as the same size.
+        font-size: 30px;
+        width: 30px;
+        height: 30px;
+        line-height: 30px;
 
         &:hover {
-          -webkit-transform: scale(1.3);
-          transform: scale(1.3);
+          -webkit-transform: scale(1.1);
+          transform: scale(1.1);
         }
       }
     }

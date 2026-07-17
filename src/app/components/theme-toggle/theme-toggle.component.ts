@@ -48,9 +48,14 @@ import { ThemeService } from '../../shared/services/ui/theme.service';
     }
 
     .theme-toggle-btn mat-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
       font-size: 20px;
       width: 20px;
       height: 20px;
+      line-height: 20px;
+      margin: 0;
     }
   `]
 })
