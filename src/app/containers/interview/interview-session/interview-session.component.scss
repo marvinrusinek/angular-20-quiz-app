@@ -35,6 +35,33 @@
     font-size: 14px;
     font-variant-numeric: tabular-nums;
   }
+
+  // Reuse the topic quiz's question-box look. The quiz component's real box
+  // styling lives in a `:host ::ng-deep mat-card.quiz-card` rule scoped to THAT
+  // component, so it doesn't reach here — replicate it (same global theme tokens
+  // + glassmorphism) so the Interview question renders in the same box.
+  .quiz-card-wrapper {
+    margin: 12px auto;
+    max-width: 680px;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+    background: transparent;
+    overflow: visible;
+  }
+
+  mat-card.quiz-card {
+    position: relative;
+    width: 100%;
+    margin: 0;
+    padding: 16px !important;
+    background: var(--bg-card-alpha) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    border: 1px solid var(--bg-card-border) !important;
+    border-radius: 16px !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
 }
 
 .interview-question {
