@@ -15,6 +15,12 @@ function makeCatalogQuiz(quizId: string, n: number): Quiz {
   return { quizId, milestone: quizId, summary: '', image: '', difficulty: 'beginner', questions };
 }
 
+// Clear persisted state before EVERY test — the service auto-restores from
+// sessionStorage on construction, so leftover data would leak across tests.
+beforeEach(() => {
+  try { sessionStorage.clear(); } catch { /* jsdom */ }
+});
+
 describe('InterviewSessionService — feedback lifecycle', () => {
   let session: InterviewSessionService;
   let policy: FeedbackPolicyService;
@@ -95,5 +101,54 @@ describe('InterviewSessionService — navigation + answers', () => {
     expect(session.currentIndex()).toBe(0);
     expect(session.answeredCount()).toBe(0);
     expect(session.hasActiveSession()).toBe(false);
+  });
+});
+
+describe('InterviewSessionService — sessionStorage resume', () => {
+  beforeEach(() => setQuizDataCache([makeCatalogQuiz('ts', 10)], []));
+  afterEach(() => setQuizDataCache([], []));
+
+  // A brand-new injector → a brand-new service whose constructor restores from
+  // sessionStorage (which persists across TestBed resets).
+  function freshService(): InterviewSessionService {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({});
+    return TestBed.inject(InterviewSessionService);
+  }
+
+  it('persists an active session and restores it in a new instance', () => {
+    const s1 = freshService();
+    s1.start({ difficulty: 'mixed', topicIds: ['ts'], questionCount: 10 });
+    s1.setAnswer(2, [101]);
+    s1.goTo(4);
+    s1.setTiming(Date.now() + 300_000, 900);
+
+    const s2 = freshService();   // constructor restores
+    expect(s2.hasActiveSession()).toBe(true);
+    expect(s2.wasRestored()).toBe(true);
+    expect(s2.currentIndex()).toBe(4);
+    expect(s2.answersByIndex()[2]).toEqual([101]);
+    expect(s2.timerDurationSeconds()).toBe(900);
+    expect(s2.expiresAt()).toBeGreaterThan(0);
+  });
+
+  it('does NOT resume after submission (persisted session dropped)', () => {
+    const s1 = freshService();
+    s1.start({ difficulty: 'mixed', topicIds: ['ts'], questionCount: 10 });
+    s1.setTiming(Date.now() + 300_000, 900);
+    s1.submit(100, 800, false);
+
+    const s2 = freshService();
+    expect(s2.hasActiveSession()).toBe(false);
+    expect(s2.wasRestored()).toBe(false);
+  });
+
+  it('clear() drops the persisted session', () => {
+    const s1 = freshService();
+    s1.start({ difficulty: 'mixed', topicIds: ['ts'], questionCount: 10 });
+    s1.clear();
+
+    const s2 = freshService();
+    expect(s2.hasActiveSession()).toBe(false);
   });
 });

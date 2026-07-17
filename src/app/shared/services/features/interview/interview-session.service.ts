@@ -7,9 +7,20 @@ import { InterviewSessionStatus } from '../../../models/InterviewSession.model';
 
 import { getQuizData } from '../../../quiz-data-cache';
 import { computeInterviewResult } from '../../../utils/interview-scoring';
+import { SK_INTERVIEW_SESSION } from '../../../constants/session-keys';
+import { readSessionJson, removeSessionKey, writeSessionJson } from '../../../utils/session-storage';
 
 import { AssessmentBuilderService } from '../assessment/assessment-builder.service';
 import { FeedbackPolicyService } from './feedback-policy.service';
+
+// Persisted shape for resume (only an 'active' session is ever written).
+interface PersistedInterviewSession {
+  assessment: GeneratedAssessment;
+  answersByIndex: Record<number, number[]>;
+  currentIndex: number;
+  expiresAt: number;        // epoch ms — drift-proof remaining time
+  durationSeconds: number;
+}
 
 /**
  * Owns the active Interview session: the generated assessment, the per-question
@@ -42,12 +53,32 @@ export class InterviewSessionService {
   private readonly _result = signal<InterviewResult | null>(null);
   readonly result = this._result.asReadonly();
 
+  // Timer state (persisted for resume). Owned here so it survives a refresh; the
+  // session component sets it from the timer on a fresh start and reads it back
+  // to RESTORE the timer on resume.
+  private _expiresAtMs = 0;
+  private _durationSec = 0;
+  private _restored = false;
+
   // Access to the interview Results route requires a completed result.
   readonly hasResult = computed(() => this._result() !== null && this._status() === 'submitted');
 
   readonly total = computed(() => this._assessment()?.questions?.length ?? 0);
 
-  readonly hasActiveSession = computed(() => this.total() > 0);
+  // Session-route access: a real generated assessment with a non-empty question
+  // collection that is still ACTIVE (not submitted). This blocks re-entering the
+  // session screen after submission — that state belongs on the Results route.
+  readonly hasActiveSession = computed(
+    () => this.total() > 0 && this._status() === 'active'
+  );
+
+  constructor() {
+    // On first injection (e.g. a refresh landing on the guarded session route),
+    // rehydrate an in-progress session from sessionStorage so the guard sees an
+    // active session and the component can restore the same questions/answers/
+    // position + remaining time.
+    this.restoreFromStorage();
+  }
 
   // Indices that have at least one selected option (for the paginator's
   // answered/unanswered state — NEVER correctness).
@@ -72,6 +103,10 @@ export class InterviewSessionService {
     this._answersByIndex.set({});
     this._status.set('active');
     this._result.set(null);
+    this._expiresAtMs = 0;
+    this._durationSec = 0;
+    this._restored = false;
+    this.persist();
     return assessment;
   }
 
@@ -83,11 +118,34 @@ export class InterviewSessionService {
     this.feedbackPolicy.setMode('deferred');
   }
 
+  // Restored-from-storage flag + persisted timer state, read by the session
+  // component to decide whether to RESTORE the timer (resume) or START it fresh.
+  wasRestored(): boolean {
+    return this._restored;
+  }
+
+  expiresAt(): number {
+    return this._expiresAtMs;
+  }
+
+  timerDurationSeconds(): number {
+    return this._durationSec;
+  }
+
+  // Record the countdown's expiry timestamp + duration (from the timer) so a
+  // refresh can restore the correct remaining time.
+  setTiming(expiresAtMs: number, durationSeconds: number): void {
+    this._expiresAtMs = expiresAtMs;
+    this._durationSec = durationSeconds;
+    this.persist();
+  }
+
   // ── navigation (index only; no router, no URL) ──────────────────
   goTo(index: number): void {
     const max = this.total() - 1;
     if (max < 0) return;
     this._currentIndex.set(Math.min(Math.max(index, 0), max));
+    this.persist();
   }
 
   next(): void {
@@ -101,6 +159,7 @@ export class InterviewSessionService {
   // ── answers ─────────────────────────────────────────────────────
   setAnswer(index: number, optionIds: number[]): void {
     this._answersByIndex.update((map) => ({ ...map, [index]: [...optionIds] }));
+    this.persist();
   }
 
   isAnswered(index: number): boolean {
@@ -136,18 +195,57 @@ export class InterviewSessionService {
     this._status.set('submitted');
     this._result.set(result);
     this.feedbackPolicy.reset();
+    // Submitted → no longer resumable; drop the persisted active session.
+    this.persist();
     return result;
   }
 
   // Tear the session down (on abandon, or when leaving the Results page). ALWAYS
   // restores immediate feedback so Interview state can never leak into normal
-  // topic quizzes.
+  // topic quizzes, and drops any persisted session.
   clear(): void {
     this._assessment.set(null);
     this._currentIndex.set(0);
     this._answersByIndex.set({});
     this._status.set('active');
     this._result.set(null);
+    this._expiresAtMs = 0;
+    this._durationSec = 0;
+    this._restored = false;
     this.feedbackPolicy.reset();
+    removeSessionKey(SK_INTERVIEW_SESSION);
+  }
+
+  // ── persistence / resume ────────────────────────────────────────
+  private persist(): void {
+    // Only an ACTIVE session with a real assessment is resumable.
+    if (this._status() !== 'active' || (this._assessment()?.questions?.length ?? 0) === 0) {
+      removeSessionKey(SK_INTERVIEW_SESSION);
+      return;
+    }
+    const payload: PersistedInterviewSession = {
+      assessment: this._assessment()!,
+      answersByIndex: this._answersByIndex(),
+      currentIndex: this._currentIndex(),
+      expiresAt: this._expiresAtMs,
+      durationSeconds: this._durationSec
+    };
+    writeSessionJson(SK_INTERVIEW_SESSION, payload);
+  }
+
+  private restoreFromStorage(): void {
+    const saved = readSessionJson<PersistedInterviewSession | null>(SK_INTERVIEW_SESSION, null);
+    if (!saved?.assessment?.questions?.length) {
+      return;
+    }
+    this._assessment.set(saved.assessment);
+    this._answersByIndex.set(saved.answersByIndex ?? {});
+    const max = saved.assessment.questions.length - 1;
+    this._currentIndex.set(Math.min(Math.max(saved.currentIndex ?? 0, 0), max));
+    this._status.set('active');
+    this._result.set(null);
+    this._expiresAtMs = saved.expiresAt ?? 0;
+    this._durationSec = saved.durationSeconds ?? 0;
+    this._restored = true;
   }
 }

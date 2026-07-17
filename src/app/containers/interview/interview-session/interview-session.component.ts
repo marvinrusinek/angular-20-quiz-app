@@ -155,8 +155,19 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
   private startTimer(): void {
     const assessment = this.session.assessment();
     if (!assessment) return;
-    const override = this.readDurationOverride();
-    this.timer.start(override ?? assessment.durationSeconds);
+
+    if (this.session.wasRestored() && this.session.expiresAt() > 0) {
+      // Resume after a refresh: restore the countdown from the persisted expiry
+      // timestamp so the remaining time is correct (never reset to full). If it
+      // already elapsed, the timer emits expiry → auto-submit.
+      this.timer.restore(this.session.expiresAt(), this.session.timerDurationSeconds());
+      return;
+    }
+
+    // Fresh start: begin the countdown and record its timing for resume.
+    const duration = this.readDurationOverride() ?? assessment.durationSeconds;
+    this.timer.start(duration);
+    this.session.setTiming(this.timer.expiresAt, duration);
   }
 
   private readDurationOverride(): number | null {

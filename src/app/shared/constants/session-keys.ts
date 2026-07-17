@@ -25,3 +25,8 @@ export const SK_QUIZ_ACHIEVEMENTS = 'quizAchievements';
 
 // ── per-session state (sessionStorage) ───────────────────────────
 export const SK_QUIZ_SEARCH_TERM = 'quizSearchTerm';
+
+// Active Interview Mode session, persisted so a mid-assessment refresh resumes
+// the SAME assessment/answers/position with the correct remaining time. Only an
+// 'active' session is stored; cleared on submit or abandon.
+export const SK_INTERVIEW_SESSION = 'interviewSession';
