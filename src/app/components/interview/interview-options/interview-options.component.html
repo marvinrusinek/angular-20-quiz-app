@@ -13,7 +13,10 @@
           [checked]="isSelected(option)"
           (change)="onToggle(option)"
         />
-        <span class="io-text" [innerHTML]="option.text"></span>
+        <!-- Plain-text interpolation, consistent with the topic-quiz options
+             (option-item.component.html). innerHTML here would parse literal
+             tags in the option (e.g. "<div>") as elements and drop them. -->
+        <span class="io-text">{{ option.text }}</span>
       </label>
     </li>
   }
