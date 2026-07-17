@@ -3379,6 +3379,204 @@
           "explanation": "Attribute directives (ngClass, ngStyle, custom highlight directives) operate on an element already in the DOM, adjusting its classes, styles, or behavior. Adding or removing elements is the job of structural directives, and separating these responsibilities is a core directive concept."
         }
       ]
+    },
+    {
+      "quizId": "pipes",
+      "milestone": "Pipes",
+      "summary": "Transform and format template data with Angular's built-in and custom pipes.",
+      "image": "assets/images/pipes.svg",
+      "difficulty": "beginner",
+      "facts": [
+        "A pipe transforms a value for display using the | symbol in a template, without changing the original data.",
+        "The AsyncPipe subscribes to an Observable and unsubscribes automatically when the component is destroyed, preventing memory leaks.",
+        "Chained pipes run left to right, so {{ value | slice:0:5 | uppercase }} slices first, then uppercases the result."
+      ],
+      "questions": [
+        {
+          "questionText": "What is the main purpose of a pipe in an Angular template?",
+          "options": [
+            {
+              "text": "To make HTTP requests directly from the template."
+            },
+            {
+              "text": "To define routing between pages."
+            },
+            {
+              "text": "To transform or format a value for display without changing the underlying data.",
+              "correct": true
+            },
+            {
+              "text": "To inject services into a component."
+            }
+          ],
+          "explanation": "A pipe takes an input value and returns a transformed version for display (formatting a date, uppercasing text, showing a price) while leaving the original data untouched. This keeps formatting in the template and out of your component logic."
+        },
+        {
+          "questionText": "Pipes are primarily used to transform data for display in templates. True or False?",
+          "options": [
+            {
+              "text": "True",
+              "correct": true
+            },
+            {
+              "text": "False"
+            }
+          ],
+          "explanation": "Pipes exist to format and transform values right where they are shown, so the same underlying data can be presented in different ways without duplicating formatting logic across components."
+        },
+        {
+          "questionText": "Which built-in pipe converts a string to all uppercase letters for display?",
+          "options": [
+            {
+              "text": "UpperCasePipe, e.g. {{ name | uppercase }}.",
+              "correct": true
+            },
+            {
+              "text": "DecimalPipe."
+            },
+            {
+              "text": "TitleCasePipe."
+            },
+            {
+              "text": "SlicePipe."
+            }
+          ],
+          "explanation": "UpperCasePipe transforms text to all caps for display. TitleCasePipe capitalizes the first letter of each word, SlicePipe returns a subset of an array or string, and DecimalPipe formats numbers, so each built-in pipe has a specific formatting job."
+        },
+        {
+          "questionText": "You have a raw Date value and want to show it as 'Jul 17, 2026'. Which pipe is designed for this?",
+          "options": [
+            {
+              "text": "JsonPipe, which serializes a value to JSON."
+            },
+            {
+              "text": "CurrencyPipe, which formats monetary values."
+            },
+            {
+              "text": "SlicePipe, which extracts part of a collection."
+            },
+            {
+              "text": "DatePipe, which formats dates using a format string and locale.",
+              "correct": true
+            }
+          ],
+          "explanation": "DatePipe formats date values into human-readable strings using a format pattern (like 'mediumDate') and respects locale. It is the standard way to present dates without writing manual date-formatting code in the component."
+        },
+        {
+          "questionText": "Which built-in pipes are used to format numeric values? Select all that apply.",
+          "options": [
+            {
+              "text": "PercentPipe, which formats a number as a percentage such as 42%.",
+              "correct": true
+            },
+            {
+              "text": "JsonPipe, which formats a number into a currency symbol."
+            },
+            {
+              "text": "CurrencyPipe, which formats a number as a monetary amount such as $1,299.00.",
+              "correct": true
+            },
+            {
+              "text": "DecimalPipe, which formats a number with grouping and a set number of decimals.",
+              "correct": true
+            }
+          ],
+          "explanation": "CurrencyPipe, DecimalPipe, and PercentPipe all format numbers for display, as money, grouped decimals, and percentages respectively. JsonPipe is unrelated to number formatting; it serializes any value to a JSON string, mainly for debugging."
+        },
+        {
+          "questionText": "While debugging, you want to see the full contents of an object directly in the template. Which pipe helps?",
+          "options": [
+            {
+              "text": "UpperCasePipe."
+            },
+            {
+              "text": "JsonPipe, e.g. {{ user | json }}, which serializes the value to a readable JSON string.",
+              "correct": true
+            },
+            {
+              "text": "DatePipe."
+            },
+            {
+              "text": "AsyncPipe."
+            }
+          ],
+          "explanation": "JsonPipe converts an object or array into its JSON string form so you can inspect its shape and values right in the template. It is a handy debugging aid, not something you would typically ship in a polished UI."
+        },
+        {
+          "questionText": "What does the AsyncPipe do when you write {{ data$ | async }} in a template?",
+          "options": [
+            {
+              "text": "It converts an Observable into a Promise."
+            },
+            {
+              "text": "It makes an HTTP request each time the template renders."
+            },
+            {
+              "text": "It subscribes to the Observable, displays the latest emitted value, and unsubscribes automatically when the component is destroyed.",
+              "correct": true
+            },
+            {
+              "text": "It caches the Observable to localStorage."
+            }
+          ],
+          "explanation": "AsyncPipe subscribes to an Observable (or Promise), renders its most recent value, and cleans up the subscription when the component is destroyed. This removes manual subscribe/unsubscribe boilerplate and prevents memory leaks, which is why it is the recommended way to display async data."
+        },
+        {
+          "questionText": "Which statements about chaining pipes, e.g. {{ value | pipeA | pipeB }}, are correct? Select all that apply.",
+          "options": [
+            {
+              "text": "It can keep templates readable when each pipe does one clear job.",
+              "correct": true
+            },
+            {
+              "text": "The order of chained pipes never affects the final result."
+            },
+            {
+              "text": "Pipes are applied left to right, so pipeA runs first and its result is passed to pipeB.",
+              "correct": true
+            },
+            {
+              "text": "Chaining lets you combine simple transformations instead of writing one complex expression.",
+              "correct": true
+            }
+          ],
+          "explanation": "Chained pipes evaluate left to right, feeding each result into the next, so order matters (slicing then uppercasing differs from uppercasing then slicing). Chaining small, single-purpose pipes keeps a transformation readable rather than cramming logic into one expression."
+        },
+        {
+          "questionText": "The AsyncPipe automatically unsubscribes from an Observable when the component is destroyed. True or False?",
+          "options": [
+            {
+              "text": "True",
+              "correct": true
+            },
+            {
+              "text": "False"
+            }
+          ],
+          "explanation": "AsyncPipe manages the subscription lifecycle: it subscribes when rendering and unsubscribes on destroy. That automatic cleanup is a major reason it is preferred over manually subscribing in the component, which risks memory leaks if you forget to unsubscribe."
+        },
+        {
+          "questionText": "Which are good reasons to use or create a pipe? Select all that apply.",
+          "options": [
+            {
+              "text": "To reuse the same transformation across many templates via a custom pipe.",
+              "correct": true
+            },
+            {
+              "text": "To present data cleanly without mutating the underlying value.",
+              "correct": true
+            },
+            {
+              "text": "To perform heavy business logic or data fetching during rendering."
+            },
+            {
+              "text": "To keep formatting logic in the template and out of component code.",
+              "correct": true
+            }
+          ],
+          "explanation": "Pipes are for lightweight, reusable formatting that leaves source data unchanged and keeps templates clean, and a custom pipe centralizes a repeated transformation. They should stay side-effect free; heavy business logic or data fetching belongs in services or components, not in a pipe that runs during rendering."
+        }
+      ]
     }
   ],
   "resources": [
