@@ -2785,6 +2785,204 @@
           "explanation": "deriving one signal's value from others is exactly what computed() is for — it is pure, memoized, and updates automatically. Using an effect() to read one signal and set another is an anti-pattern: it invites feedback loops, runs extra work, and Angular disallows writing to signals inside effects by default."
         }
       ]
+    },
+    {
+      "quizId": "component-architecture",
+      "milestone": "Component Architecture",
+      "summary": "Design scalable Angular apps — smart vs presentational components, communication patterns, content projection, standalone architecture, state, and performance.",
+      "image": "assets/images/component-architecture.svg",
+      "difficulty": "advanced",
+      "facts": [
+        "Smart (container) components own data and orchestration, while presentational components stay focused on rendering — a split that keeps UI pieces reusable and testable.",
+        "Content projection lets a component host arbitrary template content, often a cleaner design than adding another configurable @Input() for every variation.",
+        "Organizing a large codebase by feature rather than by file type keeps related components, services, and routes together and ready to lazy-load."
+      ],
+      "questions": [
+        {
+          "questionText": "In a container/presentational split, which responsibility most clearly belongs to the container (smart) component?",
+          "options": [
+            {
+              "text": "Fetching data from a service and deciding what to pass down to child components.",
+              "correct": true
+            },
+            {
+              "text": "Applying CSS classes to visually style a button."
+            },
+            {
+              "text": "Rendering a list of items it receives through an @Input()."
+            },
+            {
+              "text": "Emitting a click event up to its parent."
+            }
+          ],
+          "explanation": "Containers own data and orchestration; presentational components just render inputs and emit events — which keeps the UI pieces reusable and testable."
+        },
+        {
+          "questionText": "A component fetches users over HTTP, sorts them, formats dates for display, and renders the table itself. Which principle does this most directly violate?",
+          "options": [
+            {
+              "text": "Single Responsibility Principle",
+              "correct": true
+            },
+            {
+              "text": "Dependency Inversion Principle"
+            },
+            {
+              "text": "Liskov Substitution Principle"
+            },
+            {
+              "text": "Open/Closed Principle"
+            }
+          ],
+          "explanation": "One unit, one reason to change: data access belongs in a service, formatting in pipes/helpers, and rendering in the component."
+        },
+        {
+          "questionText": "A presentational (dumb) component should generally avoid fetching its own data directly and instead receive it through inputs. True or False?",
+          "options": [
+            {
+              "text": "True",
+              "correct": true
+            },
+            {
+              "text": "False"
+            }
+          ],
+          "explanation": "Receiving data through inputs keeps a presentational component reusable and predictable; fetching its own data couples it to services and hurts testability."
+        },
+        {
+          "questionText": "You're building a reusable Card component whose body can contain arbitrary markup — text, images, even other components. Why is content projection (ng-content) a better fit than exposing many @Input() properties?",
+          "options": [
+            {
+              "text": "Projection lets consumers pass rich, arbitrary template content the Card doesn't need to know about, instead of forcing every variation through predefined inputs.",
+              "correct": true
+            },
+            {
+              "text": "Projection renders faster because it skips change detection for the projected content."
+            },
+            {
+              "text": "Inputs cannot pass strings, so projection is the only way to show text."
+            },
+            {
+              "text": "Projection automatically converts the component into a standalone component."
+            }
+          ],
+          "explanation": "Projection lets the consumer supply arbitrary inner content while the wrapper owns only layout — cleaner than an ever-growing list of @Input() flags."
+        },
+        {
+          "questionText": "Which of the following are genuine architectural advantages of standalone components? Select all that apply.",
+          "options": [
+            {
+              "text": "A component declares its own dependencies via its imports, removing the need to hunt through NgModules.",
+              "correct": true
+            },
+            {
+              "text": "They can be lazy-loaded directly at the route level without a wrapping feature module.",
+              "correct": true
+            },
+            {
+              "text": "They make a component's actual dependencies easier to see and prune.",
+              "correct": true
+            },
+            {
+              "text": "They automatically apply the OnPush change detection strategy to every component."
+            }
+          ],
+          "explanation": "Standalone components declare their own imports, lazy-load per route, and expose their real dependencies. They don't change the change-detection strategy — OnPush stays a separate choice."
+        },
+        {
+          "questionText": "Two sibling components need to stay in sync, but neither is the parent of the other. Which approach is the most maintainable?",
+          "options": [
+            {
+              "text": "Share state through an injectable service both siblings consume (e.g. a signal or observable), so neither depends on the other directly.",
+              "correct": true
+            },
+            {
+              "text": "Have one sibling directly reference the other via @ViewChild."
+            },
+            {
+              "text": "Store the shared value on the global window object and poll it."
+            },
+            {
+              "text": "Route the data through the DOM by dispatching custom browser events."
+            }
+          ],
+          "explanation": "A shared service is a neutral mediator: both siblings depend on it, not on each other, which keeps them decoupled and testable."
+        },
+        {
+          "questionText": "You need to model synchronous, always-available UI state (like the currently selected tab) that many parts of a template read. Which tool is the most natural architectural fit?",
+          "options": [
+            {
+              "text": "A signal, since it holds a current value synchronously and integrates directly with the template and change detection.",
+              "correct": true
+            },
+            {
+              "text": "A Subject, because signals cannot be read from a template."
+            },
+            {
+              "text": "A Promise, because all UI state must be asynchronous."
+            },
+            {
+              "text": "A plain global variable mutated from anywhere in the app."
+            }
+          ],
+          "explanation": "Signals fit synchronous, always-available UI state; RxJS fits asynchronous streams over time. Match the tool to the shape of the data."
+        },
+        {
+          "questionText": "Which architectural choices help avoid unnecessary rendering in a large Angular application? Select all that apply.",
+          "options": [
+            {
+              "text": "Adopting OnPush (or signals) so components re-render only when their inputs actually change.",
+              "correct": true
+            },
+            {
+              "text": "Splitting large components into smaller ones so change detection can skip untouched branches.",
+              "correct": true
+            },
+            {
+              "text": "Using trackBy / track in loops so Angular reuses DOM nodes instead of re-creating them.",
+              "correct": true
+            },
+            {
+              "text": "Disabling change detection globally and calling detectChanges() by hand everywhere."
+            }
+          ],
+          "explanation": "OnPush/signals narrow when checks run, smaller components let Angular skip subtrees, and track/trackBy avoids DOM churn. Manually disabling change detection everywhere is a fragile anti-pattern."
+        },
+        {
+          "questionText": "Large Angular applications are generally more maintainable when organized primarily by feature (domain) rather than by file type. True or False?",
+          "options": [
+            {
+              "text": "True",
+              "correct": true
+            },
+            {
+              "text": "False"
+            }
+          ],
+          "explanation": "Feature folders keep a capability's files together so changes stay local and features can lazy-load; organizing by file type scatters each feature and scales poorly."
+        },
+        {
+          "questionText": "Which practices best promote reuse and reduce duplication across components? Select all that apply.",
+          "options": [
+            {
+              "text": "Favoring composition (small components and directives combined) over deep inheritance hierarchies.",
+              "correct": true
+            },
+            {
+              "text": "Extracting shared behavior into directives or services instead of copy-pasting logic.",
+              "correct": true
+            },
+            {
+              "text": "Designing presentational components to depend only on inputs and outputs, not on specific services.",
+              "correct": true
+            },
+            {
+              "text": "Adding a feature-specific @Input() flag to a shared component for every new screen that uses it."
+            }
+          ],
+          "explanation": "Reuse comes from composition, shared directives/services, and presentational components decoupled from data sources — not from piling screen-specific flags onto a shared component."
+        }
+      ]
     }
   ],
   "resources": [
