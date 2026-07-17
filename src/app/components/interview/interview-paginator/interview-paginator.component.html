@@ -38,14 +38,15 @@
     <span i18n>Question</span> {{ currentIndex() + 1 }} <span i18n>of</span> {{ total() }}
   </span>
 
-  <button
-    type="button"
-    class="pg-nav pg-next"
-    [disabled]="atEnd()"
-    (click)="goNext()"
-    aria-label="Next question"
-    i18n-aria-label
-  >
-    <span i18n>Next</span> <span aria-hidden="true">›</span>
-  </button>
+  @if (!atEnd()) {
+    <button
+      type="button"
+      class="pg-nav pg-next"
+      (click)="goNext()"
+      aria-label="Next question"
+      i18n-aria-label
+    >
+      <span i18n>Next</span> <span aria-hidden="true">›</span>
+    </button>
+  }
 </nav>

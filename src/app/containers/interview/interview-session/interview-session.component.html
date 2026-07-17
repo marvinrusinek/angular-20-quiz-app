@@ -49,10 +49,6 @@
     />
 
     <footer class="interview-session__footer">
-      <span class="interview-session__progress">
-        {{ answeredIndices().size }} / {{ total() }} <span i18n>answered</span>
-      </span>
-
       @if (isLastQuestion()) {
         <button
           type="button"
@@ -60,9 +56,13 @@
           (click)="onShowResults()"
           i18n
         >
-          Show Results
+          Submit Assessment
         </button>
       }
+
+      <span class="interview-session__progress">
+        {{ answeredIndices().size }} / {{ total() }} <span i18n>answered</span>
+      </span>
     </footer>
   </div>
 } @else {

@@ -91,18 +91,16 @@ describe('InterviewPaginatorComponent', () => {
     }
   });
 
-  it('disables Prev at the first question and Next at the last', () => {
+  it('disables Prev at the first question and HIDES Next at the last', () => {
     setup(20, 0);
     const prev = fixture.nativeElement.querySelector('.pg-prev') as HTMLButtonElement;
-    const next = fixture.nativeElement.querySelector('.pg-next') as HTMLButtonElement;
     expect(prev.disabled).toBe(true);
-    expect(next.disabled).toBe(false);
+    expect(fixture.nativeElement.querySelector('.pg-next')).toBeTruthy();   // Next shown
 
     setup(20, 19);
     const prev2 = fixture.nativeElement.querySelector('.pg-prev') as HTMLButtonElement;
-    const next2 = fixture.nativeElement.querySelector('.pg-next') as HTMLButtonElement;
     expect(prev2.disabled).toBe(false);
-    expect(next2.disabled).toBe(true);
+    expect(fixture.nativeElement.querySelector('.pg-next')).toBeNull();     // Next hidden on last
   });
 
   it('renders the compact "Question X of Y" indicator for mobile', () => {

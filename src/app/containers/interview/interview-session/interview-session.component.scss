@@ -33,15 +33,19 @@
     gap: 18px;
   }
 
+  // 3 columns so the Submit button is CENTERED and the "N / N answered"
+  // indicator is right-justified (works whether or not the button is present).
   &__footer {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    justify-content: space-between;
     gap: 12px;
     margin-top: 12px;
   }
 
   .show-results-btn {
+    grid-column: 2;        // center column
+    justify-self: center;
     padding: 10px 22px;
     border: none;
     border-radius: 10px;
@@ -60,9 +64,12 @@
   }
 
   &__progress {
+    grid-column: 3;        // right column, right-justified
+    justify-self: end;
     color: var(--is-muted);
     font-size: 14px;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
 }
 
