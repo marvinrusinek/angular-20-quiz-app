@@ -26,6 +26,12 @@
         <div><dt i18n>Difficulty</dt><dd>{{ r.difficulty | titlecase }}</dd></div>
       </dl>
 
+      <!-- Assessment Integrity Mode: neutral/informational only — NEVER affects
+           the score. Interview Results only (not shown in Topic Quiz Results). -->
+      <p class="interview-results__focus" role="status">
+        <ng-container i18n>Focus changes:</ng-container> {{ r.focusChanges }}
+      </p>
+
       @if (r.perTopic.length > 0) {
         <h2 class="topics-heading" i18n>Topic Performance</h2>
         <ul class="topic-list">

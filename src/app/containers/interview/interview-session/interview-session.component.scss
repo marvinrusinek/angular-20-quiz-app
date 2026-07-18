@@ -125,6 +125,46 @@
   border: 1px solid var(--is-border);
   border-radius: 14px;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12);
+
+  // Assessment Integrity Mode: discourage copying the question/answers. Scoped
+  // to THIS box only (never global). Does not affect clicking radios/checkboxes,
+  // buttons, keyboard navigation, or focus outlines.
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;   // suppress the iOS long-press copy callout
+}
+
+// Optional fullscreen button + calm focus-change status (Integrity Mode).
+.interview-integrity {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  max-width: 680px;
+  margin: 4px auto 0;
+
+  .ai-fullscreen-btn {
+    padding: 6px 14px;
+    border: 1px solid var(--is-border);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--is-text);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover { background: var(--bg-option, rgba(0, 0, 0, 0.04)); }
+    &:focus-visible { outline: 2px solid vars.$vivid-blue; outline-offset: 2px; }
+  }
+
+  .ai-focus-status {
+    margin-left: auto;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--is-muted);
+    font-variant-numeric: tabular-nums;
+  }
 }
 
 // Match the topic quiz's question box: a light-blue-bordered box around the

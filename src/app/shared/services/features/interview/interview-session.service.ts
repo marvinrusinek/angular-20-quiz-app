@@ -175,7 +175,8 @@ export class InterviewSessionService {
   submit(
     timeUsedSeconds: number,
     timeRemainingSeconds: number,
-    submittedByExpiry: boolean
+    submittedByExpiry: boolean,
+    focusChanges = 0
   ): InterviewResult | null {
     if (this._status() === 'submitted') {
       return this._result();
@@ -190,7 +191,8 @@ export class InterviewSessionService {
       timeUsedSeconds,
       timeRemainingSeconds,
       submittedByExpiry,
-      (quizId) => getQuizData().find((q) => q.quizId === quizId)?.milestone ?? quizId
+      (quizId) => getQuizData().find((q) => q.quizId === quizId)?.milestone ?? quizId,
+      focusChanges
     );
     this._status.set('submitted');
     this._result.set(result);

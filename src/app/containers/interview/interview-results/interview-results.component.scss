@@ -107,6 +107,15 @@
   }
 }
 
+// Integrity Mode focus-change count — calm, neutral, informational only.
+.interview-results__focus {
+  margin: 10px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ir-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .topics-heading {
   margin: 20px 0 10px;
   font-size: 16px;

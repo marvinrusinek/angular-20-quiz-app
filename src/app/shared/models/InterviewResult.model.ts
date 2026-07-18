@@ -25,4 +25,7 @@ export interface InterviewResult {
   topicIds: string[];
   perTopic: InterviewTopicScore[];
   submittedByExpiry: boolean;
+  // Assessment Integrity Mode: number of focus-loss episodes recorded during the
+  // session (neutral/informational only — NEVER affects the score).
+  focusChanges: number;
 }

@@ -23,8 +23,36 @@
       </div>
     </header>
 
-    <!-- Question box. Order: question heading → options → pagination. -->
-    <div class="interview-question-box">
+    <!-- Assessment Integrity Mode: optional fullscreen + a calm focus-change
+         status. A browser-based DETERRENT only — not a secure lockdown. -->
+    <div class="interview-integrity">
+      @if (fullscreenSupported) {
+        <button
+          type="button"
+          class="ai-fullscreen-btn"
+          (click)="enterFullscreen()"
+          i18n
+        >
+          Enter Full Screen
+        </button>
+      }
+      @if (focusChanges() > 0) {
+        <span class="ai-focus-status" role="status" aria-live="polite">
+          <ng-container i18n>Focus changes recorded:</ng-container> {{ focusChanges() }}
+        </span>
+      }
+    </div>
+
+    <!-- Question box. Order: question heading → options → pagination.
+         Copy deterrents (user-select:none in SCSS + these handlers) are scoped
+         to THIS box only — never global, and they don't touch controls/nav. -->
+    <div
+      class="interview-question-box"
+      (copy)="blockCopy($event)"
+      (cut)="blockCopy($event)"
+      (contextmenu)="blockCopy($event)"
+      (dragstart)="blockCopy($event)"
+    >
       <!-- Question text rendered directly (deferred feedback → always the
            question text, never the FET, never empty). -->
       <h3

@@ -30,3 +30,8 @@ export const SK_QUIZ_SEARCH_TERM = 'quizSearchTerm';
 // the SAME assessment/answers/position with the correct remaining time. Only an
 // 'active' session is stored; cleared on submit or abandon.
 export const SK_INTERVIEW_SESSION = 'interviewSession';
+
+// Assessment Integrity Mode state (focus-loss count / pending warning) for an
+// active Interview session. Its OWN key — kept separate from the interview
+// session payload and NEVER mixed into topic-quiz progress/achievements/scores.
+export const SK_ASSESSMENT_INTEGRITY = 'assessmentIntegrity';

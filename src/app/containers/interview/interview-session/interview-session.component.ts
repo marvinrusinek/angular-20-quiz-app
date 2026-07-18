@@ -2,6 +2,8 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
+  ElementRef,
   inject,
   OnDestroy,
   OnInit,
@@ -17,8 +19,10 @@ import { QuizQuestion } from '../../../shared/models/QuizQuestion.model';
 
 import { swallow } from '../../../shared/utils/error-logging';
 
+import { AssessmentIntegrityService } from '../../../shared/services/features/interview/assessment-integrity.service';
 import { InterviewSessionService } from '../../../shared/services/features/interview/interview-session.service';
 import { InterviewTimerService } from '../../../shared/services/features/timer/interview-timer.service';
+import { AssessmentIntegrityWarningDialogComponent } from '../../../components/dialogs/assessment-integrity-warning-dialog/assessment-integrity-warning-dialog.component';
 
 import { InterviewPaginatorComponent } from '../../../components/interview/interview-paginator/interview-paginator.component';
 import { InterviewOptionsComponent } from '../../../components/interview/interview-options/interview-options.component';
@@ -60,12 +64,20 @@ import {
 export class InterviewSessionComponent implements OnInit, OnDestroy {
   private readonly session = inject(InterviewSessionService);
   private readonly timer = inject(InterviewTimerService);
+  private readonly integrity = inject(AssessmentIntegrityService);
   private readonly dialog = inject(MatDialog);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly host = inject(ElementRef<HTMLElement>);
 
   readonly currentIndex = this.session.currentIndex;
   readonly total = this.session.total;
   readonly answeredIndices = this.session.answeredIndices;
+
+  // Assessment Integrity Mode (browser-based deterrent — Interview Mode only).
+  readonly focusChanges = this.integrity.focusLossCount;
+  readonly fullscreenSupported = this.integrity.fullscreenSupported();
+  private warningOpen = false;
 
   // Total-assessment countdown (calm typography, NOT the per-question Scoreboard).
   readonly timeRemaining = this.timer.formatted;
@@ -82,6 +94,12 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
     this.timer.expired$
       .pipe(takeUntilDestroyed())
       .subscribe(() => this.submit(true));
+
+    // When the user returns after a focus-loss with a pending warning, show the
+    // (accessible, themed) warning dialog. The timer keeps running throughout.
+    this.integrity.warningOnReturn$
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => this.openIntegrityWarning());
   }
 
   readonly currentQuestion = computed<QuizQuestion | null>(
@@ -102,6 +120,19 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
     }
     this.session.activateDeferredFeedback();
     this.startTimer();
+
+    // Assessment Integrity Mode (deterrent, Interview Mode only). A fresh start
+    // resets the count; a resume keeps the restored count. Begin watching for
+    // focus loss — listeners auto-clean on destroy via the DestroyRef.
+    if (!this.session.wasRestored()) {
+      this.integrity.reset();
+    }
+    this.integrity.activate(this.destroyRef);
+    // Resumed with a warning still pending (focus lost, then refreshed) → surface
+    // it now that the user is back.
+    if (this.integrity.warningPending()) {
+      this.openIntegrityWarning();
+    }
   }
 
   ngOnDestroy(): void {
@@ -113,6 +144,10 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
     if (this.session.status() !== 'submitted') {
       this.session.clear();
     }
+    // Reset the integrity policy when leaving the assessment (the count was
+    // already copied into the InterviewResult on submit). Listeners are removed
+    // via the DestroyRef passed to activate().
+    this.integrity.reset();
   }
 
   // Manual (early) submit — from the "Show Results" button. Confirms first. The
@@ -156,8 +191,41 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
     const timeUsed = this.timer.elapsedSeconds();
     const timeRemaining = this.timer.remainingSeconds();
     this.timer.stop();
-    this.session.submit(timeUsed, timeRemaining, byExpiry);
+    // Copy the integrity focus-change count into the result (neutral info only —
+    // never affects the score).
+    this.session.submit(timeUsed, timeRemaining, byExpiry, this.integrity.focusLossCount());
     this.router.navigate(['/interview/results']);
+  }
+
+  // ── Assessment Integrity Mode ───────────────────────────────────
+  // Show the accessible, themed warning once per return (no stacking). The timer
+  // keeps running while it's open. On dismiss, clear the pending flag.
+  private openIntegrityWarning(): void {
+    if (this.warningOpen) return;
+    this.warningOpen = true;
+    const ref = this.dialog.open(AssessmentIntegrityWarningDialogComponent, {
+      width: '360px',
+      panelClass: 'themed-confirm-dialog',
+      autoFocus: 'dialog',
+      restoreFocus: true
+    });
+    ref.afterClosed().subscribe(() => {
+      this.warningOpen = false;
+      this.integrity.acknowledgeWarning();
+    });
+  }
+
+  // Optional, user-initiated fullscreen (browsers require a gesture). No-op if
+  // unsupported/denied — the assessment works either way.
+  enterFullscreen(): void {
+    const el = document.documentElement ?? this.host.nativeElement;
+    this.integrity.enterFullscreen(el).catch((err) => swallow('interview-session#enterFullscreen', err));
+  }
+
+  // Scoped copy deterrents — bound only to the assessment content box in the
+  // template (never global). Do not block form controls, buttons, or navigation.
+  blockCopy(event: Event): void {
+    event.preventDefault();
   }
 
   // Start the total-assessment countdown once (survives question navigation).

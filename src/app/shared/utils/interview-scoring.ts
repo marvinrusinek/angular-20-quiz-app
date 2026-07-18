@@ -39,7 +39,8 @@ export function computeInterviewResult(
   timeUsedSeconds: number,
   timeRemainingSeconds: number,
   submittedByExpiry: boolean,
-  titleForQuizId: (quizId: string) => string
+  titleForQuizId: (quizId: string) => string,
+  focusChanges = 0
 ): InterviewResult {
   const questions = assessment.questions ?? [];
   const total = questions.length;
@@ -82,6 +83,7 @@ export function computeInterviewResult(
     difficulty: assessment.config.difficulty,
     topicIds: assessment.config.topicIds,
     perTopic,
-    submittedByExpiry
+    submittedByExpiry,
+    focusChanges: Math.max(0, focusChanges)
   };
 }
