@@ -97,19 +97,42 @@
   }
 }
 
-// Narrow viewports: keep the numbered (windowed) pagination at the bottom and
-// hide the compact "Question X of Y" indicator, since the header already shows
-// the position at the top (avoids showing it twice). Allow wrapping so the
-// Prev / page numbers / Next fit on a narrow screen.
+// Narrow viewports: keep the numbered pagination on ONE row and hide the compact
+// "Question X of Y" indicator (the header already shows the position up top).
+// The ±2 window (up to `1 … 6 7 8 9 10 … 20`) is too wide for a phone, so compact
+// everything — icon-only Prev/Next, smaller page buttons and gaps — and use
+// `nowrap` so the Prev/Next buttons can never get pushed out of the row.
 @media (max-width: 600px) {
   .interview-paginator {
-    flex-wrap: wrap;
-    row-gap: 8px;
+    flex-wrap: nowrap;
+    gap: 4px;
+    padding: 8px 0;
+
+    // Prev/Next: icon-only (drop the "Prev"/"Next" text; aria-label still reads it).
+    .pg-nav {
+      padding: 6px 7px;
+    }
+    .pg-nav-label {
+      display: none;
+    }
+    .pg-nav-chevron {
+      font-size: 18px;
+      line-height: 1;
+    }
 
     .pg-pages {
       display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
+      flex-wrap: nowrap;
+      gap: 2px;
+    }
+    .pg-page {
+      min-width: 26px;
+      height: 28px;
+      padding: 0 2px;
+      font-size: 13px;
+    }
+    .pg-ellipsis {
+      min-width: 12px;
     }
     .pg-compact {
       display: none;
