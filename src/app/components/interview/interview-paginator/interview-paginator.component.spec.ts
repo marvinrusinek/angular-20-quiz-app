@@ -91,15 +91,14 @@ describe('InterviewPaginatorComponent', () => {
     }
   });
 
-  it('disables Prev at the first question and HIDES Next at the last', () => {
+  it('HIDES Prev at the first question and HIDES Next at the last', () => {
     setup(20, 0);
-    const prev = fixture.nativeElement.querySelector('.pg-prev') as HTMLButtonElement;
-    expect(prev.disabled).toBe(true);
+    // Prev is hidden on Q1 (nothing to go back to), mirroring Next on the last.
+    expect(fixture.nativeElement.querySelector('.pg-prev')).toBeNull();     // Prev hidden on first
     expect(fixture.nativeElement.querySelector('.pg-next')).toBeTruthy();   // Next shown
 
     setup(20, 19);
-    const prev2 = fixture.nativeElement.querySelector('.pg-prev') as HTMLButtonElement;
-    expect(prev2.disabled).toBe(false);
+    expect(fixture.nativeElement.querySelector('.pg-prev')).toBeTruthy();   // Prev shown
     expect(fixture.nativeElement.querySelector('.pg-next')).toBeNull();     // Next hidden on last
   });
 

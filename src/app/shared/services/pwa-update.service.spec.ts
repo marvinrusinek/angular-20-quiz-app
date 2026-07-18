@@ -9,8 +9,7 @@ import { PwaUpdateService } from './pwa-update.service';
  * a Subject for versionUpdates so VERSION_READY can be driven deterministically,
  * and fake timers so the hourly poll can be advanced. Confirms the service:
  *  - no-ops entirely when the SW is disabled (dev / unsupported),
- *  - prompts on VERSION_READY and, on confirm, activates the update,
- *  - does NOT activate when the user declines,
+ *  - activates the update SILENTLY on VERSION_READY (no confirm prompt),
  *  - ignores version events other than VERSION_READY,
  *  - polls checkForUpdate on the interval.
  *
@@ -69,8 +68,7 @@ describe('PwaUpdateService', () => {
     expect(swUpdateMock.checkForUpdate).not.toHaveBeenCalled();
   });
 
-  it('prompts on VERSION_READY and, on confirm, activates the update', () => {
-    confirmSpy.mockReturnValue(true);
+  it('activates the update SILENTLY on VERSION_READY (no confirm prompt)', () => {
     // Keep activation pending so the post-activate reload() is never reached
     // (location.reload is unmockable in jsdom).
     swUpdateMock.activateUpdate.mockReturnValue(new Promise<boolean>(() => {}));
@@ -78,18 +76,9 @@ describe('PwaUpdateService', () => {
     service.init();
     versionUpdates$.next(versionReady);
 
-    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    // Silent auto-reload: no prompt, activate straight away.
+    expect(confirmSpy).not.toHaveBeenCalled();
     expect(swUpdateMock.activateUpdate).toHaveBeenCalledTimes(1);
-  });
-
-  it('does not activate the update when the user declines', () => {
-    confirmSpy.mockReturnValue(false);
-
-    service.init();
-    versionUpdates$.next(versionReady);
-
-    expect(confirmSpy).toHaveBeenCalledTimes(1);
-    expect(swUpdateMock.activateUpdate).not.toHaveBeenCalled();
   });
 
   it('ignores version events other than VERSION_READY', () => {
