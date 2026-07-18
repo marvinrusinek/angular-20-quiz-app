@@ -97,14 +97,22 @@
   }
 }
 
-// Narrow viewports: hide the numeric strip, show the compact indicator.
+// Narrow viewports: keep the numbered (windowed) pagination at the bottom and
+// hide the compact "Question X of Y" indicator, since the header already shows
+// the position at the top (avoids showing it twice). Allow wrapping so the
+// Prev / page numbers / Next fit on a narrow screen.
 @media (max-width: 600px) {
   .interview-paginator {
+    flex-wrap: wrap;
+    row-gap: 8px;
+
     .pg-pages {
-      display: none;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
     }
     .pg-compact {
-      display: inline;
+      display: none;
     }
   }
 }
