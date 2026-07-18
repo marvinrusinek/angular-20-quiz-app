@@ -257,6 +257,16 @@
   .preview-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+
+  // Center the primary action on mobile (it's right-aligned on desktop) and
+  // let it span the width for an easy tap target.
+  .builder-actions {
+    justify-content: center;
+  }
+
+  .start-interview-btn {
+    width: 100%;
+  }
 }
 
 // ── dark theme ────────────────────────────────────────────────────
