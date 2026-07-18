@@ -77,6 +77,9 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
   // Assessment Integrity Mode (browser-based deterrent — Interview Mode only).
   readonly focusChanges = this.integrity.focusLossCount;
   readonly fullscreenSupported = this.integrity.fullscreenSupported();
+  // Drives the "Full Screen Enabled" indicator; stays correct when the user
+  // exits fullscreen with Esc/F11 rather than through the button.
+  readonly isFullscreen = this.integrity.isFullscreen;
   private warningOpen = false;
 
   // Total-assessment countdown (calm typography, NOT the per-question Scoreboard).

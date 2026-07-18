@@ -33,6 +33,13 @@ export class AssessmentIntegrityService {
   private readonly _warningPending = signal(false);
   readonly warningPending = this._warningPending.asReadonly();
 
+  // Whether the document is currently in fullscreen. Reactive mirror of
+  // `wasFullscreen` so the session UI can show a live "Full Screen Enabled"
+  // indicator, including when the user leaves fullscreen via Esc / F11 (which
+  // never routes through enterFullscreen()).
+  private readonly _isFullscreen = signal(false);
+  readonly isFullscreen = this._isFullscreen.asReadonly();
+
   private _lastFocusLossAt: number | undefined;
 
   // ── internal flags ──────────────────────────────────────────────
@@ -60,6 +67,7 @@ export class AssessmentIntegrityService {
     this.active = true;
     this.isAway = false;
     this.wasFullscreen = !!this.fullscreenElement();
+    this._isFullscreen.set(this.wasFullscreen);
 
     fromEvent(document, 'visibilitychange')
       .pipe(takeUntilDestroyed(destroyRef))
@@ -135,6 +143,7 @@ export class AssessmentIntegrityService {
       this.warningOnReturn$.next();
     }
     this.wasFullscreen = inFs;
+    this._isFullscreen.set(inFs);
   }
 
   // ── fullscreen (optional, user gesture) ─────────────────────────
@@ -144,7 +153,7 @@ export class AssessmentIntegrityService {
       ?? (el as any).webkitRequestFullscreen?.bind(el);
     if (!req) return Promise.resolve(false);
     return Promise.resolve(req())
-      .then(() => { this.wasFullscreen = true; return true; })
+      .then(() => { this.wasFullscreen = true; this._isFullscreen.set(true); return true; })
       .catch(() => false);
   }
 
@@ -170,6 +179,7 @@ export class AssessmentIntegrityService {
     this.active = false;
     this.isAway = false;
     this.wasFullscreen = false;
+    this._isFullscreen.set(false);
     this.recentFullscreenExitAt = 0;
     this._lastFocusLossAt = undefined;
     this._focusLossCount.set(0);

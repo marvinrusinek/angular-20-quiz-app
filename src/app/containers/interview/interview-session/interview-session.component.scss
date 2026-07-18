@@ -196,6 +196,31 @@
     &:focus-visible { outline: 2px solid vars.$vivid-blue; outline-offset: 2px; }
   }
 
+  // "● Full Screen Enabled" — occupies the SAME grid slot as the button it
+  // replaces, so entering fullscreen doesn't shift the row. Sized to match the
+  // button's text metrics (13px/600) for a stable baseline.
+  .ai-fullscreen-on {
+    grid-column: 1;
+    justify-self: start;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--is-text);
+    white-space: nowrap;
+  }
+
+  .ai-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #2e9e4f;              // green = active
+    box-shadow: 0 0 0 2px rgba(46, 158, 79, 0.22);
+    flex: none;
+  }
+
   // "Question X of Y" — centered in the row (center grid column).
   .interview-progress {
     grid-column: 2;

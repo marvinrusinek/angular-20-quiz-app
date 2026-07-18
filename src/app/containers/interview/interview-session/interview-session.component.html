@@ -23,7 +23,14 @@
          status. A browser-based DETERRENT only — not a secure lockdown. The
          "Question X of Y" indicator is centered on this row. -->
     <div class="interview-integrity">
-      @if (fullscreenSupported) {
+      @if (isFullscreen()) {
+        <!-- Replaces the button once fullscreen is active (the button would be a
+             no-op there). Same grid slot, so the row's layout does not shift. -->
+        <span class="ai-fullscreen-on" role="status" aria-live="polite">
+          <span class="ai-dot" aria-hidden="true"></span>
+          <ng-container i18n>Full Screen Enabled</ng-container>
+        </span>
+      } @else if (fullscreenSupported) {
         <button
           type="button"
           class="ai-fullscreen-btn"
