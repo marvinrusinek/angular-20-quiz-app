@@ -175,16 +175,26 @@
     padding: 10px 12px;
   }
 
-  // Header: title on its own row; below it, "Question X of Y" on the left and
-  // the timer + theme toggle pushed to the RIGHT so their right edge lines up
-  // with the question box's right border (both live in .interview-session, so
-  // they share the same content edge). Fixes the cramped middle grouping.
+  // Header: title (top-left) shares its row with the dark-mode toggle pinned to
+  // the top-right corner. Below, "Question X of Y" sits on the left and the
+  // timer is pushed to the right, all aligned with the question box's borders.
+  .interview-session__bar {
+    position: relative;
+  }
+
+  // Dark-mode toggle → top-right corner, aligned with the box's right border.
+  .interview-session__theme {
+    position: absolute;
+    top: 0;
+    right: 0;
+  }
+
   .interview-session__meta {
     width: 100%;
     gap: 14px;
   }
 
   .interview-timer {
-    margin-left: auto;   // shove the timer + toggle group to the right edge
+    margin-left: auto;   // timer takes the right slot on the second row
   }
 }
