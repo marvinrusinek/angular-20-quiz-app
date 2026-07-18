@@ -197,4 +197,23 @@
   .interview-timer {
     margin-left: auto;   // timer takes the right slot on the second row
   }
+
+  // Inset the footer to match the question box's INNER content (its options are
+  // inset by the box's 14px padding), so "X / N answered" lines up with the
+  // right border of the option rows rather than the box's outer edge.
+  .interview-session__footer {
+    padding: 0 14px;
+    gap: 8px;
+  }
+
+  // Keep the Submit button on one line in the tighter mobile footer.
+  .show-results-btn {
+    white-space: nowrap;
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+
+  .interview-session__progress {
+    font-size: 13px;
+  }
 }
