@@ -187,9 +187,10 @@
 
   // Dark-mode toggle → top-right corner, aligned with the option rows' right edge
   // (14px in from the box's outer border, matching the padded header content).
+  // Nudged up 5px for better vertical alignment with the title.
   .interview-session__theme {
     position: absolute;
-    top: 0;
+    top: -5px;
     right: 14px;
   }
 
