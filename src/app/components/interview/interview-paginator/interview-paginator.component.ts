@@ -35,6 +35,17 @@ export class InterviewPaginatorComponent {
   readonly currentIndex = input.required<number>();          // 0-based
   readonly answered = input<ReadonlySet<number>>(new Set());  // 0-based indices
 
+  /**
+   * Whether forward navigation is currently allowed. Supplied by the session
+   * (InterviewSessionService#canNavigateNext) so the Next BUTTON and the
+   * keyboard's ArrowRight share one condition instead of each deciding for
+   * themselves. Defaults to true so the component stays usable standalone.
+   *
+   * Only Next is gated: Prev and the numeric page buttons stay enabled so users
+   * can skip, review and return before submitting.
+   */
+  readonly canNext = input<boolean>(true);
+
   // Emits the 0-based target index to navigate to.
   readonly select = output<number>();
 
@@ -85,6 +96,9 @@ export class InterviewPaginatorComponent {
   }
 
   goNext(): void {
-    if (!this.atEnd()) this.select.emit(this.currentIndex() + 1);
+    // Guarded as well as [disabled] so a programmatic/synthetic click can't
+    // bypass the gate.
+    if (!this.canNext() || this.atEnd()) return;
+    this.select.emit(this.currentIndex() + 1);
   }
 }

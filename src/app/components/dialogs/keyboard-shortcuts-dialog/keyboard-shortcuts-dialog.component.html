@@ -19,11 +19,42 @@
       during the assessment, so there are no check-answer or explanation shortcuts.
     </p>
 
-    <!-- Moving around -->
+    <!-- Navigation -->
     <section class="ksd-section" aria-labelledby="ksd-int-nav-heading">
       <h3 id="ksd-int-nav-heading" class="ksd-section-heading">
+        <mat-icon aria-hidden="true">arrow_forward</mat-icon>
+        <span i18n>Navigation</span>
+      </h3>
+
+      <dl class="ksd-shortcuts">
+        <div class="ksd-row">
+          <dt><kbd aria-label="Left arrow key" i18n-aria-label>&larr;</kbd></dt>
+          <dd>
+            <mat-icon class="ksd-inline-icon" aria-hidden="true">arrow_back</mat-icon>
+            <span i18n>Previous Question</span>
+          </dd>
+        </div>
+        <div class="ksd-row">
+          <dt><kbd aria-label="Right arrow key" i18n-aria-label>&rarr;</kbd></dt>
+          <dd>
+            <mat-icon class="ksd-inline-icon" aria-hidden="true">arrow_forward</mat-icon>
+            <span i18n>Next Question</span>
+            <strong class="ksd-flag" i18n>(once answered)</strong>
+          </dd>
+        </div>
+      </dl>
+
+      <p class="ksd-note" i18n>
+        Answer the current question before moving forward with &rarr;.
+        &larr; always takes you back.
+      </p>
+    </section>
+
+    <!-- Moving around -->
+    <section class="ksd-section" aria-labelledby="ksd-int-controls-heading">
+      <h3 id="ksd-int-controls-heading" class="ksd-section-heading">
         <mat-icon aria-hidden="true">swap_horiz</mat-icon>
-        <span i18n>Moving Around</span>
+        <span i18n>Controls</span>
       </h3>
 
       <dl class="ksd-shortcuts">
@@ -44,10 +75,6 @@
           <dd i18n>Activate the focused button or control</dd>
         </div>
       </dl>
-
-      <p class="ksd-note" i18n>
-        To change question, Tab to the pagination controls and press Enter.
-      </p>
     </section>
 
     <!-- Answer options -->
@@ -62,18 +89,16 @@
           <dt>
             <kbd aria-label="Up arrow key" i18n-aria-label>&uarr;</kbd>
             <kbd aria-label="Down arrow key" i18n-aria-label>&darr;</kbd>
-            <kbd aria-label="Left arrow key" i18n-aria-label>&larr;</kbd>
-            <kbd aria-label="Right arrow key" i18n-aria-label>&rarr;</kbd>
           </dt>
           <dd i18n>
-            Move between answer options on a single-answer question
+            Move between answer options while an option is focused
           </dd>
         </div>
       </dl>
 
       <p class="ksd-note" i18n>
-        Arrow keys move between options — they do not change question.
-        On multi-answer questions, use Tab to reach each option.
+        While an answer option has focus, arrow keys move between options rather
+        than changing question. Press Tab to leave the options first.
       </p>
     </section>
 

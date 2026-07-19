@@ -11,10 +11,11 @@ import {
  * differs. These tests pin the contract that matters: each mode documents ONLY
  * the shortcuts that actually work on that surface.
  *
- * Interview Mode registers no global key handler (the topic quiz's
- * runOnGlobalKey is wired in QuizComponent only), so arrow keys do NOT change
- * question there — documenting them as "Previous/Next Question" would be wrong.
- * The `not.toContain` assertions guard against that regressing.
+ * Interview Mode now has its own arrow-key navigation (InterviewSessionComponent
+ * #onGlobalKey), so ←/→ ARE documented as Previous/Next Question. It stands down
+ * while an answer option has focus, so the options section documents ↑/↓ moving
+ * between options — the dialog has to describe both, or a keyboard user will
+ * think one of them is broken.
  */
 describe('KeyboardShortcutsDialogComponent', () => {
   let fixture: ComponentFixture<KeyboardShortcutsDialogComponent>;
@@ -68,6 +69,18 @@ describe('KeyboardShortcutsDialogComponent', () => {
       expect(t).toContain('Exit Full Screen');
     });
 
+    it('documents arrow-key question navigation', () => {
+      const t = text();
+      expect(t).toContain('Previous Question');
+      expect(t).toContain('Next Question');
+    });
+
+    it('explains that arrows move between options while an option is focused', () => {
+      // Both behaviours are real; omitting this makes arrow navigation look broken
+      // whenever focus happens to sit on a radio.
+      expect(text()).toContain('while an option is focused');
+    });
+
     it('flags that leaving Full Screen records a focus change', () => {
       expect(text()).toContain('(Focus Change Recorded)');
     });
@@ -77,12 +90,6 @@ describe('KeyboardShortcutsDialogComponent', () => {
       expect(t).not.toContain('Select option 1');
       expect(t).not.toContain('Check Answer');
       expect(t).not.toContain('Reveal Answer');
-    });
-
-    it('does NOT claim arrow keys change question (no interview key handler exists)', () => {
-      const t = text();
-      expect(t).not.toContain('Previous Question');
-      expect(t).not.toContain('Next Question');
     });
 
     it('renders every shortcut with a semantic <kbd> element', () => {

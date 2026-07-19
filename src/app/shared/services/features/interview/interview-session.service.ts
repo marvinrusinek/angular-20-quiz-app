@@ -92,6 +92,25 @@ export class InterviewSessionService {
   });
 
   readonly answeredCount = computed(() => this.answeredIndices().size);
+
+  /**
+   * THE single rule for forward navigation, consumed by BOTH the keyboard
+   * (InterviewSessionComponent#onGlobalKey) and the paginator's Next button —
+   * defined once here so the two can never drift apart.
+   *
+   * "Answered" deliberately means AT LEAST ONE option selected, for every
+   * question type including multi-select. It must NOT require the selection
+   * count to match the number of correct answers: that would let a user probe
+   * Next to discover the hidden correct-answer count, which Interview Mode never
+   * reveals during the assessment.
+   *
+   * Correctness and completeness are not validated here — that stays deferred
+   * until submission. Previous navigation and direct page jumps are deliberately
+   * NOT gated, so users can still skip, review and come back.
+   */
+  readonly canNavigateNext = computed<boolean>(() =>
+    this.answeredIndices().has(this.currentIndex())
+  );
   readonly unansweredCount = computed(() => Math.max(0, this.total() - this.answeredCount()));
 
   // Build a temporary assessment and begin the session. Throws (via the builder)

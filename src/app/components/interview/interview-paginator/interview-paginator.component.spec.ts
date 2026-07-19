@@ -6,12 +6,18 @@ describe('InterviewPaginatorComponent', () => {
   let fixture: ComponentFixture<InterviewPaginatorComponent>;
   let component: InterviewPaginatorComponent;
 
-  function setup(total: number, current: number, answered: ReadonlySet<number> = new Set()) {
+  function setup(
+    total: number,
+    current: number,
+    answered: ReadonlySet<number> = new Set(),
+    canNext = true
+  ) {
     fixture = TestBed.createComponent(InterviewPaginatorComponent);
     component = fixture.componentInstance;
     fixture.componentRef.setInput('total', total);
     fixture.componentRef.setInput('currentIndex', current);
     fixture.componentRef.setInput('answered', answered);
+    fixture.componentRef.setInput('canNext', canNext);
     fixture.detectChanges();
   }
 
@@ -100,6 +106,69 @@ describe('InterviewPaginatorComponent', () => {
     setup(20, 19);
     expect(fixture.nativeElement.querySelector('.pg-prev')).toBeTruthy();   // Prev shown
     expect(fixture.nativeElement.querySelector('.pg-next')).toBeNull();     // Next hidden on last
+  });
+
+  // ── forward-navigation gate (canNext) ──────────────────────────────
+  // canNext comes from InterviewSessionService#canNavigateNext, the SAME rule
+  // the keyboard's ArrowRight uses — the button must never decide for itself.
+  describe('Next gating', () => {
+    const nextBtn = () => fixture.nativeElement.querySelector('.pg-next') as HTMLButtonElement | null;
+
+    it('DISABLES Next when the current question is unanswered', () => {
+      setup(10, 0, new Set(), /* canNext */ false);
+      expect(nextBtn()).toBeTruthy();          // still visible, just not usable
+      expect(nextBtn()!.disabled).toBe(true);
+    });
+
+    it('ENABLES Next once the current question is answered', () => {
+      setup(10, 0, new Set([0]), /* canNext */ true);
+      expect(nextBtn()!.disabled).toBe(false);
+    });
+
+    it('does not emit from goNext() while gated (no synthetic bypass)', () => {
+      setup(10, 0, new Set(), false);
+      const emitted: number[] = [];
+      component.select.subscribe((i) => emitted.push(i));
+      component.goNext();
+      expect(emitted).toEqual([]);
+    });
+
+    it('emits from goNext() once ungated', () => {
+      setup(10, 0, new Set([0]), true);
+      const emitted: number[] = [];
+      component.select.subscribe((i) => emitted.push(i));
+      component.goNext();
+      expect(emitted).toEqual([1]);
+    });
+
+    it('leaves PREVIOUS enabled even when Next is gated', () => {
+      setup(10, 5, new Set(), false);
+      const prev = fixture.nativeElement.querySelector('.pg-prev') as HTMLButtonElement;
+      expect(prev).toBeTruthy();
+      expect(prev.disabled).toBe(false);
+    });
+
+    it('leaves DIRECT numeric page jumps enabled when Next is gated', () => {
+      // Users must still be able to skip ahead, review and come back.
+      setup(10, 0, new Set(), false);
+      const pages = pageButtons();
+      expect(pages.length).toBeGreaterThan(0);
+      expect(pages.every((b) => !b.disabled)).toBe(true);
+
+      const emitted: number[] = [];
+      component.select.subscribe((i) => emitted.push(i));
+      pages.find((b) => b.textContent!.trim() === '10')!.click();
+      expect(emitted).toEqual([9]);
+    });
+
+    it('defaults canNext to true so the component works standalone', () => {
+      fixture = TestBed.createComponent(InterviewPaginatorComponent);
+      component = fixture.componentInstance;
+      fixture.componentRef.setInput('total', 10);
+      fixture.componentRef.setInput('currentIndex', 0);
+      fixture.detectChanges();
+      expect((fixture.nativeElement.querySelector('.pg-next') as HTMLButtonElement).disabled).toBe(false);
+    });
   });
 
   it('renders the compact "Question X of Y" indicator for mobile', () => {

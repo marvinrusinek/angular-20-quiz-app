@@ -42,9 +42,13 @@
   </span>
 
   @if (!atEnd()) {
+    <!-- Disabled until the current question has an answer (canNext, owned by
+         InterviewSessionService). Prev and the numeric pages stay enabled. -->
     <button
       type="button"
       class="pg-nav pg-next"
+      [disabled]="!canNext()"
+      [attr.title]="canNext() ? null : 'Answer this question to continue'"
       (click)="goNext()"
       aria-label="Next question"
       i18n-aria-label

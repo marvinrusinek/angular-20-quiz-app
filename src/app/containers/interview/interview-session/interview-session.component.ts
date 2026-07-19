@@ -4,6 +4,7 @@ import {
   computed,
   DestroyRef,
   ElementRef,
+  HostListener,
   inject,
   OnDestroy,
   OnInit,
@@ -123,6 +124,14 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
 
   readonly questionText = computed<string>(() => this.currentQuestion()?.questionText ?? '');
   readonly currentOptions = computed<Option[]>(() => this.currentQuestion()?.options ?? []);
+
+  /**
+   * Forward-navigation gate. Single source of truth lives on the session service
+   * so the keyboard path (onGlobalKey) and the paginator's Next button share ONE
+   * condition. At least one selection on the current question — never a
+   * correct-answer count, which would leak how many answers are right.
+   */
+  readonly canNavigateNext = this.session.canNavigateNext;
 
   readonly selectedIds = computed<number[]>(
     () => this.session.answersByIndex()[this.currentIndex()] ?? []
@@ -314,6 +323,62 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * ← / → move between questions, matching the paginator's Prev/Next.
+   *
+   * Deliberately routed through onNavigate() so an arrow press is identical to
+   * clicking the paginator (same index update, same scroll-to-top) — there is no
+   * second navigation path to drift out of sync.
+   *
+   * FORWARD navigation requires the current question to be answered — the same
+   * `canNavigateNext` rule the paginator's Next button uses. BACKWARD navigation
+   * is always allowed, so a mis-press can never trap you on a question you
+   * haven't answered, and direct page jumps stay open for review.
+   *
+   * Three guards, in order of subtlety:
+   *  1. An open dialog owns the keyboard. The listener is on `window`, so
+   *     keystrokes inside the shortcuts / submit / integrity dialogs would
+   *     otherwise navigate the assessment behind them.
+   *  2. Form controls keep their native keyboard behaviour. When an answer
+   *     option has focus, arrows move between radios — that is how a keyboard
+   *     user picks an answer, and hijacking it would break that. Mirrors the
+   *     topic quiz guard in quiz-setup.service#runOnGlobalKey.
+   *  3. Modifier combos (Ctrl/Meta/Alt + arrow) belong to the browser/OS.
+   */
+  @HostListener('window:keydown', ['$event'])
+  onGlobalKey(event: KeyboardEvent): void {
+    if (event.defaultPrevented) return;
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+
+    if (this.dialog.openDialogs.length > 0) return;
+
+    const target = event.target as HTMLElement | null;
+    const tag = target?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable) {
+      return;
+    }
+
+    const index = this.currentIndex();
+
+    if (event.key === 'ArrowLeft') {
+      if (index <= 0) return;                  // already on the first question
+      event.preventDefault();
+      this.onNavigate(index - 1);
+      return;
+    }
+
+    if (index >= this.total() - 1) return;     // already on the last question
+
+    // Forward only once the current question has an answer (any question type).
+    // Deliberately does NOT preventDefault when blocked, so the key is left
+    // alone rather than silently swallowed.
+    if (!this.canNavigateNext()) return;
+
+    event.preventDefault();
+    this.onNavigate(index + 1);
   }
 
   // Paginator / prev / next → move the session index (no router navigation).
