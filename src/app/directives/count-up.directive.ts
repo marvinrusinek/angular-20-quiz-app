@@ -46,9 +46,16 @@ export class CountUpDirective {
     const easeOutCubic = (t: number): number => 1 - Math.pow(1 - t, 3);
 
     setTimeout(() => {
-      const start = performance.now();
+      // Anchor `start` to the FIRST rAF timestamp, not performance.now(): the
+      // frame timestamp passed to rAF can predate a performance.now() taken just
+      // before requesting the frame, which made the first frame's progress go
+      // slightly negative → easeOutCubic(<0) < 0 → a one-frame NEGATIVE number
+      // before the count-up. Using the same clock (and clamping) keeps progress
+      // in [0, 1], so the value is always 0…target.
+      let start: number | null = null;
       const tick = (now: number): void => {
-        const progress = Math.min(1, (now - start) / duration);
+        if (start === null) start = now;
+        const progress = Math.max(0, Math.min(1, (now - start) / duration));
         node.textContent = String(Math.round(easeOutCubic(progress) * target));
         if (progress < 1) {
           requestAnimationFrame(tick);
