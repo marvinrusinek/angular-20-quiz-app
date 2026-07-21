@@ -100,6 +100,14 @@
       [summary]="progressSummary()"
       [cardStates]="cardStateList()"
     />
+
+    <!-- Recommended Next Quiz — directly beneath Your Progress. Start/Continue
+         reuse the existing quiz-start navigation; completion goes to the builder. -->
+    <codelab-recommended-next-quiz
+      [state]="learningPath()"
+      (startQuiz)="onSelect($event, -1)"
+      (buildInterview)="startBuildingInterview()"
+    />
   }
 
   <!-- Toolbar: search + sort (right above the grid they act on) -->

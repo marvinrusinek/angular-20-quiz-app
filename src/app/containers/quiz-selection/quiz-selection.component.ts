@@ -24,6 +24,7 @@ import { QuizDataService } from '../../shared/services/data/quizdata.service';
 import { QuizService } from '../../shared/services/data/quiz.service';
 import { AchievementService } from '../../shared/services/achievements/achievement.service';
 import { ProgressService } from '../../shared/services/progress/progress.service';
+import { LearningPathService } from '../../shared/services/features/learning-path/learning-path.service';
 import { SessionEngagementService } from '../../shared/services/state/session-engagement.service';
 
 import { ProgressSummary, QuizProgress } from '../../shared/models/progress.model';
@@ -31,6 +32,7 @@ import { ProgressSummary, QuizProgress } from '../../shared/models/progress.mode
 import { BackToTopComponent } from '../../components/back-to-top/back-to-top.component';
 import { AchievementsSummaryComponent } from '../../components/achievements-summary/achievements-summary.component';
 import { ProgressPanelComponent } from '../../components/progress-panel/progress-panel.component';
+import { RecommendedNextQuizComponent } from '../../components/recommended-next-quiz/recommended-next-quiz.component';
 import {
   QuizCardProgressComponent,
   QuizCardProgressState
@@ -59,6 +61,7 @@ import { swallow } from '../../shared/utils/error-logging';
     QuizSortComponent,
     ThemeToggleComponent,
     ScrollDownIndicatorComponent,
+    RecommendedNextQuizComponent,
     BackToTopComponent,
     AchievementsSummaryComponent,
     ProgressPanelComponent,
@@ -77,6 +80,7 @@ export class QuizSelectionComponent implements OnInit {
   private readonly quizService = inject(QuizService);
   private readonly achievementService = inject(AchievementService);
   private readonly progressService = inject(ProgressService);
+  private readonly learningPathService = inject(LearningPathService);
   private readonly sessionEngagement = inject(SessionEngagementService);
   private readonly router = inject(Router);
 
@@ -201,6 +205,22 @@ export class QuizSelectionComponent implements OnInit {
   readonly cardStateList = computed<QuizCardProgressState[]>(() =>
     Array.from(this.quizCardProgress().values()).map(entry => entry.state)
   );
+
+  // Recommended Next Quiz. Derived from the SAME per-quiz state map the rest of
+  // this screen uses (quizCardProgress), so it re-evaluates immediately whenever
+  // progress changes (a quiz completed / started / a better score / reset) and
+  // never duplicates status logic. Interview Mode uses synthetic ids that never
+  // appear in quizCardProgress, so it can't affect the recommendation.
+  readonly learningPath = computed(() => {
+    const progress = this.quizCardProgress();
+    const completed = new Set<string>();
+    const inProgress = new Set<string>();
+    for (const [quizId, entry] of progress) {
+      if (entry.state === 'completed') completed.add(quizId);
+      else if (entry.state === 'in-progress') inProgress.add(quizId);
+    }
+    return this.learningPathService.recommend(this.quizzes(), completed, inProgress);
+  });
 
   readonly accessedCount = signal(0);
   readonly totalQuizCountSig = signal(0);
