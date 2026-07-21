@@ -137,10 +137,39 @@
   }
 }
 
+// Two responsive columns of CATEGORIES. Multi-column (rather than a topic grid)
+// so each category block flows as a unit and `break-inside: avoid` keeps a
+// category from being split across the two columns.
 .topics-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 8px 16px;
+  column-count: 2;
+  column-gap: 32px;
+}
+
+.topic-category {
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;   // Safari
+  page-break-inside: avoid;             // older engines
+  // The multi-column algorithm needs a block that establishes its own context
+  // to reliably honour break-inside.
+  display: inline-block;
+  width: 100%;
+  margin: 0 0 18px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+// Understated, not dominant: small, medium-weight, uppercase, subtle divider.
+.topic-category__heading {
+  margin: 0 0 6px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--ib-border);
+  color: var(--ib-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
 }
 
 .topic-check {
@@ -256,6 +285,11 @@
 
   .preview-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  // Single column of categories on a phone.
+  .topics-grid {
+    column-count: 1;
   }
 
   // Center the primary action on mobile (it's right-aligned on desktop) and

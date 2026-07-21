@@ -26,11 +26,20 @@ import { AssessmentBuilderService } from '../../../shared/services/features/asse
 import { InterviewSessionService } from '../../../shared/services/features/interview/interview-session.service';
 import { QuizStartSpinnerService } from '../../../shared/services/ui/quiz-start-spinner.service';
 import { swallow } from '../../../shared/utils/error-logging';
+import {
+  INTERVIEW_TOPIC_CATEGORIES,
+  INTERVIEW_TOPIC_OTHER_CATEGORY
+} from './interview-topic-categories';
 
 interface TopicOption {
   id: string;
   name: string;
   count: number;
+}
+
+interface TopicCategoryGroup {
+  title: string;
+  topics: TopicOption[];
 }
 
 interface DifficultyOption {
@@ -100,6 +109,40 @@ export class BuildYourInterviewComponent implements OnInit {
         name: quiz.milestone,
         count: quiz.questions?.length ?? 0
       }));
+  });
+
+  // PRESENTATION ONLY: groups availableTopics() into categories for display.
+  // Derived from availableTopics (already difficulty-filtered), so categories
+  // with no visible topic are omitted automatically and no topic is ever
+  // dropped — anything not mapped to a category lands in "Other". Selection,
+  // filtering, and validation continue to read availableTopics/selectedTopicIds.
+  readonly groupedTopics = computed<TopicCategoryGroup[]>(() => {
+    const available = this.availableTopics();
+    const byId = new Map(available.map((topic) => [topic.id, topic]));
+    const used = new Set<string>();
+    const groups: TopicCategoryGroup[] = [];
+
+    for (const category of INTERVIEW_TOPIC_CATEGORIES) {
+      const topics: TopicOption[] = [];
+      for (const id of category.quizIds) {
+        const topic = byId.get(id);
+        if (topic) {
+          topics.push(topic);
+          used.add(id);
+        }
+      }
+      if (topics.length > 0) {
+        groups.push({ title: category.title, topics });
+      }
+    }
+
+    // Never hide a topic: anything not categorised above goes to "Other".
+    const others = available.filter((topic) => !used.has(topic.id));
+    if (others.length > 0) {
+      groups.push({ title: INTERVIEW_TOPIC_OTHER_CATEGORY, topics: others });
+    }
+
+    return groups;
   });
 
   readonly topicsEnabled = computed(() => this.difficulty() !== null);

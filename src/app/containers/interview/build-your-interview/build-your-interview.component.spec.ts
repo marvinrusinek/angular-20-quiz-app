@@ -99,6 +99,53 @@ describe('BuildYourInterviewComponent', () => {
     expect(component.availableTopics()).toHaveLength(5);
   });
 
+  // ── grouped topics (presentation only) ───────────────────────────
+  // groupedTopics is derived from availableTopics; it must never add, drop, or
+  // reorder-away a topic, only bucket them into categories.
+
+  it('groups topics into categories without dropping any topic', () => {
+    setDifficulty('mixed');
+    const flatIds = component.availableTopics().map((t) => t.id).sort();
+    const groupedIds = component
+      .groupedTopics()
+      .flatMap((g) => g.topics.map((t) => t.id))
+      .sort();
+    expect(groupedIds).toEqual(flatIds);   // same set, nothing lost
+  });
+
+  it('places known ids under the right category, unknown ids under "Other"', () => {
+    setDifficulty('mixed');
+    const byTitle = new Map(component.groupedTopics().map((g) => [g.title, g.topics.map((t) => t.id)]));
+    // templates/forms/router are Core Angular; rxjs is Reactive; 'ts' (not a real
+    // quizId) falls through to Other.
+    expect(byTitle.get('Core Angular')).toEqual(['templates', 'forms', 'router']);
+    expect(byTitle.get('Reactive Angular')).toEqual(['rxjs']);
+    expect(byTitle.get('Other')).toEqual(['ts']);
+  });
+
+  it('preserves category order and intra-category order', () => {
+    setDifficulty('mixed');
+    // Core Angular is defined before Reactive Angular; Other is always last.
+    expect(component.groupedTopics().map((g) => g.title)).toEqual([
+      'Core Angular',
+      'Reactive Angular',
+      'Other'
+    ]);
+  });
+
+  it('omits categories that have no visible topic for the chosen difficulty', () => {
+    setDifficulty('beginner');   // only ts + templates are eligible
+    const titles = component.groupedTopics().map((g) => g.title);
+    expect(titles).toContain('Core Angular');   // templates
+    expect(titles).toContain('Other');          // ts
+    expect(titles).not.toContain('Reactive Angular');
+    expect(titles).not.toContain('Dependency Injection');
+  });
+
+  it('yields no groups before a difficulty is selected', () => {
+    expect(component.groupedTopics()).toEqual([]);
+  });
+
   // 6
   it('clears invalid topic selections when difficulty changes', () => {
     setDifficulty('beginner');

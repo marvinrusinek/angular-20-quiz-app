@@ -44,17 +44,31 @@
           </button>
         </div>
 
-        <div class="topics-grid" role="group" aria-label="Topics" i18n-aria-label>
-          @for (topic of availableTopics(); track topic.id) {
-            <label class="topic-check">
-              <input
-                type="checkbox"
-                [checked]="isTopicSelected(topic.id)"
-                (change)="toggleTopic(topic.id, $any($event.target).checked)"
-              />
-              <span class="topic-name">{{ topic.name }}</span>
-              <span class="topic-count" aria-hidden="true">{{ topic.count }}</span>
-            </label>
+        <!-- Categorised for scannability. Presentation only — selection reads
+             the same topic ids as before. Each category is a group labelled by
+             its heading and is kept intact within one column (break-inside). -->
+        <div class="topics-grid">
+          @for (group of groupedTopics(); track group.title; let gi = $index) {
+            <section
+              class="topic-category"
+              role="group"
+              [attr.aria-labelledby]="'topic-cat-' + gi"
+            >
+              <h3 class="topic-category__heading" [id]="'topic-cat-' + gi">
+                {{ group.title }}
+              </h3>
+              @for (topic of group.topics; track topic.id) {
+                <label class="topic-check">
+                  <input
+                    type="checkbox"
+                    [checked]="isTopicSelected(topic.id)"
+                    (change)="toggleTopic(topic.id, $any($event.target).checked)"
+                  />
+                  <span class="topic-name">{{ topic.name }}</span>
+                  <span class="topic-count" aria-hidden="true">{{ topic.count }}</span>
+                </label>
+              }
+            </section>
           }
         </div>
       }
