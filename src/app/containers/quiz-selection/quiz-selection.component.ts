@@ -24,7 +24,9 @@ import { QuizDataService } from '../../shared/services/data/quizdata.service';
 import { QuizService } from '../../shared/services/data/quiz.service';
 import { AchievementService } from '../../shared/services/achievements/achievement.service';
 import { ProgressService } from '../../shared/services/progress/progress.service';
+import { BestScoreService } from '../../shared/services/progress/best-score.service';
 import { LearningPathService } from '../../shared/services/features/learning-path/learning-path.service';
+import { DifficultyRecommendationService } from '../../shared/services/features/learning-path/difficulty-recommendation.service';
 import { SessionEngagementService } from '../../shared/services/state/session-engagement.service';
 
 import { ProgressSummary, QuizProgress } from '../../shared/models/progress.model';
@@ -33,6 +35,7 @@ import { BackToTopComponent } from '../../components/back-to-top/back-to-top.com
 import { AchievementsSummaryComponent } from '../../components/achievements-summary/achievements-summary.component';
 import { ProgressPanelComponent } from '../../components/progress-panel/progress-panel.component';
 import { RecommendedNextQuizComponent } from '../../components/recommended-next-quiz/recommended-next-quiz.component';
+import { DifficultyRecommendationComponent } from '../../components/difficulty-recommendation/difficulty-recommendation.component';
 import {
   QuizCardProgressComponent,
   QuizCardProgressState
@@ -62,6 +65,7 @@ import { swallow } from '../../shared/utils/error-logging';
     ThemeToggleComponent,
     ScrollDownIndicatorComponent,
     RecommendedNextQuizComponent,
+    DifficultyRecommendationComponent,
     BackToTopComponent,
     AchievementsSummaryComponent,
     ProgressPanelComponent,
@@ -81,6 +85,8 @@ export class QuizSelectionComponent implements OnInit {
   private readonly achievementService = inject(AchievementService);
   private readonly progressService = inject(ProgressService);
   private readonly learningPathService = inject(LearningPathService);
+  private readonly difficultyService = inject(DifficultyRecommendationService);
+  private readonly bestScoreService = inject(BestScoreService);
   private readonly sessionEngagement = inject(SessionEngagementService);
   private readonly router = inject(Router);
 
@@ -222,6 +228,15 @@ export class QuizSelectionComponent implements OnInit {
     return this.learningPathService.recommend(this.quizzes(), completed, inProgress);
   });
 
+  // Advisory difficulty-readiness message. Reuses the existing best-score store
+  // (same completion definition as Your Progress). Touch quizCardProgress() so it
+  // re-evaluates whenever progress changes (a completed quiz / better score),
+  // then reads the fresh best scores for the per-difficulty averages.
+  readonly difficultyRecommendation = computed(() => {
+    this.quizCardProgress();
+    return this.difficultyService.recommend(this.quizzes(), this.bestScoreService.getBestScores());
+  });
+
   readonly accessedCount = signal(0);
   readonly totalQuizCountSig = signal(0);
   readonly hasAccessedQuizzes = computed(() => this.accessedCount() > 0);
@@ -307,6 +322,15 @@ export class QuizSelectionComponent implements OnInit {
   // counts/progress/achievements.
   startBuildingInterview(): void {
     this.router.navigate(['/interview']);
+  }
+
+  // Difficulty-recommendation "Browse …" action. Advisory only — it never
+  // filters, locks, or hides quizzes; it just scrolls to the quiz grid so the
+  // user can pick from the full list. `_difficulty` is accepted for future use
+  // (e.g. highlighting a level) without changing the recommendation contract.
+  browseQuizzes(_difficulty: string): void {
+    if (typeof document === 'undefined') return;
+    document.querySelector('.quiz-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   // Tile background image. `quiz.image` comes from assets/data/quiz.json, which

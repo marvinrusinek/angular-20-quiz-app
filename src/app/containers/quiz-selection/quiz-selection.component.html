@@ -102,10 +102,22 @@
     />
 
     <!-- Recommended Next Quiz — directly beneath Your Progress. Start/Continue
-         reuse the existing quiz-start navigation; completion goes to the builder. -->
-    <codelab-recommended-next-quiz
-      [state]="learningPath()"
-      (startQuiz)="onSelect($event, -1)"
+         reuse the existing quiz-start navigation; completion goes to the builder.
+         Hidden once the Difficulty card owns the completion state, so the finished
+         path shows ONE "Excellent work! / Build an Interview" card, not two. -->
+    @if (difficultyRecommendation()?.level !== 'complete') {
+      <codelab-recommended-next-quiz
+        [state]="learningPath()"
+        (startQuiz)="onSelect($event, -1)"
+        (buildInterview)="startBuildingInterview()"
+      />
+    }
+
+    <!-- Difficulty Recommendation — advisory readiness message beneath the
+         Recommended Next Quiz card. Browse scrolls to the grid; complete → builder. -->
+    <codelab-difficulty-recommendation
+      [recommendation]="difficultyRecommendation()"
+      (browse)="browseQuizzes($event)"
       (buildInterview)="startBuildingInterview()"
     />
   }
