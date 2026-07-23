@@ -84,6 +84,23 @@
     margin-top: 18px;
   }
 
+  // Full-width section divider between the post-card analytics blocks. The child
+  // sections drop their own faint top border here (below) so lines never double.
+  .ir-rule {
+    border: 0;
+    border-top: 1px solid var(--ir-border);
+    margin: 24px 0;
+  }
+
+  // On the Results page the .ir-rule divider provides the separation, so suppress
+  // the components' own top border/padding to avoid a double line.
+  app-performance-trends .perf-trends,
+  app-interview-readiness .readiness {
+    border-top: 0;
+    margin-top: 0;
+    padding-top: 0;
+  }
+
   // Performance Trends host — a plain block so its own top margin/border applies.
   &__trends {
     display: block;

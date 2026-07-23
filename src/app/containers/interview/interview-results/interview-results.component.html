@@ -37,6 +37,8 @@
 
     <!-- Performance Trends — score progression across completed interviews. Sits
          after the overall result + Topic Performance and before Review Answers. -->
+    <hr class="ir-rule" aria-hidden="true" />
+
     <app-performance-trends class="interview-results__trends" [trends]="trends()" />
 
     <!-- Small link to the per-topic breakdown on the History page (not the full
@@ -44,6 +46,8 @@
     <p class="interview-results__topic-trends-link">
       <a routerLink="/interview/history" fragment="topic-trends" i18n>View Topic Trends</a>
     </p>
+
+    <hr class="ir-rule" aria-hidden="true" />
 
     <!-- Interview Readiness — coaching estimate. After Performance Trends, before
          Review Answers; the current interview result stays the primary result. -->
