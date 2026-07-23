@@ -88,6 +88,10 @@
       }
     </div>
 
+    <!-- Performance Trends — score progression across completed interviews. Sits
+         after the overall result + Topic Performance and before Review Answers. -->
+    <app-performance-trends class="interview-results__trends" [trends]="trends()" />
+
     <!-- Subtle scroll cue: appears ONLY once the review has been opened, hinting
          that the answer review is below. Smooth-scrolls to it; not a primary
          CTA, so it doesn't compete with the action buttons. -->

@@ -22,6 +22,24 @@ async function configureAndStart(page: Page, count: '10' | '20' | '30' = '10') {
   await expect(page.locator('.interview-question-box')).toBeVisible();
 }
 
+// Answer every question (first option), advancing with Next, then Submit and
+// land on the Results page. Mirrors the hardened main-flow answering loop.
+async function answerAllAndSubmit(page: Page, count: number) {
+  for (let i = 1; i <= count; i++) {
+    const firstOption = page.locator('.io-option').first();
+    await firstOption.click();
+    await expect(firstOption).toHaveClass(/io-selected/);
+    if (i < count) {
+      await page.locator('.pg-next').first().click();
+      await expect(page.locator('.interview-progress')).toContainText(`Question ${i + 1}`);
+    }
+  }
+  await page.locator('.show-results-btn').click();
+  await expect(page.getByText('Submit Assessment?')).toBeVisible();
+  await page.locator('button:has-text("Submit Assessment")').last().click();
+  await page.waitForURL('**/interview/results');
+}
+
 test.describe('Interview Mode', () => {
   test('main flow: selection card → build → session → submit → results → review', async ({ page }) => {
     await page.goto('/quiz');
@@ -59,6 +77,31 @@ test.describe('Interview Mode', () => {
     await expect(page.locator('.rv-item')).toHaveCount(10);
     // All / Incorrect / Correct / Skipped (Flagged is hidden until flagging ships).
     await expect(page.locator('.rv-filter')).toHaveCount(4);
+  });
+
+  test('performance trends: first attempt shows the empty state, a second attempt renders the chart', async ({ page }) => {
+    // First completed interview → recorded, but the trend needs ≥ 2 attempts, so
+    // Results shows the "first recorded interview" empty state (no chart).
+    await page.goto('/interview');
+    await configureAndStart(page, '10');
+    await answerAllAndSubmit(page, 10);
+
+    await expect(page.locator('.perf-trends__heading')).toHaveText(/Performance Trends/);
+    await expect(page.locator('.perf-trends__empty')).toContainText('first recorded interview');
+    await expect(page.locator('.perf-chart')).toHaveCount(0);
+
+    // Build another in the SAME context (localStorage history persists) → now two
+    // attempts, so the chart + metrics + accessible data list all render.
+    await page.locator('button:has-text("Build Another Assessment")').click();
+    await expect(page).toHaveURL(/\/interview$/);
+    await configureAndStart(page, '10');
+    await answerAllAndSubmit(page, 10);
+
+    await expect(page.locator('.perf-chart__svg')).toBeVisible();
+    await expect(page.locator('.perf-chart__dot')).toHaveCount(2);
+    await expect(page.locator('.perf-chart__dot--latest')).toHaveCount(1);
+    await expect(page.locator('.perf-metrics dd')).toHaveCount(4);
+    await expect(page.locator('.perf-trends__sr li')).toHaveCount(2);
   });
 
   test('deferred feedback: no correctness or explanation during the assessment', async ({ page }) => {

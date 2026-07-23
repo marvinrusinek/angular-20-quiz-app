@@ -35,3 +35,10 @@ export const SK_INTERVIEW_SESSION = 'interviewSession';
 // active Interview session. Its OWN key — kept separate from the interview
 // session payload and NEVER mixed into topic-quiz progress/achievements/scores.
 export const SK_ASSESSMENT_INTEGRITY = 'assessmentIntegrity';
+
+// Interview Mode performance history — a durable, versioned localStorage store of
+// the latest completed assessments (compact analytics only; NEVER full questions/
+// answers). Powers the Performance Trends chart. The ':v1' suffix is deliberate:
+// it is long-term analytics data whose schema is versioned independently, and it
+// is kept fully separate from topic-quiz progress/best-score/achievement stores.
+export const SK_INTERVIEW_HISTORY = 'interviewAttemptHistory:v1';

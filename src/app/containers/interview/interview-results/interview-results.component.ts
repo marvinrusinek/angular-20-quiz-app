@@ -15,8 +15,10 @@ import { Router } from '@angular/router';
 import { formatMMSS } from '../../../shared/utils/format-time';
 import { InterviewSessionService } from '../../../shared/services/features/interview/interview-session.service';
 import { InterviewAnalyticsService } from '../../../shared/services/features/interview/interview-analytics.service';
+import { InterviewHistoryService } from '../../../shared/services/features/interview/interview-history.service';
 import { ThemeToggleComponent } from '../../../components/theme-toggle/theme-toggle.component';
 import { InterviewReviewComponent } from '../../../components/interview/interview-review/interview-review.component';
+import { PerformanceTrendsComponent } from '../../../components/interview/performance-trends/performance-trends.component';
 
 /**
  * Interview Results ("Assessment Complete"). Self-contained score summary +
@@ -27,7 +29,7 @@ import { InterviewReviewComponent } from '../../../components/interview/intervie
 @Component({
   selector: 'codelab-interview-results',
   standalone: true,
-  imports: [CommonModule, ThemeToggleComponent, InterviewReviewComponent],
+  imports: [CommonModule, ThemeToggleComponent, InterviewReviewComponent, PerformanceTrendsComponent],
   templateUrl: './interview-results.component.html',
   styleUrls: ['./interview-results.component.scss'],
   encapsulation: ViewEncapsulation.None,
@@ -37,6 +39,7 @@ export class InterviewResultsComponent {
   private readonly session = inject(InterviewSessionService);
   private readonly router = inject(Router);
   private readonly analyticsService = inject(InterviewAnalyticsService);
+  private readonly history = inject(InterviewHistoryService);
 
   readonly result = this.session.result;
   readonly assessment = this.session.assessment;
@@ -46,6 +49,11 @@ export class InterviewResultsComponent {
   // Topic Performance analytics — REUSES result.perTopic (no re-scoring). Derives
   // per-topic bands + strongest / needs-review from the immutable result model.
   readonly analytics = computed(() => this.analyticsService.analyze(this.result()));
+
+  // Performance Trends — derived purely from the persisted attempt history (which
+  // already includes this attempt: it is recorded at submission, before Results
+  // renders). Presentation only; storage + trend math live in the history service.
+  readonly trends = this.history.trends;
 
   readonly reviewQuestions = computed(() => this.assessment()?.questions ?? []);
   readonly showReview = signal(false);

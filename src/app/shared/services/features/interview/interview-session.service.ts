@@ -12,6 +12,7 @@ import { readSessionJson, removeSessionKey, writeSessionJson } from '../../../ut
 
 import { AssessmentBuilderService } from '../assessment/assessment-builder.service';
 import { FeedbackPolicyService } from './feedback-policy.service';
+import { InterviewHistoryService } from './interview-history.service';
 
 // Persisted shape for resume (only an 'active' session is ever written).
 interface PersistedInterviewSession {
@@ -36,6 +37,7 @@ interface PersistedInterviewSession {
 export class InterviewSessionService {
   private readonly builder = inject(AssessmentBuilderService);
   private readonly feedbackPolicy = inject(FeedbackPolicyService);
+  private readonly history = inject(InterviewHistoryService);
 
   private readonly _assessment = signal<GeneratedAssessment | null>(null);
   readonly assessment = this._assessment.asReadonly();
@@ -216,6 +218,12 @@ export class InterviewSessionService {
     this._status.set('submitted');
     this._result.set(result);
     this.feedbackPolicy.reset();
+    // Persist this completed attempt to Interview Mode history EXACTLY ONCE. This
+    // is the single finalization chokepoint — the early-return above makes submit
+    // idempotent, so a manual submit racing a timer-expiry submit records one
+    // attempt, and a Results re-render / refresh / Review toggle never re-enters
+    // here. History is compact analytics only; it never touches topic-quiz state.
+    this.history.record(result);
     // Submitted → no longer resumable; drop the persisted active session.
     this.persist();
     return result;

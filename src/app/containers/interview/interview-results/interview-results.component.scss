@@ -84,6 +84,11 @@
     margin-top: 18px;
   }
 
+  // Performance Trends host — a plain block so its own top margin/border applies.
+  &__trends {
+    display: block;
+  }
+
   &__review {
     // 26px + 20px — extra breathing room between the action buttons and the
     // review list when "Review Answers" expands it.

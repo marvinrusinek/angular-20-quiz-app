@@ -41,3 +41,10 @@ export function writeLocalJson(key: string, value: unknown): void {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (err: unknown) { swallow('local-storage.ts', err); /* ignore */ }
 }
+
+/** Remove a key from localStorage. Errors are swallowed. */
+export function removeLocalKey(key: string): void {
+  try {
+    localStorage.removeItem(key);
+  } catch (err: unknown) { swallow('local-storage.ts', err); /* ignore */ }
+}

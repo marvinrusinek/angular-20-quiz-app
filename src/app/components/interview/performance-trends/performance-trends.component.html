@@ -1,0 +1,124 @@
+<section class="perf-trends" aria-labelledby="perf-trends-heading">
+  <h2 id="perf-trends-heading" class="perf-trends__heading" i18n>Performance Trends</h2>
+
+  @if (isEmpty()) {
+    <p class="perf-trends__empty" i18n>No interviews recorded yet.</p>
+  } @else if (isFirst()) {
+    <p class="perf-trends__empty">
+      <span class="perf-trends__empty-main" i18n>This is your first recorded interview.</span>
+      <span class="perf-trends__empty-sub" i18n>Complete another interview to begin tracking your progress.</span>
+    </p>
+  } @else {
+    <!-- Compact summary metrics — all normalised to percentages so interviews
+         with different question counts stay comparable. -->
+    <dl class="perf-metrics">
+      <div>
+        <dt i18n>Latest</dt>
+        <dd class="perf-metrics__latest">{{ trends()?.latest }}%</dd>
+      </div>
+      <div>
+        <dt i18n>Best</dt>
+        <dd>{{ trends()?.best }}%</dd>
+      </div>
+      <div>
+        <dt i18n>Average</dt>
+        <dd>{{ trends()?.average }}%</dd>
+      </div>
+      <div>
+        <dt i18n>Change</dt>
+        <dd
+          [class.perf-metrics__change--up]="(trends()?.change ?? 0) > 0"
+          [class.perf-metrics__change--down]="(trends()?.change ?? 0) < 0"
+          [attr.aria-label]="changeAria()"
+        >{{ changeLabel() }}</dd>
+      </div>
+    </dl>
+
+    @if (trends()?.interpretation) {
+      <p class="perf-trends__interp" role="status" [attr.data-dir]="trends()?.direction">
+        @switch (trends()?.direction) {
+          @case ('improving') {
+            <ng-container i18n>Your interview performance is improving.</ng-container>
+          }
+          @case ('declining') {
+            <ng-container i18n>Your latest score was lower. Review the topics that need attention and try again.</ng-container>
+          }
+          @default {
+            <ng-container i18n>Your recent performance is holding steady.</ng-container>
+          }
+        }
+      </p>
+    }
+
+    @if (chart(); as c) {
+      <figure class="perf-chart">
+        <svg
+          class="perf-chart__svg"
+          [attr.viewBox]="c.vb"
+          preserveAspectRatio="xMidYMid meet"
+          role="img"
+          [attr.aria-label]="'Line chart of interview score percentage across your last ' + count() + ' attempts'"
+          i18n-aria-label
+        >
+          <!-- horizontal gridlines (0–100%); 0/50/100 labelled -->
+          @for (g of c.grid; track g.value) {
+            <line
+              class="perf-chart__grid"
+              [attr.x1]="c.axisX"
+              [attr.x2]="c.right"
+              [attr.y1]="g.y"
+              [attr.y2]="g.y"
+            />
+            @if (g.label) {
+              <text
+                class="perf-chart__ylabel"
+                [attr.x]="c.axisX - 6"
+                [attr.y]="g.y + 3"
+                text-anchor="end"
+              >{{ g.value }}</text>
+            }
+          }
+
+          <!-- subtle area under the line, then the line itself -->
+          <path class="perf-chart__area" [attr.d]="c.area" aria-hidden="true" />
+          <path class="perf-chart__line" [attr.d]="c.line" aria-hidden="true" />
+
+          <!-- one marker per attempt; the latest is enlarged + accented -->
+          @for (p of c.points; track p.id; let i = $index) {
+            <circle
+              class="perf-chart__dot"
+              [class.perf-chart__dot--latest]="p.isLatest"
+              [attr.cx]="p.cx"
+              [attr.cy]="p.cy"
+              [attr.r]="p.isLatest ? 5 : 3"
+            >
+              <title>{{ pointTitle(p) }}</title>
+            </circle>
+            @if (showXLabel(i)) {
+              <text
+                class="perf-chart__xlabel"
+                [attr.x]="p.cx"
+                [attr.y]="c.baselineY + 16"
+                text-anchor="middle"
+              >{{ p.index }}</text>
+            }
+          }
+        </svg>
+        <figcaption class="perf-chart__caption" i18n>
+          Score percentage across your last {{ count() }} interviews (attempt 1 = oldest). The most recent attempt is highlighted.
+        </figcaption>
+      </figure>
+    }
+
+    <!-- Visually-hidden accessible equivalent of the chart: the same data as a
+         plain, screen-reader-friendly list (most recent first). -->
+    <div class="perf-trends__sr">
+      <p i18n>Interview scores, most recent first:</p>
+      <ul>
+        @for (p of srPoints(); track p.id) {
+          <li>{{ srLine(p) }}</li>
+        }
+      </ul>
+    </div>
+  }
+</section>
