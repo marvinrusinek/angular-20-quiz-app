@@ -21,6 +21,7 @@ import { InterviewReadinessComponent } from '../../../components/interview/inter
 import { InterviewReadinessService } from '../../../shared/services/features/interview/interview-readiness.service';
 import { InterviewTopicTrendsComponent } from '../../../components/interview/interview-topic-trends/interview-topic-trends.component';
 import { InterviewTopicTrendsService } from '../../../shared/services/features/interview/interview-topic-trends.service';
+import { ScrollDownIndicatorComponent } from '../../../components/scroll-down-indicator/scroll-down-indicator.component';
 
 interface HistoryCard {
   entry: InterviewAttemptHistoryEntry;
@@ -44,7 +45,8 @@ interface HistoryCard {
     RouterLink,
     ThemeToggleComponent,
     InterviewReadinessComponent,
-    InterviewTopicTrendsComponent
+    InterviewTopicTrendsComponent,
+    ScrollDownIndicatorComponent
   ],
   templateUrl: './interview-history.component.html',
   styleUrls: ['./interview-history.component.scss'],
