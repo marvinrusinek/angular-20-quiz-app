@@ -14,6 +14,10 @@ import { InterviewSessionComponent } from
     '../containers/interview/interview-session/interview-session.component';
 import { InterviewResultsComponent } from
     '../containers/interview/interview-results/interview-results.component';
+import { InterviewHistoryComponent } from
+    '../containers/interview/interview-history/interview-history.component';
+import { InterviewHistoryDetailComponent } from
+    '../containers/interview/interview-history-detail/interview-history-detail.component';
 
 import { QuizGuard } from './guards/quiz-guard';
 import { InterviewSessionGuard } from './guards/interview-session-guard';
@@ -63,6 +67,17 @@ export const routes: Routes = [
     path: 'interview/results',
     component: InterviewResultsComponent,
     canActivate: [InterviewResultGuard]
+  },
+  // Interview History — read-only record of past attempts. Deep-linkable (reads
+  // the durable history store); no session/result required. `:id` reopens ONE
+  // attempt's read-only summary. More specific path is listed first.
+  {
+    path: 'interview/history',
+    component: InterviewHistoryComponent
+  },
+  {
+    path: 'interview/history/:id',
+    component: InterviewHistoryDetailComponent
   },
 
   // Backward compatibility redirects

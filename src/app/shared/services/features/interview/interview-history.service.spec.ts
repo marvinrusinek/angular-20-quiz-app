@@ -7,6 +7,7 @@ import {
 } from '../../../models/interview-history.model';
 import { SK_INTERVIEW_HISTORY } from '../../../constants/session-keys';
 import {
+  filterAttempts,
   InterviewHistoryService,
   summarizeTrends,
   validateAttemptEntry,
@@ -189,6 +190,31 @@ describe('validateHistoryStore / validateAttemptEntry', () => {
   it('honours the retention window when loading an over-long store', () => {
     const many = Array.from({ length: 30 }, (_, i) => entry(i + 1, { id: `e${i}` }));
     expect(validateHistoryStore({ version: 1, attempts: many })).toHaveLength(INTERVIEW_HISTORY_MAX);
+  });
+});
+
+describe('filterAttempts (client-side)', () => {
+  const submitted1 = entry(70, { id: 's1', completionReason: 'submitted' });
+  const expired = entry(50, { id: 'e1', completionReason: 'time-expired' });
+  const submitted2 = entry(90, { id: 's2', completionReason: 'submitted' });
+  const list = [submitted1, expired, submitted2];
+
+  it('6. submitted only', () => {
+    expect(filterAttempts(list, 'submitted').map((a) => a.id)).toEqual(['s1', 's2']);
+  });
+
+  it('7. time expired only', () => {
+    expect(filterAttempts(list, 'time-expired').map((a) => a.id)).toEqual(['e1']);
+  });
+
+  it('8. all interviews (order preserved)', () => {
+    expect(filterAttempts(list, 'all').map((a) => a.id)).toEqual(['s1', 'e1', 's2']);
+  });
+
+  it('returns a copy (does not mutate input)', () => {
+    const out = filterAttempts(list, 'all');
+    expect(out).not.toBe(list);
+    expect(out).toEqual(list);
   });
 });
 

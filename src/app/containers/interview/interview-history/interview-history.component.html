@@ -1,0 +1,120 @@
+<div class="interview-history">
+  <header class="interview-history__bar">
+    <h1 class="interview-history__title" i18n>Interview History</h1>
+    <codelab-theme-toggle />
+  </header>
+
+  @if (!hasHistory()) {
+    <!-- Empty state — never an empty list. -->
+    <div class="interview-history__empty" role="status">
+      <p class="interview-history__empty-main" i18n>No completed interviews yet.</p>
+      <p class="interview-history__empty-sub" i18n>
+        Complete your first Interview Mode assessment to begin tracking your progress.
+      </p>
+      <a class="ih-btn ih-btn--primary" routerLink="/interview" i18n>Build an Interview</a>
+    </div>
+  } @else {
+    <!-- Compact summary — reuses the same trends as Performance Trends. -->
+    <dl class="ih-summary" aria-label="Interview history summary" i18n-aria-label>
+      <div>
+        <dt i18n>Completed Interviews</dt>
+        <dd>{{ trends().count }}</dd>
+      </div>
+      <div>
+        <dt i18n>Best Score</dt>
+        <dd>{{ trends().best }}%</dd>
+      </div>
+      <div>
+        <dt i18n>Average Score</dt>
+        <dd>{{ trends().average }}%</dd>
+      </div>
+      <div>
+        <dt i18n>Latest Score</dt>
+        <dd>{{ trends().latest }}%</dd>
+      </div>
+    </dl>
+
+    <!-- Filter (client-side): All / Submitted / Time Expired. -->
+    <div class="ih-filters" role="group" aria-label="Filter interviews by completion" i18n-aria-label>
+      @for (f of filters; track f.id) {
+        <button
+          type="button"
+          class="ih-filter"
+          [class.ih-filter--active]="filter() === f.id"
+          [attr.aria-pressed]="filter() === f.id"
+          (click)="setFilter(f.id)"
+        >
+          {{ f.label }} <span class="ih-filter__count">({{ counts()[f.id] }})</span>
+        </button>
+      }
+    </div>
+
+    @if (cards().length === 0) {
+      <p class="interview-history__none" role="status" i18n>
+        No interviews match this filter.
+      </p>
+    } @else {
+      <ul class="ih-list">
+        @for (c of cards(); track c.entry.id) {
+          <li class="ih-card">
+            <div class="ih-card__head">
+              <h2 class="ih-card__title" i18n>Interview #{{ c.number }}</h2>
+              <span
+                class="ih-card__badge"
+                [class.ih-card__badge--expired]="c.entry.completionReason === 'time-expired'"
+              >{{ completionLabel(c.entry) }}</span>
+            </div>
+
+            <p class="ih-card__date">
+              <time [attr.datetime]="c.entry.completedAt">{{ formatDate(c.entry.completedAt) }}</time>
+            </p>
+
+            <dl class="ih-card__stats">
+              <div>
+                <dt i18n>Score</dt>
+                <dd>
+                  {{ c.entry.score }} / {{ c.entry.totalQuestions }}
+                  <span class="ih-card__pct">{{ c.entry.percentage }}%</span>
+                </dd>
+              </div>
+              <div>
+                <dt i18n>Duration</dt>
+                <dd>{{ duration(c.entry.durationSeconds) }}</dd>
+              </div>
+              <div>
+                <dt i18n>Difficulty</dt>
+                <dd>{{ (c.entry.configuredDifficulty || 'mixed') | titlecase }}</dd>
+              </div>
+            </dl>
+
+            @if (c.topics.length > 0) {
+              <div class="ih-card__topics">
+                <span class="ih-card__topics-label" i18n>Topics</span>
+                <ul class="ih-card__topic-list">
+                  @for (t of c.topics; track t) {
+                    <li class="ih-card__topic">{{ t }}</li>
+                  }
+                </ul>
+              </div>
+            }
+
+            <div class="ih-card__actions">
+              <a
+                class="ih-btn"
+                [routerLink]="['/interview/history', c.entry.id]"
+                [attr.aria-label]="'View summary for Interview #' + c.number"
+                i18n-aria-label
+                i18n
+              >View Summary</a>
+            </div>
+          </li>
+        }
+      </ul>
+    }
+
+    <div class="interview-history__footer">
+      <a class="ih-btn" routerLink="/interview" i18n>Build an Interview</a>
+      <a class="ih-btn" routerLink="/quiz" i18n>Return to Quiz Selection</a>
+    </div>
+  }
+</div>

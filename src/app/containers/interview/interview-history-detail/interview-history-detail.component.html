@@ -1,0 +1,72 @@
+<div class="interview-history-detail">
+  @if (found(); as f) {
+    <header class="ihd__bar">
+      <div class="ihd__heading">
+        <p class="ihd__eyebrow" i18n>Viewing Interview</p>
+        <h1 class="ihd__title" i18n>Interview #{{ f.number }}</h1>
+        <p class="ihd__date">
+          <time [attr.datetime]="f.entry.completedAt">{{ formatDate(f.entry.completedAt) }}</time>
+          <span
+            class="ihd__readonly"
+            role="status"
+            aria-label="Read only historical interview summary"
+            i18n-aria-label
+            i18n
+          >(Read Only)</span>
+        </p>
+      </div>
+      <codelab-theme-toggle />
+    </header>
+
+    <div class="ihd__card">
+      <div class="score-hero">
+        <div class="score-pct">{{ f.entry.percentage }}%</div>
+        <div class="score-sub">
+          {{ f.entry.score }} / {{ f.entry.totalQuestions }} <span i18n>correct</span>
+        </div>
+      </div>
+
+      <!-- Statistics we retained for this historical attempt (compact analytics). -->
+      <dl class="ihd-stats">
+        <div><dt i18n>Questions</dt><dd>{{ f.entry.totalQuestions }}</dd></div>
+        <div><dt i18n>Correct</dt><dd>{{ f.entry.score }}</dd></div>
+        <div><dt i18n>Incorrect</dt><dd>{{ f.entry.totalQuestions - f.entry.score }}</dd></div>
+        <div><dt i18n>Duration</dt><dd>{{ duration(f.entry.durationSeconds) }}</dd></div>
+        <div><dt i18n>Difficulty</dt><dd>{{ (f.entry.configuredDifficulty || 'mixed') | titlecase }}</dd></div>
+        <div><dt i18n>Completion</dt><dd>{{ completionLabel(f.entry) }}</dd></div>
+      </dl>
+
+      <app-topic-performance-list [analytics]="analytics()" />
+
+      <!-- Performance context — reuses the shared trend metrics. -->
+      <section class="ihd-context" aria-labelledby="ihd-context-heading">
+        <h2 id="ihd-context-heading" class="ihd-context__heading" i18n>Performance Context</h2>
+        <p class="ihd-context__line">
+          <ng-container i18n>Attempt {{ f.number }} of {{ f.total }}</ng-container>
+          <span class="ihd-context__sep" aria-hidden="true">·</span>
+          <ng-container i18n>Best {{ trends().best }}%</ng-container>
+          <span class="ihd-context__sep" aria-hidden="true">·</span>
+          <ng-container i18n>Average {{ trends().average }}%</ng-container>
+        </p>
+      </section>
+
+      <!-- Per-question review is intentionally not retained (compact history). -->
+      <p class="ihd-note" role="note" i18n>
+        Detailed answer review was not retained for this interview.
+      </p>
+    </div>
+
+    <div class="ihd__actions">
+      <a class="ih-btn" routerLink="/interview/history" i18n>Back to Interview History</a>
+    </div>
+  } @else {
+    <!-- Unknown / removed id — never a broken page. -->
+    <div class="ihd__notfound" role="status">
+      <h1 class="ihd__title" i18n>Interview not found</h1>
+      <p class="ihd__notfound-sub" i18n>
+        This interview is no longer in your history.
+      </p>
+      <a class="ih-btn ih-btn--primary" routerLink="/interview/history" i18n>Back to Interview History</a>
+    </div>
+  }
+</div>

@@ -1,0 +1,300 @@
+// Interview History — read-only record of completed Interview Mode attempts.
+// Reuses the same `--ir-*` theme tokens as the Results page (defined locally so
+// this route is self-contained), flipping under [data-theme='dark'].
+.interview-history {
+  --ir-surface: #fff;
+  --ir-border: #e0e0e0;
+  --ir-text: #1a1a1a;
+  --ir-muted: #6a6a6a;
+  --ir-accent: #007aff;
+  --ir-expired: #b5651d;
+
+  max-width: 760px;
+  margin: 20px auto;
+  padding: 0 12px;
+  color: var(--ir-text);
+
+  &__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 800;
+  }
+
+  &__empty {
+    text-align: center;
+    padding: 40px 16px;
+    border: 1px solid var(--ir-border);
+    border-radius: 14px;
+    background: var(--ir-surface);
+
+    &-main {
+      margin: 0 0 6px;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    &-sub {
+      margin: 0 0 18px;
+      color: var(--ir-muted);
+      font-size: 15px;
+      line-height: 1.5;
+    }
+  }
+
+  &__none {
+    margin: 18px 0;
+    padding: 16px;
+    text-align: center;
+    color: var(--ir-muted);
+    border: 1px dashed var(--ir-border);
+    border-radius: 12px;
+  }
+
+  &__footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 24px;
+  }
+}
+
+// Summary metrics — mirrors the Performance Trends metric cards.
+.ih-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin: 0 0 16px;
+
+  > div {
+    text-align: center;
+    padding: 12px 6px;
+    border: 1px solid var(--ir-border);
+    border-radius: 10px;
+    background: var(--ir-surface);
+  }
+
+  dt {
+    color: var(--ir-muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  dd {
+    margin: 6px 0 0;
+    font-size: 22px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.ih-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.ih-filter {
+  padding: 7px 14px;
+  border: 1px solid var(--ir-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ir-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &__count {
+    color: var(--ir-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &--active {
+    background: var(--ir-accent);
+    border-color: var(--ir-accent);
+    color: #fff;
+
+    .ih-filter__count { color: rgba(255, 255, 255, 0.85); }
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ir-accent);
+    outline-offset: 2px;
+  }
+}
+
+.ih-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ih-card {
+  border: 1px solid var(--ir-border);
+  border-radius: 14px;
+  background: var(--ir-surface);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  padding: 18px;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 800;
+  }
+
+  // Completion reason as a labelled pill — text carries meaning, not just colour.
+  &__badge {
+    flex: none;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    background: rgba(58, 165, 100, 0.14);
+    color: #2f8f4a;
+
+    &--expired {
+      background: rgba(181, 101, 29, 0.14);
+      color: var(--ir-expired);
+    }
+  }
+
+  &__date {
+    margin: 6px 0 12px;
+    color: var(--ir-muted);
+    font-size: 14px;
+  }
+
+  &__stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 0;
+
+    dt {
+      color: var(--ir-muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    dd {
+      margin: 3px 0 0;
+      font-size: 16px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  &__pct {
+    margin-left: 4px;
+    color: var(--ir-accent);
+  }
+
+  &__topics {
+    margin-top: 14px;
+  }
+
+  &__topics-label {
+    display: block;
+    color: var(--ir-muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 6px;
+  }
+
+  &__topic-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  &__topic {
+    padding: 3px 10px;
+    border: 1px solid var(--ir-border);
+    border-radius: 999px;
+    font-size: 12px;
+    color: var(--ir-text);
+  }
+
+  &__actions {
+    margin-top: 16px;
+    display: flex;
+    justify-content: flex-end;
+  }
+}
+
+.ih-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 18px;
+  border: 1px solid var(--ir-border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ir-text);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+
+  &--primary {
+    background: var(--ir-accent);
+    border-color: var(--ir-accent);
+    color: #fff;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ir-accent);
+    outline-offset: 2px;
+  }
+}
+
+// Mobile: single-column summary/stats, no horizontal overflow.
+@media (max-width: 600px) {
+  .ih-summary { grid-template-columns: repeat(2, 1fr); }
+  .ih-card__stats { grid-template-columns: 1fr 1fr; }
+  .ih-card__head { flex-wrap: wrap; }
+}
+
+[data-theme='dark'] .interview-history {
+  --ir-surface: #1e1e1e;
+  --ir-border: #363636;
+  --ir-text: #f0f0f0;
+  --ir-muted: #a0a0a0;
+  --ir-accent: #4c9dff;
+  --ir-expired: #e0a94a;
+
+  .ih-card__badge {
+    background: rgba(87, 200, 119, 0.16);
+    color: #6fd68c;
+
+    &--expired {
+      background: rgba(224, 169, 74, 0.16);
+      color: #e0a94a;
+    }
+  }
+}

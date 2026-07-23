@@ -104,6 +104,30 @@ test.describe('Interview Mode', () => {
     await expect(page.locator('.perf-trends__sr li')).toHaveCount(2);
   });
 
+  test('interview history: results → history list → read-only summary', async ({ page }) => {
+    await page.goto('/interview');
+    await configureAndStart(page, '10');
+    await answerAllAndSubmit(page, 10);
+
+    // Gateway button beneath Performance Trends.
+    await page.locator('a:has-text("View Interview History")').click();
+    await expect(page).toHaveURL(/\/interview\/history$/);
+    await expect(page.locator('.interview-history__title')).toHaveText(/Interview History/);
+
+    // The just-completed attempt appears as a card with a summary above it.
+    await expect(page.locator('.ih-summary dd').first()).toHaveText('1');
+    await expect(page.locator('.ih-card')).toHaveCount(1);
+
+    // View Summary opens the read-only historical detail (no session restore).
+    await page.locator('.ih-card__actions a:has-text("View Summary")').click();
+    await expect(page).toHaveURL(/\/interview\/history\/.+/);
+    await expect(page.locator('.ihd__readonly')).toContainText('Read Only');
+    await expect(page.locator('.ihd-note')).toContainText('was not retained');
+    // Topic Performance is reused here; no live Review Answers controls exist.
+    await expect(page.locator('.topic-row').first()).toBeVisible();
+    await expect(page.locator('.rv-item')).toHaveCount(0);
+  });
+
   test('deferred feedback: no correctness or explanation during the assessment', async ({ page }) => {
     await page.goto('/interview');
     await configureAndStart(page, '10');

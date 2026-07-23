@@ -1,0 +1,115 @@
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
+
+import { InterviewAttemptHistoryEntry, InterviewCompletionReason } from '../../../shared/models/interview-history.model';
+import { SK_INTERVIEW_HISTORY } from '../../../shared/constants/session-keys';
+import { InterviewHistoryComponent } from './interview-history.component';
+
+function entry(
+  pct: number,
+  i: number,
+  reason: InterviewCompletionReason = 'submitted'
+): InterviewAttemptHistoryEntry {
+  return {
+    id: `att-${i}`,
+    completedAt: `2026-07-${String(10 + i).padStart(2, '0')}T10:00:00.000Z`,
+    score: pct,
+    totalQuestions: 100,
+    percentage: pct,
+    completionReason: reason,
+    durationSeconds: 1471,
+    configuredDifficulty: 'mixed',
+    selectedTopicIds: ['forms', 'http'],
+    topicPerformance: [
+      { topicId: 'forms', topicName: 'Forms', correct: pct, total: 100, percentage: pct },
+      { topicId: 'http', topicName: 'HTTP', correct: pct, total: 100, percentage: pct }
+    ]
+  };
+}
+
+function seed(attempts: InterviewAttemptHistoryEntry[]): void {
+  localStorage.setItem(SK_INTERVIEW_HISTORY, JSON.stringify({ version: 1, attempts }));
+}
+
+function render(): ComponentFixture<InterviewHistoryComponent> {
+  TestBed.resetTestingModule();
+  TestBed.configureTestingModule({
+    imports: [InterviewHistoryComponent],
+    providers: [provideRouter([])]
+  });
+  const fixture = TestBed.createComponent(InterviewHistoryComponent);
+  fixture.detectChanges();
+  return fixture;
+}
+
+describe('InterviewHistoryComponent', () => {
+  beforeEach(() => localStorage.clear());
+  afterEach(() => localStorage.clear());
+
+  it('2. shows the empty state when there is no history', () => {
+    const el = render().nativeElement as HTMLElement;
+    expect(el.querySelector('.interview-history__empty')?.textContent).toContain('No completed interviews yet');
+    expect(el.querySelector('.ih-card')).toBeNull();
+  });
+
+  it('4/5. lists attempts newest first with chronological numbers', () => {
+    seed([entry(70, 1), entry(80, 2), entry(90, 3)]);
+    const el = render().nativeElement as HTMLElement;
+    const titles = Array.from(el.querySelectorAll('.ih-card__title')).map((n) => n.textContent?.trim());
+    expect(titles).toEqual(['Interview #3', 'Interview #2', 'Interview #1']);
+    // Newest (90%) card is first.
+    expect(el.querySelector('.ih-card__pct')?.textContent).toContain('90%');
+  });
+
+  it('11-14. summary metrics reuse the shared trends', () => {
+    seed([entry(70, 1), entry(90, 2), entry(84, 3)]);
+    const dds = Array.from((render().nativeElement as HTMLElement).querySelectorAll('.ih-summary dd')).map(
+      (n) => n.textContent?.trim()
+    );
+    // Completed / Best / Average / Latest
+    expect(dds).toEqual(['3', '90%', '81%', '84%']);
+  });
+
+  it('6/7/8. filters by completion reason (client-side)', () => {
+    seed([entry(70, 1, 'submitted'), entry(50, 2, 'time-expired'), entry(90, 3, 'submitted')]);
+    const fixture = render();
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.querySelectorAll('.ih-card')).toHaveLength(3);   // All
+
+    const filters = el.querySelectorAll<HTMLButtonElement>('.ih-filter');
+    // filters: [All, Submitted, Time Expired]
+    filters[1].click();
+    fixture.detectChanges();
+    expect(el.querySelectorAll('.ih-card')).toHaveLength(2);   // Submitted
+
+    filters[2].click();
+    fixture.detectChanges();
+    expect(el.querySelectorAll('.ih-card')).toHaveLength(1);   // Time Expired
+    expect(el.querySelector('.ih-card__badge')?.textContent).toContain('Time expired');
+  });
+
+  it('9. each card links to that attempt\'s read-only summary', () => {
+    seed([entry(70, 1)]);
+    const link = (render().nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('.ih-card__actions a');
+    expect(link?.textContent).toContain('View Summary');
+    expect(link?.getAttribute('href')).toContain('/interview/history/att-1');
+  });
+
+  it('16. filters are real buttons and actions are real links (keyboard-operable)', () => {
+    seed([entry(70, 1)]);
+    const el = render().nativeElement as HTMLElement;
+    expect(el.querySelector('.ih-filter')?.tagName).toBe('BUTTON');
+    expect(el.querySelector('.ih-filter')?.getAttribute('aria-pressed')).toBe('true'); // All active by default
+    expect(el.querySelector('.ih-card__actions a')?.tagName).toBe('A');
+  });
+
+  it('shows a no-match message when a filter excludes everything', () => {
+    seed([entry(70, 1, 'submitted')]);
+    const fixture = render();
+    const el = fixture.nativeElement as HTMLElement;
+    el.querySelectorAll<HTMLButtonElement>('.ih-filter')[2].click();  // Time Expired
+    fixture.detectChanges();
+    expect(el.querySelector('.interview-history__none')?.textContent).toContain('No interviews match');
+  });
+});

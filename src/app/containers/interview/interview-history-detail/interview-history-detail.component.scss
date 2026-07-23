@@ -1,0 +1,224 @@
+// Read-only historical interview summary. Self-contained styling: because this
+// is its own route (the live Results / History components aren't mounted), it
+// carries the shared `--ir-*` theme tokens + score-hero + button styles it uses.
+// The Topic Performance block brings its own styles (shared component).
+.interview-history-detail {
+  --ir-surface: #fff;
+  --ir-border: #e0e0e0;
+  --ir-text: #1a1a1a;
+  --ir-muted: #6a6a6a;
+  --ir-accent: #007aff;
+
+  // Performance band tokens consumed by the shared Topic Performance component.
+  --ir-band-strong: #3aa564;
+  --ir-band-moderate: #cf9016;
+  --ir-band-weak: #d75a54;
+  --ir-band-strong-text: #2f8f4a;
+  --ir-band-weak-text: #c0392b;
+
+  max-width: 680px;
+  margin: 20px auto;
+  padding: 0 12px;
+  color: var(--ir-text);
+}
+
+.ihd__bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.ihd__eyebrow {
+  margin: 0;
+  color: var(--ir-muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ihd__title {
+  margin: 2px 0 0;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.ihd__date {
+  margin: 6px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ir-muted);
+  font-size: 14px;
+}
+
+// Clearly marks the historical, read-only nature (not colour-only — it's text).
+.ihd__readonly {
+  padding: 2px 9px;
+  border: 1px solid var(--ir-border);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--ir-text);
+}
+
+.ihd__card {
+  background: var(--ir-surface);
+  border: 1px solid var(--ir-border);
+  border-radius: 14px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12);
+  padding: 24px;
+}
+
+.score-hero {
+  text-align: center;
+  margin-bottom: 18px;
+
+  .score-pct {
+    font-size: 52px;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--ir-accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .score-sub {
+    margin-top: 6px;
+    color: var(--ir-muted);
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.ihd-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 0 0 8px;
+
+  > div {
+    text-align: center;
+    padding: 10px 6px;
+    border: 1px solid var(--ir-border);
+    border-radius: 10px;
+  }
+
+  dt {
+    color: var(--ir-muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  dd {
+    margin: 4px 0 0;
+    font-size: 18px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.ihd-context {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ir-border);
+
+  &__heading {
+    margin: 0 0 6px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--ir-muted);
+  }
+
+  &__line {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__sep {
+    margin: 0 8px;
+    color: var(--ir-muted);
+  }
+}
+
+.ihd-note {
+  margin: 16px 0 0;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--ir-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ihd__actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+.ihd__notfound {
+  text-align: center;
+  padding: 48px 16px;
+
+  .ihd__title { margin: 0 0 8px; }
+
+  &-sub {
+    margin: 0 0 18px;
+    color: var(--ir-muted);
+  }
+}
+
+.ih-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 18px;
+  border: 1px solid var(--ir-border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ir-text);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+
+  &--primary {
+    background: var(--ir-accent);
+    border-color: var(--ir-accent);
+    color: #fff;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ir-accent);
+    outline-offset: 2px;
+  }
+}
+
+@media (max-width: 600px) {
+  .ihd-stats { grid-template-columns: repeat(2, 1fr); }
+  .ihd__bar { flex-wrap: wrap; }
+}
+
+[data-theme='dark'] .interview-history-detail {
+  --ir-surface: #1e1e1e;
+  --ir-border: #363636;
+  --ir-text: #f0f0f0;
+  --ir-muted: #a0a0a0;
+  --ir-accent: #4c9dff;
+
+  --ir-band-strong: #57c877;
+  --ir-band-moderate: #e0a94a;
+  --ir-band-weak: #f07a72;
+  --ir-band-strong-text: #6fd68c;
+  --ir-band-weak-text: #f28b84;
+
+  .ihd-note { background: rgba(255, 255, 255, 0.06); }
+}

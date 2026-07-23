@@ -10,7 +10,7 @@ import {
   ViewEncapsulation
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 
 import { formatMMSS } from '../../../shared/utils/format-time';
 import { InterviewSessionService } from '../../../shared/services/features/interview/interview-session.service';
@@ -19,6 +19,7 @@ import { InterviewHistoryService } from '../../../shared/services/features/inter
 import { ThemeToggleComponent } from '../../../components/theme-toggle/theme-toggle.component';
 import { InterviewReviewComponent } from '../../../components/interview/interview-review/interview-review.component';
 import { PerformanceTrendsComponent } from '../../../components/interview/performance-trends/performance-trends.component';
+import { TopicPerformanceListComponent } from '../../../components/interview/topic-performance/topic-performance-list.component';
 
 /**
  * Interview Results ("Assessment Complete"). Self-contained score summary +
@@ -29,7 +30,14 @@ import { PerformanceTrendsComponent } from '../../../components/interview/perfor
 @Component({
   selector: 'codelab-interview-results',
   standalone: true,
-  imports: [CommonModule, ThemeToggleComponent, InterviewReviewComponent, PerformanceTrendsComponent],
+  imports: [
+    CommonModule,
+    RouterLink,
+    ThemeToggleComponent,
+    InterviewReviewComponent,
+    PerformanceTrendsComponent,
+    TopicPerformanceListComponent
+  ],
   templateUrl: './interview-results.component.html',
   styleUrls: ['./interview-results.component.scss'],
   encapsulation: ViewEncapsulation.None,

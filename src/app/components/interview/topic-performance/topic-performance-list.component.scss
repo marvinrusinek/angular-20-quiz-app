@@ -1,0 +1,120 @@
+// Topic Performance styles. Global (ViewEncapsulation.None) with the same
+// `topic-*` class names used by the Interview Results page, so relocating them
+// here from interview-results.scss is style-identical. Colours come from the
+// host's `--ir-*` theme vars (fallbacks keep it legible standalone / in tests).
+.topics-heading {
+  margin: 20px 0 10px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.topic-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.topic-row {
+  display: grid;
+  grid-template-columns: 1fr 2fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+  font-size: 14px;
+
+  .topic-name { font-weight: 600; }
+
+  .topic-bar {
+    height: 8px;
+    border-radius: 4px;
+    background: var(--ir-border, #e0e0e0);
+    overflow: hidden;
+
+    &__fill {
+      display: block;
+      height: 100%;
+      background: var(--ir-accent, #007aff);
+    }
+  }
+
+  .topic-score {
+    color: var(--ir-muted, #6a6a6a);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  // Colour the bar fill by performance band (graphical indicator; the numeric
+  // score text always conveys the same info for a11y).
+  &--strong .topic-bar__fill { background: var(--ir-band-strong, #3aa564); }
+  &--moderate .topic-bar__fill { background: var(--ir-band-moderate, #cf9016); }
+  &--weak .topic-bar__fill { background: var(--ir-band-weak, #d75a54); }
+}
+
+// Strongest / Needs Review — two compact columns that stack on mobile.
+.topic-highlights {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 24px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ir-border, #e0e0e0);
+}
+
+.topic-highlight__heading {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--ir-muted, #6a6a6a);
+}
+
+.topic-highlight__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.topic-highlight__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--ir-text, #1a1a1a);
+
+  .topic-highlight__pct {
+    margin-left: auto;
+    color: var(--ir-muted, #6a6a6a);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .topic-highlight__mark {
+    flex: none;
+    font-weight: 700;
+  }
+
+  &--strong .topic-highlight__mark { color: var(--ir-band-strong-text, #2f8f4a); }
+  &--weak .topic-highlight__mark { color: var(--ir-band-weak-text, #c0392b); }
+}
+
+// Mobile: stack each topic row (name over score) — no horizontal scrolling.
+@media (max-width: 600px) {
+  .topic-row {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      'name score'
+      'bar  bar';
+    row-gap: 6px;
+
+    .topic-name { grid-area: name; }
+    .topic-score { grid-area: score; text-align: right; }
+    .topic-bar { grid-area: bar; }
+  }
+
+  .topic-highlights {
+    grid-template-columns: 1fr;
+  }
+}

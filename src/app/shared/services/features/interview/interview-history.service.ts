@@ -131,6 +131,20 @@ export class InterviewHistoryService {
   }
 }
 
+// ── filtering (client-side, pure) ─────────────────────────────────────
+
+/** Interview History filter — matches the completion reason (or all). */
+export type InterviewHistoryFilter = 'all' | 'submitted' | 'time-expired';
+
+/** Filter attempts by completion reason, preserving order. */
+export function filterAttempts(
+  attempts: readonly InterviewAttemptHistoryEntry[],
+  filter: InterviewHistoryFilter
+): InterviewAttemptHistoryEntry[] {
+  if (filter === 'all') return [...attempts];
+  return attempts.filter((a) => a.completionReason === filter);
+}
+
 // ── pure helpers (exported for tests) ─────────────────────────────────
 
 /**
