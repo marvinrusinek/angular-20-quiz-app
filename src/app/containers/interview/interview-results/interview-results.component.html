@@ -39,6 +39,10 @@
          after the overall result + Topic Performance and before Review Answers. -->
     <app-performance-trends class="interview-results__trends" [trends]="trends()" />
 
+    <!-- Interview Readiness — coaching estimate. After Performance Trends, before
+         Review Answers; the current interview result stays the primary result. -->
+    <app-interview-readiness class="interview-results__readiness" [readiness]="readiness()" />
+
     <!-- Gateway to the full Interview History (read-only record of past attempts). -->
     <div class="interview-results__history-link">
       <a class="ir-btn" routerLink="/interview/history" i18n>View Interview History</a>

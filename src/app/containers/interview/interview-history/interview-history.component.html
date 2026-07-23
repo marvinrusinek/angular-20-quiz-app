@@ -34,6 +34,11 @@
       </div>
     </dl>
 
+    <!-- Compact readiness summary (full breakdown lives on the Results page). -->
+    <div class="interview-history__readiness">
+      <app-interview-readiness [readiness]="readiness()" [compact]="true" />
+    </div>
+
     <!-- Filter (client-side): All / Submitted / Time Expired. -->
     <div class="ih-filters" role="group" aria-label="Filter interviews by completion" i18n-aria-label>
       @for (f of filters; track f.id) {

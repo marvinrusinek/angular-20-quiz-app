@@ -1,0 +1,203 @@
+// Interview Readiness. Rendered inside .interview-results (or .interview-history),
+// so it inherits those hosts' `--ir-*` theme tokens; fallbacks keep it legible
+// standalone / in tests. A restrained score card — no gauges or arcade meters.
+.readiness {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--ir-border, #e0e0e0);
+  color: var(--ir-text, #1a1a1a);
+
+  &__heading {
+    margin: 0 0 12px;
+    font-size: 20px;
+    font-weight: 800;
+  }
+
+  // Visually-hidden accessible summary of the whole card.
+  &__sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  &__limited {
+    margin: 4px 0 2px;
+    font-weight: 600;
+    font-size: 15px;
+  }
+
+  &__limited-sub {
+    margin: 0;
+    color: var(--ir-muted, #6a6a6a);
+    font-size: 14px;
+  }
+
+  &__score-row {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  &__score {
+    font-size: 40px;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--ir-accent, #007aff);
+  }
+
+  &__score-max {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--ir-muted, #6a6a6a);
+  }
+
+  // Band pill — label carries meaning (never colour-only).
+  &__band {
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    background: var(--rd-band, #6a6a6a);
+    color: #fff;
+    white-space: nowrap;
+  }
+
+  // Band colours (muted, AA). Also drive the score number for a subtle cue.
+  &--early-preparation { --rd-band: #b0521f; }
+  &--developing { --rd-band: #b07d16; }
+  &--progressing { --rd-band: #1f7fb0; }
+  &--strong { --rd-band: #2f8f4a; }
+  &--interview-ready { --rd-band: #2f8f6a; }
+
+  &__explanation {
+    margin: 12px 0 0;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  &__factors {
+    margin: 16px 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  &__factor {
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+  }
+
+  &__factor-label {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  &__factor-value {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+  }
+
+  &__bar {
+    flex: 1;
+    height: 8px;
+    border-radius: 4px;
+    background: var(--ir-border, #e0e0e0);
+    overflow: hidden;
+  }
+
+  &__bar-fill {
+    display: block;
+    height: 100%;
+    background: var(--ir-accent, #007aff);
+    transition: width 0.5s ease;
+  }
+
+  &__factor-num {
+    min-width: 26px;
+    text-align: right;
+    font-size: 14px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__factor-note {
+    color: var(--ir-muted, #6a6a6a);
+    font-size: 13px;
+  }
+
+  &__recs {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--ir-border, #e0e0e0);
+  }
+
+  &__recs-heading {
+    margin: 0 0 6px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--ir-muted, #6a6a6a);
+  }
+
+  &__recs-list {
+    margin: 0;
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  &__basedon {
+    margin: 14px 0 0;
+    color: var(--ir-muted, #6a6a6a);
+    font-size: 12px;
+  }
+
+  // Compact banner (Interview History list): tighter, no top border/margin.
+  &--compact {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+
+    .readiness__score { font-size: 32px; }
+    .readiness__explanation { font-size: 13px; }
+  }
+}
+
+// Mobile: stack factor label above its bar; no horizontal scrolling.
+@media (max-width: 600px) {
+  .readiness__factor {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .readiness__bar-fill { transition: none; }
+}
+
+// Dark theme: brighter band/accent shades for the dark surface.
+[data-theme='dark'] .readiness {
+  &--early-preparation { --rd-band: #d1794a; }
+  &--developing { --rd-band: #e0a94a; }
+  &--progressing { --rd-band: #4c9dff; }
+  &--strong { --rd-band: #57c877; }
+  &--interview-ready { --rd-band: #5fd0a0; }
+}

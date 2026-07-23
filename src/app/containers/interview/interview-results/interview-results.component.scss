@@ -89,6 +89,11 @@
     display: block;
   }
 
+  // Interview Readiness host — plain block so its own top margin/border applies.
+  &__readiness {
+    display: block;
+  }
+
   // Gateway to the read-only Interview History. Centered, subtle — not a primary
   // CTA (the action buttons below remain the primary controls).
   &__history-link {

@@ -96,6 +96,15 @@
   }
 }
 
+// Compact readiness banner sits between the summary metrics and the filters.
+.interview-history__readiness {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--ir-border);
+  border-radius: 12px;
+  background: var(--ir-surface);
+}
+
 .ih-filters {
   display: flex;
   flex-wrap: wrap;

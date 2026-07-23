@@ -1,0 +1,65 @@
+@if (readiness(); as r) {
+  <section
+    class="readiness"
+    [class.readiness--compact]="compact()"
+    [class]="'readiness--' + (r.status === 'ready' ? r.band : 'insufficient')"
+    aria-labelledby="readiness-heading"
+  >
+    <h2 id="readiness-heading" class="readiness__heading" i18n>Interview Readiness</h2>
+
+    <!-- One accessible sentence summarising the whole card. -->
+    <p class="readiness__sr">{{ ariaSummary() }}</p>
+
+    @if (r.status !== 'ready') {
+      <!-- Limited data: exactly one completed interview. -->
+      <p class="readiness__limited" i18n>
+        Complete at least one more interview to calculate your readiness score.
+      </p>
+      <p class="readiness__limited-sub" i18n>Your first result has been recorded.</p>
+    } @else {
+      <div class="readiness__score-row" aria-hidden="true">
+        <span class="readiness__score">{{ r.score }}<span class="readiness__score-max"> / 100</span></span>
+        <span class="readiness__band" [class]="'readiness__band--' + r.band">{{ bandLabel() }}</span>
+      </div>
+
+      <p class="readiness__explanation">{{ r.explanation }}</p>
+
+      @if (!compact()) {
+        <dl class="readiness__factors">
+          @for (f of factors(); track f.key) {
+            <div class="readiness__factor">
+              <dt class="readiness__factor-label">{{ f.label }}</dt>
+              <dd class="readiness__factor-value">
+                @if (f.showBar) {
+                  <span
+                    class="readiness__bar"
+                    role="img"
+                    [attr.aria-label]="f.label + ': ' + f.value + ' out of 100'"
+                  >
+                    <span class="readiness__bar-fill" [style.width.%]="f.value"></span>
+                  </span>
+                  <span class="readiness__factor-num" aria-hidden="true">{{ f.value }}</span>
+                } @else {
+                  <span class="readiness__factor-note">{{ f.note }}</span>
+                }
+              </dd>
+            </div>
+          }
+        </dl>
+
+        @if (r.recommendations.length > 0) {
+          <div class="readiness__recs">
+            <h3 class="readiness__recs-heading" i18n>Recommended focus</h3>
+            <ul class="readiness__recs-list">
+              @for (rec of r.recommendations; track rec) {
+                <li>{{ rec }}</li>
+              }
+            </ul>
+          </div>
+        }
+
+        <p class="readiness__basedon">{{ basedOn() }}</p>
+      }
+    }
+  </section>
+}

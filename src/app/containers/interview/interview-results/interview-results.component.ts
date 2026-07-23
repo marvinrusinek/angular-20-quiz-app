@@ -20,6 +20,8 @@ import { ThemeToggleComponent } from '../../../components/theme-toggle/theme-tog
 import { InterviewReviewComponent } from '../../../components/interview/interview-review/interview-review.component';
 import { PerformanceTrendsComponent } from '../../../components/interview/performance-trends/performance-trends.component';
 import { TopicPerformanceListComponent } from '../../../components/interview/topic-performance/topic-performance-list.component';
+import { InterviewReadinessComponent } from '../../../components/interview/interview-readiness/interview-readiness.component';
+import { InterviewReadinessService } from '../../../shared/services/features/interview/interview-readiness.service';
 
 /**
  * Interview Results ("Assessment Complete"). Self-contained score summary +
@@ -36,7 +38,8 @@ import { TopicPerformanceListComponent } from '../../../components/interview/top
     ThemeToggleComponent,
     InterviewReviewComponent,
     PerformanceTrendsComponent,
-    TopicPerformanceListComponent
+    TopicPerformanceListComponent,
+    InterviewReadinessComponent
   ],
   templateUrl: './interview-results.component.html',
   styleUrls: ['./interview-results.component.scss'],
@@ -48,6 +51,7 @@ export class InterviewResultsComponent {
   private readonly router = inject(Router);
   private readonly analyticsService = inject(InterviewAnalyticsService);
   private readonly history = inject(InterviewHistoryService);
+  private readonly readinessService = inject(InterviewReadinessService);
 
   readonly result = this.session.result;
   readonly assessment = this.session.assessment;
@@ -62,6 +66,10 @@ export class InterviewResultsComponent {
   // already includes this attempt: it is recorded at submission, before Results
   // renders). Presentation only; storage + trend math live in the history service.
   readonly trends = this.history.trends;
+
+  // Interview Readiness — coaching indicator derived from retained history (which
+  // already includes this attempt). Presentation-free scoring lives in the service.
+  readonly readiness = this.readinessService.readiness;
 
   readonly reviewQuestions = computed(() => this.assessment()?.questions ?? []);
   readonly showReview = signal(false);

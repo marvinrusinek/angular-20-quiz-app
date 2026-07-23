@@ -17,6 +17,8 @@ import {
   InterviewHistoryService
 } from '../../../shared/services/features/interview/interview-history.service';
 import { ThemeToggleComponent } from '../../../components/theme-toggle/theme-toggle.component';
+import { InterviewReadinessComponent } from '../../../components/interview/interview-readiness/interview-readiness.component';
+import { InterviewReadinessService } from '../../../shared/services/features/interview/interview-readiness.service';
 
 interface HistoryCard {
   entry: InterviewAttemptHistoryEntry;
@@ -35,7 +37,7 @@ interface HistoryCard {
 @Component({
   selector: 'codelab-interview-history',
   standalone: true,
-  imports: [CommonModule, RouterLink, ThemeToggleComponent],
+  imports: [CommonModule, RouterLink, ThemeToggleComponent, InterviewReadinessComponent],
   templateUrl: './interview-history.component.html',
   styleUrls: ['./interview-history.component.scss'],
   encapsulation: ViewEncapsulation.None,
@@ -43,9 +45,14 @@ interface HistoryCard {
 })
 export class InterviewHistoryComponent {
   private readonly history = inject(InterviewHistoryService);
+  private readonly readinessService = inject(InterviewReadinessService);
 
   // Summary metrics — reuse the shared trends (same source as Performance Trends).
   readonly trends = this.history.trends;
+
+  // Compact readiness banner — the same shared readiness estimate, no factor
+  // breakdown here (that lives on the Results page).
+  readonly readiness = this.readinessService.readiness;
   readonly hasHistory = computed(() => this.history.history().length > 0);
 
   readonly filter = signal<InterviewHistoryFilter>('all');

@@ -128,6 +128,44 @@ test.describe('Interview Mode', () => {
     await expect(page.locator('.rv-item')).toHaveCount(0);
   });
 
+  test('interview readiness: limited state → score → updates → cleared with history', async ({ page }) => {
+    // 1. First interview → limited-data readiness (no numeric score yet).
+    await page.goto('/interview');
+    await configureAndStart(page, '10');
+    await answerAllAndSubmit(page, 10);
+
+    await expect(page.locator('.readiness__heading')).toHaveText(/Interview Readiness/);
+    await expect(page.locator('.readiness__limited')).toContainText('at least one more interview');
+    await expect(page.locator('.readiness__score')).toHaveCount(0);
+
+    // 2. Second interview → a numeric score + the four-factor breakdown appear.
+    await page.locator('button:has-text("Build Another Assessment")').click();
+    await expect(page).toHaveURL(/\/interview$/);
+    await configureAndStart(page, '10');
+    await answerAllAndSubmit(page, 10);
+
+    await expect(page.locator('.readiness__score')).toBeVisible();
+    await expect(page.locator('.readiness__score')).toContainText('/ 100');
+    await expect(page.locator('.readiness__band')).toBeVisible();
+    await expect(page.locator('.readiness__factor')).toHaveCount(4);
+    const afterTwo = await page.locator('.readiness__score').innerText();
+
+    // 3. A third completed interview keeps a numeric score (recomputed from history).
+    await page.locator('button:has-text("Build Another Assessment")').click();
+    await expect(page).toHaveURL(/\/interview$/);
+    await configureAndStart(page, '10');
+    await answerAllAndSubmit(page, 10);
+    await expect(page.locator('.readiness__score')).toContainText('/ 100');
+    expect(afterTwo).toBeTruthy();
+
+    // 4. Clearing the retained history removes the score automatically (no
+    //    separate readiness store) — verify on the history page after clearing.
+    await page.evaluate(() => localStorage.removeItem('interviewAttemptHistory:v1'));
+    await page.goto('/interview/history');
+    await expect(page.locator('.interview-history__empty')).toContainText('No completed interviews yet');
+    await expect(page.locator('.readiness__score')).toHaveCount(0);
+  });
+
   test('deferred feedback: no correctness or explanation during the assessment', async ({ page }) => {
     await page.goto('/interview');
     await configureAndStart(page, '10');
