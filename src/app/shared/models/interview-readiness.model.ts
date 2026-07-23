@@ -31,7 +31,11 @@ export interface InterviewReadiness {
 
   // Factor scores, each on a 0–100 scale.
   recentPerformance: number;
-  consistency: number;
+  consistency: number;         // performance-safeguarded (feeds the weighted score)
+  // Raw score stability (range only, NOT performance-adjusted). Used purely for
+  // wording — a consistently-low user is stable, not "varying" — while the
+  // safeguarded `consistency` above is what the score uses.
+  rawConsistency: number;
   topicCoverage: number;
   topicStrength: number;
 

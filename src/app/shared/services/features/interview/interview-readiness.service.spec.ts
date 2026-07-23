@@ -1,8 +1,10 @@
 import { InterviewAttemptHistoryEntry, InterviewTopicHistoryEntry } from '../../../models/interview-history.model';
 import {
   aggregateTopicPercentages,
+  buildExplanation,
   buildRecommendations,
   calculateConsistency,
+  calculateRawConsistency,
   calculateReadiness,
   calculateRecentPerformance,
   calculateTopicCoverage,
@@ -230,7 +232,7 @@ describe('Explanation & Recommendations', () => {
       topicCoverage: 80,
       coverageAvailable: true,
       recentPerformance: 52,
-      consistency: 90
+      rawConsistency: 90
     });
     expect(recs[0]).toContain('Review');
     expect(recs[0]).toContain('SIGNALS');   // weakest topic surfaced by name
@@ -243,5 +245,69 @@ describe('Explanation & Recommendations', () => {
     )!;
     expect(r.band).toBe('interview-ready');
     expect(r.explanation.toLowerCase()).toContain('estimate');
+  });
+
+  // #4 — a mediocre highest factor must not be called "strong".
+  it('does not call a mediocre highest factor "strong"', () => {
+    // All factors < 75 (recent 48 is the highest).
+    const r = calculateReadiness(attempts([46, 50]), EIGHT_TOPICS)!;
+    expect(r.recentPerformance).toBeLessThan(75);
+    expect(r.strongestFactor).toBe('recent-performance');
+    expect(r.explanation).toContain('highest readiness factor');
+    expect(r.explanation).not.toContain('scores are strong');
+  });
+
+  it('still praises a genuinely strong highest factor (≥ 75)', () => {
+    expect(buildExplanation(
+      { key: 'recent-performance', value: 88 },
+      { key: 'topic-coverage', value: 30 },
+      100,
+      'strong'
+    )).toContain('Your recent interview scores are strong.');
+  });
+
+  // #5 — consistency wording uses RAW stability, not the safeguarded factor.
+  it('does not tell a stable-but-low user their scores "vary"', () => {
+    const stable = buildExplanation(
+      { key: 'recent-performance', value: 70 },
+      { key: 'consistency', value: 45 },   // low adjusted factor…
+      100,                                 // …but perfectly stable (raw 100)
+      'progressing'
+    );
+    expect(stable).toContain('steady');
+    expect(stable.toLowerCase()).not.toContain('vary');
+  });
+
+  it('does say scores "vary" when they genuinely do', () => {
+    const varying = buildExplanation(
+      { key: 'recent-performance', value: 70 },
+      { key: 'consistency', value: 40 },
+      40,   // raw stability low → scores actually vary
+      'progressing'
+    );
+    expect(varying.toLowerCase()).toContain('vary');
+  });
+
+  it('does not recommend consistency work for a stable (low) user', () => {
+    const stable = buildRecommendations(attempts([45, 45, 45]), {
+      topicCoverage: 80,
+      coverageAvailable: true,
+      recentPerformance: 45,
+      rawConsistency: 100
+    });
+    expect(stable.some((r) => r.toLowerCase().includes('consistent'))).toBe(false);
+    // Strong topics + high recent + broad coverage → the only rec left to fire is
+    // the genuine-variance one.
+    const varying = buildRecommendations(
+      [attempt(70, [topic('forms', 8, 10)], 0), attempt(70, [topic('forms', 8, 10)], 1)],
+      { topicCoverage: 90, coverageAvailable: true, recentPerformance: 78, rawConsistency: 20 }
+    );
+    expect(varying.some((r) => r.toLowerCase().includes('consistent'))).toBe(true);
+  });
+
+  it('rawConsistency reflects range only (not performance)', () => {
+    expect(calculateRawConsistency(attempts([45, 45, 45]))).toBe(100);   // stable
+    expect(calculateRawConsistency(attempts([30, 70]))).toBe(20);        // wide range
+    expect(calculateRawConsistency(attempts([80]))).toBe(0);             // < 2 attempts
   });
 });

@@ -26,6 +26,7 @@ import { AssessmentBuilderService } from '../../../shared/services/features/asse
 import { InterviewSessionService } from '../../../shared/services/features/interview/interview-session.service';
 import { QuizStartSpinnerService } from '../../../shared/services/ui/quiz-start-spinner.service';
 import { swallow } from '../../../shared/utils/error-logging';
+import { isEligibleInterviewTopic } from '../../../shared/utils/interview-topics';
 import {
   INTERVIEW_TOPIC_CATEGORIES,
   INTERVIEW_TOPIC_OTHER_CATEGORY
@@ -103,6 +104,9 @@ export class BuildYourInterviewComponent implements OnInit {
     const difficulty = this.difficulty();
     if (!difficulty) return [];
     return this.quizzes()
+      // Shared definition of an eligible Interview Mode topic (has questions) —
+      // the same one the Readiness coverage denominator uses.
+      .filter(isEligibleInterviewTopic)
       .filter((quiz) => difficulty === 'mixed' || quiz.difficulty === difficulty)
       .map((quiz) => ({
         id: quiz.quizId,

@@ -148,15 +148,17 @@ test.describe('Interview Mode', () => {
     await expect(page.locator('.readiness__score')).toContainText('/ 100');
     await expect(page.locator('.readiness__band')).toBeVisible();
     await expect(page.locator('.readiness__factor')).toHaveCount(4);
-    const afterTwo = await page.locator('.readiness__score').innerText();
+    // Deterministic proof it was computed from history: "Based on 2 …".
+    await expect(page.locator('.readiness__basedon')).toContainText('Based on 2 completed interviews');
 
-    // 3. A third completed interview keeps a numeric score (recomputed from history).
+    // 3. A third completed interview → readiness is genuinely RECALCULATED from
+    //    the now-larger history (the based-on count advances 2 → 3).
     await page.locator('button:has-text("Build Another Assessment")').click();
     await expect(page).toHaveURL(/\/interview$/);
     await configureAndStart(page, '10');
     await answerAllAndSubmit(page, 10);
     await expect(page.locator('.readiness__score')).toContainText('/ 100');
-    expect(afterTwo).toBeTruthy();
+    await expect(page.locator('.readiness__basedon')).toContainText('Based on 3 completed interviews');
 
     // 4. Clearing the retained history removes the score automatically (no
     //    separate readiness store) — verify on the history page after clearing.

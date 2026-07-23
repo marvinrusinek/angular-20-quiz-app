@@ -10,6 +10,7 @@ function ready(over: Partial<InterviewReadiness> = {}): InterviewReadiness {
     band: 'strong',
     recentPerformance: 86,
     consistency: 78,
+    rawConsistency: 90,
     topicCoverage: 70,
     topicStrength: 82,
     coverageAvailable: true,

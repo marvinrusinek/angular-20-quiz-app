@@ -1,9 +1,13 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-
 import { InterviewAttemptHistoryEntry, InterviewCompletionReason } from '../../../shared/models/interview-history.model';
 import { SK_INTERVIEW_HISTORY } from '../../../shared/constants/session-keys';
+import { InterviewReadinessService } from '../../../shared/services/features/interview/interview-readiness.service';
 import { InterviewHistoryComponent } from './interview-history.component';
+
+// Stub readiness so the list spec doesn't pull in the QuizDataService chain
+// (its own service spec covers readiness). The component only reads `readiness()`.
+const readinessStub = { readiness: () => null } as unknown as InterviewReadinessService;
 
 function entry(
   pct: number,
@@ -35,7 +39,7 @@ function render(): ComponentFixture<InterviewHistoryComponent> {
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     imports: [InterviewHistoryComponent],
-    providers: [provideRouter([])]
+    providers: [provideRouter([]), { provide: InterviewReadinessService, useValue: readinessStub }]
   });
   const fixture = TestBed.createComponent(InterviewHistoryComponent);
   fixture.detectChanges();

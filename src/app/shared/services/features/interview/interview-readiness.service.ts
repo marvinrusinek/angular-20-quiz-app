@@ -7,6 +7,8 @@ import {
   InterviewReadinessFactor
 } from '../../../models/interview-readiness.model';
 import { getQuizData } from '../../../quiz-data-cache';
+import { eligibleInterviewTopicIds } from '../../../utils/interview-topics';
+import { QuizDataService } from '../../data/quizdata.service';
 import { InterviewHistoryService } from './interview-history.service';
 
 // Factor weights — the single source of truth for the readiness formula. Recent
@@ -37,19 +39,21 @@ const avg = (xs: number[]): number => (xs.length ? xs.reduce((s, x) => s + x, 0)
 @Injectable({ providedIn: 'root' })
 export class InterviewReadinessService {
   private readonly history = inject(InterviewHistoryService);
+  private readonly quizData = inject(QuizDataService);
+
+  // Eligible topics from the SAME definition the Interview Builder uses (a quiz
+  // that can actually be practiced). Reads the reactive quizzesSig so it updates
+  // when the catalogue loads; falls back to the bootstrap cache (populated by the
+  // APP_INITIALIZER) so a direct visit before the signal fills still has a total.
+  private readonly eligibleTopicIds = computed<string[]>(() => {
+    const fromSignal = this.quizData.quizzesSig();
+    return eligibleInterviewTopicIds(fromSignal.length > 0 ? fromSignal : getQuizData());
+  });
 
   /** null when there are no completed interviews (section is hidden). */
   readonly readiness = computed<InterviewReadiness | null>(() =>
-    calculateReadiness(this.history.history(), eligibleTopicIds())
+    calculateReadiness(this.history.history(), this.eligibleTopicIds())
   );
-}
-
-/** Eligible Interview Mode topic ids = every quiz in the catalogue (Mixed pool).
- *  Returns [] before the cache is populated, which safely disables coverage. */
-export function eligibleTopicIds(): string[] {
-  return getQuizData()
-    .map((q) => q.quizId)
-    .filter((id): id is string => typeof id === 'string' && id.length > 0);
 }
 
 // ── pure factor helpers (exported for tests) ──────────────────────────
@@ -75,6 +79,17 @@ export function calculateConsistency(
   const stability = consistencyFromRange(range);
   const recentPerformance = round(clamp100(avg(pcts)));
   return round(clamp100(stability * (recentPerformance / 100)));
+}
+
+/** Raw score stability of the latest ≤ 5 attempts (range only, NOT performance
+ *  adjusted). Distinguishes "scores actually vary" from "stable but low". */
+export function calculateRawConsistency(
+  attempts: readonly InterviewAttemptHistoryEntry[]
+): number {
+  const recent = attempts.slice(-RECENT_WINDOW);
+  if (recent.length < 2) return 0;
+  const pcts = recent.map((a) => a.percentage);
+  return consistencyFromRange(Math.max(...pcts) - Math.min(...pcts));
 }
 
 /** Range (percentage points) → raw stability score. */
@@ -190,6 +205,7 @@ export function calculateReadiness(
       band: 'early-preparation',
       recentPerformance,
       consistency: 0,
+      rawConsistency: 0,
       topicCoverage: 0,
       topicStrength: calculateTopicStrength(attempts),
       coverageAvailable: eligibleTopicCount > 0,
@@ -205,6 +221,7 @@ export function calculateReadiness(
   }
 
   const consistency = calculateConsistency(attempts);
+  const rawConsistency = calculateRawConsistency(attempts);
   const topicStrength = calculateTopicStrength(attempts);
   const coverage = calculateTopicCoverage(attempts, eligibleTopicCount);
   const coverageAvailable = coverage !== null;
@@ -232,15 +249,15 @@ export function calculateReadiness(
     ...(coverageAvailable ? [{ key: 'topic-coverage' as const, value: topicCoverage }] : []),
     { key: 'topic-strength', value: topicStrength }
   ];
-  const strongestFactor = factorScores.reduce((a, b) => (b.value > a.value ? b : a)).key;
-  const limitingFactor = factorScores.reduce((a, b) => (b.value < a.value ? b : a)).key;
+  const strongest = factorScores.reduce((a, b) => (b.value > a.value ? b : a));
+  const limiting = factorScores.reduce((a, b) => (b.value < a.value ? b : a));
 
-  const explanation = buildExplanation(strongestFactor, limitingFactor, band);
+  const explanation = buildExplanation(strongest, limiting, rawConsistency, band);
   const recommendations = buildRecommendations(attempts, {
     topicCoverage,
     coverageAvailable,
     recentPerformance,
-    consistency
+    rawConsistency
   });
 
   return {
@@ -249,13 +266,14 @@ export function calculateReadiness(
     band,
     recentPerformance,
     consistency,
+    rawConsistency,
     topicCoverage,
     topicStrength,
     coverageAvailable,
     practicedTopicCount,
     eligibleTopicCount,
-    strongestFactor,
-    limitingFactor,
+    strongestFactor: strongest.key,
+    limitingFactor: limiting.key,
     explanation,
     recommendations,
     attemptsUsed,
@@ -286,13 +304,60 @@ const LIMITING_PHRASE: Record<InterviewReadinessFactor, string> = {
 const READY_CAVEAT =
   ' This score is an estimate based on your app performance — keep reviewing weaker topics before a real interview.';
 
+// Human factor names for the "highest / lowest factor" fallback phrasing.
+const FACTOR_NAME: Record<InterviewReadinessFactor, string> = {
+  'recent-performance': 'Recent performance',
+  consistency: 'Consistency',
+  'topic-coverage': 'Topic coverage',
+  'topic-strength': 'Topic strength'
+};
+
+// Only genuinely stable scores (range ≤ 10 pts → raw ≥ 90) count as "consistent".
+// A raw stability at/below this means scores actually vary.
+const VARIES_MAX = 75;
+// A factor at/above this is a genuine strength; below it we don't call it strong.
+const STRONG_MIN = 75;
+const MODERATE_MIN = 60;
+
+/**
+ * Factual explanation. Critically, a factor is only described as a strength when
+ * its value actually warrants it (≥ 75) — the highest of four mediocre factors is
+ * "your highest factor, with room to improve", not "strong". And the consistency
+ * wording uses RAW stability, so a stable-but-low user is never told their scores
+ * "vary".
+ */
 export function buildExplanation(
-  strongest: InterviewReadinessFactor,
-  limiting: InterviewReadinessFactor,
+  strongest: { key: InterviewReadinessFactor; value: number },
+  limiting: { key: InterviewReadinessFactor; value: number },
+  rawConsistency: number,
   band: InterviewReadinessBand
 ): string {
-  const parts = [STRONG_PHRASE[strongest]];
-  if (limiting !== strongest) parts.push(LIMITING_PHRASE[limiting]);
+  const parts: string[] = [];
+
+  // Strongest — praise only when the value earns it.
+  if (strongest.value >= STRONG_MIN) {
+    parts.push(STRONG_PHRASE[strongest.key]);
+  } else {
+    parts.push(`${FACTOR_NAME[strongest.key]} is currently your highest readiness factor, with room to improve.`);
+  }
+
+  // Limiting — describe only if it is distinct and genuinely holding the score
+  // back (skip when every factor is already strong).
+  if (limiting.key !== strongest.key) {
+    if (limiting.key === 'consistency') {
+      // Use raw stability: only say "vary" when the scores actually vary.
+      if (rawConsistency <= VARIES_MAX) {
+        parts.push(LIMITING_PHRASE.consistency);
+      } else {
+        parts.push('Your recent scores are steady but on the lower side. Higher scores will improve your readiness.');
+      }
+    } else if (limiting.value < MODERATE_MIN) {
+      parts.push(LIMITING_PHRASE[limiting.key]);
+    } else if (limiting.value < STRONG_MIN) {
+      parts.push(`${FACTOR_NAME[limiting.key]} is your lowest readiness factor — improving it will raise your score.`);
+    }
+  }
+
   let text = parts.join(' ');
   if (band === 'interview-ready') text += READY_CAVEAT;
   return text;
@@ -305,7 +370,7 @@ export function buildRecommendations(
     topicCoverage: number;
     coverageAvailable: boolean;
     recentPerformance: number;
-    consistency: number;
+    rawConsistency: number;
   }
 ): string[] {
   const recs: string[] = [];
@@ -330,8 +395,9 @@ export function buildRecommendations(
     recs.push('Aim for higher scores on your next interviews.');
   }
 
-  // 4. Inconsistent results.
-  if (recs.length < 2 && ctx.consistency < WEAK_FACTOR) {
+  // 4. Genuinely inconsistent results (raw spread, NOT the safeguarded factor —
+  //    a consistently-low user is stable, so this must not fire for them).
+  if (recs.length < 2 && ctx.rawConsistency <= VARIES_MAX) {
     recs.push('Work toward more consistent interview scores across attempts.');
   }
 
