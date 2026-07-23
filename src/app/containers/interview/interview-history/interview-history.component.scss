@@ -96,6 +96,14 @@
   }
 }
 
+// Full-width section dividers between the analytics blocks (readiness / Topic
+// Trends) and the attempt list.
+.ih-rule {
+  border: 0;
+  border-top: 1px solid var(--ir-border);
+  margin: 20px 0;
+}
+
 // Compact readiness banner sits between the summary metrics and the filters.
 .interview-history__readiness {
   margin: 0 0 16px;

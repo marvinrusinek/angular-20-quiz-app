@@ -39,10 +39,14 @@
       <app-interview-readiness [readiness]="readiness()" [compact]="true" />
     </div>
 
+    <hr class="ih-rule" aria-hidden="true" />
+
     <!-- Topic Trends — per-topic direction/strength across attempts. -->
     <div id="topic-trends" class="interview-history__topic-trends">
       <app-interview-topic-trends [trends]="topicTrends()" />
     </div>
+
+    <hr class="ih-rule" aria-hidden="true" />
 
     <!-- Filter (client-side): All / Submitted / Time Expired. -->
     <div class="ih-filters" role="group" aria-label="Filter interviews by completion" i18n-aria-label>
