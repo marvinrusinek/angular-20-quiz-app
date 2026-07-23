@@ -28,6 +28,11 @@ export interface InterviewTopicHistoryEntry {
 /** One completed Interview Mode attempt. */
 export interface InterviewAttemptHistoryEntry {
   id: string;                    // stable, unique per attempt (dedup anchor)
+  // Monotonic lifetime attempt number (1-based), persisted so it stays stable as
+  // older attempts age out of the retention window — i.e. NOT the position in the
+  // retained list. Optional for backward compatibility; legacy records without it
+  // are assigned numbers by chronological position on first load.
+  attemptNumber?: number;
   completedAt: string;           // ISO 8601 timestamp
   score: number;                 // correct count
   totalQuestions: number;

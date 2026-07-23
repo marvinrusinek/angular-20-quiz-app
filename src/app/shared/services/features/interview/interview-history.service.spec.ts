@@ -142,6 +142,53 @@ describe('InterviewHistoryService — persistence', () => {
     expect(localStorage.getItem(SK_INTERVIEW_HISTORY)).toBeNull();
   });
 
+  it('assigns increasing lifetime attempt numbers', () => {
+    const svc = freshService();
+    svc.record(makeResult(70));
+    svc.record(makeResult(80));
+    svc.record(makeResult(90));
+    expect(svc.history().map((e) => e.attemptNumber)).toEqual([1, 2, 3]);
+  });
+
+  it('keeps attempt numbers monotonic as older entries age out', () => {
+    const svc = freshService();
+    for (let i = 1; i <= INTERVIEW_HISTORY_MAX + 2; i++) svc.record(makeResult(i));
+    const nums = svc.history().map((e) => e.attemptNumber);
+    // 22 recorded; retained window is numbers 3..22 (not renumbered to 1..20).
+    expect(nums[0]).toBe(3);
+    expect(nums[nums.length - 1]).toBe(INTERVIEW_HISTORY_MAX + 2);
+  });
+
+  it('durably skips an attempt already persisted (same id, new result object)', () => {
+    const svc = freshService();
+    svc.record(makeResult(70), 'att-X');
+    svc.record(makeResult(70), 'att-X');   // distinct object, same attempt id
+    expect(svc.history()).toHaveLength(1);
+    expect(svc.history()[0].id).toBe('att-X');
+  });
+
+  it('records distinct attempt ids separately', () => {
+    const svc = freshService();
+    svc.record(makeResult(70), 'att-a');
+    svc.record(makeResult(70), 'att-b');
+    expect(svc.history().map((e) => e.id)).toEqual(['att-a', 'att-b']);
+  });
+
+  it('durable dedup survives service recreation (reload)', () => {
+    const s1 = freshService();
+    s1.record(makeResult(70), 'att-keep');
+    const s2 = freshService();               // reloads persisted history
+    s2.record(makeResult(70), 'att-keep');   // same attempt id, fresh object
+    expect(s2.history()).toHaveLength(1);
+  });
+
+  it('clamps a stored score that would exceed the question count', () => {
+    const svc = freshService();
+    svc.record(makeResult(80, { correct: 999, total: 10, percentage: 100, perTopic: [topic('a', 10, 10)] }));
+    const e = svc.history()[0];
+    expect(e.score).toBeLessThanOrEqual(e.totalQuestions);
+  });
+
   it('reuses Topic Performance analytics for topicPerformance', () => {
     const svc = freshService();
     svc.record(makeResult(75, { perTopic: [topic('forms', 4, 5), topic('http', 1, 2)], correct: 5, total: 7, percentage: 71 }));
@@ -190,6 +237,67 @@ describe('validateHistoryStore / validateAttemptEntry', () => {
   it('honours the retention window when loading an over-long store', () => {
     const many = Array.from({ length: 30 }, (_, i) => entry(i + 1, { id: `e${i}` }));
     expect(validateHistoryStore({ version: 1, attempts: many })).toHaveLength(INTERVIEW_HISTORY_MAX);
+  });
+
+  it('rejects internally-inconsistent records (score > totalQuestions)', () => {
+    expect(validateAttemptEntry(entry(70, { score: 150, totalQuestions: 100 }))).toBeNull();
+  });
+
+  it('rejects an unparseable completedAt', () => {
+    expect(validateAttemptEntry(entry(70, { completedAt: 'not a date' }))).toBeNull();
+    expect(validateAttemptEntry(entry(70, { completedAt: '' }))).toBeNull();
+  });
+
+  it('treats a negative duration as not recorded (undefined)', () => {
+    expect(validateAttemptEntry(entry(70, { durationSeconds: -5 }))?.durationSeconds).toBeUndefined();
+    expect(validateAttemptEntry(entry(70, { durationSeconds: 120 }))?.durationSeconds).toBe(120);
+  });
+
+  it('drops topics with non-positive total or out-of-range correct', () => {
+    const out = validateAttemptEntry(entry(70, {
+      topicPerformance: [
+        { topicId: 'ok', topicName: 'OK', correct: 2, total: 4, percentage: 50 },
+        { topicId: 'zero', topicName: 'Z', correct: 0, total: 0, percentage: 0 },
+        { topicId: 'over', topicName: 'O', correct: 5, total: 3, percentage: 100 }
+      ]
+    }));
+    expect(out?.topicPerformance.map((t) => t.topicId)).toEqual(['ok']);
+  });
+
+  it('de-duplicates entries by id on load (keeps the first)', () => {
+    const out = validateHistoryStore({
+      version: 1,
+      attempts: [entry(70, { id: 'same' }), entry(90, { id: 'same' }), entry(60, { id: 'other' })]
+    });
+    expect(out.map((e) => e.id)).toEqual(['same', 'other']);
+    expect(out[0].percentage).toBe(70);
+  });
+
+  it('preserves a valid persisted attemptNumber', () => {
+    expect(validateAttemptEntry(entry(70, { attemptNumber: 7 }))?.attemptNumber).toBe(7);
+    expect(validateAttemptEntry(entry(70, { attemptNumber: -1 }))?.attemptNumber).toBeUndefined();
+  });
+});
+
+describe('InterviewHistoryService — attemptNumber migration', () => {
+  beforeEach(() => localStorage.clear());
+  afterEach(() => localStorage.clear());
+
+  it('migrates legacy records (no attemptNumber) by chronological position and persists', () => {
+    // Seed legacy entries WITHOUT attemptNumber.
+    seed([entry(70, { id: 'a' }), entry(80, { id: 'b' }), entry(90, { id: 'c' })]);
+    const svc = freshService();
+    expect(svc.history().map((e) => e.attemptNumber)).toEqual([1, 2, 3]);
+    // Persisted back so numbering is stable on the next load.
+    const stored = JSON.parse(localStorage.getItem(SK_INTERVIEW_HISTORY)!);
+    expect(stored.attempts.every((a: { attemptNumber?: number }) => typeof a.attemptNumber === 'number')).toBe(true);
+  });
+
+  it('continues numbering from the migrated max', () => {
+    seed([entry(70, { id: 'a' }), entry(80, { id: 'b' })]);   // → 1, 2
+    const svc = freshService();
+    svc.record(makeResult(95));
+    expect(svc.history().map((e) => e.attemptNumber)).toEqual([1, 2, 3]);
   });
 });
 

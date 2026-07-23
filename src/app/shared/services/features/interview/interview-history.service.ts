@@ -58,13 +58,23 @@ export class InterviewHistoryService {
    * (InterviewSessionService.submit), which is already idempotent — so a manual
    * submit racing a timer-expiry submit yields one record. Safe to call with a
    * null/undefined result (no-op) and re-entrant on the same result object.
+   *
+   * `attemptId` (from the session, stable per attempt) gives DURABLE idempotency:
+   * if an entry with that id is already persisted it is not written again — this
+   * survives service recreation / reloads / a freshly reconstructed result
+   * object, not just repeated calls with the same in-memory object.
    */
-  record(result: InterviewResult | null | undefined): void {
+  record(result: InterviewResult | null | undefined, attemptId?: string): void {
     if (!result) return;
-    if (result === this.lastRecorded) return;   // already recorded this attempt
+    if (result === this.lastRecorded) return;   // same in-memory result → no-op
+    // Durable guard: this attempt is already in the persisted history.
+    if (attemptId && this._history().some((e) => e.id === attemptId)) {
+      this.lastRecorded = result;
+      return;
+    }
     this.lastRecorded = result;
 
-    const entry = this.toEntry(result);
+    const entry = this.toEntry(result, attemptId);
     // Append + keep only the latest N (drops the oldest, preserves order).
     const attempts = [...this._history(), entry].slice(-INTERVIEW_HISTORY_MAX);
     this._history.set(attempts);
@@ -84,7 +94,7 @@ export class InterviewHistoryService {
   }
 
   // ── internals ───────────────────────────────────────────────────
-  private toEntry(result: InterviewResult): InterviewAttemptHistoryEntry {
+  private toEntry(result: InterviewResult, attemptId?: string): InterviewAttemptHistoryEntry {
     // Reuse Topic Performance analytics rather than re-deriving topic tallies.
     const topicPerformance: InterviewTopicHistoryEntry[] = this.analytics
       .analyze(result)
@@ -96,14 +106,18 @@ export class InterviewHistoryService {
         percentage: t.percentage
       }));
 
+    const total = Math.max(0, result.total);
+    const score = Math.max(0, Math.min(result.correct, total));   // never exceed total
+
     return {
-      id: this.nextId(),
+      id: attemptId && attemptId.length > 0 ? attemptId : this.nextId(),
+      attemptNumber: this.nextAttemptNumber(),
       completedAt: new Date().toISOString(),
-      score: result.correct,
-      totalQuestions: result.total,
+      score,
+      totalQuestions: total,
       percentage: clampPct(result.percentage),
       completionReason: result.submittedByExpiry ? 'time-expired' : 'submitted',
-      durationSeconds: result.timeUsedSeconds,
+      durationSeconds: Math.max(0, Math.floor(result.timeUsedSeconds ?? 0)),
       configuredDifficulty: result.difficulty,
       selectedTopicIds: [...(result.topicIds ?? [])],
       topicPerformance
@@ -116,10 +130,26 @@ export class InterviewHistoryService {
     return `att_${Date.now().toString(36)}_${this.seq}`;
   }
 
+  // The next lifetime attempt number. Derived from the retained max: the newest
+  // retained entry always holds the highest number, so this keeps increasing even
+  // as older attempts age out of the window.
+  private nextAttemptNumber(): number {
+    const maxSoFar = this._history().reduce((m, e) => Math.max(m, e.attemptNumber ?? 0), 0);
+    return maxSoFar + 1;
+  }
+
   private load(): InterviewAttemptHistoryEntry[] {
     // readLocalJson already returns null on missing/invalid JSON; validation
-    // then rejects unsupported versions / malformed entries.
-    return validateHistoryStore(readLocalJson<unknown>(SK_INTERVIEW_HISTORY, null));
+    // then rejects unsupported versions / malformed entries and de-dupes by id.
+    const validated = validateHistoryStore(readLocalJson<unknown>(SK_INTERVIEW_HISTORY, null));
+    // One-time migration: legacy records predate attemptNumber. Assign numbers by
+    // chronological position and persist, so numbering is stable from here on.
+    if (validated.some((e) => e.attemptNumber == null)) {
+      const migrated = validated.map((e, i) => ({ ...e, attemptNumber: i + 1 }));
+      if (migrated.length > 0) this.save(migrated);
+      return migrated;
+    }
+    return validated;
   }
 
   private save(attempts: InterviewAttemptHistoryEntry[]): void {
@@ -163,23 +193,50 @@ export function validateHistoryStore(raw: unknown): InterviewAttemptHistoryEntry
     .map(validateAttemptEntry)
     .filter((e): e is InterviewAttemptHistoryEntry => e !== null);
 
+  // De-duplicate by id (keep the first occurrence) — the id is the attempt's
+  // dedup anchor and duplicates would corrupt numbering / trend counts.
+  const seen = new Set<string>();
+  const deduped = clean.filter((e) => (seen.has(e.id) ? false : (seen.add(e.id), true)));
+
   // Defensive: honour the retention window even if the stored file was longer.
-  return clean.slice(-INTERVIEW_HISTORY_MAX);
+  return deduped.slice(-INTERVIEW_HISTORY_MAX);
 }
 
-/** Validate a single attempt entry; returns a normalised copy or null. */
+/**
+ * Validate a single attempt entry; returns a normalised copy or null. Beyond
+ * basic type/range checks this rejects internally-inconsistent records rather
+ * than storing nonsense: score must not exceed totalQuestions, completedAt must
+ * be a parseable date, and a negative duration is treated as "not recorded".
+ */
 export function validateAttemptEntry(raw: unknown): InterviewAttemptHistoryEntry | null {
   if (!raw || typeof raw !== 'object') return null;
   const e = raw as Record<string, unknown>;
 
   if (typeof e['id'] !== 'string' || e['id'].length === 0) return null;
-  if (typeof e['completedAt'] !== 'string' || e['completedAt'].length === 0) return null;
+  if (typeof e['completedAt'] !== 'string' || Number.isNaN(Date.parse(e['completedAt']))) return null;
   if (!isFiniteNum(e['score']) || e['score'] < 0) return null;
   if (!isFiniteNum(e['totalQuestions']) || e['totalQuestions'] <= 0) return null;
   if (!isFiniteNum(e['percentage'])) return null;
 
+  const totalQuestions = Math.round(e['totalQuestions']);
+  const score = Math.round(e['score']);
+  if (score > totalQuestions) return null;   // internally inconsistent
+
   const reason: InterviewCompletionReason =
     e['completionReason'] === 'time-expired' ? 'time-expired' : 'submitted';
+
+  // A finite, non-negative attempt number survives; anything else is dropped and
+  // re-derived by the load-time migration.
+  const attemptNumber =
+    isFiniteNum(e['attemptNumber']) && e['attemptNumber'] > 0
+      ? Math.round(e['attemptNumber'])
+      : undefined;
+
+  // Duration must be >= 0; a negative/invalid value means "not recorded".
+  const durationSeconds =
+    isFiniteNum(e['durationSeconds']) && e['durationSeconds'] >= 0
+      ? Math.floor(e['durationSeconds'])
+      : undefined;
 
   const selectedTopicIds = Array.isArray(e['selectedTopicIds'])
     ? e['selectedTopicIds'].filter((t): t is string => typeof t === 'string')
@@ -193,12 +250,13 @@ export function validateAttemptEntry(raw: unknown): InterviewAttemptHistoryEntry
 
   return {
     id: e['id'],
+    attemptNumber,
     completedAt: e['completedAt'],
-    score: Math.round(e['score']),
-    totalQuestions: Math.round(e['totalQuestions']),
+    score,
+    totalQuestions,
     percentage: clampPct(e['percentage']),   // clamp impossible percentages
     completionReason: reason,
-    durationSeconds: isFiniteNum(e['durationSeconds']) ? e['durationSeconds'] : undefined,
+    durationSeconds,
     configuredDifficulty:
       typeof e['configuredDifficulty'] === 'string' ? e['configuredDifficulty'] : undefined,
     selectedTopicIds,
@@ -213,11 +271,15 @@ function validateTopicEntry(raw: unknown): InterviewTopicHistoryEntry | null {
   if (!isFiniteNum(t['correct']) || !isFiniteNum(t['total']) || !isFiniteNum(t['percentage'])) {
     return null;
   }
+  const total = Math.round(t['total']);
+  const correct = Math.round(t['correct']);
+  // A topic must have a positive total and a correct count within [0, total].
+  if (total <= 0 || correct < 0 || correct > total) return null;
   return {
     topicId: t['topicId'],
     topicName: typeof t['topicName'] === 'string' ? t['topicName'] : t['topicId'],
-    correct: Math.round(t['correct']),
-    total: Math.round(t['total']),
+    correct,
+    total,
     percentage: clampPct(t['percentage'])
   };
 }

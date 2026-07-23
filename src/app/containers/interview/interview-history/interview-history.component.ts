@@ -66,16 +66,18 @@ export class InterviewHistoryComponent {
     };
   });
 
-  // Cards, newest first, with a stable chronological attempt number.
+  // Cards, newest first. The number is the persisted lifetime attempt number
+  // (stable as older attempts age out); falls back to chronological position for
+  // any legacy record still missing one.
   readonly cards = computed<HistoryCard[]>(() => {
     const all = this.history.history();
-    const numberById = new Map(all.map((e, i) => [e.id, i + 1]));
+    const positionById = new Map(all.map((e, i) => [e.id, i + 1]));
     return filterAttempts(all, this.filter())
       .slice()
       .reverse()
       .map((entry) => ({
         entry,
-        number: numberById.get(entry.id) ?? 0,
+        number: entry.attemptNumber ?? positionById.get(entry.id) ?? 0,
         topics: this.topicsFor(entry)
       }));
   });
@@ -90,8 +92,9 @@ export class InterviewHistoryComponent {
       : $localize`Submitted`;
   }
 
+  // An unretained duration reads as "Not recorded" — never a misleading "0s".
   duration(seconds: number | undefined): string {
-    return formatDuration(seconds ?? 0);
+    return seconds == null ? $localize`Not recorded` : formatDuration(seconds);
   }
 
   /** "July 23, 2026" — locale-formatted, safe fallback for odd input. */

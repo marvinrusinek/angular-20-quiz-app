@@ -45,13 +45,17 @@ export class InterviewHistoryDetailComponent {
   private readonly params = toSignal(this.route.paramMap, { initialValue: null });
   readonly id = computed(() => this.params()?.get('id') ?? null);
 
-  // The requested attempt + its chronological position, or null if not found.
+  // The requested attempt + its lifetime attempt number, or null if not found.
   readonly found = computed(() => {
     const all = this.history.history();
     const id = this.id();
     const index = all.findIndex((e) => e.id === id);
     if (index === -1) return null;
-    return { entry: all[index], number: index + 1, total: all.length };
+    const entry = all[index];
+    // "of M" uses the highest lifetime attempt number (the newest retained entry
+    // always holds it), so it stays correct even after older attempts age out.
+    const total = all.reduce((m, e, i) => Math.max(m, e.attemptNumber ?? i + 1), all.length);
+    return { entry, number: entry.attemptNumber ?? index + 1, total };
   });
 
   readonly entry = computed<InterviewAttemptHistoryEntry | null>(() => this.found()?.entry ?? null);
@@ -65,8 +69,9 @@ export class InterviewHistoryDetailComponent {
   // Performance context — reuse the shared trends (no independent recalculation).
   readonly trends = this.history.trends;
 
+  // An unretained duration reads as "Not recorded" — never a misleading "0s".
   duration(seconds: number | undefined): string {
-    return formatDuration(seconds ?? 0);
+    return seconds == null ? $localize`Not recorded` : formatDuration(seconds);
   }
 
   completionLabel(entry: InterviewAttemptHistoryEntry): string {

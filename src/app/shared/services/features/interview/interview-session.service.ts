@@ -21,6 +21,7 @@ interface PersistedInterviewSession {
   currentIndex: number;
   expiresAt: number;        // epoch ms — drift-proof remaining time
   durationSeconds: number;
+  attemptId?: string;       // stable id for this attempt (durable history dedup)
 }
 
 /**
@@ -61,6 +62,12 @@ export class InterviewSessionService {
   private _expiresAtMs = 0;
   private _durationSec = 0;
   private _restored = false;
+
+  // A stable id for the current attempt, minted at start() and preserved across
+  // a resume. Passed to the history service at submission so re-recording the
+  // same finalized attempt is a durable no-op (survives reloads / reconstruction).
+  private _attemptId = '';
+  private _attemptSeq = 0;
 
   // Access to the interview Results route requires a completed result.
   readonly hasResult = computed(() => this._result() !== null && this._status() === 'submitted');
@@ -127,8 +134,14 @@ export class InterviewSessionService {
     this._expiresAtMs = 0;
     this._durationSec = 0;
     this._restored = false;
+    this._attemptId = this.newAttemptId();
     this.persist();
     return assessment;
+  }
+
+  private newAttemptId(): string {
+    this._attemptSeq += 1;
+    return `att_${Date.now().toString(36)}_${this._attemptSeq}`;
   }
 
   // Enter the interview: defer correctness feedback. Called by the session
@@ -223,7 +236,7 @@ export class InterviewSessionService {
     // idempotent, so a manual submit racing a timer-expiry submit records one
     // attempt, and a Results re-render / refresh / Review toggle never re-enters
     // here. History is compact analytics only; it never touches topic-quiz state.
-    this.history.record(result);
+    this.history.record(result, this._attemptId);
     // Submitted → no longer resumable; drop the persisted active session.
     this.persist();
     return result;
@@ -241,6 +254,7 @@ export class InterviewSessionService {
     this._expiresAtMs = 0;
     this._durationSec = 0;
     this._restored = false;
+    this._attemptId = '';
     this.feedbackPolicy.reset();
     removeSessionKey(SK_INTERVIEW_SESSION);
   }
@@ -257,7 +271,8 @@ export class InterviewSessionService {
       answersByIndex: this._answersByIndex(),
       currentIndex: this._currentIndex(),
       expiresAt: this._expiresAtMs,
-      durationSeconds: this._durationSec
+      durationSeconds: this._durationSec,
+      attemptId: this._attemptId
     };
     writeSessionJson(SK_INTERVIEW_SESSION, payload);
   }
@@ -275,6 +290,7 @@ export class InterviewSessionService {
     this._result.set(null);
     this._expiresAtMs = saved.expiresAt ?? 0;
     this._durationSec = saved.durationSeconds ?? 0;
+    this._attemptId = saved.attemptId ?? this.newAttemptId();
     this._restored = true;
   }
 }

@@ -104,6 +104,29 @@ describe('InterviewHistoryComponent', () => {
     expect(el.querySelector('.ih-card__actions a')?.tagName).toBe('A');
   });
 
+  it('shows "Not recorded" instead of 0s when a duration was never retained', () => {
+    const noDuration = entry(70, 1);
+    delete noDuration.durationSeconds;
+    seed([noDuration]);
+    const el = render().nativeElement as HTMLElement;
+    const durationDd = Array.from(el.querySelectorAll('.ih-card__stats div')).find((d) =>
+      d.querySelector('dt')?.textContent?.includes('Duration')
+    );
+    expect(durationDd?.querySelector('dd')?.textContent?.trim()).toBe('Not recorded');
+  });
+
+  it('numbers cards by persisted attemptNumber when present', () => {
+    // Simulate a retained window that starts at attempt #6 (older ones aged out).
+    seed([
+      { ...entry(70, 1), attemptNumber: 6 },
+      { ...entry(80, 2), attemptNumber: 7 }
+    ]);
+    const titles = Array.from((render().nativeElement as HTMLElement).querySelectorAll('.ih-card__title')).map(
+      (n) => n.textContent?.trim()
+    );
+    expect(titles).toEqual(['Interview #7', 'Interview #6']);
+  });
+
   it('shows a no-match message when a filter excludes everything', () => {
     seed([entry(70, 1, 'submitted')]);
     const fixture = render();
