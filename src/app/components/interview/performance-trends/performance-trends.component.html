@@ -15,6 +15,12 @@
       <div>
         <dt i18n>Latest</dt>
         <dd class="perf-metrics__latest">{{ trends()?.latest }}%</dd>
+        @if (trends()?.isPersonalBest) {
+          <p class="perf-metrics__pb" role="status">
+            <span class="perf-metrics__pb-icon" aria-hidden="true">🏆</span>
+            <span i18n>New Personal Best!</span>
+          </p>
+        }
       </div>
       <div>
         <dt i18n>Best</dt>

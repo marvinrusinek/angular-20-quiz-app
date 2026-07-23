@@ -84,6 +84,42 @@
   // Direction is conveyed by the +/- sign too — never colour-only.
   &__change--up { color: var(--ir-band-strong-text, #2f8f4a); }
   &__change--down { color: var(--ir-band-weak-text, #c0392b); }
+
+  // "New Personal Best!" — a subtle reward next to the Latest score. Shown only
+  // when the newest attempt beats every previous one. The 🏆 is decorative; the
+  // text carries the meaning (never emoji-/colour-only).
+  &__pb {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 6px 0 0;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--ir-band-moderate, #cf9016);   // muted gold band token
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    line-height: 1.4;
+  }
+
+  &__pb-icon {
+    font-size: 11px;
+    line-height: 1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  // A one-shot gentle pop when the badge appears — celebratory, not looping.
+  .perf-metrics__pb {
+    animation: perf-pb-pop 0.45s ease-out both;
+  }
+}
+
+@keyframes perf-pb-pop {
+  0% { transform: scale(0.7); opacity: 0; }
+  70% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 .perf-chart {

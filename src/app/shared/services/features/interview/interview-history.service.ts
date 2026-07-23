@@ -231,7 +231,7 @@ export function summarizeTrends(
   if (n === 0) {
     return {
       points, count: 0, latest: null, best: null, average: null,
-      change: null, direction: 'none', interpretation: ''
+      change: null, direction: 'none', interpretation: '', isPersonalBest: false
     };
   }
 
@@ -240,6 +240,11 @@ export function summarizeTrends(
   const best = Math.max(...pcts);
   const average = Math.round(pcts.reduce((s, p) => s + p, 0) / n);
   const change = n >= 2 ? latest - pcts[n - 2] : null;
+
+  // New personal best: the latest attempt STRICTLY beats every previous one.
+  // Requires ≥ 2 attempts (a first attempt is never a "best" to celebrate) and
+  // excludes ties — matching a prior best doesn't earn the badge.
+  const isPersonalBest = n >= 2 && latest > Math.max(...pcts.slice(0, n - 1));
 
   let direction: InterviewTrendDirection = 'none';
   let interpretation = '';
@@ -256,5 +261,5 @@ export function summarizeTrends(
     }
   }
 
-  return { points, count: n, latest, best, average, change, direction, interpretation };
+  return { points, count: n, latest, best, average, change, direction, interpretation, isPersonalBest };
 }

@@ -232,6 +232,28 @@ describe('summarizeTrends — calculations', () => {
     expect(summarizeTrends([entry(70), entry(75)]).direction).toBe('improving');   // +5 (threshold)
   });
 
+  describe('isPersonalBest', () => {
+    it('is true when the latest strictly beats every previous attempt', () => {
+      expect(summarizeTrends([entry(70), entry(80), entry(92)]).isPersonalBest).toBe(true);
+    });
+
+    it('is false when the latest merely ties the previous best', () => {
+      expect(summarizeTrends([entry(90), entry(70), entry(90)]).isPersonalBest).toBe(false);
+    });
+
+    it('is false when the latest is not the highest', () => {
+      expect(summarizeTrends([entry(95), entry(80)]).isPersonalBest).toBe(false);
+    });
+
+    it('is false for a first attempt (nothing to beat)', () => {
+      expect(summarizeTrends([entry(100)]).isPersonalBest).toBe(false);
+    });
+
+    it('is false for empty history', () => {
+      expect(summarizeTrends([]).isPersonalBest).toBe(false);
+    });
+  });
+
   it('marks only the last point as latest and numbers points 1-based', () => {
     const t = summarizeTrends([entry(70), entry(80), entry(90)]);
     expect(t.points.map((p) => p.index)).toEqual([1, 2, 3]);

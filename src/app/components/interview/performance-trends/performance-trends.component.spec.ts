@@ -92,6 +92,23 @@ describe('PerformanceTrendsComponent', () => {
     expect(el.querySelector('.perf-trends__interp')?.textContent).toContain('improving');
   });
 
+  it('shows the New Personal Best badge when the latest beats every previous attempt', () => {
+    const el = render(trendsFor([70, 80, 92]));
+    const pb = el.querySelector('.perf-metrics__pb');
+    expect(pb).not.toBeNull();
+    expect(pb?.textContent).toContain('New Personal Best!');
+  });
+
+  it('hides the New Personal Best badge on a tie with the prior best', () => {
+    const el = render(trendsFor([90, 70, 90]));
+    expect(el.querySelector('.perf-metrics__pb')).toBeNull();
+  });
+
+  it('hides the New Personal Best badge when the latest is not the highest', () => {
+    const el = render(trendsFor([95, 80]));
+    expect(el.querySelector('.perf-metrics__pb')).toBeNull();
+  });
+
   it('sparsely labels the x-axis for a full 20-attempt window', () => {
     const pcts = Array.from({ length: 20 }, (_, i) => 50 + (i % 10));
     const el = render(trendsFor(pcts));

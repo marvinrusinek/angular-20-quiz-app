@@ -74,4 +74,5 @@ export interface InterviewTrends {
   change: number | null;           // latest − previous, in percentage points (null if <2)
   direction: InterviewTrendDirection;
   interpretation: string;          // canonical (English) message; '' when direction === 'none'
+  isPersonalBest: boolean;         // latest STRICTLY exceeds every previous attempt (needs ≥2, no ties)
 }
