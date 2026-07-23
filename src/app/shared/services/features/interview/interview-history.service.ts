@@ -198,8 +198,12 @@ export function validateHistoryStore(raw: unknown): InterviewAttemptHistoryEntry
   const seen = new Set<string>();
   const deduped = clean.filter((e) => (seen.has(e.id) ? false : (seen.add(e.id), true)));
 
-  // Defensive: honour the retention window even if the stored file was longer.
-  return deduped.slice(-INTERVIEW_HISTORY_MAX);
+  // Defensive: enforce chronological (oldest → latest) order. This is a no-op for
+  // our own writes (always appended in order) but protects trend/direction logic
+  // from a manually-edited or out-of-order store. Array.prototype.sort is stable,
+  // so equal timestamps keep their original relative order. Then apply retention.
+  const ordered = deduped.sort((a, b) => a.completedAt.localeCompare(b.completedAt));
+  return ordered.slice(-INTERVIEW_HISTORY_MAX);
 }
 
 /**

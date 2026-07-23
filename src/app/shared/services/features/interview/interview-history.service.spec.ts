@@ -264,6 +264,17 @@ describe('validateHistoryStore / validateAttemptEntry', () => {
     expect(out?.topicPerformance.map((t) => t.topicId)).toEqual(['ok']);
   });
 
+  it('defensively orders entries chronologically by completedAt', () => {
+    const out = validateHistoryStore({
+      version: 1,
+      attempts: [
+        entry(70, { id: 'late', completedAt: '2026-07-20T10:00:00.000Z' }),
+        entry(80, { id: 'early', completedAt: '2026-07-10T10:00:00.000Z' })
+      ]
+    });
+    expect(out.map((e) => e.id)).toEqual(['early', 'late']);
+  });
+
   it('de-duplicates entries by id on load (keeps the first)', () => {
     const out = validateHistoryStore({
       version: 1,

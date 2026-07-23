@@ -67,7 +67,7 @@
                     {{ changeLabel(topic.change) }}
                   </dd>
                 </div>
-                <div><dt i18n>Overall</dt><dd>{{ topic.averagePercentage }}%</dd></div>
+                <div><dt i18n>Overall</dt><dd>{{ topic.aggregatePercentage }}%</dd></div>
               </dl>
 
               @if (sparkline(topic.points); as spark) {
@@ -75,8 +75,7 @@
                   class="tt-spark"
                   [attr.viewBox]="spark.vb"
                   preserveAspectRatio="xMidYMid meet"
-                  role="img"
-                  [attr.aria-label]="ariaSummary(topic)"
+                  aria-hidden="true"
                 >
                   <path class="tt-spark__line" [attr.d]="spark.line" />
                   @for (p of spark.points; track $index) {

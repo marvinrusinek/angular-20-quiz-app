@@ -62,6 +62,14 @@ describe('Topic point construction', () => {
     const bad = [att(0, [{ topicId: 'z', topicName: 'Z', correct: 0, total: 0, percentage: 0 }])];
     expect(buildTopicTrendPoints(bad).size).toBe(0);   // zero-total skipped
   });
+
+  it('recomputes each point percentage from raw values (ignores an inconsistent retained %)', () => {
+    const attempts = [
+      att(0, [{ topicId: 'x', topicName: 'X', correct: 1, total: 2, percentage: 99 }]),   // bogus 99
+      att(1, [{ topicId: 'x', topicName: 'X', correct: 2, total: 2, percentage: 5 }])     // bogus 5
+    ];
+    expect(buildTopicTrendPoints(attempts).get('x')!.map((p) => p.percentage)).toEqual([50, 100]);
+  });
 });
 
 describe('Direction', () => {
@@ -98,16 +106,16 @@ describe('Aggregation', () => {
   it('12/13. sums raw correct/total (not rounded percentages)', () => {
     // 1/3 (33%) then 1/1 (100%): rounded-avg 67; raw = 2/4 = 50.
     const t = trendFor('x', [{ correct: 1, total: 3 }, { correct: 1, total: 1 }]);
-    expect(t.averagePercentage).toBe(50);
+    expect(t.aggregatePercentage).toBe(50);
   });
   it('14. handles uneven question counts', () => {
     const t = trendFor('x', [{ correct: 8, total: 10 }, { correct: 1, total: 2 }]);
-    expect(t.averagePercentage).toBe(75);   // 9/12
+    expect(t.aggregatePercentage).toBe(75);   // 9/12
   });
   it('15/16. skips invalid zero-total samples; 0–100', () => {
     expect(calculateAggregateTopicPercentage([])).toBe(0);
     const t = trendFor('x', [{ correct: 10, total: 10 }, { correct: 10, total: 10 }]);
-    expect(t.averagePercentage).toBe(100);
+    expect(t.aggregatePercentage).toBe(100);
   });
 });
 
@@ -139,7 +147,7 @@ describe('Priority', () => {
 
 describe('Sorting', () => {
   const decliningPriority = trendFor('decl', [{ correct: 9, total: 10 }, { correct: 4, total: 10 }]);       // 90→40 declining, agg 65
-  const otherPriority = { ...trendFor('low', [{ correct: 5, total: 10 }, { correct: 5, total: 10 }]), averagePercentage: 40, isPriority: true } as TopicTrend;
+  const otherPriority = { ...trendFor('low', [{ correct: 5, total: 10 }, { correct: 5, total: 10 }]), aggregatePercentage: 40, isPriority: true } as TopicTrend;
   const improving = trendFor('imp', [{ correct: 8, total: 10 }, { correct: 10, total: 10 }]);               // 80→100 improving, agg 90
   const steady = trendFor('std', [{ correct: 8, total: 10 }, { correct: 8, total: 10 }]);                   // steady, agg 80
   const insufficient = trendFor('ins', [{ correct: 9, total: 10 }]);                                        // 1 appearance

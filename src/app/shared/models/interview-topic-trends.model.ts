@@ -29,7 +29,7 @@ export interface TopicTrend {
   totalQuestions: number;            // summed across appearances (sample size)
   latestPercentage: number;
   previousPercentage: number | null; // second-latest appearance (null if only one)
-  averagePercentage: number;         // raw aggregate correct/total across appearances
+  aggregatePercentage: number;       // raw aggregate: totalCorrect/totalQuestions across appearances
   change: number | null;             // latest − previous (percentage points), null if <2
   direction: TopicTrendDirection;
   strengthBand: TopicStrengthBand;   // from the aggregate percentage

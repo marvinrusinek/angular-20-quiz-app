@@ -54,10 +54,15 @@ describe('InterviewTopicTrendsComponent', () => {
     expect(signals?.querySelector('.tt-up')?.textContent).toContain('+');
   });
 
-  it('45. provides an accessible chart summary', () => {
+  it('45. provides an accessible summary (strength + direction + scores); chart itself is hidden', () => {
     const el = render(MULTI);
-    expect(el.querySelector('.tt-card__sr')?.textContent).toContain('percentage points');
-    expect(el.querySelector('.tt-spark')?.getAttribute('aria-label')).toContain('latest score');
+    const sr = el.querySelector('.tt-card__sr')?.textContent ?? '';
+    expect(sr).toContain('Needs Review');       // strength announced
+    expect(sr).toContain('improving');           // direction announced
+    expect(sr).toContain('latest score');
+    // The sparkline is decorative — hidden from AT to avoid a duplicate readout.
+    expect(el.querySelector('.tt-spark')?.getAttribute('aria-hidden')).toBe('true');
+    expect(el.querySelector('.tt-spark')?.getAttribute('aria-label')).toBeNull();
   });
 
   it('46/47. expands and collapses topic history with aria-expanded', () => {

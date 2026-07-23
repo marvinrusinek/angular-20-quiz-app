@@ -54,7 +54,9 @@ export function buildTopicTrendPoints(
         completedAt: a.completedAt,
         correct: t.correct,
         total: t.total,
-        percentage: t.percentage
+        // Recompute from raw correct/total (total > 0 here) so a directional
+        // trend can never be skewed by an inconsistent retained percentage.
+        percentage: Math.round((t.correct / t.total) * 100)
       };
       const list = map.get(t.topicId);
       if (list) list.push(point);
@@ -109,9 +111,9 @@ export function buildTopicTrend(
   const previousPercentage = appearances >= 2 ? points[appearances - 2].percentage : null;
   const change = previousPercentage !== null ? latestPercentage - previousPercentage : null;
   const direction = calculateTopicDirection(latestPercentage, previousPercentage);
-  const averagePercentage = calculateAggregateTopicPercentage(points);
-  const strengthBand = getTopicStrengthBand(averagePercentage);
-  const isPriority = isPriorityTopic(averagePercentage, direction);
+  const aggregatePercentage = calculateAggregateTopicPercentage(points);
+  const strengthBand = getTopicStrengthBand(aggregatePercentage);
+  const isPriority = isPriorityTopic(aggregatePercentage, direction);
 
   return {
     topicId,
@@ -121,7 +123,7 @@ export function buildTopicTrend(
     totalQuestions,
     latestPercentage,
     previousPercentage,
-    averagePercentage,
+    aggregatePercentage,
     change,
     direction,
     strengthBand,
@@ -146,7 +148,7 @@ export function sortTopicTrends(topics: readonly TopicTrend[]): TopicTrend[] {
     if (ga !== gb) return ga - gb;
     // Priority groups (declining/other-priority): lowest aggregate first.
     if (ga <= 1) {
-      if (a.averagePercentage !== b.averagePercentage) return a.averagePercentage - b.averagePercentage;
+      if (a.aggregatePercentage !== b.aggregatePercentage) return a.aggregatePercentage - b.aggregatePercentage;
     } else if (ga === 2) {
       // Improving: largest positive change first.
       const ca = a.change ?? 0;

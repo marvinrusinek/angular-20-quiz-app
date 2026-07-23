@@ -115,12 +115,15 @@ export class InterviewTopicTrendsComponent {
    *  string (not $localize) — a placeholder immediately before ":" would be
    *  misread as $localize metadata, and these dynamic sentences aren't extracted. */
   ariaSummary(t: TopicTrend): string {
+    // Announce strength AND direction (the two separate visible badges are
+    // aria-hidden), then the numeric scores.
+    const band = this.bandLabel(t.strengthBand);
     if (t.direction === 'insufficient') {
-      return `${t.topicName}: more data needed. Latest score ${t.latestPercentage} percent, overall score ${t.averagePercentage} percent.`;
+      return `${t.topicName}: ${band}, more data needed. Latest score ${t.latestPercentage} percent, overall score ${t.aggregatePercentage} percent.`;
     }
     const dir = this.directionLabel(t.direction).toLowerCase();
     const pts = Math.abs(t.change ?? 0);
-    return `${t.topicName}: ${dir} by ${pts} percentage points, latest score ${t.latestPercentage} percent, overall score ${t.averagePercentage} percent.`;
+    return `${t.topicName}: ${band} and ${dir} by ${pts} percentage points, latest score ${t.latestPercentage} percent, overall score ${t.aggregatePercentage} percent.`;
   }
 
   formatDate(iso: string): string {
